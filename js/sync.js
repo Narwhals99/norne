@@ -53,8 +53,10 @@ function writeUnits(path, units, partial){
   if (!partial) for (const key of Object.keys(k.units)) if (!(key in units)) { ch[key] = F.deleteField(); delete k.units[key]; n++; }
   if (n) track(F.setDoc(dref(path), ch, {merge:true}));
 }
-/* listen to a document; apply(units) runs only when it really changed */
-function listenDoc(path, apply){
+/* listen to a document; apply(units) runs only when it really changed.
+   soft: a refusal (security rules not published yet) leaves it unloaded instead of stopping the app */
+const DENIED = new Set();
+function listenDoc(path, apply, soft){
   return new Promise(res => {
     F.onSnapshot(dref(path), snap => {
       const units = {}; for (const [key, j] of Object.entries(snap.data() || {})) if (typeof j === 'string') units[key] = j;
@@ -63,7 +65,7 @@ function listenDoc(path, apply){
       const first = !LOADED.has(path); LOADED.add(path);
       if (first || !same) { apply(units); if (!first) changed(); }
       res();
-    }, err => { fail(err); res(); });
+    }, err => { if (soft) { console.warn(path, err?.code); DENIED.add(path); res(); } else { fail(err); res(); } });
   });
 }
 const vals = u => Object.values(u).map(j => JSON.parse(j));
@@ -102,8 +104,10 @@ function listenMsgs(){
   let waiting = qs.length;
   return new Promise(res => qs.forEach(q => F.onSnapshot(q, snap => {
     const ids = [], removed = [];
+    const fresh = LOADED.has('msgs') ? snap.docChanges().filter(c => c.type === 'added' && !MKNOWN.has(c.doc.id)).map(c => c.doc.id) : [];
     snap.docChanges().forEach(c => { if (c.type === 'removed') { MDOCS.delete(c.doc.id); removed.push(c.doc.id); } else { MDOCS.set(c.doc.id, c.doc.data()); ids.push(c.doc.id); } });
     if (ids.length || removed.length) applyMsgDocs(ids, removed);
+    if (fresh.length && N.notifyMsgs) N.notifyMsgs(fresh.map(id => G().msgs.find(m => m.id === id)).filter(Boolean));
     if (waiting > 0 && --waiting === 0) { LOADED.add('msgs'); res(); } else if (ids.length || removed.length) changed();
   }, err => { fail(err); res(); })));
 }
@@ -116,11 +120,13 @@ N.delMsg = id => {
 
 /* ---------- pictures kept in the database (maps, scene pictures, portraits) ---------- */
 const MIMG = new Map(), MVIS = new Map();
+/* a picture is either for everyone (vis), for some seats (aud) or for the GM only */
+const visKey = (vis, aud) => (vis === true ? '*' : '') + '|' + (aud || []).join(',');
 N.loadImg = id => {
   let e = MIMG.get(id);
   if (!e) {
     e = {url:'', p:null}; MIMG.set(id, e);
-    if (F) e.p = F.getDoc(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (!d || !d.data) throw new Error('no image'); e.url = d.data; MVIS.set(id, d.vis === true); N.renderAll(); })
+    if (F) e.p = F.getDoc(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (!d || !d.data) throw new Error('no image'); e.url = d.data; MVIS.set(id, visKey(d.vis, d.aud)); N.renderAll(); })
       .catch(() => { setTimeout(() => MIMG.delete(id), 15000); });
   }
   return e.url;
@@ -151,9 +157,15 @@ N.pickImage = cb => {
   inp.click();
 };
 N.storeImg = (data, vis) => {
-  const id = uid('img'); MIMG.set(id, {url:data, p:null}); MVIS.set(id, vis);
+  const id = uid('img'); MIMG.set(id, {url:data, p:null}); MVIS.set(id, visKey(vis));
   track(F.setDoc(dref('mapimgs/' + id), {data, vis}));
   return 'fs:' + id;
+};
+/* a deleted map takes its picture with it */
+N.dropImg = src => {
+  if (!F || !String(src || '').startsWith('fs:')) return;
+  const id = src.slice(3); MIMG.delete(id); MVIS.delete(id);
+  track(F.deleteDoc(dref('mapimgs/' + id)));
 };
 
 /* ---------- what each person writes ---------- */
@@ -167,18 +179,34 @@ function syncNow(){
     const setup = g.combat.state === 'setup';
     writeUnits('gm/combat', {c:setup ? combatOut(g.combat) : null});
     writeUnits('game/combat', {c:combatOut(setup ? N.freshCombat() : g.combat)});
+    /* things shared with only some players go to each of those players' own only/<seat> document */
+    const only = Object.fromEntries(N.seats().map(st => [st, {}]));
+    const share = (x, kind, key, pub) => { const a = N.audOf(x, kind); if (a === '*') return pub; if (a !== 'gm') for (const st of a) if (only[st]) only[st][key] = pub; return null; };
     if (LOADED.has('gm/maps')) {
-      for (const m of g.maps) { if (!m.src?.startsWith('fs:')) continue; const id = m.src.slice(3), v = m.vis !== false; if (MVIS.get(id) !== v) { MVIS.set(id, v); track(F.setDoc(dref('mapimgs/' + id), {vis:v}, {merge:true})); } }
+      for (const m of g.maps) {
+        if (!m.src?.startsWith('fs:')) continue;
+        const id = m.src.slice(3), a = N.audOf(m, 'map'), vis = a === '*', aud = Array.isArray(a) ? a : [], k = visKey(vis, aud);
+        if (MVIS.get(id) !== k) { MVIS.set(id, k); track(F.setDoc(dref('mapimgs/' + id), {vis, aud}, {merge:true})); }
+      }
       writeUnits('gm/maps', asUnits(g.maps, (m,i) => ({...m, pins:m.pins.map(p => pinOut(m, p)), o:i})));
-      writeUnits('game/maps', asUnits(g.maps, (m,i) => m.vis === false ? null : {...m, pins:m.pins.filter(p => p.vis || p.type === 'party').map(p => pinOut(m, p)), o:i}));
+      writeUnits('game/maps', asUnits(g.maps, (m,i) => share(m, 'map', 'm:' + m.id, {...m, pins:m.pins.filter(p => p.vis || p.type === 'party').map(p => pinOut(m, p)), o:i})));
     }
     if (LOADED.has('gm/wiki')) {
       writeUnits('gm/wiki', asUnits(g.wiki));
-      writeUnits('game/wiki', asUnits(g.wiki, (e,i) => { if (e.gm) return null; const {secret, ...pub} = e; return {...pub, o:i}; }));
+      writeUnits('game/wiki', asUnits(g.wiki, (e,i) => { const {secret, ...pub} = e; return share(e, 'wiki', 'w:' + e.id, {...pub, o:i}); }));
     }
     writeUnits('gm/npcs', asUnits(g.npcs.map(n => ({...n, occ:n.job || ''}))));
     writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent});
-    writeUnits('game/news', Object.fromEntries(g.news.issues.map(i => [i.id, i])));
+    if (LOADED.has('gm/news')) {
+      writeUnits('gm/news', Object.fromEntries(g.news.issues.map(i => [i.id, i])));
+      writeUnits('game/news', Object.fromEntries(g.news.issues.map(i => [i.id, share(i, 'news', 'n:' + i.id, i)]).filter(e => e[1])));
+    }
+    if (g.cats) writeUnits('game/meta', {cats:g.cats});
+    for (const [st, units] of Object.entries(only)) {
+      const path = 'only/' + st;
+      if (!LOADED.has(path)) { listenOnly(st); if (DENIED.has(path) && Object.keys(units).length && !RULES_WARNED) { RULES_WARNED = true; syncErr('To share things with single players, publish the new security rules: paste firestore.rules into Firebase > Firestore > Rules and press Publish, then reload.'); } continue; }
+      writeUnits(path, units);
+    }
   } else {
     const mine = g.P[g.role]?.char;
     if (mine && g.chars[mine]) writeUnits('game/chars', {[mine]:g.chars[mine]}, true);
@@ -186,7 +214,14 @@ function syncNow(){
   }
   syncMsgs();
 }
-let _sq = 0;
+let _sq = 0, RULES_WARNED = false;
+/* the GM keeps each player's only/<seat> document in step */
+function listenOnly(st){
+  const path = 'only/' + st;
+  if (ONLY_ON.has(path)) return; ONLY_ON.add(path);
+  listenDoc(path, () => {}, true).then(() => { if (LOADED.has(path)) queueSync(); });
+}
+const ONLY_ON = new Set();
 const queueSync = () => { clearTimeout(_sq); _sq = setTimeout(syncNow, 250); };
 N.syncNow = syncNow;
 
@@ -229,6 +264,19 @@ function normMap(m){
   return m;
 }
 function setMaps(u){ G().maps = vals(u).sort(byO).map(normMap); }
+/* a player's view: what everyone sees plus what the GM shared with them alone (only/<seat>, keys w: m: n:) */
+const PUB = {wiki:{}, maps:{}, news:{}}, MINE = {wiki:{}, maps:{}, news:{}}, GMNEWS = {};
+const KIND = {w:'wiki', m:'maps', n:'news'};
+function mergeView(){
+  const g = G(), all = k => vals({...PUB[k], ...MINE[k]});
+  if (!isGM()) { g.wiki = all('wiki').sort(byO); g.maps = all('maps').sort(byO).map(normMap); }
+  g.news.issues = vals(isGM() ? {...PUB.news, ...GMNEWS} : {...PUB.news, ...MINE.news}).sort((a,b) => (+a.no || 0) - (+b.no || 0));
+}
+function setMine(u){
+  for (const k of Object.values(KIND)) MINE[k] = {};
+  for (const [key, j] of Object.entries(u)) { const k = KIND[key[0]]; if (k && key[1] === ':') MINE[k][key.slice(2)] = j; }
+  mergeView();
+}
 function normNpc(n){
   const v = N.stressVals(0);
   return Object.assign({race:'', job:n.occ || '', hc:'', trouble:'', aspects:[], skills:{}, magic:'', stunts:[], refresh:3, fp:3, bio:'', notes:'', type:'supporting', portrait:null,
@@ -308,8 +356,8 @@ async function start(role){
   const g = G(); g.role = role; V.role = role; V.ui = N.newUi(role); g.me = ME;
   loadLocal();
   const docs = isGM()
-    ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','game/news','game/maps','game/wiki']
-    : ['game/chars','game/combat','game/maps','game/wiki','game/news'];
+    ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','game/news','gm/news','game/maps','game/wiki','game/meta']
+    : ['game/chars','game/combat','game/maps','game/wiki','game/news','game/meta'];
   const APPLY = {
     'game/chars': u => { g.chars = Object.fromEntries(Object.entries(u).map(([k,j]) => [k, N.decorate(JSON.parse(j))])); ensureChars(); },
     'game/combat': u => { GC = u.c ? JSON.parse(u.c) : null; setCombat(); },
@@ -318,12 +366,14 @@ async function start(role){
     'gm/wiki': u => { g.wiki = vals(u).sort(byO); },
     'gm/npcs': u => { g.npcs = vals(u).map(normNpc).sort((a,b) => a.name.localeCompare(b.name)); },
     'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; },
-    'game/news': u => { g.news.issues = vals(u).sort((a,b) => (+a.no || 0) - (+b.no || 0)); },
-    'game/maps': u => { if (!isGM()) setMaps(u); },
-    'game/wiki': u => { if (!isGM()) g.wiki = vals(u).sort(byO); },
+    'game/news': u => { PUB.news = u; mergeView(); },
+    'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
+    'game/maps': u => { PUB.maps = u; mergeView(); },
+    'game/wiki': u => { PUB.wiki = u; mergeView(); },
+    'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; },
   };
   await new Promise(res => F.onSnapshot(F.collection(db, 'members'), snap => { applyMembers(snap.docs.map(d => ({uid:d.id, ...d.data()}))); changed(); res(); }, err => { fail(err); res(); }));
-  await Promise.all([...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs()]);
+  await Promise.all([...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs(), isGM() ? null : listenDoc('only/' + role, setMine, true)]);
   ensureChars();
   for (const t of ['click','change','input','submit','keydown','pointerup']) document.addEventListener(t, queueSync);
   window.addEventListener('pagehide', syncNow);

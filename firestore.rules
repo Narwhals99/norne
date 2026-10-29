@@ -70,9 +70,18 @@ service cloud.firestore {
       allow delete: if isGM();
     }
 
-    // Map images kept out of the public site. Players can load one only once the GM shares that map.
+    // Things the GM shares with only some players (wiki entries, maps, news editions).
+    // Each seat has one document, only/p1, only/p2, ..., that only that player (and the GM) can read.
+    match /only/{s} {
+      allow read: if isGM() || (isPlayer() && seat() == s);
+      allow write: if isGM();
+    }
+
+    // Map images kept out of the public site. Players can load one only once the GM shares that map,
+    // with everyone (vis) or with their seat (aud).
     match /mapimgs/{id} {
-      allow read: if isGM() || (isPlayer() && resource.data.vis == true);
+      allow read: if isGM()
+        || (isPlayer() && (resource.data.vis == true || seat() in resource.data.get('aud', [])));
       allow write: if isGM();
     }
   }

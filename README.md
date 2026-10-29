@@ -16,6 +16,11 @@ It runs on GitHub Pages and keeps everything in Firebase (Google sign-in + Fires
 - `vendor/firebase.js` is the Firebase SDK (13.0.0) bundled into one file.
 - The GM's device keeps the full campaign in `gm/*` documents and writes a player-safe copy to `game/*`.
   Players can only read `game/*`, their own private chat, and the maps the GM has shared.
+  Wiki entries, maps and news editions the GM shares with only some players go to `only/<seat>` instead,
+  which only that player can read.
+- `js/notify.js` and `sw.js` show notifications on devices where the person turned them on (You > **Notifications**).
+  They work while Norne is open, also in a background tab or on an iPhone home screen; a ping with Norne
+  fully closed would need a push server, which the free Firebase plan doesn't include.
 - `firestore.rules` enforces that. After changing it, paste it into
   Firebase console > Firestore Database > Rules and press **Publish**.
 - Anyone can sign in with Google, but only accounts the GM lets in (You > **Players and sign-ins**) can see anything.
