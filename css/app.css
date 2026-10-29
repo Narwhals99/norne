@@ -648,11 +648,13 @@
 .app .mapst{position:absolute;left:0;top:0;transform-origin:0 0}
 .app .mapst img{display:block;user-select:none;-webkit-user-drag:none;pointer-events:none}
 .app[data-theme="night"] .mapst img{filter:saturate(.85) brightness(.88)}
-.app .mapov{position:absolute;inset:0;pointer-events:none;z-index:3;padding:10px;display:grid;grid-template-rows:auto auto 1fr auto;gap:8px}
+.app .mapov{position:absolute;inset:0;pointer-events:none;z-index:3;padding:10px;display:grid;grid-template-rows:auto auto 1fr auto;grid-template-columns:minmax(0,1fr);gap:8px}
 .app .mapov>*{pointer-events:auto}
 /* only the controls take taps: the empty spacers and gaps let drags and the wheel through to the map */
 .app .mapov>:empty,.app .mapov .row1{pointer-events:none}
-.app .mapov .row1{display:flex;gap:8px;align-items:center}
+.app .mapov .row1{display:flex;gap:8px;align-items:center;min-width:0}
+/* a long map name shrinks (with …) so the Edit button always stays on screen */
+.app .mapov .row1>.btn,.app .mapov .row1>.me-btn{flex:none}
 .app .mapov .row1>:not(:empty){pointer-events:auto}
 .app .glass{background:color-mix(in srgb,var(--page-solid) 86%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:var(--shadow-2)}
 .app .mapsel{display:inline-flex;align-items:center;gap:10px;height:46px;padding:0 14px 0 5px;border-radius:999px;min-width:0;max-width:100%}
