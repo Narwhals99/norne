@@ -15,7 +15,7 @@ const fsys = text => sys(text, N.fightCh());
 /* tell the players who can see something: in Everyone when it's for all, otherwise in each one's chat with the GM */
 const tell = (x, kind, text, only) => { const a = N.audOf(x, kind); if (a === 'gm') return; if (a === '*' && !only) { sys(text); return; } for (const s of only || a) if (G().P[s]) sys(text, 'dm-' + s); };
 
-const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:null, pop:null, toast:null, mode:'rp', voice:'Narrator', draft:'', sceneMin:false, folded:new Set(), fresh:null,
+const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:null, pop:null, toast:null, mode:'rp', voice:'Narrator', draft:'', sceneMin:false, folded:new Map(), fresh:null,
   fightPane:'fight', fightOpen:true, watching:false, cbTool:'move', tokSel:null, targeting:null, placing:null, zoneSel:null,
   mapId:null, mapType:'all', mapQ:'', pinSel:null, mapEdit:false, addPin:false, mapT:null,
   wikiQ:'', wikiCat:null, wikiSel:null, herald:false, newsEdit:null, newsSel:null, charSel:null, castSeg:'players', castSel:null, npcQ:'',
@@ -89,10 +89,27 @@ const local = (v, cx, cy) => { const r = v.root.getBoundingClientRect(); return 
 /* ---------------- binding ---------------- */
 function bind(v){
   const root = v.root;
+  /* the speak-as picker must not close the phone keyboard: taps on it never take focus from the message box */
+  const KB = '.composer .voice,.pop .opt[data-a="voice"],.scrim[data-a="closePop"]';
+  const typing = () => document.activeElement && document.activeElement.matches('.composer textarea');
+  root.addEventListener('pointerdown', e => { v.kb = typing() && !!e.target.closest(KB); });
+  root.addEventListener('mousedown', e => { if (e.target.closest(KB) && typing()) e.preventDefault(); });
+  /* iPhone Safari moves focus after touchend, so a plain tap there is turned into the click by hand (a drag still scrolls the list) */
+  let kt = null;
+  root.addEventListener('touchstart', e => { const t = e.touches[0]; kt = e.touches.length === 1 && e.target.closest(KB) ? {x:t.clientX, y:t.clientY} : null; }, {passive:true});
+  root.addEventListener('touchend', e => {
+    const k = kt, t = e.changedTouches[0], el = e.target.closest(KB); kt = null;
+    if (!k || !el || !typing() || !e.cancelable || Math.hypot(t.clientX - k.x, t.clientY - k.y) > 10) return;
+    e.preventDefault(); v.kb = true; el.click();
+  });
   root.addEventListener('click', e => {
     if (v.suppress) { v.suppress = false; e.preventDefault(); e.stopPropagation(); return; }
     const a = e.target.closest('[data-a]');
-    if (a && root.contains(a)) { if (a.disabled) return; e.preventDefault(); act(v, a.dataset.a, a, e); return; }
+    if (a && root.contains(a)) {
+      if (a.disabled) return; e.preventDefault(); act(v, a.dataset.a, a, e);
+      if (v.kb) { v.kb = false; const ta = root.querySelector('.composer textarea'); if (ta && !typing()) ta.focus({preventScroll:true}); }
+      return;
+    }
     const tok = e.target.closest('[data-tok]'); if (tok) { tokClick(v, tok.dataset.tok); return; }
     const pin = e.target.closest('[data-pin]'); if (pin) { v.ui.pinSel = v.ui.pinSel === pin.dataset.pin ? null : pin.dataset.pin; render(v); return; }
     const zone = e.target.closest('[data-zone]'); if (zone) { zoneClick(v, zone.dataset.zone); return; }
@@ -109,20 +126,36 @@ function bind(v){
   /* iPhone Safari zooms the whole page on a pinch unless its own gesture events are stopped over the map */
   root.addEventListener('gesturestart', e => { if (e.target.closest('[data-mapcv]')) e.preventDefault(); });
   root.addEventListener('wheel', e => { const cv = e.target.closest('[data-mapcv]'); if (cv) { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(v, Math.exp(-clamp(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY, -120, 120) * (e.ctrlKey ? .01 : .0018)), e.clientX - r.left, e.clientY - r.top); } }, {passive:false});
-  /* phones: swipe in from the left edge for the chat list, swipe it back to close */
+  /* phones: swipe in from the left edge for the chat list, swipe it back to close.
+     With a fight in this chat, swipe left for the fight and right for the chat. */
+  const NOSWIPE = HS + ',input,textarea,select,.tok,[data-rs],[data-zl],[data-mapcv],.pop,.sheet';
   let sw = null;
   root.addEventListener('touchstart', e => {
     sw = null;
     const ui = v.ui, t = e.touches[0];
-    if (v.dev !== 'phone' || ui.tab !== 'chat' || ui.sheet || e.touches.length > 1) return;
-    if (ui.shelf ? e.target.closest('.shelf,.shelf-scrim') : t.clientX < 24 && !(N.fightAvail(v) && ui.fightPane === 'fight')) sw = {x:t.clientX, y:t.clientY};
+    if (v.dev !== 'phone' || ui.tab !== 'chat' || ui.sheet || ui.pop || e.touches.length > 1) return;
+    const fa = N.fightAvail(v), inFight = fa && ui.fightPane === 'fight';
+    if (ui.shelf) { if (e.target.closest('.shelf,.shelf-scrim')) sw = {x:t.clientX, y:t.clientY, k:'shelf'}; return; }
+    if (t.clientX < 24 && !inFight) { sw = {x:t.clientX, y:t.clientY, k:'shelf'}; return; }
+    if (!fa || e.target.closest(NOSWIPE)) return;
+    /* the GM drawing zones drags on the board, so the board doesn't swipe then */
+    if (inFight && isGM(v) && ui.cbTool === 'zone' && e.target.closest('[data-board]')) return;
+    sw = {x:t.clientX, y:t.clientY, k:'pane'};
   }, {passive:true});
   root.addEventListener('touchend', e => {
     if (!sw) return;
-    const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y; sw = null;
-    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
-    if (!v.ui.shelf && dx > 0) { v.ui.shelf = true; render(v); }
-    else if (v.ui.shelf && dx < 0) { v.ui.shelf = false; render(v); }
+    const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y, k = sw.k; sw = null;
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * .7 || v.suppress) return;
+    const ui = v.ui;
+    if (k === 'shelf') {
+      if (!ui.shelf && dx > 0) { ui.shelf = true; render(v); }
+      else if (ui.shelf && dx < 0) { ui.shelf = false; render(v); }
+      return;
+    }
+    const to = dx < 0 ? 'fight' : 'chat';
+    if (!N.fightAvail(v) || ui.fightPane === to) return;
+    ui.fightPane = to; ui.targeting = null; ui.slide = dx < 0 ? 'l' : 'r'; ui.stick = to === 'chat';
+    render(v); ui.slide = null;
   }, {passive:true});
 }
 
@@ -532,7 +565,7 @@ function act(v, a, el, e){
   case 'theme': v.theme = val; try { localStorage.setItem('norne-theme', val); } catch(e) {} if (N.onTheme) N.onTheme(v); break;
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;
-  case 'fold': ui.folded.has(d.id) ? ui.folded.delete(d.id) : ui.folded.add(d.id); break;
+  case 'fold': ui.folded.set(d.id, !d.f); break;
   case 'send': send(v); return;
   case 'roll': openRoll(v, {skill:d.skill, who: d.who || (d.c ? 'pc:' + d.c : d.npc ? 'npc:' + d.npc : null), secret:!!d.secret}); break;
   case 'voice': {
