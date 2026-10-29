@@ -283,7 +283,7 @@ function popHtml(v){
     return `<div class="pop" style="${pos}" role="listbox" aria-label="Speak as">${opts}</div>`;
   }
   if (p.type === 'maps') {
-    return `<div class="pop" style="${pos}" role="listbox" aria-label="Maps">${g.maps.filter(m=>isGM(v)||m.vis!==false).map(m => `<button type="button" class="opt" data-a="mapGo" data-v="${m.id}" aria-selected="${N.curMap(v)===m}"><span class="av sq" style="--s:40px;box-shadow:none;background:${N.imgUrl(m.src)?`url(${N.imgUrl(m.src)}) center/cover`:'var(--sunk)'}"></span><span>${esc(m.name)}<small>${m.pins.filter(p=>p.type!=='party'&&(isGM(v)||p.vis)).length} places${m.vis!==false?'':' · hidden from players'}</small></span>${N.curMap(v)===m?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
+    return `<div class="pop" style="${pos}" role="listbox" aria-label="Maps">${g.maps.filter(m=>isGM(v)||m.vis!==false).map(m => `<button type="button" class="opt" data-a="mapGo" data-v="${m.id}" aria-selected="${N.curMap(v)===m}"><span class="av sq" style="--s:40px;box-shadow:none;background:${N.imgUrl(m.src)?`url(${N.imgUrl(m.src)}) center/cover`:'var(--sunk)'}"></span><span>${esc(m.name)}<small>${m.pins.filter(p=>p.type!=='party'&&(isGM(v)||p.vis)).length} places${isGM(v)&&N.audOf(m,'map')!=='*'?' · '+esc(N.audOf(m,'map')==='gm'?'hidden from players':N.audLabel(m,'map')):''}</small></span>${N.curMap(v)===m?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
       ${isGM(v)?`<div class="sep"></div><button type="button" class="opt" data-a="mapUpload"><span class="av sq" style="--s:40px;box-shadow:inset 0 0 0 1.5px var(--line-2);background:transparent;color:var(--ink-3)">${IC('upload').replace('<svg','<svg style="width:18px;height:18px"')}</span><span>Add a map image</span></button>`:''}</div>`;
   }
   return '';
@@ -312,14 +312,14 @@ function mapPage(v){
     <div class="mapov">
       <div class="row1">
         ${v.dev==='phone' ? meBtn(v) : ''}
-        <button type="button" class="mapsel glass" data-a="pop" data-v="maps"><span class="th" style="${src ? `background-image:url(${src})` : ''}"></span><span style="min-width:0"><small>Map${gm && m.vis === false ? ' · hidden' : ''}</small><b>${esc(m.name)}</b></span>${IC('caret')}</button>
+        <button type="button" class="mapsel glass" data-a="pop" data-v="maps"><span class="th" style="${src ? `background-image:url(${src})` : ''}"></span><span style="min-width:0"><small>Map${gm && N.audOf(m,'map') !== '*' ? ' · ' + (N.audOf(m,'map') === 'gm' ? 'hidden' : esc(N.audLabel(m,'map'))) : ''}</small><b>${esc(m.name)}</b></span>${IC('caret')}</button>
         <div class="search only-dt" style="width:240px"><svg viewBox="0 0 256 256" fill="currentColor">${(window.ICONS.search||['',''])[1]}</svg><input class="inp glass" id="mapq-${v.id}" data-i="mapQ" placeholder="Find a place" value="${esc(v.ui.mapQ)}" style="border:0"></div>
         <span style="flex:1"></span>
         ${gm ? `<button type="button" class="btn ${v.ui.mapEdit?'primary':'glass'}" data-a="mapEdit">${IC('pen')}<span class="only-dt">${v.ui.mapEdit?'Done editing':'Edit map'}</span></button>` : ''}
       </div>
       <div class="chips" role="group" aria-label="Show">${types.map(t => `<button type="button" class="cchip" data-a="mapType" data-v="${t}" aria-current="${v.ui.mapType===t}" style="padding:0 12px">${t==='all'?'Everything':IC((N.PINT[t]||N.PINT.note).ic)+esc((N.PINT[t]||N.PINT.note).name)}</button>`).join('')}${party || !g.party.map ? '' : `<button type="button" class="cchip" data-a="findParty" style="padding:0 12px">${IC('banner')}Find the party</button>`}</div>
       <span></span>
-      ${gm && v.ui.mapEdit ? `<div class="mapedit glass"><button type="button" class="btn ${v.ui.addPin?'primary':'ghost'}" data-a="addPin">${IC('pinL')}${v.ui.addPin?'Tap the map…':'Add pin'}</button><button type="button" class="btn ghost" data-a="mapVis">${IC(m.vis!==false?'eye':'eyeoff')}${m.vis!==false?'Players see it':'Hidden'}</button><button type="button" class="btn ghost" data-a="mapUpload">${IC('upload')}<span class="only-dt">Upload map</span></button></div>` : '<span></span>'}
+      ${gm && v.ui.mapEdit ? `<div class="mapedit glass"><button type="button" class="btn ${v.ui.addPin?'primary':'ghost'}" data-a="addPin">${IC('pinL')}${v.ui.addPin?'Tap the map…':'Add pin'}</button><button type="button" class="btn ghost" data-a="sheet" data-v="mapSet" data-c="${esc(m.id)}">${IC(N.audOf(m,'map')==='gm'?'eyeoff':'eye')}<span class="only-dt">${esc(N.audOf(m,'map')==='gm'?'Hidden':N.audLabel(m,'map'))}</span><span class="only-ph">Who sees it</span></button><button type="button" class="btn ghost" data-a="sheet" data-v="mapDel" data-c="${esc(m.id)}" aria-label="Delete this map">${IC('trash')}</button><button type="button" class="btn ghost" data-a="mapUpload">${IC('upload')}<span class="only-dt">Upload map</span></button></div>` : '<span></span>'}
     </div>
     <div class="zoomc glass"><button type="button" data-a="zoom" data-v="1.4" aria-label="Zoom in">${IC('plus')}</button><button type="button" data-a="zoom" data-v="0.7" aria-label="Zoom out">${IC('minus')}</button><button type="button" data-a="zoom" data-v="fit" aria-label="Show the whole map">${IC('fit')}</button></div>
     ${pin || (v.ui.pinSel === '__party' && party) ? pinCard(v, m, pin) : ''}
@@ -352,11 +352,11 @@ function worldPage(v){
   const newsNew = !gm && issue && !(g.news.seen[v.role]||[]).includes(issue.id);
   const herald = `<button type="button" class="herald" data-a="herald"><span class="np"><b>News</b><i></i><i class="s"></i><i></i><i></i><i class="s"></i></span><span><span class="eyebrow" style="color:var(--gold)">The paper ${newsNew?'<span class="tag gold">New</span>':''}</span><h3>${issue ? esc(issue.headline) : 'No editions yet'}</h3><small>${issue ? `No. ${esc(issue.no)}${issue.date ? ' · ' + esc(issue.date) : ''}` : gm ? 'Write the first edition. Players get a ping.' : `Coming soon. ${esc(N.gmName())} publishes editions here.`}</small></span></button>`;
   const index = `<div class="wi scroll" data-sk="wi">
-    ${ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="btn sm primary" data-a="wNew">${IC('plus')}Entry</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
+    ${ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="ibtn sm" data-a="sheet" data-v="wCats" aria-label="Edit categories" title="Edit categories">${IC('gear')}</button><button type="button" class="btn sm primary" data-a="wNew">${IC('plus')}Entry</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm ghost" data-a="sheet" data-v="wCats">${IC('gear')}Categories</button><button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
     ${herald}
     <div class="search">${IC('search')}<input class="inp" id="wq-${v.id}" data-i="wikiQ" placeholder="Search ${g.wiki.length} entries" value="${esc(v.ui.wikiQ)}"></div>
     ${q ? `<div class="ents">${g.wiki.filter(hit).slice(0,40).map(e => entBtn(v,e)).join('') || '<p class="muted" style="font-weight:600">Nothing matches.</p>'}</div>`
-      : `<div class="cats">${N.WCATS.map(c => { const es = g.wiki.filter(e => e.cat === c); if (!es.length) return ''; const open = v.ui.wikiCat === c; return `<button type="button" class="cat" data-a="wCat" data-v="${esc(c)}" aria-current="${open}"><span class="ci">${IC(N.CATICON[c])}</span><b>${esc(c)}</b><span class="n">${es.length}</span>${IC('right','car')}</button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${es.map(e => entBtn(v,e)).join('')}</div>` : ''}`; }).join('')}</div>`}
+      : `<div class="cats">${N.catNames(g.wiki).map(c => { const es = g.wiki.filter(e => e.cat === c); if (!es.length) return ''; const open = v.ui.wikiCat === c; return `<button type="button" class="cat" data-a="wCat" data-v="${esc(c)}" aria-current="${open}"><span class="ci">${IC(N.catIcon(c))}</span><b>${esc(c)}</b><span class="n">${es.length}</span>${IC('right','car')}</button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${es.map(e => entBtn(v,e)).join('')}</div>` : ''}`; }).join('')}</div>`}
   </div>`;
   const read = v.ui.herald ? heraldPane(v) : v.ui.wikiSel ? articleHtml(v, g.wiki.find(e => e.id === v.ui.wikiSel)) : `<div class="quiet" style="align-self:center"><div class="art" style="width:260px;height:220px"></div><p>Pick a category, or search for a person, place or rule.<br>Everything here comes from Nörne’s lore.</p></div>`;
   if (!ph) return `<div class="world">${index}<div class="scroll" data-sk="wr" style="min-height:0;display:grid">${read}</div></div>`;
@@ -364,7 +364,8 @@ function worldPage(v){
   if (v.ui.wikiCat) { const es = g.wiki.filter(e => e.cat === v.ui.wikiCat); return `<div class="world"><div class="wi scroll" data-sk="wc"><div class="top ph" style="padding-left:0;padding-right:0"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1>${esc(v.ui.wikiCat)}</h1><span class="tag">${es.length}</span></div><div class="ents">${es.map(e=>entBtn(v,e)).join('')}</div></div></div>`; }
   return `<div class="world">${index}</div>`;
 }
-function entBtn(v, e){ return `<button type="button" class="ent" data-a="wiki" data-v="${e.id}" aria-current="${v.ui.wikiSel===e.id}"><b>${esc(e.title)}${e.gm?' <span class="tag gold">GM</span>':''}</b><small>${esc(e.summary)}</small></button>`; }
+const audTag = (x, kind) => { const a = N.audOf(x, kind); return a === '*' ? '' : a === 'gm' ? ' <span class="tag gold">GM</span>' : ` <span class="tag">${esc(N.audLabel(x, kind).replace(/^Only /, ''))}</span>`; };
+function entBtn(v, e){ return `<button type="button" class="ent" data-a="wiki" data-v="${e.id}" aria-current="${v.ui.wikiSel===e.id}"><b>${esc(e.title)}${isGM(v)?audTag(e,'wiki'):''}</b><small>${esc(e.summary)}</small></button>`; }
 function links(s){
   const g = G(), gm = g.role === 'gm';
   return esc(s).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, t, lab) => { const e = g.wiki.find(x => esc(x.title).toLowerCase() === t.toLowerCase() && (gm || !x.gm)); lab = lab || t; return e ? `<a class="wl" data-a="wiki" data-v="${e.id}">${lab}</a>` : lab; });
@@ -382,7 +383,7 @@ function articleHtml(v, e){
   const needle = '[[' + e.title.toLowerCase() + ']]';
   const backs = g.wiki.filter(x => x.id !== e.id && (gm || !x.gm) && [x.summary, ...(x.body||[]), ...(x.info||[]).map(i=>i[1])].join(' ').toLowerCase().includes(needle)).slice(0,8);
   return `<article class="article">
-    <div style="display:flex;align-items:center;gap:8px"><span class="eyebrow" style="color:var(--gold);flex:1">${IC(N.CATICON[e.cat]||'globe').replace('<svg','<svg style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:6px"')}${esc(e.cat)}${e.gm?' · GM only':''}</span>${gm?`<button type="button" class="btn sm" data-a="wEdit" data-v="${e.id}">${IC('pen')}Edit</button>`:''}</div>
+    <div style="display:flex;align-items:center;gap:8px"><span class="eyebrow" style="color:var(--gold);flex:1">${IC(N.catIcon(e.cat)).replace('<svg','<svg style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:6px"')}${esc(e.cat)}${gm && N.audOf(e,'wiki') !== '*' ? ' · ' + (e.gm ? 'GM only' : esc(N.audLabel(e,'wiki'))) : ''}</span>${gm?`<button type="button" class="btn sm" data-a="wEdit" data-v="${e.id}">${IC('pen')}Edit</button>`:''}</div>
     <h1>${esc(e.title)}</h1>
     ${e.summary ? `<p class="sum">${links(e.summary)}</p>` : ''}
     <div class="rule"><span class="star4"></span></div>
@@ -414,12 +415,13 @@ function heraldPane(v){
           ${f('s1t','Second story: title','Optional')}${f('s1b','Second story: text','',3)}
           ${f('s2t','Third story: title','Optional')}${f('s2b','Third story: text','',3)}
           ${f('notices','Notices, one per line','Wanted posters, ads, announcements…',3)}
+          <div><span class="eyebrow" style="display:block;margin-bottom:8px">Who gets this edition</span>${N.audPick('ndAud', d, 'news')}</div>
         </div>
         <div><span class="eyebrow" style="display:block;margin-bottom:8px">Preview</span>${paperHtml(N.draftIssue(d), true)}</div>
       </div></div>`;
   }
   return `<div class="article" style="max-width:760px">
-    ${issues.length > 1 || gm ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${issues.length > 1 ? `<div class="chips" style="padding:0;flex:1;min-width:0">${issues.map(i => `<button type="button" class="cchip" data-a="newsSel" data-v="${i.id}" aria-current="${i===issue}" style="padding:0 12px">No. ${esc(i.no)}${i.date?' · '+esc(i.date):''}</button>`).join('')}</div>` : '<span style="flex:1"></span>'}${gm ? `<button type="button" class="btn primary" data-a="writeNews">${IC('pen')}${issue?'Write a new edition':'Write the first edition'}</button>` : ''}</div>` : ''}
+    ${issues.length > 1 || gm ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${issues.length > 1 ? `<div class="chips" style="padding:0;flex:1;min-width:0">${issues.map(i => `<button type="button" class="cchip" data-a="newsSel" data-v="${i.id}" aria-current="${i===issue}" style="padding:0 12px">No. ${esc(i.no)}${i.date?' · '+esc(i.date):''}${gm && i.see?.length ? ' · ' + esc(N.audLabel(i,'news')) : ''}</button>`).join('')}</div>` : '<span style="flex:1"></span>'}${gm && issue ? `<button type="button" class="btn ghost" data-a="sheet" data-v="newsSet" data-c="${esc(issue.id)}">${IC(issue.see?.length?'eyeoff':'users')}${esc(N.audLabel(issue,'news'))}</button>` : ''}${gm ? `<button type="button" class="btn primary" data-a="writeNews">${IC('pen')}${issue?'Write a new edition':'Write the first edition'}</button>` : ''}</div>` : ''}
     ${issue ? paperHtml(issue) : `<div class="paper"><h1 class="mast">The News</h1><div class="strip"><span>No. —</span><span>Coming soon</span><span>—</span></div><div class="soon"><span class="star4" style="background:#8a7a55"></span>No editions yet. Coming soon.</div></div>`}
   </div>`;
 }

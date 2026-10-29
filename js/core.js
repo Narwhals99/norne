@@ -56,6 +56,35 @@ N.faceUrl = p => !p ? null : /^(fs:|data:|https?:|art\/|img\/)/.test(p) ? (N.img
 /* ---------- wiki and map vocab ---------- */
 N.WCATS = ['World','Nations','Places','People','Races','Religions','Magic','Factions','History','Prophecies','Food & Drink','Items','Rules','Storylines'];
 N.CATICON = {'World':'globe','Nations':'flag','Places':'places','People':'person','Races':'races','Religions':'religion','Magic':'magic','Factions':'faction','History':'history','Prophecies':'prophecy','Food & Drink':'drink','Items':'items','Rules':'rules','Storylines':'story'};
+N.CATICONS = ['globe','flag','places','person','races','religion','magic','faction','history','prophecy','drink','items','rules','story','castle','tavern','crown','sword','helm','dwarf','potion','spellbook','skull','coins','scroll','mask','herald','campfire','star','heart'];
+/* the GM can rename, add, remove and reorder categories (game/meta); until then the built-in list is used */
+N.cats = () => N.G.cats || N.WCATS.map(name => ({name, ic:N.CATICON[name] || 'globe'}));
+N.catIcon = name => (N.cats().find(c => c.name === name) || {}).ic || N.CATICON[name] || 'globe';
+/* every category with entries in it: the GM's list in order, then any an entry still names */
+N.catNames = wiki => { const names = N.cats().map(c => c.name); for (const e of wiki) if (e.cat && !names.includes(e.cat)) names.push(e.cat); return names; };
+
+/* ---------- who sees a wiki entry, a map or a news edition ----------
+   Hidden (wiki gm:true, map vis:false) is GM only. Otherwise see:['p1',…] limits it to those seats; no see is everyone. */
+const hiddenOf = (x, kind) => kind === 'wiki' ? !!x.gm : kind === 'map' ? x.vis === false : false;
+N.audOf = (x, kind) => hiddenOf(x, kind) ? 'gm' : (Array.isArray(x.see) && x.see.length ? x.see : '*');
+N.audSet = (x, kind, val) => {
+  const hide = h => { if (kind === 'wiki') { if (h) x.gm = true; else delete x.gm; } else if (kind === 'map') x.vis = !h; };
+  const cur = N.audOf(x, kind);
+  if (val === '*' || val === 'gm') { hide(val === 'gm'); delete x.see; return; }
+  const s = new Set(Array.isArray(cur) ? cur : []);
+  s.has(val) ? s.delete(val) : s.add(val);
+  if (s.size) { hide(false); x.see = [...s].sort((a,b) => a.slice(1) - b.slice(1)); }
+  else { delete x.see; hide(kind !== 'news'); }
+};
+/* the seats that can see it right now */
+N.audSeats = (x, kind) => { const a = N.audOf(x, kind); return a === 'gm' ? [] : a === '*' ? N.seats() : a.filter(s => N.G.P[s]); };
+N.audLabel = (x, kind) => {
+  const a = N.audOf(x, kind);
+  if (a === 'gm') return 'Only you';
+  if (a === '*') return 'Everyone';
+  const names = a.map(s => N.G.P[s]?.name || 'a former player');
+  return 'Only ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0]);
+};
 N.PINT = {
   town:{name:'Towns',col:'#efd9a0',ic:'castle'}, nation:{name:'Nations',col:'#f4c46e',ic:'flag'}, landmark:{name:'Landmarks',col:'#c9bdff',ic:'star'},
   tavern:{name:'Taverns',col:'#f2b25c',ic:'tavern'}, shop:{name:'Shops',col:'#a3d6b4',ic:'bag'}, temple:{name:'Temples',col:'#f4e38d',ic:'religion'},
@@ -67,7 +96,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], foes:[], recent:[], msgs:[], combat:null, maps:[], wiki:[], news:{issues:[], seen:{}}, seen:{},
+  chars:{}, npcs:[], quick:[], foes:[], recent:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{},
 };
 N.seatColor = seat => `var(--c-p${((+seat.slice(1) - 1) % SEATCOL) + 1})`;
 

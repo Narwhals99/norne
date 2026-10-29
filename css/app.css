@@ -353,6 +353,7 @@
 .app .fightbar .t span{display:block;font-weight:600;font-size:11.5px;color:var(--ink-2)}
 
 /* ---------- popovers, sheets, toasts ---------- */
+.app .sheet.still,.app .scrim.still{animation:none}
 .app .scrim{position:absolute;inset:0;z-index:40;background:var(--scrim);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);animation:fade .2s ease both}
 .app .sheet{position:absolute;z-index:41;left:0;right:0;bottom:0;max-height:88%;display:grid;grid-template-rows:auto 1fr auto;border-radius:26px 26px 0 0;
   background:linear-gradient(180deg,var(--page-solid),color-mix(in srgb,var(--page-solid) 92%,var(--sky-0)));box-shadow:0 -1px 0 var(--line-2),0 -30px 60px -20px rgba(0,0,0,.6);
@@ -702,6 +703,22 @@
 .app .cat .n{min-width:28px;height:24px;padding:0 8px;border-radius:999px;display:grid;place-items:center;font:800 12px/1 var(--f-ui);color:var(--ink-2);background:var(--sunk)}
 .app .cat .car{width:16px;height:16px;color:var(--ink-4)}
 .app .cat[aria-current="true"]{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 30%,var(--raise-2)),var(--raise)) padding-box,linear-gradient(180deg,var(--accent),var(--line)) border-box;box-shadow:0 0 22px -8px var(--accent-glow)}
+/* GM: wiki category editor */
+.app .catsed{display:grid;gap:8px}
+.app .catrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 10px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .catrow > span{display:grid;gap:3px}
+.app .catrow small{font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .catrow b{font:800 13px/1.2 var(--f-ui)}
+.app .catrow .ci{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center;color:var(--gold);background:var(--gold-soft)}
+.app .catrow .ci svg{width:20px;height:20px}
+.app .catrow button.ci[aria-expanded="true"]{box-shadow:inset 0 0 0 1.5px var(--gold)}
+.app .catrow.del{opacity:.75;background:var(--sunk)}
+.app .catrow.del b{text-decoration:line-through}
+.app .catrow .ibtn[disabled]{opacity:.35}
+.app .icgrid{flex-basis:100%;display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:6px;padding-top:4px}
+.app .icgrid button{height:40px;border-radius:10px;display:grid;place-items:center;color:var(--ink-2);background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .icgrid button svg{width:20px;height:20px}
+.app .icgrid button[aria-pressed="true"]{color:var(--gold);box-shadow:inset 0 0 0 1.5px var(--gold);background:var(--gold-soft)}
 .app .ents{display:grid;gap:2px}
 .app .ent{display:grid;gap:2px;padding:10px 12px;border-radius:14px;text-align:left;width:100%}
 .app .ent:hover{background:var(--accent-soft)}

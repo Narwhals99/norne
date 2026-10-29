@@ -10,6 +10,15 @@ const PORTRAITS = ['human-fighter','rogue-woman','elf-archer','dwarf-warrior','m
 N.PORTRAITS = PORTRAITS;
 const pName = s => G().P[s]?.name || 'A former player';
 const lockIc = IC('lock').replace('<svg','<svg style="width:13px;height:13px;display:inline;vertical-align:-2px;margin-right:4px"');
+/* who sees a wiki entry, map or edition: Everyone, single players, or (wiki and maps) only the GM */
+N.audPick = (act, x, kind) => {
+  const a = N.audOf(x, kind), on = s => Array.isArray(a) && a.includes(s);
+  return `<div class="forwho" role="group" aria-label="Who sees it">
+    <button type="button" data-a="${act}" data-v="*" aria-pressed="${a==='*'}"><span class="cic">${IC('users')}</span>Everyone</button>
+    ${N.seats().map(s => `<button type="button" data-a="${act}" data-v="${s}" aria-pressed="${on(s)}">${N.av(N.personObj(s),28)}${esc(pName(s))}</button>`).join('')}
+    ${kind === 'news' ? '' : `<button type="button" data-a="${act}" data-v="gm" aria-pressed="${a==='gm'}"><span class="cic">${IC('eyeoff')}</span>Only me</button>`}</div>
+    <p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${a === '*' ? 'Every player sees it.' : a === 'gm' ? 'Hidden from every player until you share it.' : `${esc(N.audLabel(x, kind).replace(/^Only /, ''))} ${a.length > 1 ? 'see' : 'sees'} it. Tap more players to add them.`}</p>`;
+};
 
 /* who can this screen roll for */
 N.rollers = v => {
@@ -103,6 +112,7 @@ N.sheetHtml = function(v){
     const pending = N.MEMBERS.filter(m => m.role === 'pending').length, my = N.me();
     const body = `<div class="prof">${N.av(me,56)}<span><b>${esc(my?.name || me.name)}</b><small>${gm?'Game master':'Player'} · ${esc(my?.email || 'signed in with Google')}</small></span></div>
       <div><h4>Appearance</h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="night" aria-pressed="${v.theme==='night'}">${IC('moon')}Night</button><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="day" aria-pressed="${v.theme==='day'}">${IC('sun')}Day</button></div></div>
+      <div><h4>Notifications</h4>${notifyToggle()}</div>
       <div class="menu">
         ${gm ? `<button type="button" data-a="sheet" data-v="players">${IC('userplus')}<span>Players and sign-ins<small>Let people in, rename or remove them</small></span><span class="end">${pending?`<span class="badge">${pending}</span>`:IC('right')}</span></button>
         <button type="button" data-a="sheet" data-v="import">${IC('upload')}<span>Import lore<small>Load the wiki and maps from your lore file</small></span><span class="end">${IC('right')}</span></button>
@@ -163,18 +173,72 @@ N.sheetHtml = function(v){
     const d = v.ui.wd;
     return sheet(d.id ? 'Edit entry' : 'New wiki entry', `<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
         <label class="field"><span>Title</span><input class="inp" id="wdt-${v.id}" data-i="wd" data-k="title" value="${esc(d.title)}" placeholder="Name of the person, place or thing"></label>
-        <label class="field"><span>Category</span><select class="inp" id="wdc-${v.id}" data-i="wd" data-k="cat">${N.WCATS.map(c => `<option ${d.cat===c?'selected':''}>${c}</option>`).join('')}</select></label></div>
+        <label class="field"><span>Category</span><select class="inp" id="wdc-${v.id}" data-i="wd" data-k="cat">${[...new Set([...N.catNames(g.wiki), d.cat])].filter(Boolean).map(c => `<option ${d.cat===c?'selected':''}>${esc(c)}</option>`).join('')}</select></label></div>
       <label class="field"><span>One-line summary</span><input class="inp" id="wds-${v.id}" data-i="wd" data-k="summary" value="${esc(d.summary)}" placeholder="Shown in lists and at the top"></label>
       <label class="field"><span>Facts box, one per line as “Label: value”</span><textarea class="inp" id="wdi-${v.id}" data-i="wd" data-k="info" rows="3" placeholder="Ruler: …">${esc(d.info)}</textarea></label>
       <label class="field"><span>Text · blank line between paragraphs · link entries with [[Title]]</span><textarea class="inp" id="wdb-${v.id}" data-i="wd" data-k="body" rows="8">${esc(d.body)}</textarea></label>
       <label class="field"><span>${lockIc}Secret notes, only you see these</span><textarea class="inp" id="wdx-${v.id}" data-i="wd" data-k="secret" rows="3" placeholder="What the players don’t know yet">${esc(d.secret)}</textarea></label>
-      <button type="button" class="toggle" data-a="wdGm" aria-pressed="${!d.gm}">${IC(d.gm?'eyeoff':'eye')}<span>Players can see this entry<small>${d.gm?'Only you see it until you switch this on.':'It shows in their World tab. Secret notes stay hidden.'}</small></span><span class="sw"></span></button>`,
-      `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="wSave" ${d.title.trim()?'':'disabled'}>${IC('check')}Save entry</button>`, {wide:true});
+      <div><h4>Who can read it · secret notes always stay with you</h4>${N.audPick('wdAud', d, 'wiki')}</div>`,
+      `${d.id ? `<button type="button" class="btn danger" data-a="sheet" data-v="wDel" data-c="${esc(d.id)}" style="flex:0 0 auto" aria-label="Delete this entry">${IC('trash')}<span class="only-dt">Delete</span></button>` : ''}<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="wSave" ${d.title.trim()?'':'disabled'}>${IC('check')}Save entry</button>`, {wide:true});
+  }
+  case 'wDel': {
+    const e = g.wiki.find(x => x.id === arg); if (!e) return '';
+    return sheet(`Delete “${esc(e.title)}”?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The entry is removed for everyone, secret notes included. Links to it turn back into plain text. You can undo it for a few seconds.</p>`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="wDelGo" data-v="${esc(e.id)}">${IC('trash')}Delete entry</button>`);
+  }
+  /* ---------------- wiki categories (GM) ---------------- */
+  case 'wCats': {
+    const rows = v.ui.cd, names = rows.filter(r => !r.del).map(r => r.name.trim());
+    const dup = names.some((n, i) => !n || names.indexOf(n) !== i);
+    const body = `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Rename, reorder or remove categories, and pick an icon for each. Renaming moves its entries along with it.</p>
+      <div class="catsed">${rows.map((r, i) => {
+        const n = r.from ? g.wiki.filter(e => e.cat === r.from).length : 0;
+        if (r.del) return `<div class="catrow del"><span class="ci">${IC(r.ic)}</span><span style="flex:1;min-width:0"><b>${esc(r.from || r.name)}</b><small>${n ? `Removed. Its ${n} ${n>1?'entries move':'entry moves'} to` : 'Removed'}</small>${n ? `<select class="inp" id="cdto${i}-${v.id}" data-i="cdTo" data-n="${i}" style="min-height:34px;padding:4px 10px;margin-top:6px">${rows.filter(x => !x.del && x.name.trim()).map(x => `<option ${r.to===x.name.trim()?'selected':''}>${esc(x.name.trim())}</option>`).join('')}</select>` : ''}</span><button type="button" class="btn sm ghost" data-a="cdDel" data-i="${i}">${IC('undo')}Keep</button></div>`;
+        return `<div class="catrow"><button type="button" class="ci" data-a="cdIcon" data-i="${i}" aria-label="Change icon" aria-expanded="${v.ui.cdIc===i}">${IC(r.ic)}</button>
+          <span style="flex:1;min-width:0"><input class="inp" id="cdn${i}-${v.id}" data-i="cd" data-n="${i}" value="${esc(r.name)}" aria-label="Category name" placeholder="Category name" style="min-height:38px;padding:6px 12px"><small>${n ? `${n} ${n>1?'entries':'entry'}` : 'No entries yet'}</small></span>
+          <button type="button" class="ibtn sm" data-a="cdMove" data-i="${i}" data-d="-1" aria-label="Move up" ${i?'':'disabled'}>${IC('caret').replace('<svg','<svg style="rotate:180deg"')}</button><button type="button" class="ibtn sm" data-a="cdMove" data-i="${i}" data-d="1" aria-label="Move down" ${i<rows.length-1?'':'disabled'}>${IC('caret')}</button><button type="button" class="ibtn sm" data-a="cdDel" data-i="${i}" aria-label="Remove category">${IC('trash')}</button>
+          ${v.ui.cdIc===i ? `<div class="icgrid">${N.CATICONS.map(k => `<button type="button" data-a="cdIc" data-i="${i}" data-v="${k}" aria-pressed="${r.ic===k}" aria-label="${k}">${IC(k)}</button>`).join('')}</div>` : ''}</div>`;
+      }).join('')}</div>
+      <button type="button" class="btn sm ghost" data-a="cdAdd" style="justify-self:start">${IC('plus')}Add a category</button>
+      ${dup ? `<div class="note">${IC('info')}Every category needs its own name.</div>` : ''}`;
+    return sheet('Wiki categories', body, `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="cdSave" ${dup||!names.length?'disabled':''}>${IC('check')}Save categories</button>`);
+  }
+  /* ---------------- map settings (GM) ---------------- */
+  case 'mapSet': {
+    const m = g.maps.find(x => x.id === arg); if (!m) return '';
+    return sheet('Map settings', `<label class="field"><span>Map name</span><input class="inp" id="mpn-${v.id}" data-i="mapName" data-v="${esc(m.id)}" value="${esc(m.name)}"></label>
+      <div><h4>Who sees this map</h4>${N.audPick('mapAud', m, 'map')}</div>
+      <div class="note">${IC('info')}Places on the map have their own switch: tap a place while editing to show or hide it.</div>`,
+      `<button type="button" class="btn danger" data-a="sheet" data-v="mapDel" data-c="${esc(m.id)}" style="flex:0 0 auto">${IC('trash')}Delete map</button><button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+  }
+  case 'mapDel': {
+    const m = g.maps.find(x => x.id === arg); if (!m) return '';
+    const n = m.pins.filter(p => p.type !== 'party').length, party = m.pins.some(p => p.type === 'party');
+    return sheet(`Delete the ${esc(m.name)} map?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The map${n ? ` and its ${n} ${n>1?'places':'place'}` : ''} are removed for everyone.${party ? ' The party banner is on this map, so it goes too.' : ''} ${String(m.src||'').startsWith('fs:') ? 'Its picture is deleted after a few seconds, so you can still undo.' : ''} Importing the lore file again brings back the atlas maps.</p>`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="mapDelGo" data-v="${esc(m.id)}">${IC('trash')}Delete map</button>`);
+  }
+  /* ---------------- a news edition (GM) ---------------- */
+  case 'newsSet': {
+    const i = g.news.issues.find(x => x.id === arg); if (!i) return '';
+    return sheet(`No. ${esc(i.no)} · ${esc(i.headline)}`, `<div><h4>Who can read this edition</h4>${N.audPick('newsAud', i, 'news')}</div>
+      <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Players you add get a note in their chat with you.</p>`,
+      `<button type="button" class="btn danger" data-a="sheet" data-v="newsDel" data-c="${esc(i.id)}" style="flex:0 0 auto">${IC('trash')}Delete edition</button><button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+  }
+  case 'newsDel': {
+    const i = g.news.issues.find(x => x.id === arg); if (!i) return '';
+    return sheet('Delete this edition?', `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">No. ${esc(i.no)}, “${esc(i.headline)}”, is removed for everyone. You can undo it for a few seconds.</p>`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="newsDelGo" data-v="${esc(i.id)}">${IC('trash')}Delete edition</button>`);
   }
   }
   return '';
 };
 
+function notifyToggle(){
+  const st = N.notifyState ? N.notifyState() : 'none';
+  const sub = {on:'You get a ping for new messages, rolls and news while Norne isn’t in front.', off:'Get a ping for new messages, rolls and news on this device.',
+    blocked:'Your browser blocks them for this site. Allow notifications in its site settings, then try again.', install:'On iPhone, add Norne to your home screen first (Share > Add to Home Screen), then turn this on there.', none:'This browser can’t show notifications.'}[st];
+  return `<button type="button" class="toggle" data-a="notify" aria-pressed="${st==='on'}">${IC(st==='on'?'herald':'clock')}<span>Notifications on this device<small>${sub}</small></span><span class="sw"></span></button>`;
+}
 function portraitPick(sel, act, up){
   const custom = sel && !PORTRAITS.includes(sel) ? N.faceUrl(sel) : null;
   return `<div class="who-row">${custom ? `<button type="button" aria-pressed="true"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${esc(custom)}" alt=""></span><span>Yours</span></button>` : ''}${PORTRAITS.map(p => `<button type="button" data-a="${act}" data-v="${p}" aria-pressed="${sel===p}"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${N.FACE(p)}" alt="" loading="lazy"></span></button>`).join('')}<button type="button" data-a="${up}"><span class="av" style="--s:52px;--c:var(--line-3);background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2)">${IC('upload').replace('<svg','<svg style="width:20px;height:20px"')}</span><span>Upload</span></button></div>`;
