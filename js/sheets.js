@@ -266,11 +266,11 @@ const raceList = v => `<datalist id="races-${v.id}">${N.RACES.map(r => `<option 
 const stunts = (v, d, pre) => `<div style="display:grid;gap:8px">${d.stunts.map(([n,t],i) => `<div style="display:grid;gap:6px;padding:10px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)"><div style="display:flex;gap:6px"><input class="inp" id="${pre}sn${i}-${v.id}" data-i="${pre}" data-k="stn" data-n="${i}" value="${esc(n)}" placeholder="Stunt name"><button type="button" class="ibtn sm" data-a="${pre}StuntDel" data-i="${i}" aria-label="Remove stunt">${IC('trash')}</button></div><textarea class="inp" id="${pre}sd${i}-${v.id}" data-i="${pre}" data-k="std" data-n="${i}" rows="2" placeholder="What it does" style="min-height:60px">${esc(t)}</textarea></div>`).join('')}
   <button type="button" class="btn sm ghost" data-a="${pre}StuntAdd" style="justify-self:start">${IC('plus')}Add a stunt</button></div>`;
 const steppers = (d, pre) => `<div style="display:flex;gap:12px;flex-wrap:wrap">${[['refresh','Refresh'],['fp','Fate points now']].map(([k,l]) => `<div class="field" style="flex:1;min-width:150px"><span>${l}</span><div class="seg" style="justify-content:space-between;width:100%"><button type="button" data-a="${pre}Step" data-k="${k}" data-d="-1" aria-label="Less">${IC('minus')}</button><b style="align-self:center;font:700 18px/1 var(--f-display)">${d[k]}</b><button type="button" data-a="${pre}Step" data-k="${k}" data-d="1" aria-label="More">${IC('plus')}</button></div></div>`).join('')}</div>`;
-const PC_RUNGS = [[4,'Great',1],[3,'Good',2],[2,'Fair',3],[1,'Average',4]];
-const NPC_RUNGS = [[6,'Renowned',0],[5,'Expert',0],[4,'Great',0],[3,'Good',0],[2,'Fair',0],[1,'Average',0]];
+/* any spread is allowed, up to Mythic, so the GM can build unusual characters */
+const RUNGS = [8,7,6,5,4,3,2,1].map(x => [x, ladderWord(x), 0]);
 function pcEditor(v){
   const d = v.ui.pd;
-  const extra = Object.entries(d.skills).filter(([,x]) => x > 4 || x < 1);
+  const extra = Object.entries(d.skills).filter(([,x]) => x > 8 || x < 1);
   return `${raceList(v)}<div><h4>Portrait</h4>${portraitPick(d.portrait, 'pdPortrait', 'pdUpload')}</div>
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label class="field"><span>Character name</span><input class="inp" id="pdn-${v.id}" data-i="pd" data-k="name" value="${esc(d.name)}" placeholder="Full name"></label>
@@ -281,12 +281,13 @@ function pcEditor(v){
     <div><h4>Aspects</h4><div style="display:grid;gap:8px">
       ${d.aspects.map((a,i) => `<label class="field"><span>Aspect ${i+1}</span><input class="inp" id="pda${i}-${v.id}" data-i="pd" data-k="asp" data-n="${i}" value="${esc(a||'')}" placeholder="Optional"></label>`).join('')}
     </div></div>
-    <div><h4>Skills · one Great, two Good, three Fair, four Average</h4>${skillLadder(v, d, 'pdSkill', 'pdSkillDel', PC_RUNGS)}
+    <div><h4>Skills · a starting character usually has one Great, two Good, three Fair and four Average</h4>${skillLadder(v, d, 'pdSkill', 'pdSkillDel', RUNGS)}
       ${extra.length ? `<p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">Also: ${extra.map(([k,x]) => `<button type="button" class="btn sm ghost" data-a="pdSkillDel" data-v="${esc(k)}" style="--h:28px">${esc(k)} ${sgn(x)} ${IC('x')}</button>`).join(' ')}</p>` : ''}
       ${discPick(d, 'pdDisc')}</div>
     <div><h4>Stunts</h4>${stunts(v, d, 'pd')}</div>
     ${steppers(d, 'pd')}
     <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Stress boxes and extra consequence slots come from Strength and Will automatically.</p>
+    <label class="field"><span>Bio</span><textarea class="inp" id="pdb-${v.id}" data-i="pd" data-k="bio" rows="3" placeholder="Who they are, where they come from, what they look like…">${esc(d.bio||'')}</textarea></label>
     <label class="field"><span>Important people</span><textarea class="inp" id="pdp-${v.id}" data-i="pd" data-k="people" rows="3" placeholder="Family, friends, rivals, debts… one per line">${esc(d.people||'')}</textarea></label>
     <label class="field"><span>Inventory notes</span><textarea class="inp" id="pdv-${v.id}" data-i="pd" data-k="invText" rows="3" placeholder="What they carry. Items you hand out go in the Inventory menu.">${esc(d.invText||'')}</textarea></label>`;
 }
@@ -301,17 +302,14 @@ function npcEditor(v){
     </div>
     <div><h4>Kind</h4><div class="seg"><button type="button" data-a="ndType" data-v="supporting" aria-pressed="${d.type!=='nameless'}">Supporting</button><button type="button" data-a="ndType" data-v="nameless" aria-pressed="${d.type==='nameless'}">Nameless (one hit)</button></div></div>
     <div><h4>Aspects</h4><div style="display:grid;gap:8px">
-      <label class="field"><span>High concept</span><input class="inp" id="ndh-${v.id}" data-i="nd" data-k="hc" value="${esc(d.hc)}" placeholder="Who they are"></label>
-      <label class="field"><span>Trouble</span><input class="inp" id="ndt-${v.id}" data-i="nd" data-k="trouble" value="${esc(d.trouble||'')}" placeholder="Optional"></label>
-      ${d.aspects.map((a,i) => `<div style="display:flex;gap:6px"><input class="inp" id="nda${i}-${v.id}" data-i="nd" data-k="asp" data-n="${i}" value="${esc(a)}" aria-label="Aspect"><button type="button" class="ibtn sm" data-a="ndAspDel" data-i="${i}" aria-label="Remove aspect">${IC('trash')}</button></div>`).join('')}
-      <button type="button" class="btn sm ghost" data-a="ndAspAdd" style="justify-self:start">${IC('plus')}Add an aspect</button>
+      ${d.aspects.map((a,i) => `<label class="field"><span>Aspect ${i+1}</span><input class="inp" id="nda${i}-${v.id}" data-i="nd" data-k="asp" data-n="${i}" value="${esc(a||'')}" placeholder="Optional"></label>`).join('')}
     </div></div>
-    <div><h4>Skills</h4>${skillLadder(v, d, 'ndSkill', 'ndSkillDel', NPC_RUNGS)}${discPick(d, 'ndDisc')}</div>
+    <div><h4>Skills</h4>${skillLadder(v, d, 'ndSkill', 'ndSkillDel', RUNGS)}${discPick(d, 'ndDisc')}</div>
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
       <label class="field"><span>Gear attack bonus</span>${N.gearSelect(`ndga-${v.id}`, 'data-i="nd" data-k="gearAtk"', d.gearAtk)}</label>
       <label class="field"><span>Gear defense bonus</span>${N.gearSelect(`ndgd-${v.id}`, 'data-i="nd" data-k="gearDef"', d.gearDef)}</label>
     </div>
-    <label class="field"><span>Other magic notes</span><textarea class="inp" id="ndm-${v.id}" data-i="nd" data-k="magic" rows="2" placeholder="Anything else they can do">${esc(d.magic||'')}</textarea></label>
+    <label class="field"><span>Disciplines</span><textarea class="inp" id="ndm-${v.id}" data-i="nd" data-k="magic" rows="2" placeholder="Notes on their disciplines and anything else they can do">${esc(d.magic||'')}</textarea></label>
     <div><h4>Stunts</h4>${stunts(v, d, 'nd')}</div>
     ${steppers(d, 'nd')}
     <label class="field"><span>Bio</span><textarea class="inp" id="ndb-${v.id}" data-i="nd" data-k="bio" rows="3" placeholder="Who they are, what they look like, how they talk…">${esc(d.bio||'')}</textarea></label>

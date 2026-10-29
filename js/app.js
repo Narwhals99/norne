@@ -641,7 +641,7 @@ function act(v, a, el, e){
   case 'pdPortrait': ui.pd.portrait = val; break;
   case 'pdUpload': uploadFace(v, src => { ui.pd.portrait = src; }); return;
   case 'pdSkillDel': delete ui.pd.skills[val]; break;
-  case 'pdSkillMv': ui.pd.skills[val] = clamp(ui.pd.skills[val] + (+d.d), 1, 4); break;
+  case 'pdSkillMv': ui.pd.skills[val] = clamp(ui.pd.skills[val] + (+d.d), 1, 8); break;
   case 'pdStuntAdd': ui.pd.stunts.push(['','']); break;
   case 'pdStuntDel': ui.pd.stunts.splice(+d.i, 1); break;
   case 'pdDisc': pickDisc(ui.pd, d.s, val); break;
@@ -652,25 +652,25 @@ function act(v, a, el, e){
     ui.sheet = null; toast(v, `${old.short}’s card is empty again.`, () => { g.chars[val] = old; }); renderAll(); return;
   }
   case 'invAdd': {
-    const c = g.chars[d.c], inp = v.root.querySelector(`#inv-${c.id}-${v.id}`), n = (inp?.value || '').trim(), q = ui.invQ || 1;
+    const c = invOwner(d), inp = v.root.querySelector(`#inv-${c.id}-${v.id}`), n = (inp?.value || '').trim(), q = ui.invQ || 1;
     const note = (v.root.querySelector(`#invd-${c.id}-${v.id}`)?.value || '').trim();
     if (!n) { toast(v, 'Type an item name first.'); break; }
+    if (!c.inv) c.inv = [];
     const ex = c.inv.find(x => x[0].toLowerCase() === n.toLowerCase()); if (ex) { ex[1] += q; if (note) ex[2] = note; } else c.inv.push(note ? [n, q, note] : [n, q]);
+    if (!d.c) { ui.invQ = 1; toast(v, `Added to ${c.name}’s inventory.`); renderAll(); return; }
     sys(`${N.gmName()} added ${n} ×${q} to ${c.short}’s inventory.`, 'dm-' + c.player); ui.invQ = 1;
     toast(v, `Added to ${c.short}’s inventory. They got a note.`); renderAll(); return;
   }
-  case 'invQty': { const c = g.chars[d.c], it = c.inv[+d.i]; if (!it) break; it[1] += +d.d; if (it[1] <= 0) { c.inv.splice(+d.i, 1); sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); } renderAll(); return; }
-  case 'invDel': { const c = g.chars[d.c], it = c.inv.splice(+d.i, 1)[0]; if (it) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
+  case 'invQty': { const c = invOwner(d), it = c?.inv?.[+d.i]; if (!it) break; it[1] += +d.d; if (it[1] <= 0) { c.inv.splice(+d.i, 1); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); } renderAll(); return; }
+  case 'invDel': { const c = invOwner(d), it = c?.inv?.splice(+d.i, 1)[0]; if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
   case 'npcNew': openSheet(v, 'npcNew', d); break;
   case 'npcEdit': openSheet(v, 'npcNew', {edit:val}); break;
   case 'ndPortrait': ui.nd.portrait = val; break;
   case 'ndUpload': uploadFace(v, src => { ui.nd.portrait = src; }); return;
   case 'ndType': ui.nd.type = val; break;
   case 'ndSkillDel': delete ui.nd.skills[val]; break;
-  case 'ndSkillMv': ui.nd.skills[val] = clamp(ui.nd.skills[val] + (+d.d), 1, 6); break;
+  case 'ndSkillMv': ui.nd.skills[val] = clamp(ui.nd.skills[val] + (+d.d), 1, 8); break;
   case 'ndDisc': pickDisc(ui.nd, d.s, val); break;
-  case 'ndAspAdd': ui.nd.aspects.push(''); break;
-  case 'ndAspDel': ui.nd.aspects.splice(+d.i, 1); break;
   case 'ndStuntAdd': ui.nd.stunts.push(['','']); break;
   case 'ndStuntDel': ui.nd.stunts.splice(+d.i, 1); break;
   case 'ndStep': ui.nd[d.k] = clamp(ui.nd[d.k] + (+d.d), 0, 10); break;
@@ -813,6 +813,9 @@ function openSheet(v, s, d={}){
     const n = d.edit && g.npcs.find(x => x.id === d.edit);
     ui.nd = n ? Object.assign(JSON.parse(JSON.stringify(n)), {edit:n.id}) : {name:'', race:'', job:'', age:'', disc:{}, hc:'', trouble:'', aspects:[], type:'supporting', skills:{}, stunts:[], magic:'', bio:'', notes:'', refresh:3, fp:3, portrait:null, from:d.from || null};
     ui.nd.from = d.from || null;
+    /* NPC aspects are Aspect 1, 2, 3 too; an old high concept and trouble become the first two */
+    ui.nd.aspects = N.pcAspects(ui.nd); ui.nd.hc = ''; ui.nd.trouble = '';
+    while (ui.nd.aspects.length < 3) ui.nd.aspects.push('');
   }
   if (s === 'wEdit') {
     const e = d.v && g.wiki.find(x => x.id === d.v);
@@ -840,7 +843,7 @@ function savePc(v){
   const sv = N.stressVals;
   const pv = sv(d.skills.Strength || 0), mv = sv(d.skills.Will || 0);
   Object.assign(c, {name:d.name.trim(), short:(d.short.trim() || d.name.trim().split(' ')[0]), portrait:d.portrait || null, hc:'', trouble:'',
-    aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), race:(d.race || '').trim(), age:(d.age || '').trim(), people:d.people || '', invText:d.invText || '', skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), refresh:d.refresh, fp:d.fp, built:true,
+    aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), race:(d.race || '').trim(), age:(d.age || '').trim(), bio:d.bio || '', people:d.people || '', invText:d.invText || '', skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), refresh:d.refresh, fp:d.fp, built:true,
     stressV:{phys:pv, ment:mv}, stress:{phys:pv.map((x,i) => !!c.stress.phys[i]), ment:mv.map((x,i) => !!c.stress.ment[i])}});
   delete c.disc; c.disc = keepDisc(d);
   v.ui.sheet = null;
@@ -848,6 +851,8 @@ function savePc(v){
   else toast(v, 'Card saved.');
   renderAll();
 }
+/* items belong to a player's character (data-c) or an NPC (data-n) */
+const invOwner = d => d.c ? G().chars[d.c] : G().npcs.find(x => x.id === d.n);
 /* disciplines only for skills still on the card */
 const keepDisc = d => Object.fromEntries(Object.keys(d.skills).map(k => [k, N.discOf(d, k)]).filter(([k, x]) => x.length && (N.DISC[k] || []).length));
 function pickDisc(d, k, x){
@@ -857,7 +862,7 @@ function pickDisc(d, k, x){
 }
 function saveNpc(v){
   const g = G(), d = v.ui.nd, old = d.edit && g.npcs.find(x => x.id === d.edit);
-  const base = {name:d.name.trim(), race:d.race.trim(), job:d.job.trim(), hc:d.hc.trim(), trouble:(d.trouble||'').trim(), aspects:d.aspects.map(a => a.trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
+  const base = {name:d.name.trim(), race:d.race.trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
     skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0};
   let n;
   if (old) {
