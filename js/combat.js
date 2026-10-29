@@ -88,12 +88,13 @@ function dockInner(v){
   if (gm) {
     let body = '';
     if (p && p.stage === 'defend' && N.tokById(p.def).kind === 'npc') {
-      const d = N.tokById(p.def), a = N.tokById(p.att), sk = defSkill(d);
-      body = `<div class="incoming">${IC('attack','ic')}<div class="grow"><b>${esc(N.tokName(a))} attacks ${esc(N.tokName(d))}</b><small>${esc(p.skill)} for ${sgn(p.total)} ${ladderWord(p.total)}. Roll their defense.</small></div><button type="button" class="btn gold" data-a="cbDefend">${N.fateDie}${esc(sk[0])} ${sgn(sk[1])}</button></div>`;
+      const d = N.tokById(p.def), a = N.tokById(p.att);
+      body = `<div class="incoming">${IC('attack','ic')}<div class="grow"><b>${esc(N.tokName(a))} attacks ${esc(N.tokName(d))}</b><small>${esc(p.skill)} for ${sgn(p.total)} ${ladderWord(p.total)}. Roll their defense.</small></div>${defBtn(d)}</div>`;
     } else if (p && p.stage === 'defend') {
-      body = `<div class="waiting">${N.av(N.tokObj(N.tokById(p.def)),40)}<div class="grow"><b>Waiting for ${esc(N.tokName(N.tokById(p.def)))} to defend</b><small>${esc(N.tokName(N.tokById(p.att)))} rolled ${sgn(p.total)} ${ladderWord(p.total)}.</small></div></div>`;
+      const d = N.tokById(p.def);
+      body = `<div class="waiting">${N.av(N.tokObj(d),40)}<div class="grow"><b>Waiting for ${esc(N.tokName(d))} to defend</b><small>${esc(N.tokName(N.tokById(p.att)))} rolled ${sgn(p.total)} ${ladderWord(p.total)}. If their player is away, roll it for them.</small></div><button type="button" class="btn sm" data-a="cbDefend">${N.fateDie}Roll for them</button></div>`;
     } else if (p && p.stage === 'absorb') {
-      body = `<div class="waiting">${N.av(N.tokObj(N.tokById(p.def)),40)}<div class="grow"><b>${esc(N.tokName(N.tokById(p.def)))} is taking the hit</b><small>${p.shifts} shift${p.shifts>1?'s':''} to soak with stress or a consequence.</small></div></div>`;
+      body = `<div class="waiting">${N.av(N.tokObj(N.tokById(p.def)),40)}<div class="grow"><b>${esc(N.tokName(N.tokById(p.def)))} is taking the hit</b><small>${p.shifts} shift${p.shifts>1?'s':''} to soak with stress or a consequence.</small></div><button type="button" class="btn sm ghost" data-a="cbDrop">Settle it by hand</button></div>`;
     } else if (cur && cur.kind === 'npc' && cb.acted) {
       body = `<div class="yourturn"><span class="eyebrow">${IC('crown')}${esc(curName)} · action done</span><div class="waiting" style="background:transparent;box-shadow:none;padding:0"><div class="grow"><b>Done for this turn</b><small>${cb.moved ? 'Pass the turn when you’re ready.' : 'They can still move one zone, or pass the turn.'}</small></div></div><div style="display:flex;gap:8px"><span style="flex:1"></span>${moveBtn(v)}<button type="button" class="btn sm primary" data-a="cbNext">Next turn${IC('next')}</button></div></div>`;
     } else if (cur && cur.kind === 'npc') {
@@ -106,23 +107,23 @@ function dockInner(v){
   }
   /* player */
   const me = N.myTok(v), c = N.charOf(v.role);
-  if (!cb.joined.includes(v.role)) {
+  if (!cb.joined.includes(v.role) && !(p && me && p.def === me.id)) {
     const inv = c && cb.invited.includes(c.id);
     return `<div class="dock"><div class="waiting"><span class="av" style="--s:40px;--c:var(--ember);background:var(--ember-soft);box-shadow:none;color:var(--ember)">${IC('eye').replace('<svg','<svg style="width:20px;height:20px"')}</span><div class="grow"><b>You’re watching</b><small>${inv ? `${esc(N.gmName())} added you to this fight.` : 'You’re not in this fight.'}</small></div>${inv?`<button type="button" class="btn gold" data-a="join">${IC('swords')}Join</button>`:''}</div></div>`;
   }
   if (p && me && p.def === me.id && p.stage === 'defend') {
-    const a = N.tokById(p.att), sk = defSkill(me);
-    return `<div class="dock"><div class="incoming">${N.av(N.tokObj(a),40)}<div class="grow"><b>${esc(N.tokName(a))} attacks you!</b><small>${esc(p.skill)} for ${sgn(p.total)} ${ladderWord(p.total)}. Defend to beat it.</small></div><button type="button" class="btn gold" data-a="cbDefend">${N.fateDie}${esc(sk[0])} ${sgn(sk[1])}</button></div>${stressStrip(v)}</div>`;
+    const a = N.tokById(p.att);
+    return `<div class="dock"><div class="incoming">${N.av(N.tokObj(a),40)}<div class="grow"><b>${esc(N.tokName(a))} attacks you!</b><small>${esc(p.skill)} for ${sgn(p.total)} ${ladderWord(p.total)}. Roll your defense to beat it.</small></div>${defBtn(me)}</div>${stressStrip(v)}</div>`;
   }
   if (p && me && p.def === me.id && p.stage === 'absorb') {
     const opts = c.stressV.phys.map((x,i) => (!c.stress.phys[i] && x >= p.shifts) ? `<button type="button" class="btn" data-a="cbAbsorb" data-k="box" data-i="${i}"><span class="sbox" style="width:22px;height:22px">${x}</span>Stress box</button>` : '').join('');
     const cons = [['mild',2],['moderate',4],['severe',6]].filter(([k,x]) => !c.cons[k] && x >= p.shifts).slice(0,1).map(([k,x]) => `<button type="button" class="btn" data-a="cbAbsorb" data-k="${k}">${IC('cards')}${k[0].toUpperCase()+k.slice(1)} consequence</button>`).join('');
-    return `<div class="dock"><div class="incoming" style="display:grid;gap:10px;animation:none"><div style="display:flex;gap:10px;align-items:center">${IC('warn','ic')}<div class="grow"><b>You take ${p.shifts} shift${p.shifts>1?'s':''}</b><small>Pick how ${esc(c.short)} soaks the hit.</small></div></div><div class="row" style="display:flex;gap:8px;flex-wrap:wrap">${opts}${cons}<button type="button" class="btn danger" data-a="cbAbsorb" data-k="out">Taken out</button></div></div></div>`;
+    return `<div class="dock"><div class="incoming" style="display:grid;gap:10px;animation:none"><div style="display:flex;gap:10px;align-items:center">${IC('warn','ic')}<div class="grow"><b>You take ${p.shifts} shift${p.shifts>1?'s':''}</b><small>Pick how ${esc(c.short)} soaks the hit. You can still invoke an aspect on your defense roll to lower it.</small></div></div><div class="row" style="display:flex;gap:8px;flex-wrap:wrap">${opts}${cons}<button type="button" class="btn danger" data-a="cbAbsorb" data-k="out">Taken out</button></div></div></div>`;
   }
   if (cur && N.isMine(cur, v.role)) {
     return `<div class="dock mine"><div class="yourturn"><span class="eyebrow">${N.STAR.replace('<svg','<svg style="width:12px;height:12px"')}Your turn${cb.acted?' · action done':''}</span>${cb.acted ? `<div class="waiting" style="background:transparent;box-shadow:none;padding:0"><div class="grow"><b>Nice. Anything else?</b><small>You can still move one zone, or end your turn.</small></div></div>` : actBar(v, cur)}<div style="display:flex;gap:8px"><span style="flex:1"></span>${cb.acted?moveBtn(v):''}<button type="button" class="btn sm${cb.acted?' primary':''}" data-a="cbNext">End my turn${IC('next')}</button></div></div>${stressStrip(v)}</div>`;
   }
-  const p2 = p && p.stage === 'defend' ? `${esc(N.tokName(N.tokById(p.att)))} attacks ${esc(N.tokName(N.tokById(p.def)))}` : null;
+  const p2 = p && p.stage === 'defend' ? `${esc(N.tokName(N.tokById(p.att)))} attacks ${esc(N.tokName(N.tokById(p.def)))}, waiting for the defense roll.` : p && p.stage === 'absorb' ? `${esc(N.tokName(N.tokById(p.def)))} is soaking ${p.shifts} shift${p.shifts>1?'s':''}.` : null;
   return `<div class="dock"><div class="waiting">${cur?N.av(N.tokObj(cur),40):''}<div class="grow"><b>${cur?`${esc(curName)}’s turn`:'Waiting'}</b><small>${p2 || (cur && cur.kind==='npc' ? `${esc(N.gmName())} is deciding what they do.` : 'Their player is choosing.')}</small></div></div>${stressStrip(v)}</div>`;
 }
 function moveBtn(v){
@@ -132,14 +133,14 @@ function feedHtml(v){
   const g = G(), cb = g.combat, start = g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cb.id);
   const ms = g.msgs.filter(m => m.ch === 'table' && (m.kind === 'sys' || m.kind === 'roll') && (!start || m.t >= start.t)).slice(-4);
   if (!ms.length) return '';
-  return `<div class="feed" aria-label="Latest in the fight"><span class="eyebrow">Latest</span>${ms.map(m => m.kind === 'sys' ? `<p>${IC('sparkle')}<span>${esc(m.text)}</span></p>`
-    : `<p>${N.fateDie}<span><b>${esc(m.roll.who)}</b> · ${esc(m.roll.action)} with ${esc(m.roll.skill)}: <b>${sgn(N.rollTotal(m.roll))}</b> ${ladderWord(N.rollTotal(m.roll))}${m.roll.target?` on ${esc(m.roll.target)}`:''}</span></p>`).join('')}</div>`;
+  return `<div class="feed" aria-label="Latest in the fight"><span class="eyebrow">Latest</span>${ms.map(m => m.kind === 'sys' ? `<p${m.res?' class="res"':''}>${IC(m.res?.k === 'clash' ? 'swords' : 'sparkle')}<span>${esc(m.text)}</span></p>`
+    : `<p>${N.fateDie}<span><b>${esc(m.roll.who)}</b> · ${esc(m.roll.action)} with ${esc(m.roll.skill)}: <b>${sgn(N.rollTotal(m.roll))}</b> ${ladderWord(N.rollTotal(m.roll))}${m.roll.target?` ${m.roll.action==='Defend'?'against':'on'} ${esc(m.roll.target)}`:''}</span></p>`).join('')}</div>`;
 }
 function actBar(v, t){
-  const cb = G().combat, inZone = N.foesOf(t).length;
+  const cb = G().combat, inZone = N.foesOf(t).length, owed = cb.pending;
   const tg = v.ui.targeting;
   return `<div class="actbar">
-    <button type="button" class="abtn atk" data-a="cbAct" data-v="attack" aria-pressed="${tg==='attack'}" ${inZone?'':'disabled title="Nobody to attack in this zone"'}>${IC('attack')}Attack</button>
+    <button type="button" class="abtn atk" data-a="cbAct" data-v="attack" aria-pressed="${tg==='attack'}" ${owed?'disabled title="Finish the last attack first"':inZone?'':'disabled title="Nobody to attack in this zone"'}>${IC('attack')}Attack</button>
     <button type="button" class="abtn" data-a="cbAct" data-v="advantage">${IC('advantage')}Advantage</button>
     <button type="button" class="abtn" data-a="cbAct" data-v="overcome">${IC('overcome')}Overcome</button>
     <button type="button" class="abtn" data-a="cbAct" data-v="move" aria-pressed="${tg==='move'}" ${cb.moved?'disabled title="Already moved this turn"':''}>${IC('boots')}Move</button>
@@ -155,12 +156,31 @@ function gmRow(v){
     ${cb.state==='live'?`<button type="button" data-a="sheet" data-v="cbEnd">${IC('stop')}End</button>`:''}
   </div>`;
 }
+/* the better of Athletics and Fighting, plus any gear defense bonus: [skill, skill value, gear] */
 function defSkill(t){
   const s = N.tokSkills(t);
   const opts = [['Athletics', s.Athletics||0], ['Fighting', s.Fighting||0]];
-  return opts.sort((a,b) => b[1]-a[1])[0];
+  return [...opts.sort((a,b) => b[1]-a[1])[0], N.tokGear(t, 'gearDef')];
 }
 N.defSkill = defSkill;
+const defBtn = t => { const [sk, x, gear] = defSkill(t); return `<button type="button" class="btn gold" data-a="cbDefend">${N.fateDie}Defend: ${esc(sk)} ${sgn(x + gear)}${gear?`<small style="font-weight:600;opacity:.8">&nbsp;incl. gear</small>`:''}</button>`; };
+N.defBtn = defBtn;
+/* the token this screen has to defend or soak for right now (a player's own character, or any NPC for the GM) */
+N.owedTok = v => {
+  const cb = G().combat, p = cb.pending; if (cb.state !== 'live' || !p) return null;
+  const d = N.tokById(p.def); if (!d) return null;
+  return (isGM(v) ? d.kind === 'npc' : N.isMine(d, v.role)) ? d : null;
+};
+/* gear bonus a roll gets: attack rolls use gearAtk, defend rolls gearDef (NPC tokens and NPC cards only) */
+N.rollGear = (key, action) => {
+  const k = action === 'attack' ? 'gearAtk' : action === 'defend' ? 'gearDef' : null;
+  if (!k || !key) return 0;
+  if (key.startsWith('tok:')) return N.tokGear(N.tokById(key.slice(4)), k);
+  if (key.startsWith('npc:')) { const n = G().npcs.find(x => x.id === key.slice(4)); return +(n && n[k]) || 0; }
+  return 0;
+};
+N.GEAR = [0,1,2,3,4,5,6,7,8,9];
+N.gearSelect = (id, attrs, val) => `<select class="inp" id="${id}" ${attrs}>${N.GEAR.map(x => `<option value="${x}" ${(+val||0)===x?'selected':''}>${x?'+'+x:'None'}</option>`).join('')}</select>`;
 
 /* token detail: side panel on desktop, sheet on phone */
 N.tokCard = function(v, t){
@@ -173,6 +193,8 @@ N.tokCard = function(v, t){
     ${asp.filter(Boolean).length ? `<div class="icards">${asp.filter(Boolean).map((a,i)=>`<span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(a)}</span>`).join('')}</div>` : ''}
     <div class="kv"><span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
       ${gm || t.kind==='pc' ? `<span>Skills</span><span>${sk.map(([n,x])=>`${esc(n)} ${sgn(x)}`).join(' · ')}</span>` : ''}
+      ${t.init != null ? `<span>Turn roll</span><span>Notice ${sgn(N.tokNotice(t))}, rolled ${sgn(t.init)} ${ladderWord(t.init)}</span>` : ''}
+      ${t.kind==='npc' && gm ? `<span>Gear</span><span style="display:flex;gap:8px;flex-wrap:wrap"><label class="field" style="flex:1;min-width:110px"><span>Attack</span>${N.gearSelect(`tga-${t.id}-${v.id}`, `data-i="tokGear" data-k="gearAtk" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, t.gearAtk)}</label><label class="field" style="flex:1;min-width:110px"><span>Defense</span>${N.gearSelect(`tgd-${t.id}-${v.id}`, `data-i="tokGear" data-k="gearDef" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, t.gearDef)}</label></span>` : t.kind==='npc' && (t.gearAtk || t.gearDef) ? `<span>Gear</span><span>Attack ${sgn(t.gearAtk||0)} · Defense ${sgn(t.gearDef||0)}</span>` : ''}
       ${t.kind==='npc' && gm ? `<span>Mild</span><span><input class="inp" id="tmild-${t.id}-${v.id}" data-i="tokMild" data-t="${t.id}" value="${esc(t.mild||'')}" placeholder="Empty" style="min-height:32px;padding:4px 10px"></span>` : t.kind==='npc' && t.mild ? `<span>Mild</span><span>${esc(t.mild)}</span>` : ''}
     </div>
     ${gm ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -269,24 +291,33 @@ N.cbAddNpc = function(nid, side, zone){
   const t = N.tokFromNpc(n, side, same ? `${n.name} ${same+1}` : null);
   if (same === 1) { const first = cb.tokens.find(x => x.ref === nid); if (first && first.name === n.name) first.name = n.name + ' 1'; }
   t.zone = zone || null;
-  cb.tokens.push(t); return t;
+  cb.tokens.push(t); N.cbLateInit(t); return t;
 };
 N.cbAddFoe = function(i, side, zone){
   const g = G(), cb = g.combat, f = g.foes[i]; if (!f) return null;
   const same = cb.tokens.filter(t => t.ref === 'foe:' + f.name).length;
-  const t = N.tokFromNpc({id:'foe:' + f.name, name:f.name, type:f.type, skills:f.skills, aspects:f.aspects || []}, side, `${f.name} ${same + 1}`);
-  t.zone = zone || null; cb.tokens.push(t); return t;
+  const t = N.tokFromNpc({id:'foe:' + f.name, name:f.name, type:f.type, skills:f.skills, aspects:f.aspects || [], gearAtk:f.gearAtk, gearDef:f.gearDef}, side, `${f.name} ${same + 1}`);
+  t.zone = zone || null; cb.tokens.push(t); N.cbLateInit(t); return t;
 };
+/* turn order comes from a Notice roll: 4 Fate dice + Notice, made once when the fight starts */
+N.rollInit = t => { const dice = N.rollDice(); t.initDice = dice; t.init = dice.reduce((a,b) => a+b, 0) + N.tokNotice(t); return t; };
 N.cbStart = function(){
   const g = G(), cb = g.combat;
   if (!cb.title.trim()) cb.title = 'A fight';
   cb.state = 'live'; cb.turn = 0; cb.exchange = 1; cb.joined = []; cb.acted = false; cb.moved = false;
+  cb.tokens.forEach(N.rollInit);
   N.push({ch:'table', kind:'combat', by:'gm', cid:cb.id, text:cb.title, bg:cb.bg});
+  const ord = N.order();
+  if (ord.length) N.push({ch:'table', kind:'sys', by:'gm', text:'Turn order by Notice roll: ' + ord.map((t,i) => `${i+1}. ${N.tokName(t)} ${sgn(t.init)}`).join(', ') + '.',
+    res:{k:'order', rows:ord.map(t => ({n:N.tokName(t), sk:N.tokNotice(t), d:t.initDice, tot:t.init}))}});
 };
+/* someone added once the fight is live rolls Notice right away */
+N.cbLateInit = t => { if (G().combat.state !== 'live' || t.init != null) return; N.rollInit(t); N.sys(`${N.tokName(t)} rolls Notice for their turn: ${sgn(t.init)} ${ladderWord(t.init)}.`); };
 N.cbNext = function(){
   const cb = G().combat, n = N.order().length;
   cb.turn++; if (n && cb.turn % n === 0) { cb.exchange++; cb.turn = 0; }
-  cb.acted = false; cb.moved = false; cb.pending = null;
+  cb.acted = false; cb.moved = false;
+  /* an attack still waiting on its defense or its soak stays open into the next turn */
   if (n && cb.turn === 0) sys(`Exchange ${cb.exchange} begins.`);
 };
 N.cbEnd = function(){
@@ -305,9 +336,36 @@ N.applyHit = function(t, shifts){
   /* GM side: put shifts on an NPC the simple way */
   if (t.kind === 'npc') {
     const i = t.stressV.findIndex((x,k) => !t.stress[k] && x >= shifts);
-    if (i >= 0) { t.stress[i] = true; return `${N.tokName(t)} takes ${shifts} stress.`; }
-    t.out = true; return `${N.tokName(t)} is taken out!`;
+    if (i >= 0) { t.stress[i] = true; return `${N.tokName(t)} checks their ${t.stressV[i]}-stress box.`; }
+    t.out = true; return `${N.tokName(t)} can’t soak ${shifts} shift${shifts>1?'s':''} and is taken out!`;
   }
   return '';
+};
+
+/* After both rolls: compare them, post one clear result line, and hit the defender.
+   An NPC soaks automatically; a player character picks a stress box or consequence (pending.stage 'absorb'). */
+const rollLine = (name, r) => ({n:name, sk:r.skill, b:r.bonus, g:r.gear || 0, tot:N.rollTotal(r)});
+N.cbResolve = function(again){
+  const g = G(), cb = g.combat, p = cb.pending; if (!p || !p.defMsg) return;
+  const a = N.tokById(p.att), d = N.tokById(p.def), am = g.msgs.find(m => m.id === p.msgId), dm = g.msgs.find(m => m.id === p.defMsg);
+  if (!a || !d || !dm) { cb.pending = null; return; }
+  const an = N.tokName(a), dn = N.tokName(d), dt = N.rollTotal(dm.roll), sh = p.total - dt;
+  if (again && sh > 0 && sh === p.shifts) return;
+  let out, after;
+  if (sh > 0) {
+    out = {k:'hit', t:`Hit · ${sh} shift${sh>1?'s':''}`};
+    if (d.kind === 'npc') { after = N.applyHit(d, sh); cb.pending = null; }
+    else { p.stage = 'absorb'; p.shifts = sh; after = `${dn} must soak ${sh} shift${sh>1?'s':''}: check a stress box or take a consequence.`; }
+  } else if (sh === 0) { out = {k:'tie', t:'Tie'}; after = `${dn} is grazed: no harm done, but ${an} gets a boost.`; cb.pending = null; }
+  else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ' and gets a boost' : ''}. No harm done.`; cb.pending = null; }
+  const att = am ? rollLine(an, am.roll) : {n:an, sk:p.skill, b:0, g:0, tot:p.total}; att.tot = p.total;
+  const title = `${an} attacks ${dn}${again ? ', after invokes' : ''}`;
+  N.push({ch:'table', kind:'sys', by:g.role, text:`${title}: ${sgn(p.total)} against ${sgn(dt)}. ${out.t}. ${after}`,
+    res:{k:'clash', title, rows:[att, rollLine(dn, dm.roll)], out, after}});
+};
+/* an invoke on either roll while the defender is still soaking changes the result: post it again */
+N.cbReresolve = function(m){
+  const p = G().combat.pending;
+  if (p && p.stage === 'absorb' && (m.id === p.msgId || m.id === p.defMsg)) N.cbResolve(true);
 };
 })();

@@ -37,7 +37,9 @@ N.sheetHtml = function(v){
     const cb = g.combat, tokOfWho = r.who.startsWith('tok:') ? N.tokById(r.who.slice(4)) : r.who.startsWith('pc:') ? cb.tokens.find(t => t.kind==='pc' && t.ref === r.who.slice(3)) : null;
     const inFight = cb.state === 'live' && tokOfWho && tokOfWho.zone && !tokOfWho.out;
     const targets = inFight ? N.foesOf(tokOfWho) : [];
-    const bonus = other ? (+r.otherBonus || 0) : (who.skills[r.skill] ?? 0);
+    const gear = other ? 0 : N.rollGear(who.key, r.action);
+    const bonus = other ? (+r.otherBonus || 0) : (who.skills[r.skill] ?? 0) + gear;
+    const fightAtk = r.action === 'attack' && inFight;
     const whoAv = o => o.other ? `<span class="av" style="--s:44px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('person-plus').replace('<svg','<svg style="width:20px;height:20px"')}</span>` : N.av(o,44);
     const body = `
       ${gm ? `<div><h4>Who rolls</h4><div class="who-row">${N.rollers(v).map(o => `<button type="button" data-a="rollWho" data-v="${o.key}" aria-pressed="${o.key===who.key}">${whoAv(o)}<span>${esc(o.name)}</span></button>`).join('')}</div></div>` : ''}
@@ -49,9 +51,9 @@ N.sheetHtml = function(v){
       ${other ? '' : `<div><h4>Skill</h4><div class="skills">${skills.map(([n,x]) => `<button type="button" class="sk" data-a="rollSkill" data-v="${esc(n)}" aria-pressed="${r.skill===n}"><span><b>${esc(n)}</b><small>${ladderWord(x)}</small></span><span class="v">${sgn(x)}</span></button>`).join('')}
         ${r.all || !skills.length ? rest.map(n => `<button type="button" class="sk" data-a="rollSkill" data-v="${n}" aria-pressed="${r.skill===n}"><span><b>${n}</b><small>Mediocre</small></span><span class="v">+0</span></button>`).join('') : ''}</div>
         ${r.all || !skills.length ? '' : `<button type="button" class="btn sm ghost" data-a="rollAll" style="margin-top:8px">Show every skill (${rest.length} more at +0)</button>`}</div>`}
-      <div><h4>Against ${r.action==='attack'||r.action==='defend'?'(the other side rolls)':'(optional)'}</h4><div class="ladder-chips">${[null,0,1,2,3,4,5,6].map(x => `<button type="button" class="lchip" data-a="rollOpp" data-v="${x}" aria-pressed="${r.opp===x}"><b>${x==null?'—':sgn(x)}</b>${x==null?'No target':ladderWord(x)}</button>`).join('')}</div></div>
+      ${fightAtk ? `<div class="note">${IC('defend')}Your target rolls to defend right after you. The result shows in the chat once both rolls are in.</div>` : `<div><h4>Against ${r.action==='attack'||r.action==='defend'?'(the other side rolls)':'(optional)'}</h4><div class="ladder-chips">${[null,0,1,2,3,4,5,6].map(x => `<button type="button" class="lchip" data-a="rollOpp" data-v="${x}" aria-pressed="${r.opp===x}"><b>${x==null?'—':sgn(x)}</b>${x==null?'No target':ladderWord(x)}</button>`).join('')}</div></div>`}
       ${gm ? `<button type="button" class="toggle" data-a="rollSecret" aria-pressed="${!!r.secret}">${IC('eyeoff')}<span>Secret roll<small>Only you see it, in GM notes.</small></span><span class="sw"></span></button>` : ''}
-      <p class="rollsum">4 Fate dice + ${other ? 'bonus' : esc(r.skill)} ${sgn(bonus)}. You can add +2 invokes after you see the roll.</p>`;
+      <p class="rollsum">4 Fate dice + ${other ? 'bonus' : esc(r.skill)} ${sgn(bonus - gear)}${gear?` + gear ${sgn(gear)}`:''}. After you see the roll you can invoke aspects for +2 or a reroll.</p>`;
     const dis = r.action === 'attack' && inFight && !r.target;
     return sheet('Roll the dice', body, `<button type="button" class="btn gold lg" data-a="doRoll" ${dis?'disabled':''}>${N.fateDie}Roll ${other ? '' : esc(r.skill) + ' '}${sgn(bonus)}</button>`, {lead:other ? '' : N.av(who,36)});
   }
@@ -60,8 +62,10 @@ N.sheetHtml = function(v){
     const m = g.msgs.find(x => x.id === arg); if (!m) return '';
     const opts = N.invokeOptions(v, m);
     const c = N.charOf(v.role);
-    const body = `<div class="note">${IC('cards')}Pick an aspect that helps. Each invoke is +2. Free invokes cost nothing, the rest cost a fate point${gm?' from your own pool':` (you have ${c ? c.fp : 0})`}.</div>
-      <div style="display:grid;gap:8px">${opts.map((o,i) => `<button type="button" class="toggle" data-a="doInvoke" data-i="${i}" ${(!o.free && !gm && (!c || c.fp < 1))?'disabled':''}><span class="icard" style="--rot:${i%2?.6:-.6}deg;flex:none;max-width:60%">${esc(o.t)}</span><span style="margin-left:auto;text-align:right">${o.free ? `<b style="color:var(--gold)">Free</b><small>${o.free} left · ${esc(o.from)}</small>` : `<b>1 fate point</b><small>${esc(o.from)}</small>`}</span></button>`).join('') || '<p class="muted">No aspects to invoke here yet.</p>'}</div>`;
+    const r = m.roll, tot = N.rollTotal(r);
+    const body = `<div class="note">${IC('cards')}Pick an aspect that helps, then take +2 or reroll all four dice. Free invokes cost nothing, the rest cost a fate point${gm?' from your own pool':` (you have ${c ? c.fp : 0})`}.</div>
+      <p class="rollsum" style="margin:0">Now ${sgn(tot)} ${ladderWord(tot)}. +2 makes it ${sgn(tot + 2)} ${ladderWord(tot + 2)}. A reroll keeps ${esc(r.skill)} ${sgn(r.bonus)}${N.plusInvokes(r)?` and the +${2*N.plusInvokes(r)} already invoked`:''} and rolls the dice again (they show ${sgn(N.diceSum(r))} now).</p>
+      <div style="display:grid;gap:8px">${opts.map((o,i) => { const dis = (!o.free && !gm && (!c || c.fp < 1)) ? 'disabled' : ''; return `<div class="invopt"><span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(o.t)}</span><span class="cost">${o.free ? `<b style="color:var(--gold)">Free</b><small>${o.free} left · ${esc(o.from)}</small>` : `<b>1 fate point</b><small>${esc(o.from)}</small>`}</span><span class="how"><button type="button" class="btn sm gold" data-a="doInvoke" data-i="${i}" data-how="plus" ${dis}>+2</button><button type="button" class="btn sm" data-a="doInvoke" data-i="${i}" data-how="reroll" ${dis}>${N.fateDie}Reroll</button></span></div>`; }).join('') || '<p class="muted">No aspects to invoke here yet.</p>'}</div>`;
     return sheet('Invoke an aspect', body);
   }
   /* ---------------- scene picker (GM) ---------------- */
@@ -226,6 +230,10 @@ function npcEditor(v){
       <button type="button" class="btn sm ghost" data-a="ndAspAdd" style="justify-self:start">${IC('plus')}Add an aspect</button>
     </div></div>
     <div><h4>Skills</h4>${skillLadder(v, d, 'ndSkill', 'ndSkillDel', NPC_RUNGS)}</div>
+    <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+      <label class="field"><span>Gear attack bonus</span>${N.gearSelect(`ndga-${v.id}`, 'data-i="nd" data-k="gearAtk"', d.gearAtk)}</label>
+      <label class="field"><span>Gear defense bonus</span>${N.gearSelect(`ndgd-${v.id}`, 'data-i="nd" data-k="gearDef"', d.gearDef)}</label>
+    </div>
     <label class="field"><span>Magic and disciplines</span><textarea class="inp" id="ndm-${v.id}" data-i="nd" data-k="magic" rows="2" placeholder="Discipline, magical skills, anything else they can do">${esc(d.magic||'')}</textarea></label>
     <div><h4>Stunts</h4>${stunts(v, d, 'nd')}</div>
     ${steppers(d, 'nd')}
@@ -254,7 +262,8 @@ N.invokeOptions = function(v, m){
 const hhmm = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
 function rollText(r){
   const tot = N.rollTotal(r), o = N.outcome(r);
-  return `${r.who}, ${r.skill} ${sgn(r.bonus)} (${r.action}${r.target?` on ${r.target}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${r.invokes.length?`, invoked ${r.invokes.map(i => '“' + i.aspect + '”').join(', ')} (+${2*r.invokes.length})`:''} → ${sgn(tot)} ${ladderWord(tot)}${o?` vs ${ladderWord(r.opp)} (${sgn(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
+  const pl = N.plusInvokes(r), rr = r.invokes.filter(i => i.reroll);
+  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''} (${r.action}${r.target?` on ${r.target}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll).map(i => '“' + i.aspect + '”').join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”').join(', ')}`:''} → ${sgn(tot)} ${ladderWord(tot)}${o?` vs ${ladderWord(r.opp)} (${sgn(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
 }
 function exLine(m){
   const t = `[${hhmm(m.t)}]`;

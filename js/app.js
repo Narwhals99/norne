@@ -132,6 +132,7 @@ function input(v, el){
     case 'npcNotes': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n[k || 'notes'] = val; return; }
     case 'npcCon': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n.cons[k] = val; return; }
     case 'tokMild': { const t = N.tokById(el.dataset.t); if (t) t.mild = val; return; }
+    case 'tokGear': { const t = N.tokById(el.dataset.t); if (t) { t[k] = +val || 0; renderAll(); } return; }
   }
 }
 function change(v, el){
@@ -175,16 +176,20 @@ N.openRoll = openRoll;
 function doRoll(v){
   const g = G(), r = v.ui.roll, who = N.rollerOf(v, r.who); if (!who) return;
   const other = who.key === 'other';
-  const skill = other ? 'Bonus' : r.skill, bonus = other ? clamp(+r.otherBonus || 0, -4, 10) : (who.skills[r.skill] || 0), tgt = r.target && N.tokById(r.target);
+  const tgt = r.target && N.tokById(r.target), gear = other ? 0 : N.rollGear(who.key, r.action);
+  const skill = other ? 'Bonus' : r.skill, bonus = other ? clamp(+r.otherBonus || 0, -4, 10) : (who.skills[r.skill] || 0) + gear;
   const label = (N.ACTIONS.find(a => a[1] === r.action) || ['Roll'])[0];
   const name = other ? (r.otherName.trim() || 'Someone') : who.name;
-  const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:r.opp, dice:N.rollDice(), invokes:[]};
-  const secret = isGM(v) && (r.secret || v.ui.ch === 'gm');
-  const ch = secret ? 'gm' : r.ctx === 'cb' ? 'table' : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
+  /* an attack on someone in a live fight always goes to the table and asks them to defend, wherever it was rolled from */
+  const fight = g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
+  const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : r.opp, dice:N.rollDice(), invokes:[]};
+  if (gear) roll.gear = gear;
+  const secret = isGM(v) && !fight && (r.secret || v.ui.ch === 'gm');
+  const ch = secret ? 'gm' : fight ? 'table' : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
   const m = push({ch, kind:'roll', by:v.role, roll});
   if (isGM(v) && who.portrait) m.pt = who.portrait;
   v.ui.fresh = m.id; v.ui.sheet = null; v.ui.targeting = null; v.ui.stick = true;
-  if (r.ctx === 'cb' && !secret) afterFightRoll(v, r, m);
+  if (fight) afterFightRoll(v, r, m);
   if (secret && v.ui.ch !== 'gm') toast(v, 'Secret roll saved in GM notes.');
   else if (ch !== v.ui.ch || v.ui.tab !== 'chat') toast(v, `${name} rolled ${sgn(N.rollTotal(roll))} ${ladderWord(N.rollTotal(roll))}.`);
   renderAll();
@@ -198,7 +203,12 @@ function actorTokOfKey(key){
 function afterFightRoll(v, r, m){
   const cb = G().combat, a = actorTokOfKey(m.roll.whoKey), tot = N.rollTotal(m.roll);
   if (!a || cb.state !== 'live') return;
-  if (r.action === 'attack' && r.target) { cb.pending = {att:a.id, def:r.target, total:tot, skill:m.roll.skill, msgId:m.id, stage:'defend'}; cb.acted = true; return; }
+  if (r.action === 'attack' && r.target) {
+    const d = N.tokById(r.target);
+    cb.pending = {att:a.id, def:r.target, total:tot, skill:m.roll.skill, msgId:m.id, stage:'defend'}; cb.acted = true;
+    sys(`${N.tokName(a)} attacks ${d ? N.tokName(d) : 'someone'} with ${m.roll.skill}: ${sgn(tot)} ${ladderWord(tot)}. ${d ? N.tokName(d) : 'They'} rolls to defend next.`);
+    return;
+  }
   if (r.action === 'advantage') {
     const opp = r.opp ?? 2; m.roll.opp = opp;
     const sh = tot - opp, name = (r.aspect || '').trim() || 'An Opening';
@@ -212,28 +222,28 @@ function afterFightRoll(v, r, m){
   cb.acted = true;
 }
 function cbDefend(v){
-  const g = G(), cb = g.combat, p = cb.pending; if (!p) return;
+  const g = G(), cb = g.combat, p = cb.pending; if (!p || p.stage !== 'defend') return;
   const d = N.tokById(p.def), a = N.tokById(p.att); if (!d || !a) { cb.pending = null; renderAll(); return; }
-  const sk = N.defSkill(d);
+  const [skill, x, gear] = N.defSkill(d);
   const key = d.kind === 'pc' ? 'pc:' + d.ref : 'tok:' + d.id;
-  const roll = {who:N.tokName(d), whoKey:key, skill:sk[0], bonus:sk[1], action:'Defend', target:null, opp:p.total, dice:N.rollDice(), invokes:[]};
+  const roll = {who:N.tokName(d), whoKey:key, skill, bonus:x + gear, action:'Defend', target:N.tokName(a), opp:p.total, dice:N.rollDice(), invokes:[]};
+  if (gear) roll.gear = gear;
   const m = push({ch:'table', kind:'roll', by:v.role, roll});
   if (d.kind === 'npc' && d.portrait) m.pt = d.portrait;
+  /* defending counts as joining the fight */
+  if (!isGM(v) && N.isMine(d, v.role) && !cb.joined.includes(v.role)) cb.joined.push(v.role);
   v.ui.fresh = m.id; v.ui.stick = true;
-  const sh = p.total - N.rollTotal(roll);
-  if (sh > 0) {
-    if (d.kind === 'npc') { sys(`${N.tokName(a)} hits ${N.tokName(d)} for ${sh}. ${N.applyHit(d, sh)}`); cb.pending = null; }
-    else { p.stage = 'absorb'; p.shifts = sh; sys(`${N.tokName(a)} hits ${N.tokName(d)} for ${sh}.`); }
-  } else if (sh === 0) { sys(`A tie: ${N.tokName(d)} is grazed, ${N.tokName(a)} gets a boost.`); cb.pending = null; }
-  else { sys(`${N.tokName(d)} defends${sh <= -3 ? ' with style and gets a boost' : ''}.`); cb.pending = null; }
+  p.defMsg = m.id;
+  N.cbResolve();
   renderAll();
 }
 function cbAbsorb(v, k, i){
   const g = G(), cb = g.combat, p = cb.pending; if (!p) return;
   const t = N.tokById(p.def), c = t && g.chars[t.ref]; if (!c) return;
-  if (k === 'box') { c.stress.phys[i] = true; sys(`${c.short} checks a ${c.stressV.phys[i]}-stress box.`); }
-  else if (k === 'out') { t.out = true; sys(`${c.short} is taken out.`); }
-  else { c.cons[k] = 'Hurt in the fight'; sys(`${c.short} takes a ${k} consequence. ${N.gmName()} will name it.`); }
+  const sh = `${p.shifts} shift${p.shifts>1?'s':''}`;
+  if (k === 'box') { c.stress.phys[i] = true; sys(`${c.short} soaks the ${sh} with their ${c.stressV.phys[i]}-stress box.`); }
+  else if (k === 'out') { t.out = true; sys(`${c.short} can’t soak the ${sh} and is taken out.`); }
+  else { c.cons[k] = 'Hurt in the fight'; sys(`${c.short} soaks the ${sh} with a ${k} consequence. ${N.gmName()} will name it.`); }
   cb.pending = null; renderAll();
 }
 
@@ -494,7 +504,7 @@ function act(v, a, el, e){
   }
   case 'newVoice': ui.pop = null; openSheet(v, 'npcNew', {from:'voice'}); break;
   case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; break;
-  case 'doInvoke': doInvoke(v, +d.i); return;
+  case 'doInvoke': doInvoke(v, +d.i, d.how === 'reroll'); return;
   case 'readNews': case 'herald': close(); ui.tab = 'world'; ui.herald = true; ui.wikiSel = null; ui.newsEdit = null; ui.newsSel = d.id || null; seeNews(v); break;
   case 'newsSel': ui.newsSel = val; break;
   case 'writeNews': {
@@ -662,6 +672,7 @@ function act(v, a, el, e){
     if (!cb.joined.includes(v.role)) cb.joined.push(v.role);
     let t = cb.tokens.find(x => x.kind === 'pc' && x.ref === c.id);
     if (!t) { t = N.tokFromPc(c); cb.tokens.push(t); }
+    N.cbLateInit(t);
     if (!t.zone) t.zone = cb.zones[0]?.id;
     if (!cb.invited.includes(c.id)) cb.invited.push(c.id);
     sys(`${c.short} joins the fight.`);
@@ -679,6 +690,7 @@ function act(v, a, el, e){
     break;
   }
   case 'cbDefend': cbDefend(v); return;
+  case 'cbDrop': if (cb.pending) { const t = N.tokById(cb.pending.def); cb.pending = null; sys(`${N.gmName()} settles the hit on ${t ? N.tokName(t) : 'them'} by hand.`); } renderAll(); return;
   case 'cbAbsorb': cbAbsorb(v, d.k, +d.i); return;
   case 'tokClose': ui.tokSel = null; break;
   case 'tokStress': { const t = N.tokById(d.t), s = N.tokStress(t); s.s[+d.i] = !s.s[+d.i]; renderAll(); return; }
@@ -760,7 +772,7 @@ function savePc(v){
 function saveNpc(v){
   const g = G(), d = v.ui.nd, old = d.edit && g.npcs.find(x => x.id === d.edit);
   const base = {name:d.name.trim(), race:d.race.trim(), job:d.job.trim(), hc:d.hc.trim(), trouble:(d.trouble||'').trim(), aspects:d.aspects.map(a => a.trim()).filter(Boolean), type:d.type, portrait:d.portrait || null,
-    skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp};
+    skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0};
   let n;
   if (old) {
     n = Object.assign(old, base);
@@ -771,7 +783,7 @@ function saveNpc(v){
   if (d.from === 'voice') { v.ui.voice = n.name; v.ui.mode = 'rp'; }
   toast(v, old ? 'NPC saved.' : `${n.name} saved. Pick them in “Speak as”.`); renderAll();
 }
-function doInvoke(v, i){
+function doInvoke(v, i, reroll){
   const g = G(), m = g.msgs.find(x => x.id === v.ui.sheetArg), o = m && N.invokeOptions(v, m)[i];
   if (!o) return;
   let how = 'gm';
@@ -780,10 +792,14 @@ function doInvoke(v, i){
     if (o.kind === 'cb') g.combat.aspects[o.i].free--;
     if (o.kind === 'zone') g.combat.zones.find(z => z.id === o.z).free--;
   } else if (!isGM(v)) { const c = N.charOf(v.role); if (!c || c.fp < 1) { toast(v, 'No fate points left.'); return; } c.fp--; how = 'fp'; }
-  m.roll.invokes.push(Object.assign({aspect:o.t, how}, o.ref ? {ref:o.ref} : {}));
+  const iv = Object.assign({aspect:o.t, how}, o.ref ? {ref:o.ref} : {});
+  if (reroll) { iv.reroll = true; iv.was = m.roll.dice; m.roll.dice = N.rollDice(); v.ui.fresh = m.id; }
+  m.roll.invokes.push(iv);
   const p = g.combat.pending; if (p && p.msgId === m.id) p.total = N.rollTotal(m.roll);
+  N.cbReresolve(m);
   v.ui.sheet = null;
-  toast(v, `+2 from “${o.t}”${o.free ? ' (free)' : isGM(v) ? '' : ', 1 fate point spent'}.`);
+  const cost = o.free ? ' (free)' : isGM(v) ? '' : ', 1 fate point spent';
+  toast(v, reroll ? `Rerolled with “${o.t}”${cost}: now ${sgn(N.rollTotal(m.roll))} ${ladderWord(N.rollTotal(m.roll))}.` : `+2 from “${o.t}”${cost}.`);
   renderAll();
 }
 function seeNews(v){ const g = G(), s = g.news.seen[v.role] || (g.news.seen[v.role] = []); g.news.issues.forEach(i => { if (!s.includes(i.id)) s.push(i.id); }); }

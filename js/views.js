@@ -91,10 +91,15 @@ function chatView(v, side){
   const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
     ${fa && !v.ui.fightOpen ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}${cb.state==='setup'?'Back to fight setup':'Back to the fight'}</button>` : ''}
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}</header>`;
-  const fightbar = (cb.state === 'live' && (!fa || (v.dev==='desktop' && !v.ui.fightOpen))) ? (() => {
+  const fightbar = (cb.state === 'live' && !N.owedTok(v) && (!fa || (v.dev==='desktop' && !v.ui.fightOpen))) ? (() => {
     const cur = N.curTok();
     return `<div class="fightbar">${IC('swords','sw')}<div class="t">Fight on ${esc(cb.title)}<span>${cur ? `${esc(N.tokName(cur))}’s turn · exchange ${cb.exchange}` : ''}</span></div>${fa ? `<button type="button" class="btn sm gold" data-a="openFight">Back to the fight</button>` : cb.invited.includes(N.G.P[v.role]?.char) ? `<button type="button" class="btn sm gold" data-a="join">Join</button>` : `<button type="button" class="btn sm" data-a="watch">Watch</button>`}</div>`;
   })() : '';
+  /* an attack waiting on this screen's defense shows above the chat too, so it isn't missed with the board closed */
+  const owed = N.owedTok(v), pend = cb.pending;
+  const owedBar = owed ? (pend.stage === 'defend'
+    ? `<div class="fightbar owed">${IC('attack','sw')}<div class="t">${esc(N.tokName(N.tokById(pend.att)))} attacks ${gm ? esc(N.tokName(owed)) : 'you'}!<span>${esc(pend.skill)} for ${sgn(pend.total)} ${ladderWord(pend.total)}. Roll the defense.</span></div>${N.defBtn(owed)}</div>`
+    : `<div class="fightbar owed">${IC('warn','sw')}<div class="t">${gm ? esc(N.tokName(owed)) + ' takes' : 'You take'} ${pend.shifts} shift${pend.shifts>1?'s':''}<span>Pick a stress box or a consequence on the board.</span></div><button type="button" class="btn sm gold" data-a="openFight">Soak the hit</button></div>`) : '';
   const chipRow = (!side && fa) ? `<div class="chips only-ph">${N.channelsFor(v.role).map(c=>chanChip(v,c)).join('')}</div>` : '';
   return `<section class="chat" aria-label="${esc(N.chName(ch, v.role))}">
     ${side ? '' : topPh}${chipRow}${topDt}
@@ -102,7 +107,7 @@ function chatView(v, side){
     <div class="msgs scroll" id="msgs-${v.id}" data-sk="msgs" data-bottom="1">${fightbar && side ? '' : ''}${renderMsgs(v)}</div>
     ${fightbar && !side ? '' : ''}
     ${composer(v)}
-  </section>`.replace('<div class="msgs', (fightbar && !side ? fightbar : '') + '<div class="msgs');
+  </section>`.replace('<div class="msgs', (!side ? owedBar || fightbar : '') + '<div class="msgs');
 }
 function fightSeg(v){
   const n = N.unread(v.role, 'table');
@@ -149,7 +154,7 @@ function renderMsgs(v){
 }
 function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`;
-  if (m.kind === 'sys') return `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
+  if (m.kind === 'sys') return m.res ? resCard(m.res) : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
   if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}"></span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${fmt(m.text)}</div></div></div>`;
   if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);
@@ -174,11 +179,21 @@ function rRoll(v, m){
   const dice = r.dice.map(d => `<span class="die ${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':'·'}</span>`).join('');
   const canInv = isGM(v) || r.whoKey === 'pc:' + (G().P[v.role]||{}).char;
   return `<div class="roll${fold?' folded':''}${m.ch==='gm'?' secret':''}">
-    <div class="rh"><span class="grow"><b>${esc(r.skill)} ${sgn(r.bonus)}</b> · ${esc(r.action)}${r.target?` on <b>${esc(r.target)}</b>`:''}</span>${fold?`<span class="mini-tot">${sgn(tot)}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
+    <div class="rh"><span class="grow"><b>${esc(r.skill)} ${sgn(r.bonus - (r.gear||0))}</b>${r.gear?` + gear ${sgn(r.gear)}`:''} · ${esc(r.action)}${r.target?` ${r.action==='Defend'?'against':'on'} <b>${esc(r.target)}</b>`:''}</span>${fold?`<span class="mini-tot">${sgn(tot)}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
     <div class="rb"><div class="dice${v.ui.fresh===m.id?' fresh':''}">${dice}</div><div class="tot"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></div></div>
-    ${r.invokes.length ? `<div class="inv">${r.invokes.map(i => `+2 from “${esc(i.aspect)}”`).join(' · ')}</div>` : ''}
-    <div class="rf"><span class="math">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${sgn(r.bonus)}${r.invokes.length?` · invokes +${2*r.invokes.length}`:''}${r.opp!=null?` · vs ${ladderWord(r.opp)}`:''}</span>${o?`<span class="out ${o.k}">${o.t}${o.sh>0?` · ${o.sh}`:''}</span>`:''}${canInv && m.ch!=='gm' ? `<button type="button" class="btn sm" data-a="invoke" data-id="${m.id}" style="--h:28px">${IC('cards')}+2</button>` : ''}</div>
+    ${r.invokes.length ? `<div class="inv">${r.invokes.map(i => i.reroll ? `Rerolled with “${esc(i.aspect)}” (was ${sgn(i.was ? i.was.reduce((a,b)=>a+b,0) : 0)})` : `+2 from “${esc(i.aspect)}”`).join(' · ')}</div>` : ''}
+    <div class="rf"><span class="math">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${sgn(r.bonus - (r.gear||0))}${r.gear?` · gear ${sgn(r.gear)}`:''}${N.plusInvokes(r)?` · invokes +${2*N.plusInvokes(r)}`:''}${r.opp!=null?` · vs ${ladderWord(r.opp)}`:''}</span>${o?`<span class="out ${o.k}">${o.t}${o.sh>0?` · ${o.sh}`:''}</span>`:''}${canInv && m.ch!=='gm' ? `<button type="button" class="btn sm" data-a="invoke" data-id="${m.id}" style="--h:28px">${IC('cards')}Invoke</button>` : ''}</div>
   </div>`;
+}
+/* the result of a fight step, posted once the dice are in: an attack against a defense, or the turn order */
+function resCard(res){
+  if (res.k === 'order') return `<div class="resm"><div class="rs-h">${IC('clock')}<b>Turn order</b><small>Notice rolls</small></div>
+    <ol class="rs-rows">${(res.rows||[]).map(x => `<li><span class="nm">${esc(x.n)}</span><span class="mt">Notice ${sgn(x.sk)} · dice ${sgn((x.d||[]).reduce((a,b)=>a+b,0))}</span><b>${sgn(x.tot)}</b></li>`).join('')}</ol></div>`;
+  const row = (x, lab) => `<li><span class="nm"><small>${lab}</small>${esc(x.n)}</span><span class="mt">${esc(x.sk)} ${sgn(x.b - (x.g||0))}${x.g?` · gear ${sgn(x.g)}`:''}</span><b>${sgn(x.tot)}<small>${ladderWord(x.tot)}</small></b></li>`;
+  const [a, d] = res.rows || [];
+  return `<div class="resm ${res.out?.k||''}"><div class="rs-h">${IC('swords')}<b>${esc(res.title)}</b></div>
+    <ul class="rs-rows">${a ? row(a, 'Attack') : ''}${d ? row(d, 'Defense') : ''}</ul>
+    <div class="rs-out"><span class="out ${res.out?.k === 'hit' ? 'fail' : res.out?.k === 'tie' ? 'tie' : 'succ'}">${esc(res.out?.t || '')}</span><span>${esc(res.after || '')}</span></div></div>`;
 }
 function fightCard(v, m){
   const g = G(), cb = g.combat, live = cb.state === 'live' && cb.id === m.cid, gm = isGM(v);
