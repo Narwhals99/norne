@@ -561,6 +561,7 @@ function act(v, a, el, e){
   case 'pdPortrait': ui.pd.portrait = val; break;
   case 'pdUpload': uploadFace(v, src => { ui.pd.portrait = src; }); return;
   case 'pdSkillDel': delete ui.pd.skills[val]; break;
+  case 'pdSkillMv': ui.pd.skills[val] = clamp(ui.pd.skills[val] + (+d.d), 1, 4); break;
   case 'pdStuntAdd': ui.pd.stunts.push(['','']); break;
   case 'pdStuntDel': ui.pd.stunts.splice(+d.i, 1); break;
   case 'pdAspAdd': ui.pd.aspects.push(''); break;
@@ -585,6 +586,7 @@ function act(v, a, el, e){
   case 'ndUpload': uploadFace(v, src => { ui.nd.portrait = src; }); return;
   case 'ndType': ui.nd.type = val; break;
   case 'ndSkillDel': delete ui.nd.skills[val]; break;
+  case 'ndSkillMv': ui.nd.skills[val] = clamp(ui.nd.skills[val] + (+d.d), 1, 6); break;
   case 'ndAspAdd': ui.nd.aspects.push(''); break;
   case 'ndAspDel': ui.nd.aspects.splice(+d.i, 1); break;
   case 'ndStuntAdd': ui.nd.stunts.push(['','']); break;

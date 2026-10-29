@@ -770,6 +770,11 @@
 .app .lad .rung .sks button{height:34px;padding:0 13px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 13px/1 var(--f-ui);display:inline-flex;align-items:center;gap:6px}
 .app .lad .rung .sks button:hover{box-shadow:inset 0 0 0 1.5px var(--gold);color:var(--gold)}
 .app .lad .rung .sks button svg{width:14px;height:14px;color:var(--ink-4)}
+.app .lad .rung .sks .skc{display:inline-flex;align-items:center;gap:2px;height:34px;padding:0 3px 0 13px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .lad .rung .sks .skc b{font:700 13px/1 var(--f-ui);margin-right:4px}
+.app .lad .rung .sks .skc button{width:28px;height:28px;padding:0;justify-content:center;background:transparent;box-shadow:none}
+.app .lad .rung .sks .skc button svg{color:var(--ink-2)}
+.app .lad .rung .sks .skc button:disabled{opacity:.3;pointer-events:none}
 .app .stress2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .app .trk{padding:12px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);display:grid;gap:8px}
 .app .trk .sbox{width:32px;height:32px;font-size:13px;border-radius:9px}
