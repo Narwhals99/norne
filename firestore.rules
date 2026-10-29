@@ -55,6 +55,15 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['c']);
     }
 
+    // A fight started in a player's private chat with the GM. fights/p1 is the fight in p1's chat:
+    // only that player (and the GM) can read it, and the player may update only the fight itself.
+    match /fights/{s} {
+      allow read: if isGM() || (isPlayer() && seat() == s);
+      allow write: if isGM();
+      allow update: if isPlayer() && seat() == s
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['c']);
+    }
+
     // Chat messages. aud says who may read one: '*' is everyone at the table,
     // 'p1' is that player's private chat with the GM, 'gm' is the GM's own notes.
     match /msgs/{id} {

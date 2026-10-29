@@ -74,7 +74,7 @@ function chanLast(v, c){
   return N.chSub(c, v.role);
 }
 function shelfRow(v, c){
-  const n = N.unread(v.role, c), cur = v.ui.ch === c, fight = c === 'table' && G().combat.state === 'live';
+  const n = N.unread(v.role, c), cur = v.ui.ch === c, cb = G().combat, fight = c === N.fightCh() && (cb.state === 'live' || (isGM(v) && cb.state === 'setup'));
   return `<button type="button" class="shr${n&&!cur?' new':''}" data-a="ch" data-v="${c}" title="${esc(N.chName(c, v.role))}" ${cur?'aria-current="true"':''}>${chanIcon(v,c)}<span class="t"><b>${esc(N.chName(c, v.role))}</b><small>${esc(chanLast(v, c).replace(/\s+/g, ' ').slice(0, 90))}</small></span>${fight?`<span class="tag ember">${IC('swords')}</span>`:''}${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
 }
 function shelfHtml(v){
@@ -109,8 +109,10 @@ function sideBtn(v){
 }
 
 /* ================= chat ================= */
+/* the fight board only opens in the chat the fight lives in */
 function fightAvail(v){
   const cb = G().combat;
+  if (v.ui.ch !== N.fightCh()) return false;
   if (isGM(v)) return cb.state !== 'off';
   return cb.state === 'live' && (cb.joined.includes(v.role) || v.ui.watching);
 }
@@ -136,7 +138,7 @@ function chatView(v, side){
     ${fa && !v.ui.fightOpen ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}${cb.state==='setup'?'Back to fight setup':'Back to the fight'}</button>` : ''}
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
     ${fa && v.ui.fightOpen ? '' : `<button type="button" class="ibtn" data-a="rail" aria-pressed="${railShown(v)}" aria-label="${railShown(v)?'Hide':'Show'} the side panel" title="${railShown(v)?'Hide':'Show'} the ${gm?'GM screen':'character panel'}">${IC('gmscreen')}</button>`}</header>`;
-  const fightbar = (cb.state === 'live' && !N.owedTok(v) && (!fa || (v.dev==='desktop' && !v.ui.fightOpen))) ? (() => {
+  const fightbar = (cb.state === 'live' && ch === N.fightCh() && !N.owedTok(v) && (!fa || (v.dev==='desktop' && !v.ui.fightOpen))) ? (() => {
     const cur = N.curTok();
     return `<div class="fightbar">${IC('swords','sw')}<div class="t">Fight on ${esc(cb.title)}<span>${cur ? `${esc(N.tokName(cur))}’s turn · exchange ${cb.exchange}` : ''}</span></div>${fa ? `<button type="button" class="btn sm gold" data-a="openFight">Back to the fight</button>` : cb.invited.includes(N.G.P[v.role]?.char) ? `<button type="button" class="btn sm gold" data-a="join">Join</button>` : `<button type="button" class="btn sm" data-a="watch">Watch</button>`}</div>`;
   })() : '';
@@ -155,7 +157,7 @@ function chatView(v, side){
   </section>`.replace('<div class="msgs', (!side ? owedBar || fightbar : '') + '<div class="msgs');
 }
 function fightSeg(v){
-  const n = N.unread(v.role, 'table');
+  const n = N.unread(v.role, N.fightCh());
   return `<div class="seg" role="group" aria-label="Fight or chat"><button type="button" data-a="pane" data-v="fight" aria-pressed="${v.ui.fightPane==='fight'}">${IC('swords')}Fight</button><button type="button" data-a="pane" data-v="chat" aria-pressed="${v.ui.fightPane==='chat'}">${IC('chatL')}Chat${n&&v.ui.fightPane!=='chat'?'<span class="dot"></span>':''}</button></div>`;
 }
 N.sceneArt = (sc) => {
@@ -279,8 +281,8 @@ function composer(v){
 function gmScreen(v){
   const g = G(), cb = g.combat, ch = v.ui.ch, sc = g.scenes[ch];
   const fight = cb.state === 'off'
-    ? `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>Begin a fight</b><small>Draw zones and add enemies. Players see nothing until you start.</small></span></button>`
-    : `<button type="button" class="bigcta" data-a="openFight"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>${cb.state==='setup'?'Not started yet. Players can’t see it.':`Exchange ${cb.exchange} · ${esc(N.tokName(N.curTok()||{kind:'npc',name:'—'}))}’s turn`}</small></span></button>`;
+    ? `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>Begin a fight</b><small>In ${ch === 'gm' || ch === 'table' ? 'Everyone' : `your chat with ${esc(N.chName(ch,'gm'))}`}. Draw zones and add enemies. Players see nothing until you start.</small></span></button>`
+    : `<button type="button" class="bigcta" data-a="openFight"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>${N.fightCh() === 'table' ? '' : `In your chat with ${esc(N.chName(N.fightCh(),'gm'))} · `}${cb.state==='setup'?'Not started yet. Players can’t see it.':`Exchange ${cb.exchange} · ${esc(N.tokName(N.curTok()||{kind:'npc',name:'—'}))}’s turn`}</small></span></button>`;
   const pcs = N.pcs();
   return `<div class="gs">
     ${fight}

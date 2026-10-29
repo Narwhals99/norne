@@ -2,7 +2,8 @@
    Everything shared lives in Firestore. A document holds "units" (one character, one wiki entry, one map…)
    stored as JSON strings, so a change rewrites only the units that changed. The GM's device keeps the full
    copy in gm/* and writes a player-safe copy (no secrets, hidden maps, hidden entries or a fight being set up)
-   to game/*. Players can only read game/*, their own chats and the pictures the GM has shared (firestore.rules). */
+   to game/*. Players can only read game/*, their own chats and the pictures the GM has shared (firestore.rules).
+   A fight started in a player's private chat goes to fights/<seat> instead of game/combat, so only that player sees it. */
 (function(){
 const N = window.N, {esc, uid} = N;
 const G = () => N.G;
@@ -176,9 +177,17 @@ function syncNow(){
   const g = G();
   if (isGM()) {
     writeUnits('game/chars', g.chars);
-    const setup = g.combat.state === 'setup';
-    writeUnits('gm/combat', {c:setup ? combatOut(g.combat) : null});
-    writeUnits('game/combat', {c:combatOut(setup ? N.freshCombat() : g.combat)});
+    const cb = g.combat, setup = cb.state === 'setup', live = cb.state === 'live', priv = N.chSeat(cb.ch);
+    writeUnits('gm/combat', {c:setup || (live && priv) ? combatOut(cb) : null});
+    /* what this device just wrote is the newest copy (its own writes don't come back as changes) */
+    SC = setup || (live && priv) ? cb : null;
+    writeUnits('game/combat', {c:combatOut(setup || priv ? N.freshCombat() : cb)});
+    /* a fight in a private chat is written only to that player's own fights/<seat> document */
+    for (const st of N.seats()) {
+      const path = 'fights/' + st;
+      if (!LOADED.has(path)) { listenFight(st); continue; }
+      writeUnits(path, {c:live && priv === st ? combatOut(cb) : null}); PF[st] = live && priv === st ? cb : null;
+    }
     /* things shared with only some players go to each of those players' own only/<seat> document */
     const only = Object.fromEntries(N.seats().map(st => [st, {}]));
     const share = (x, kind, key, pub) => { const a = N.audOf(x, kind); if (a === '*') return pub; if (a !== 'gm') for (const st of a) if (only[st]) only[st][key] = pub; return null; };
@@ -210,7 +219,7 @@ function syncNow(){
   } else {
     const mine = g.P[g.role]?.char;
     if (mine && g.chars[mine]) writeUnits('game/chars', {[mine]:g.chars[mine]}, true);
-    if (g.combat.state === 'live') writeUnits('game/combat', {c:combatOut(g.combat)});
+    if (g.combat.state === 'live') { const s = N.chSeat(g.combat.ch); writeUnits(s ? 'fights/' + s : 'game/combat', {c:combatOut(g.combat)}); }
   }
   syncMsgs();
 }
@@ -222,11 +231,21 @@ function listenOnly(st){
   listenDoc(path, () => {}, true).then(() => { if (LOADED.has(path)) queueSync(); });
 }
 const ONLY_ON = new Set();
+/* the GM follows every seat's private fight document, so a player's moves in a private fight come back */
+function listenFight(st){
+  const path = 'fights/' + st;
+  if (FIGHT_ON.has(path)) return LOADED.has(path) ? null : FIGHT_ON.get(path);
+  const p = listenDoc(path, u => { PF[st] = u.c ? JSON.parse(u.c) : null; setCombat(); }, true).then(() => { if (LOADED.has(path) && isGM()) queueSync(); });
+  FIGHT_ON.set(path, p); return p;
+}
+const FIGHT_ON = new Map();
+/* a private fight can't start until the rules that guard fights/<seat> are published */
+N.fightBlocked = ch => { const s = N.chSeat(ch); return !!s && isGM() && !LOADED.has('fights/' + s); };
 const queueSync = () => { clearTimeout(_sq); _sq = setTimeout(syncNow, 250); };
 N.syncNow = syncNow;
 
 /* ---------- applying what arrives ---------- */
-let GC = null, SC = null;
+let GC = null, SC = null; const PF = {};
 const OLDBG = {forest:'dark-forest', tavern:'town-alley', street:'town-alley', cave:'cave-temple-deep', castle:'castle-ramparts', swamp:'dark-forest', snow:'mountain-pass-raid', ship:'harbor-ship'};
 /* Fights are also written in the old app's shape (bg key, scene, zone color), so rolling the site back keeps them working. */
 const oldBg = src => ({'dark-forest':'forest', 'town-alley':'tavern', 'cave-temple-deep':'cave', 'castle-ramparts':'castle', 'mountain-pass-raid':'snow', 'harbor-ship':'ship'})[(String(src).match(/^art\/bg\/([\w-]+)\.jpg$/) || [])[1]] || 'forest';
@@ -253,7 +272,19 @@ function normCombat(c){
   c.tokens.forEach(t => { if (t.kind === 'npc') { if (t.label && t.name && !/\d$/.test(t.name) && same[t.name] > 1) t.name = `${t.name} ${t.label.replace(/^\D+/, '')}`; if (!t.side) t.side = 'foe'; } });
   return c;
 }
-function setCombat(){ G().combat = normCombat(isGM() && SC?.state === 'setup' ? SC : GC); }
+/* which fight this screen shows: the one at the table (game/combat) or one in a private chat (fights/<seat>).
+   The GM keeps a fight being set up or one in a private chat in gm/combat too, and takes the player's copy
+   of a private fight when it is the same fight (it has their moves). */
+function setCombat(){
+  const g = G(); let c = GC;
+  if (isGM()) {
+    const own = x => x && x.id && (x.state === 'setup' || (x.state === 'live' && N.chSeat(x.ch))) ? x : null;
+    const mine = own(g.combat) || own(SC);
+    if (mine?.state === 'setup') c = mine;
+    else if (mine) { const p = PF[N.chSeat(mine.ch)]; c = p && p.id === mine.id && p.state === 'live' ? p : mine; }
+  } else if (PF[g.role]?.state === 'live') c = PF[g.role];
+  if (c !== g.combat) g.combat = normCombat(c);
+}
 function normMap(m){
   m.pins = (m.pins || []).map(p => {
     if (p.x != null && m.w) { p.rx = p.x / m.w; p.ry = p.y / m.h; }
@@ -373,7 +404,7 @@ async function start(role){
     'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; },
   };
   await new Promise(res => F.onSnapshot(F.collection(db, 'members'), snap => { applyMembers(snap.docs.map(d => ({uid:d.id, ...d.data()}))); changed(); res(); }, err => { fail(err); res(); }));
-  await Promise.all([...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs(), isGM() ? null : listenDoc('only/' + role, setMine, true)]);
+  await Promise.all([...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs(), isGM() ? null : listenDoc('only/' + role, setMine, true), ...(isGM() ? N.seats() : [role]).map(listenFight)]);
   ensureChars();
   for (const t of ['click','change','input','submit','keydown','pointerup']) document.addEventListener(t, queueSync);
   window.addEventListener('pagehide', syncNow);

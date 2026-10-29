@@ -131,7 +131,7 @@ function moveBtn(v){
 }
 function feedHtml(v){
   const g = G(), cb = g.combat, start = g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cb.id);
-  const ms = g.msgs.filter(m => m.ch === 'table' && (m.kind === 'sys' || m.kind === 'roll') && (!start || m.t >= start.t)).slice(-4);
+  const ms = g.msgs.filter(m => m.ch === N.fightCh() && (m.kind === 'sys' || m.kind === 'roll') && (!start || m.t >= start.t)).slice(-4);
   if (!ms.length) return '';
   return `<div class="feed" aria-label="Latest in the fight"><span class="eyebrow">Latest</span>${ms.map(m => m.kind === 'sys' ? `<p${m.res?' class="res"':''}>${IC(m.res?.k === 'clash' ? 'swords' : 'sparkle')}<span>${esc(m.text)}</span></p>`
     : `<p>${N.fateDie}<span><b>${esc(m.roll.who)}</b> · ${esc(m.roll.action)} with ${esc(m.roll.skill)}: <b>${sgn(N.rollTotal(m.roll))}</b> ${ladderWord(N.rollTotal(m.roll))}${m.roll.target?` ${m.roll.action==='Defend'?'against':'on'} ${esc(m.roll.target)}`:''}</span></p>`).join('')}</div>`;
@@ -227,8 +227,8 @@ N.fightView = function(v){
 /* ---------- GM setup panel ---------- */
 N.setupPanel = function(v){
   const g = G(), cb = g.combat, tray = cb.tokens.filter(t => !t.zone), placed = cb.tokens.filter(t => t.zone);
-  const pcs = N.pcs();
-  const sc = g.scenes.table;
+  const pcs = N.pcsIn(cb.ch);
+  const sc = g.scenes[N.fightCh()];
   const bgs = [...(sc && sc.art ? [{src:sc.art, label:sc.title, sub:'Current scene'}] : []), ...(cb.bg && cb.bg.startsWith('fs:') ? [{src:cb.bg, label:'Your picture', sub:'Uploaded'}] : []),
     {src:'img/bf-eastfork.jpg', label:'East Fork Road', sub:'Drinkhold map'}, ...N.ARTLIB.map(a => ({src:a.art, label:a.label, sub:'Picture'}))].filter((x,i,arr) => arr.findIndex(y => y.src === x.src) === i);
   const step = (n, done, title, body) => `<div class="step${done?' done':''}"><span class="n">${done?IC('check'):n}</span><b>${title}</b><div class="c">${body}</div></div>`;
@@ -266,7 +266,7 @@ function zoneForm(v, z){
 N.zoneForm = zoneForm;
 
 /* ---------- state changes ---------- */
-const sys = (text, ch) => N.sys(text, ch);
+const sys = text => N.sys(text, N.fightCh());
 /* NPC cards and the enemies built in the old "Add enemies" form, ready to drop into a fight */
 N.foeList = place => {
   const g = G(), row = (av, name, sub, a, id) => `<div class="zi" style="padding:5px 5px 5px 6px">${av}<span>${esc(name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span><button type="button" class="btn sm" data-a="${a}" data-v="${id}" data-side="foe"${place?' data-place="1"':''} style="--h:30px">${IC('plus')}Foe</button><button type="button" class="btn sm ghost" data-a="${a}" data-v="${id}" data-side="ally"${place?' data-place="1"':''} style="--h:30px">Ally</button></div>`;
@@ -274,10 +274,10 @@ N.foeList = place => {
     .concat(g.foes.map((f,i) => row(N.av({name:f.name,color:'var(--c-foe)'},30), f.name, `${f.type==='nameless'?'Nameless':'Supporting'} · built earlier`, 'cbAddFoe', i)));
   return list.length ? `<div class="zlist">${list.join('')}</div>` : '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No NPC cards yet.</p>';
 };
-N.cbBegin = function(){
+N.cbBegin = function(ch){
   const g = G(), cb = g.combat = N.freshCombat();
-  cb.state = 'setup'; cb.id = N.uid('f');
-  const built = N.pcs().filter(c => c.built);
+  cb.state = 'setup'; cb.id = N.uid('f'); cb.ch = ch && ch !== 'gm' ? ch : 'table';
+  const built = N.pcsIn(cb.ch).filter(c => c.built);
   cb.invited = built.map(c => c.id);
   built.forEach(c => cb.tokens.push(N.tokFromPc(c)));
 };
@@ -306,13 +306,13 @@ N.cbStart = function(){
   if (!cb.title.trim()) cb.title = 'A fight';
   cb.state = 'live'; cb.turn = 0; cb.exchange = 1; cb.joined = []; cb.acted = false; cb.moved = false;
   cb.tokens.forEach(N.rollInit);
-  N.push({ch:'table', kind:'combat', by:'gm', cid:cb.id, text:cb.title, bg:cb.bg});
+  N.push({ch:cb.ch, kind:'combat', by:'gm', cid:cb.id, text:cb.title, bg:cb.bg});
   const ord = N.order();
-  if (ord.length) N.push({ch:'table', kind:'sys', by:'gm', text:'Turn order by Notice roll: ' + ord.map((t,i) => `${i+1}. ${N.tokName(t)} ${sgn(t.init)}`).join(', ') + '.',
+  if (ord.length) N.push({ch:cb.ch, kind:'sys', by:'gm', text:'Turn order by Notice roll: ' + ord.map((t,i) => `${i+1}. ${N.tokName(t)} ${sgn(t.init)}`).join(', ') + '.',
     res:{k:'order', rows:ord.map(t => ({n:N.tokName(t), sk:N.tokNotice(t), d:t.initDice, tot:t.init}))}});
 };
 /* someone added once the fight is live rolls Notice right away */
-N.cbLateInit = t => { if (G().combat.state !== 'live' || t.init != null) return; N.rollInit(t); N.sys(`${N.tokName(t)} rolls Notice for their turn: ${sgn(t.init)} ${ladderWord(t.init)}.`); };
+N.cbLateInit = t => { if (G().combat.state !== 'live' || t.init != null) return; N.rollInit(t); sys(`${N.tokName(t)} rolls Notice for their turn: ${sgn(t.init)} ${ladderWord(t.init)}.`); };
 N.cbNext = function(){
   const cb = G().combat, n = N.order().length;
   cb.turn++; if (n && cb.turn % n === 0) { cb.exchange++; cb.turn = 0; }
@@ -360,7 +360,7 @@ N.cbResolve = function(again){
   else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ' and gets a boost' : ''}. No harm done.`; cb.pending = null; }
   const att = am ? rollLine(an, am.roll) : {n:an, sk:p.skill, b:0, g:0, tot:p.total}; att.tot = p.total;
   const title = `${an} attacks ${dn}${again ? ', after invokes' : ''}`;
-  N.push({ch:'table', kind:'sys', by:g.role, text:`${title}: ${sgn(p.total)} against ${sgn(dt)}. ${out.t}. ${after}`,
+  N.push({ch:N.fightCh(), kind:'sys', by:g.role, text:`${title}: ${sgn(p.total)} against ${sgn(dt)}. ${out.t}. ${after}`,
     res:{k:'clash', title, rows:[att, rollLine(dn, dm.roll)], out, after}});
 };
 /* an invoke on either roll while the defender is still soaking changes the result: post it again */

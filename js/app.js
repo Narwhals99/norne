@@ -10,6 +10,8 @@ N.now = () => { const ms = G().msgs; const last = ms.length ? ms[ms.length - 1].
 const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as:''}, o); G().msgs.push(m); return m; };
 /* a small grey line in the chat; players write their own (the rules only let them post as themselves) */
 const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, text});
+/* a line about the fight goes to the chat the fight lives in */
+const fsys = text => sys(text, N.fightCh());
 /* tell the players who can see something: in Everyone when it's for all, otherwise in each one's chat with the GM */
 const tell = (x, kind, text, only) => { const a = N.audOf(x, kind); if (a === 'gm') return; if (a === '*' && !only) { sys(text); return; } for (const s of only || a) if (G().P[s]) sys(text, 'dm-' + s); };
 
@@ -210,12 +212,12 @@ function doRoll(v){
   const skill = other ? 'Bonus' : r.skill, bonus = other ? clamp(+r.otherBonus || 0, -4, 10) : (who.skills[r.skill] || 0) + gear;
   const label = (N.ACTIONS.find(a => a[1] === r.action) || ['Roll'])[0];
   const name = other ? (r.otherName.trim() || 'Someone') : who.name;
-  /* an attack on someone in a live fight always goes to the table and asks them to defend, wherever it was rolled from */
+  /* an attack on someone in a live fight always goes to the fight's chat and asks them to defend, wherever it was rolled from */
   const fight = g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
   const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : r.opp, dice:N.rollDice(), invokes:[]};
   if (gear) roll.gear = gear;
   const secret = isGM(v) && !fight && (r.secret || v.ui.ch === 'gm');
-  const ch = secret ? 'gm' : fight ? 'table' : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
+  const ch = secret ? 'gm' : fight ? N.fightCh() : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
   const m = push({ch, kind:'roll', by:v.role, roll});
   if (isGM(v) && who.portrait) m.pt = who.portrait;
   v.ui.fresh = m.id; v.ui.sheet = null; v.ui.targeting = null; v.ui.stick = true;
@@ -236,7 +238,7 @@ function afterFightRoll(v, r, m){
   if (r.action === 'attack' && r.target) {
     const d = N.tokById(r.target);
     cb.pending = {att:a.id, def:r.target, total:tot, skill:m.roll.skill, msgId:m.id, stage:'defend'}; cb.acted = true;
-    sys(`${N.tokName(a)} attacks ${d ? N.tokName(d) : 'someone'} with ${m.roll.skill}: ${sgn(tot)} ${ladderWord(tot)}. ${d ? N.tokName(d) : 'They'} rolls to defend next.`);
+    fsys(`${N.tokName(a)} attacks ${d ? N.tokName(d) : 'someone'} with ${m.roll.skill}: ${sgn(tot)} ${ladderWord(tot)}. ${d ? N.tokName(d) : 'They'} rolls to defend next.`);
     return;
   }
   if (r.action === 'advantage') {
@@ -245,8 +247,8 @@ function afterFightRoll(v, r, m){
     if (sh >= 0) {
       const z = N.zoneOf(a), free = sh >= 3 ? 2 : 1;
       if (z && !z.aspect) { z.aspect = name; z.free = free; } else cb.aspects.push({t:name, free});
-      sys(`${N.tokName(a)} creates “${name}” with ${free} free invoke${free>1?'s':''}.`);
-    } else sys(`${N.tokName(a)} tries to create “${name}”, but it doesn’t come together.`);
+      fsys(`${N.tokName(a)} creates “${name}” with ${free} free invoke${free>1?'s':''}.`);
+    } else fsys(`${N.tokName(a)} tries to create “${name}”, but it doesn’t come together.`);
   }
   if (r.action === 'overcome') { const opp = r.opp ?? 2; m.roll.opp = opp; }
   cb.acted = true;
@@ -258,7 +260,7 @@ function cbDefend(v){
   const key = d.kind === 'pc' ? 'pc:' + d.ref : 'tok:' + d.id;
   const roll = {who:N.tokName(d), whoKey:key, skill, bonus:x + gear, action:'Defend', target:N.tokName(a), opp:p.total, dice:N.rollDice(), invokes:[]};
   if (gear) roll.gear = gear;
-  const m = push({ch:'table', kind:'roll', by:v.role, roll});
+  const m = push({ch:N.fightCh(), kind:'roll', by:v.role, roll});
   if (d.kind === 'npc' && d.portrait) m.pt = d.portrait;
   /* defending counts as joining the fight */
   if (!isGM(v) && N.isMine(d, v.role) && !cb.joined.includes(v.role)) cb.joined.push(v.role);
@@ -271,9 +273,9 @@ function cbAbsorb(v, k, i){
   const g = G(), cb = g.combat, p = cb.pending; if (!p) return;
   const t = N.tokById(p.def), c = t && g.chars[t.ref]; if (!c) return;
   const sh = `${p.shifts} shift${p.shifts>1?'s':''}`;
-  if (k === 'box') { c.stress.phys[i] = true; sys(`${c.short} soaks the ${sh} with their ${c.stressV.phys[i]}-stress box.`); }
-  else if (k === 'out') { t.out = true; sys(`${c.short} can’t soak the ${sh} and is taken out.`); }
-  else { c.cons[k] = 'Hurt in the fight'; const sl = N.consSlots(c.skills).find(x => x.k === k); sys(`${c.short} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
+  if (k === 'box') { c.stress.phys[i] = true; fsys(`${c.short} soaks the ${sh} with their ${c.stressV.phys[i]}-stress box.`); }
+  else if (k === 'out') { t.out = true; fsys(`${c.short} can’t soak the ${sh} and is taken out.`); }
+  else { c.cons[k] = 'Hurt in the fight'; const sl = N.consSlots(c.skills).find(x => x.k === k); fsys(`${c.short} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
   cb.pending = null; renderAll();
 }
 
@@ -757,11 +759,11 @@ function act(v, a, el, e){
   case 'sdApply': { const s = ui.sd; setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects}, s.post); ui.sheet = null; renderAll(); return; }
   case 'sdClear': { const ch = ui.sd.ch, m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true}); ui.sheet = null; toast(v, 'Scene cleared.', () => N.delMsg(m.id)); renderAll(); return; }
   /* fight */
-  case 'cbBegin': N.cbBegin(); close(); ui.tab = 'chat'; ui.ch = 'table'; ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
-  case 'openFight': close(); ui.tab = 'chat'; ui.ch = 'table'; ui.fightOpen = true; ui.fightPane = 'fight'; break;
+  case 'cbBegin': N.cbBegin(ui.ch); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
+  case 'openFight': close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; break;
   case 'closeFight': ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; break;
   case 'pane': ui.fightPane = val; ui.targeting = null; break;
-  case 'watch': ui.watching = true; ui.fightOpen = true; ui.fightPane = 'fight'; ui.tab = 'chat'; ui.ch = 'table'; close(); break;
+  case 'watch': ui.watching = true; ui.fightOpen = true; ui.fightPane = 'fight'; ui.tab = 'chat'; ui.ch = N.fightCh(); close(); break;
   case 'join': {
     const c = N.charOf(v.role); if (!c || cb.state !== 'live') break;
     if (!cb.joined.includes(v.role)) cb.joined.push(v.role);
@@ -770,8 +772,8 @@ function act(v, a, el, e){
     N.cbLateInit(t);
     if (!t.zone) t.zone = cb.zones[0]?.id;
     if (!cb.invited.includes(c.id)) cb.invited.push(c.id);
-    sys(`${c.short} joins the fight.`);
-    close(); ui.tab = 'chat'; ui.ch = 'table'; ui.fightOpen = true; ui.fightPane = 'fight'; renderAll(); return;
+    fsys(`${c.short} joins the fight.`);
+    close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; renderAll(); return;
   }
   case 'cbTool': ui.cbTool = val; ui.targeting = null; ui.placing = null; if (val !== 'zone') ui.zoneSel = null; break;
   case 'cbNext': N.cbNext(); ui.targeting = null; renderAll(); return;
@@ -785,12 +787,12 @@ function act(v, a, el, e){
     break;
   }
   case 'cbDefend': cbDefend(v); return;
-  case 'cbDrop': if (cb.pending) { const t = N.tokById(cb.pending.def); cb.pending = null; sys(`${N.gmName()} settles the hit on ${t ? N.tokName(t) : 'them'} by hand.`); } renderAll(); return;
+  case 'cbDrop': if (cb.pending) { const t = N.tokById(cb.pending.def); cb.pending = null; fsys(`${N.gmName()} settles the hit on ${t ? N.tokName(t) : 'them'} by hand.`); } renderAll(); return;
   case 'cbAbsorb': cbAbsorb(v, d.k, +d.i); return;
   case 'tokClose': ui.tokSel = null; break;
   case 'tokStress': { const t = N.tokById(d.t), s = N.tokStress(t); s.s[+d.i] = !s.s[+d.i]; renderAll(); return; }
   case 'tokTurn': { const o = N.order(), i = o.findIndex(t => t.id === d.t); if (i >= 0) { cb.turn = i; cb.acted = false; cb.moved = false; cb.pending = null; } ui.tokSel = null; ui.sheet = null; renderAll(); return; }
-  case 'tokOut': { const t = N.tokById(d.t); t.out = !t.out; if (t.out && cb.state === 'live') sys(`${N.tokName(t)} is taken out.`); ui.sheet = null; renderAll(); return; }
+  case 'tokOut': { const t = N.tokById(d.t); t.out = !t.out; if (t.out && cb.state === 'live') fsys(`${N.tokName(t)} is taken out.`); ui.sheet = null; renderAll(); return; }
   case 'tokRemove': { const i = cb.tokens.findIndex(t => t.id === d.t), t = cb.tokens[i]; cb.tokens.splice(i, 1); ui.tokSel = null; ui.sheet = null; toast(v, `${N.tokName(t)} removed from the fight.`, () => cb.tokens.splice(i, 0, t)); renderAll(); return; }
   case 'cbBg': cb.bg = val; renderAll(); return;
   case 'cbBgUpload': uploadPicture(v, src => { cb.bg = src; }); return;
@@ -801,7 +803,7 @@ function act(v, a, el, e){
   case 'cbInvite': { const i = cb.invited.indexOf(val); if (i >= 0) { cb.invited.splice(i, 1); cb.tokens = cb.tokens.filter(t => !(t.kind === 'pc' && t.ref === val)); } else { cb.invited.push(val); cb.tokens.push(N.tokFromPc(g.chars[val])); } renderAll(); return; }
   case 'cbAddNpc': { const t = N.cbAddNpc(val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
   case 'cbAddFoe': { const t = N.cbAddFoe(+val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
-  case 'cbStart': N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, 'The fight is on. Invited players got a Join button.'); renderAll(); return;
+  case 'cbStart': if (N.fightBlocked && N.fightBlocked(cb.ch)) { toast(v, 'To run a fight in a private chat, publish the new security rules first: paste firestore.rules into Firebase > Firestore > Rules, press Publish, then reload.'); break; } N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, 'The fight is on. Invited players got a Join button.'); renderAll(); return;
   case 'cbCancelSetup': g.combat = N.freshCombat(); ui.fightPane = 'chat'; ui.fightOpen = true; ui.zoneSel = null; toast(v, 'Fight setup thrown away.'); renderAll(); return;
   case 'cbEndGo': N.cbEnd(); ui.sheet = null; ui.tokSel = null; ui.targeting = null; ui.watching = false; renderAll(); return;
   case 'cbAspAdd': { const t = (ui.cbAsp || '').trim(); if (t) { cb.aspects.push({t, free:+ui.cbAspFree || 0}); ui.cbAsp = ''; ui.sheet = null; renderAll(); return; } break; }
