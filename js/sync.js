@@ -165,8 +165,8 @@ function syncNow(){
   if (isGM()) {
     writeUnits('game/chars', g.chars);
     const setup = g.combat.state === 'setup';
-    writeUnits('gm/combat', {c:setup ? g.combat : null});
-    writeUnits('game/combat', {c:setup ? N.freshCombat() : g.combat});
+    writeUnits('gm/combat', {c:setup ? combatOut(g.combat) : null});
+    writeUnits('game/combat', {c:combatOut(setup ? N.freshCombat() : g.combat)});
     if (LOADED.has('gm/maps')) {
       for (const m of g.maps) { if (!m.src?.startsWith('fs:')) continue; const id = m.src.slice(3), v = m.vis !== false; if (MVIS.get(id) !== v) { MVIS.set(id, v); track(F.setDoc(dref('mapimgs/' + id), {vis:v}, {merge:true})); } }
       writeUnits('gm/maps', asUnits(g.maps, (m,i) => ({...m, pins:m.pins.map(p => pinOut(m, p)), o:i})));
@@ -182,7 +182,7 @@ function syncNow(){
   } else {
     const mine = g.P[g.role]?.char;
     if (mine && g.chars[mine]) writeUnits('game/chars', {[mine]:g.chars[mine]}, true);
-    if (g.combat.state === 'live') writeUnits('game/combat', {c:g.combat});
+    if (g.combat.state === 'live') writeUnits('game/combat', {c:combatOut(g.combat)});
   }
   syncMsgs();
 }
@@ -193,19 +193,24 @@ N.syncNow = syncNow;
 /* ---------- applying what arrives ---------- */
 let GC = null, SC = null;
 const OLDBG = {forest:'dark-forest', tavern:'town-alley', street:'town-alley', cave:'cave-temple-deep', castle:'castle-ramparts', swamp:'dark-forest', snow:'mountain-pass-raid', ship:'harbor-ship'};
+/* Fights are also written in the old app's shape (bg key, scene, zone color), so rolling the site back keeps them working. */
+const oldBg = src => ({'dark-forest':'forest', 'town-alley':'tavern', 'cave-temple-deep':'cave', 'castle-ramparts':'castle', 'mountain-pass-raid':'snow', 'harbor-ship':'ship'})[(String(src).match(/^art\/bg\/([\w-]+)\.jpg$/) || [])[1]] || 'forest';
+const combatOut = c => ({...c, art:c.bg, bg:oldBg(c.bg), scene:c.aspects, zones:c.zones.map(z => ({...z, color:z.col})), tokens:c.tokens.map(t => t.kind === 'npc' && t.label == null ? {...t, label:''} : t)});
 function normCombat(c){
   if (!c) return N.freshCombat();
   const f = N.freshCombat(), legacy = !c.joined;
   c = Object.assign(f, c);
+  if (c.art && oldBg(c.art) === c.bg) c.bg = c.art;
+  delete c.art;
   /* the old app had no invite or join step: anyone with a token was already in */
   if (legacy) { const pcs = c.tokens.filter(t => t.kind === 'pc'); c.invited = pcs.map(t => t.ref); c.joined = pcs.map(t => G().chars[t.ref]?.player || t.ref.replace(/^pc/, 'p')); }
-  if (Array.isArray(c.scene) && !c.aspects.length) c.aspects = c.scene;
+  if (Array.isArray(c.scene)) c.aspects = c.scene;
   delete c.scene;
   /* the old app named painted backdrops (forest, tavern…); map them onto the art library */
   if (!/^(fs:|art\/|img\/|data:|https?:)/.test(c.bg || '')) c.bg = OLDBG[c.bg] ? `art/bg/${OLDBG[c.bg]}.jpg` : N.FIGHTBG;
   const n = c.zones.length, cols = Math.min(3, Math.max(1, n)), rows = Math.ceil(n / cols) || 1;
   c.zones.forEach((z, i) => {
-    if (z.col == null) z.col = z.color || N.ZCOL[i % N.ZCOL.length];
+    z.col = z.color || z.col || N.ZCOL[i % N.ZCOL.length]; delete z.color;
     if (z.x == null) { const r = Math.floor(i / cols), k = i % cols; Object.assign(z, {x:3 + k * (94 / cols), y:8 + r * (86 / rows), w:94 / cols - 3, h:86 / rows - 6}); }
     if (z.aspect == null) z.aspect = '';
   });
@@ -216,7 +221,7 @@ function normCombat(c){
 function setCombat(){ G().combat = normCombat(isGM() && SC?.state === 'setup' ? SC : GC); }
 function normMap(m){
   m.pins = (m.pins || []).map(p => {
-    if (p.rx == null && p.x != null && m.w) { p.rx = p.x / m.w; p.ry = p.y / m.h; }
+    if (p.x != null && m.w) { p.rx = p.x / m.w; p.ry = p.y / m.h; }
     if (p.type === 'party') p.vis = true;
     if (!N.PINT[p.type]) p.type = 'note';
     return p;
