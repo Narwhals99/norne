@@ -1167,3 +1167,90 @@
 .app .fightbar.owed .btn{flex:none}
 @keyframes owed{50%{box-shadow:inset 0 0 0 1.5px var(--ember),0 0 22px -4px color-mix(in srgb,var(--ember) 60%,transparent)}}
 @media (prefers-reduced-motion:reduce){.app .fightbar.owed{animation:none}}
+
+/* =====================================================================
+   chat shelf: the Discord-style list of chats on the left of the chat
+   ===================================================================== */
+.app .shelf{display:grid;grid-template-rows:auto 1fr auto;min-height:0;gap:6px}
+.app .shh{display:flex;align-items:center;gap:9px;padding:6px 8px 6px 10px}
+.app .shh .st{width:14px;height:14px;color:var(--gold);flex:none;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--gold) 55%,transparent))}
+.app .shh h2{flex:1;margin:0;font:600 13px/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
+.app .shl{display:grid;gap:14px;align-content:start;min-height:0;padding:2px 0 8px}
+.app .shg{display:grid;gap:2px}
+.app .shg h3{margin:0;padding:0 10px 4px;font:800 10.5px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4)}
+.app .shr{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:7px 10px 7px 8px;border-radius:14px;text-align:left;color:var(--ink-3);transition:background .15s,color .15s}
+.app .shr .av{--s:34px;box-shadow:none;font-size:14px;flex:none}
+.app .shr .cic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);color:var(--ink-3);flex:none}
+.app .shr .cic svg{width:17px;height:17px}
+.app .shr .t{flex:1;min-width:0;display:grid;gap:3px}
+.app .shr b{font:700 14px/1.15 var(--f-ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .shr small{font:500 12px/1.2 var(--f-ui);color:var(--ink-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .shr .badge{box-shadow:none;height:19px;min-width:19px;font-size:10.5px;flex:none}
+.app .shr .tag{flex:none;padding:0 5px}
+.app .shr:hover{background:var(--accent-soft);color:var(--ink)}
+.app .shr.new{color:var(--ink)}
+.app .shr.new b{font-weight:900}
+.app .shr.new small{color:var(--ink-3)}
+.app .shr.new::before{content:"";position:absolute;left:-6px;top:50%;width:4px;height:8px;margin-top:-4px;border-radius:0 4px 4px 0;background:var(--ink)}
+.app .shr[aria-current="true"]{color:var(--ink);background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 32%,transparent),color-mix(in srgb,var(--accent) 8%,transparent));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent),0 0 24px -10px var(--accent-glow)}
+.app .shr[aria-current="true"] .cic{color:var(--gold)}
+.app .shr[aria-current="true"]::before{content:"";position:absolute;left:-6px;top:50%;width:4px;height:28px;margin-top:-14px;border-radius:0 4px 4px 0;background:var(--gold);box-shadow:0 0 10px var(--gold)}
+.app .shr[aria-current="true"] small{color:var(--ink-3)}
+.app .shelf .who{display:flex;align-items:center;gap:10px;padding:8px;border-radius:18px;background:color-mix(in srgb,var(--raise) 70%,transparent);box-shadow:inset 0 0 0 1px var(--line);text-align:left;width:100%}
+.app .shelf .who .av{--s:38px}
+.app .shelf .who b{display:block;font:700 14px/1.15 var(--f-ui)}
+.app .shelf .who small{font:600 11.5px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .shelf .who .end{margin-left:auto;color:var(--ink-3)}
+.app .shelf .who .end svg{width:18px;height:18px}
+
+/* phone: the chat's name in the top bar opens the drawer */
+.app .chname{flex:1;min-width:0;display:flex;align-items:center;gap:9px;padding:4px 6px;border-radius:14px;text-align:left;color:var(--ink)}
+.app .chname .av{--s:30px;box-shadow:none;font-size:12px;flex:none}
+.app .chname .cic{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);color:var(--gold);flex:none}
+.app .chname .cic svg{width:16px;height:16px}
+.app .chname>span:not(.av):not(.cic){min-width:0;display:grid;gap:2px}
+.app .chname b{font:600 17px/1.1 var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .chname small{font:600 11px/1.2 var(--f-ui);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .chname>svg{width:12px;height:12px;color:var(--ink-3);flex:none}
+.app .chname-row{display:flex;padding:0 10px 6px}
+.app .chname-row .chname{flex:none;max-width:100%;height:36px;padding:0 12px 0 4px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .chname-row .chname .av,.app .chname-row .chname .cic{--s:28px;width:28px;height:28px}
+.app .chname-row .chname b{font:700 13px/1 var(--f-ui)}
+.app .shelfb .dot{top:5px;right:5px}
+
+.app .shelf.drawer{position:absolute;z-index:41;left:0;top:0;bottom:0;width:min(320px,86%);padding:calc(12px + var(--safe-t,0px)) 12px calc(12px + var(--safe-b,0px)) 14px;
+  background:var(--page-solid);box-shadow:1px 0 0 var(--line-2),30px 0 60px -20px rgba(0,0,0,.8);border-radius:0 24px 24px 0;animation:shelfin .24s cubic-bezier(.2,.8,.2,1) both}
+.app .shelf.drawer .shr{min-height:58px}
+.app .shelf.drawer .shh h2{font-size:14px}
+@keyframes shelfin{from{transform:translateX(-100%)}}
+
+/* desktop: slim icon rail + chat list, the chat takes the rest */
+@container dev (min-width: 760px){
+  .app .shell.shelved{grid-template-columns:auto auto 1fr}
+  .app .shelved .nav{width:76px;padding:18px 10px 12px;justify-items:center}
+  .app .shelved .nav .mark{padding:4px 0 8px}
+  .app .shelved .nav .mark b{display:none}
+  .app .shelved .nav .navl{gap:6px;justify-items:center}
+  .app .shelved .nav .ni{width:52px;height:48px;padding:0;justify-content:center;border-radius:16px}
+  .app .shelved .nav .ni>svg{width:23px;height:23px}
+  .app .shelved .nav .ni>span:not(.end){display:none}
+  .app .shelved .nav .ni .end{position:absolute;top:3px;right:2px;margin:0}
+  .app .shelved .nav .ni .end .tag{width:18px;height:18px;padding:0;justify-content:center;font-size:0;letter-spacing:0;background:var(--ember);color:#fff;box-shadow:0 0 0 2px var(--page-solid)}
+  .app .shelved .nav .ni .end .badge{height:17px;min-width:17px;font-size:10px;padding:0 4px}
+  .app .shelved .nav .ni .end .dot{position:static;display:block}
+  .app .shelved .nav .art{display:none}
+  .app .shelved .nav .who{width:auto;padding:4px;border-radius:50%;background:none;box-shadow:none}
+  .app .shelved .nav .who>span:not(.av){display:none}
+  .app .shelf:not(.drawer){width:256px;padding:18px 8px 12px 6px}
+  .app .page.with-rail{grid-template-columns:minmax(0,1fr) 330px}
+  .app .top.dt .ibtn[aria-pressed="true"]{color:var(--gold);background:var(--accent-soft)}
+}
+@container dev (min-width: 760px){
+  .app .shelf.mini{width:72px;padding:18px 6px 12px 4px}
+  .app .shelf.mini .shh{justify-content:center;padding:10px 0 6px}
+  .app .shelf.mini .shh h2,.app .shelf.mini .shr .t,.app .shelf.mini .shr .tag{display:none}
+  .app .shelf.mini .shl{gap:8px;justify-items:center}
+  .app .shelf.mini .shg h3{font-size:0;padding:0;height:1px;margin:0 10px 6px;background:var(--line)}
+  .app .shelf.mini .shr{width:52px;min-height:48px;padding:0;justify-content:center}
+  .app .shelf.mini .shr .badge{position:absolute;top:1px;right:0;height:17px;min-width:17px;font-size:10px;padding:0 4px;box-shadow:0 0 0 2px var(--page-solid)}
+}

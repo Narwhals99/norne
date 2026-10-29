@@ -22,6 +22,7 @@ const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:n
 /* ---------------- mount + render ---------------- */
 N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', ui:newUi(o.role)};
+  try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
   views.push(v); bind(v); render(v);
   return v;
 };
@@ -100,12 +101,27 @@ function bind(v){
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft') { e.preventDefault(); send(v); }
-    if (e.key === 'Escape') { if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
+    if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
   root.addEventListener('pointerdown', e => down(v, e));
   /* iPhone Safari zooms the whole page on a pinch unless its own gesture events are stopped over the map */
   root.addEventListener('gesturestart', e => { if (e.target.closest('[data-mapcv]')) e.preventDefault(); });
   root.addEventListener('wheel', e => { const cv = e.target.closest('[data-mapcv]'); if (cv) { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(v, Math.exp(-clamp(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY, -120, 120) * (e.ctrlKey ? .01 : .0018)), e.clientX - r.left, e.clientY - r.top); } }, {passive:false});
+  /* phones: swipe in from the left edge for the chat list, swipe it back to close */
+  let sw = null;
+  root.addEventListener('touchstart', e => {
+    sw = null;
+    const ui = v.ui, t = e.touches[0];
+    if (v.dev !== 'phone' || ui.tab !== 'chat' || ui.sheet || e.touches.length > 1) return;
+    if (ui.shelf ? e.target.closest('.shelf,.shelf-scrim') : t.clientX < 24 && !(N.fightAvail(v) && ui.fightPane === 'fight')) sw = {x:t.clientX, y:t.clientY};
+  }, {passive:true});
+  root.addEventListener('touchend', e => {
+    if (!sw) return;
+    const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y; sw = null;
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+    if (!v.ui.shelf && dx > 0) { v.ui.shelf = true; render(v); }
+    else if (v.ui.shelf && dx < 0) { v.ui.shelf = false; render(v); }
+  }, {passive:true});
 }
 
 /* ---------------- inputs ---------------- */
@@ -493,6 +509,8 @@ function uploadPicture(v, cb){ N.pickImage(img => { cb(N.storeImg(N.shrink(img, 
 function act(v, a, el, e){
   const g = G(), ui = v.ui, d = el.dataset, val = d.v, cb = g.combat, gm = isGM(v);
   const close = () => { ui.sheet = null; ui.pop = null; };
+  /* anything tapped in the phone's chat drawer closes it */
+  if (ui.shelf && a !== 'shelf') ui.shelf = false;
   switch (a) {
   /* account */
   case 'signIn': N.signIn(); return;
@@ -500,6 +518,8 @@ function act(v, a, el, e){
   /* navigation */
   case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') ui.charSel = null; if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.herald = false; } break;
   case 'ch': close(); ui.tab = 'chat'; ui.ch = val; ui.stick = true; if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
+  case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
+  case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; openSheet(v, val, d); break;
   case 'closeSheet': ui.sheet = null; break;
   case 'closePop': ui.pop = null; break;
