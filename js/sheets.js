@@ -107,7 +107,7 @@ N.sheetHtml = function(v){
         ${gm ? `<button type="button" data-a="sheet" data-v="players">${IC('userplus')}<span>Players and sign-ins<small>Let people in, rename or remove them</small></span><span class="end">${pending?`<span class="badge">${pending}</span>`:IC('right')}</span></button>
         <button type="button" data-a="sheet" data-v="import">${IC('upload')}<span>Import lore<small>Load the wiki and maps from your lore file</small></span><span class="end">${IC('right')}</span></button>
         <button type="button" data-a="sheet" data-v="export">${IC('export')}<span>Export the log<small>Copy or save chats as text</small></span><span class="end">${IC('right')}</span></button>`
-        : `<button type="button" data-a="tab" data-v="hero">${IC('hero')}<span>My character<small>${c && c.built?esc(c.hc):'Not made yet'}</small></span><span class="end">${IC('right')}</span></button>`}
+        : `<button type="button" data-a="tab" data-v="hero">${IC('hero')}<span>My character<small>${c && c.built?esc(N.pcTag(c)):'Not made yet'}</small></span><span class="end">${IC('right')}</span></button>`}
         <button type="button" data-a="sheet" data-v="credits">${IC('heart')}<span>Art credits<small>Free art used in this app</small></span><span class="end">${IC('right')}</span></button>
         <button type="button" data-a="signOut">${IC('signout')}<span>Sign out</span></button>
       </div>`;
@@ -157,7 +157,7 @@ N.sheetHtml = function(v){
       <div class="seg"><button type="button" data-a="cbAspFree" data-v="0" aria-pressed="${!v.ui.cbAspFree}">No free invoke</button><button type="button" data-a="cbAspFree" data-v="1" aria-pressed="${v.ui.cbAspFree==1}">1 free</button><button type="button" data-a="cbAspFree" data-v="2" aria-pressed="${v.ui.cbAspFree==2}">2 free</button></div>`,
       `<button type="button" class="btn primary" data-a="cbAspAdd">${IC('plus')}Add aspect</button>`);
   /* ---------------- character editor (GM) ---------------- */
-  case 'pcEdit': return sheet(v.ui.pd.isNew ? `Make ${esc(pName(v.ui.pd.player))}’s card` : `Edit ${esc(v.ui.pd.short)}’s card`, pcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="pcSave" ${v.ui.pd.name.trim()&&v.ui.pd.hc.trim()?'':'disabled'}>${IC('check')}${v.ui.pd.isNew?'Save and send to '+esc(pName(v.ui.pd.player)):'Save card'}</button>`, {wide:true});
+  case 'pcEdit': return sheet(v.ui.pd.isNew ? `Make ${esc(pName(v.ui.pd.player))}’s card` : `Edit ${esc(v.ui.pd.short)}’s card`, pcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="pcSave" ${v.ui.pd.name.trim()?'':'disabled'}>${IC('check')}${v.ui.pd.isNew?'Save and send to '+esc(pName(v.ui.pd.player)):'Save card'}</button>`, {wide:true});
   case 'npcNew': return sheet(v.ui.nd.edit ? `Edit ${esc(v.ui.nd.name || 'NPC')}` : 'New NPC', npcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="npcSave" ${v.ui.nd.name.trim()?'':'disabled'}>${IC('check')}Save NPC</button>`, {wide:true});
   case 'wEdit': {
     const d = v.ui.wd;
@@ -182,9 +182,17 @@ function portraitPick(sel, act, up){
 /* a skill ladder editor: rungs from top to bottom, each with a cap (or none) */
 function skillLadder(v, d, sel, del, rungs){
   const used = Object.keys(d.skills);
-  const free = N.MUNDANE.filter(k => !used.includes(k));
+  const free = N.MUNDANE.filter(k => !used.includes(k)), freeM = N.MAGIC.filter(k => !used.includes(k));
+  const opts = free.map(k => `<option>${k}</option>`).join('') + (freeM.length ? `<optgroup label="Magic">${freeM.map(k => `<option value="${k}">${k}${k==='Enchantment Magic'?' (elves only)':''}</option>`).join('')}</optgroup>` : '');
   const mv = del.replace('Del', 'Mv'), top = rungs[0][0], low = rungs[rungs.length-1][0];
-  return `<div class="lad">${rungs.map(([x,w,n]) => { const here = used.filter(k => d.skills[k] === x); return `<div class="rung"><span class="lv"><b>${sgn(x)}</b>${w}${n?` · ${here.length}/${n}`:''}</span><span class="sks">${here.map(k => `<span class="skc"><b>${esc(k)}</b><button type="button" data-a="${mv}" data-v="${esc(k)}" data-d="-1" aria-label="Lower ${esc(k)}" title="Lower" ${x<=low?'disabled':''}>${IC('minus')}</button><button type="button" data-a="${mv}" data-v="${esc(k)}" data-d="1" aria-label="Raise ${esc(k)}" title="Raise" ${x>=top?'disabled':''}>${IC('plus')}</button><button type="button" data-a="${del}" data-v="${esc(k)}" aria-label="Remove ${esc(k)}" title="Remove">${IC('x')}</button></span>`).join('')}${!n || here.length < n ? `<select class="inp" data-i="${sel}" data-x="${x}" id="${sel}${x}-${v.id}" style="width:auto;min-height:34px;padding:4px 10px;border-radius:999px;font-size:14px"><option value="">+ Add</option>${free.map(k => `<option>${k}</option>`).join('')}</select>` : ''}</span></div>`; }).join('')}</div>`;
+  return `<div class="lad">${rungs.map(([x,w,n]) => { const here = used.filter(k => d.skills[k] === x); return `<div class="rung"><span class="lv"><b>${sgn(x)}</b>${w}${n?` · ${here.length}/${n}`:''}</span><span class="sks">${here.map(k => `<span class="skc"><b>${esc(k)}</b><button type="button" data-a="${mv}" data-v="${esc(k)}" data-d="-1" aria-label="Lower ${esc(k)}" title="Lower" ${x<=low?'disabled':''}>${IC('minus')}</button><button type="button" data-a="${mv}" data-v="${esc(k)}" data-d="1" aria-label="Raise ${esc(k)}" title="Raise" ${x>=top?'disabled':''}>${IC('plus')}</button><button type="button" data-a="${del}" data-v="${esc(k)}" aria-label="Remove ${esc(k)}" title="Remove">${IC('x')}</button></span>`).join('')}${!n || here.length < n ? `<select class="inp" data-i="${sel}" data-x="${x}" id="${sel}${x}-${v.id}" style="width:auto;min-height:34px;padding:4px 10px;border-radius:999px;font-size:14px"><option value="">+ Add</option>${opts}</select>` : ''}</span></div>`; }).join('')}</div>`;
+}
+/* disciplines for the skills that need one: a magic takes exactly one, the others can take several */
+function discPick(d, act){
+  const ks = Object.keys(d.skills).filter(k => (N.DISC[k] || []).length).sort((a,b) => d.skills[b] - d.skills[a]);
+  if (!ks.length) return '';
+  return `<div style="display:grid;gap:10px;margin-top:12px">${ks.map(k => { const mag = N.MAGIC.includes(k), have = N.discOf(d, k);
+    return `<div class="field"><span>${esc(k)} · ${mag ? 'pick its one discipline' : 'disciplines'}${have.length ? '' : ' <b style="color:var(--ember)">· none picked</b>'}</span><div class="dchips">${N.DISC[k].map(x => `<button type="button" class="cchip" data-a="${act}" data-s="${esc(k)}" data-v="${esc(x)}" aria-current="${have.includes(x)}" style="padding:0 12px">${esc(x)}</button>`).join('')}</div></div>`; }).join('')}</div>`;
 }
 const stunts = (v, d, pre) => `<div style="display:grid;gap:8px">${d.stunts.map(([n,t],i) => `<div style="display:grid;gap:6px;padding:10px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)"><div style="display:flex;gap:6px"><input class="inp" id="${pre}sn${i}-${v.id}" data-i="${pre}" data-k="stn" data-n="${i}" value="${esc(n)}" placeholder="Stunt name"><button type="button" class="ibtn sm" data-a="${pre}StuntDel" data-i="${i}" aria-label="Remove stunt">${IC('trash')}</button></div><textarea class="inp" id="${pre}sd${i}-${v.id}" data-i="${pre}" data-k="std" data-n="${i}" rows="2" placeholder="What it does" style="min-height:60px">${esc(t)}</textarea></div>`).join('')}
   <button type="button" class="btn sm ghost" data-a="${pre}StuntAdd" style="justify-self:start">${IC('plus')}Add a stunt</button></div>`;
@@ -198,18 +206,19 @@ function pcEditor(v){
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label class="field"><span>Character name</span><input class="inp" id="pdn-${v.id}" data-i="pd" data-k="name" value="${esc(d.name)}" placeholder="Full name"></label>
       <label class="field"><span>Short name (chat and tokens)</span><input class="inp" id="pds-${v.id}" data-i="pd" data-k="short" value="${esc(d.short)}" placeholder="What the table calls them"></label>
+      <label class="field"><span>Age</span><input class="inp" id="pdg-${v.id}" data-i="pd" data-k="age" value="${esc(d.age||'')}" placeholder="Optional"></label>
     </div>
     <div><h4>Aspects</h4><div style="display:grid;gap:8px">
-      <label class="field"><span>High concept</span><input class="inp" id="pdh-${v.id}" data-i="pd" data-k="hc" value="${esc(d.hc)}" placeholder="Who they are, in a few words"></label>
-      <label class="field"><span>Trouble</span><input class="inp" id="pdt-${v.id}" data-i="pd" data-k="trouble" value="${esc(d.trouble)}" placeholder="What keeps going wrong for them"></label>
       ${d.aspects.map((a,i) => `<label class="field"><span>Aspect ${i+1}</span><input class="inp" id="pda${i}-${v.id}" data-i="pd" data-k="asp" data-n="${i}" value="${esc(a||'')}" placeholder="Optional"></label>`).join('')}
-      <button type="button" class="btn sm ghost" data-a="pdAspAdd" style="justify-self:start">${IC('plus')}Another aspect</button>
     </div></div>
     <div><h4>Skills · one Great, two Good, three Fair, four Average</h4>${skillLadder(v, d, 'pdSkill', 'pdSkillDel', PC_RUNGS)}
-      ${extra.length ? `<p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">Also: ${extra.map(([k,x]) => `<button type="button" class="btn sm ghost" data-a="pdSkillDel" data-v="${esc(k)}" style="--h:28px">${esc(k)} ${sgn(x)} ${IC('x')}</button>`).join(' ')}</p>` : ''}</div>
+      ${extra.length ? `<p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">Also: ${extra.map(([k,x]) => `<button type="button" class="btn sm ghost" data-a="pdSkillDel" data-v="${esc(k)}" style="--h:28px">${esc(k)} ${sgn(x)} ${IC('x')}</button>`).join(' ')}</p>` : ''}
+      ${discPick(d, 'pdDisc')}</div>
     <div><h4>Stunts</h4>${stunts(v, d, 'pd')}</div>
     ${steppers(d, 'pd')}
-    <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Stress boxes come from Strength and Will automatically.</p>`;
+    <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Stress boxes and extra consequence slots come from Strength and Will automatically.</p>
+    <label class="field"><span>Important people</span><textarea class="inp" id="pdp-${v.id}" data-i="pd" data-k="people" rows="3" placeholder="Family, friends, rivals, debts… one per line">${esc(d.people||'')}</textarea></label>
+    <label class="field"><span>Inventory notes</span><textarea class="inp" id="pdv-${v.id}" data-i="pd" data-k="invText" rows="3" placeholder="What they carry. Items you hand out go in the Inventory menu.">${esc(d.invText||'')}</textarea></label>`;
 }
 function npcEditor(v){
   const d = v.ui.nd;
@@ -218,6 +227,7 @@ function npcEditor(v){
       <label class="field"><span>Name</span><input class="inp" id="ndn-${v.id}" data-i="nd" data-k="name" value="${esc(d.name)}" placeholder="Name or role"></label>
       <label class="field"><span>Race</span><input class="inp" id="ndr-${v.id}" data-i="nd" data-k="race" value="${esc(d.race)}" placeholder="Optional"></label>
       <label class="field"><span>Job or faction</span><input class="inp" id="ndj-${v.id}" data-i="nd" data-k="job" value="${esc(d.job)}" placeholder="Optional"></label>
+      <label class="field"><span>Age</span><input class="inp" id="ndg-${v.id}" data-i="nd" data-k="age" value="${esc(d.age||'')}" placeholder="Optional"></label>
     </div>
     <div><h4>Kind</h4><div class="seg"><button type="button" data-a="ndType" data-v="supporting" aria-pressed="${d.type!=='nameless'}">Supporting</button><button type="button" data-a="ndType" data-v="nameless" aria-pressed="${d.type==='nameless'}">Nameless (one hit)</button></div></div>
     <div><h4>Aspects</h4><div style="display:grid;gap:8px">
@@ -226,8 +236,8 @@ function npcEditor(v){
       ${d.aspects.map((a,i) => `<div style="display:flex;gap:6px"><input class="inp" id="nda${i}-${v.id}" data-i="nd" data-k="asp" data-n="${i}" value="${esc(a)}" aria-label="Aspect"><button type="button" class="ibtn sm" data-a="ndAspDel" data-i="${i}" aria-label="Remove aspect">${IC('trash')}</button></div>`).join('')}
       <button type="button" class="btn sm ghost" data-a="ndAspAdd" style="justify-self:start">${IC('plus')}Add an aspect</button>
     </div></div>
-    <div><h4>Skills</h4>${skillLadder(v, d, 'ndSkill', 'ndSkillDel', NPC_RUNGS)}</div>
-    <label class="field"><span>Magic and disciplines</span><textarea class="inp" id="ndm-${v.id}" data-i="nd" data-k="magic" rows="2" placeholder="Discipline, magical skills, anything else they can do">${esc(d.magic||'')}</textarea></label>
+    <div><h4>Skills</h4>${skillLadder(v, d, 'ndSkill', 'ndSkillDel', NPC_RUNGS)}${discPick(d, 'ndDisc')}</div>
+    <label class="field"><span>Other magic notes</span><textarea class="inp" id="ndm-${v.id}" data-i="nd" data-k="magic" rows="2" placeholder="Anything else they can do">${esc(d.magic||'')}</textarea></label>
     <div><h4>Stunts</h4>${stunts(v, d, 'nd')}</div>
     ${steppers(d, 'nd')}
     <label class="field"><span>Bio</span><textarea class="inp" id="ndb-${v.id}" data-i="nd" data-k="bio" rows="3" placeholder="Who they are, what they look like, how they talk…">${esc(d.bio||'')}</textarea></label>
