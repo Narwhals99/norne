@@ -337,7 +337,6 @@ function mapPage(v){
       <span></span>
       ${gm && v.ui.mapEdit ? `<div class="mapedit glass"><button type="button" class="btn ${v.ui.addPin?'primary':'ghost'}" data-a="addPin">${IC('pinL')}${v.ui.addPin?'Tap the map…':'Add pin'}</button><button type="button" class="btn ghost" data-a="sheet" data-v="mapSet" data-c="${esc(m.id)}">${IC(N.audOf(m,'map')==='gm'?'eyeoff':'eye')}<span class="only-dt">${esc(N.audOf(m,'map')==='gm'?'Hidden':N.audLabel(m,'map'))}</span><span class="only-ph">Who sees it</span></button><button type="button" class="btn ghost" data-a="sheet" data-v="mapDel" data-c="${esc(m.id)}" aria-label="Delete this map">${IC('trash')}<span class="only-dt">Delete map</span></button><button type="button" class="btn ghost" data-a="mapUpload">${IC('upload')}<span class="only-dt">Upload map</span></button></div>` : '<span></span>'}
     </div>
-    <div class="zoomc glass"><button type="button" data-a="zoom" data-v="1.4" aria-label="Zoom in">${IC('plus')}</button><button type="button" data-a="zoom" data-v="0.7" aria-label="Zoom out">${IC('minus')}</button><button type="button" data-a="zoom" data-v="fit" aria-label="Show the whole map">${IC('fit')}</button></div>
     ${pin || (v.ui.pinSel === '__party' && party) ? pinCard(v, m, pin) : ''}
   </div>`;
 }
