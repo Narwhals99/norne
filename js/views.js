@@ -1,0 +1,509 @@
+/* Norne: every screen, rendered for the viewer (GM or player, phone or desktop). */
+(function(){
+const N = window.N, {esc, fmt, IC, STAR, MARK, sgn, ladderWord, rollTotal, diceSum, outcome} = N;
+const G = () => N.G;
+const hhmm = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+const isGM = v => v.role === 'gm';
+const pn = c => G().P[c.player]?.name || 'A former player';
+const fateDie = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8.2v7.6M8.2 12h7.6"/></svg>';
+N.fateDie = fateDie;
+
+/* ================= shell ================= */
+N.appHtml = function(v){
+  const g = G(), gm = isGM(v), cb = g.combat;
+  const tabs = [['chat','Chat','chat'],['map','Map','map'],['world','World','world'], gm ? ['cast','Cast','cast'] : ['hero','Character','hero']];
+  const otherUnread = N.channelsFor(v.role).some(c => !(v.ui.tab === 'chat' && v.ui.ch === c) && N.unread(v.role, c));
+  const fightLive = cb.state === 'live';
+  const newsNew = !gm && g.news.issues.some(i => !(g.news.seen[v.role]||[]).includes(i.id));
+  const me = gm ? {name:N.gmName(), color:'var(--c-gm)'} : {name:g.P[v.role]?.name || '', color:g.P[v.role]?.color};
+
+  const nav = `<nav class="nav" aria-label="Sections">
+    <div class="mark">${MARK}<b>N<small>ORNE</small></b></div>
+    <div class="navl scroll">
+      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='world'&&newsNew?'<span class="badge gold">1</span>':''}</span></button>
+        ${id==='chat' ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
+    </div>
+    <div class="art" aria-hidden="true"></div>
+    <button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>
+  </nav>`;
+
+  const tabbar = `<nav class="tabbar" aria-label="Sections">${tabs.map(([id,l,ic]) => `<button type="button" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}><span class="ti">${IC(ic)}</span>${l}${id==='chat'&&fightLive?`<span class="fightdot">${IC('swords')}</span>`:id==='chat'&&otherUnread?'<span class="dot"></span>':''}${id==='world'&&newsNew?'<span class="dot"></span>':''}</button>`).join('')}</nav>`;
+
+  let page = '';
+  if (v.ui.tab === 'chat') page = chatPage(v);
+  else if (v.ui.tab === 'map') page = `<main class="page">${mapPage(v)}</main>`;
+  else if (v.ui.tab === 'world') page = `<main class="page">${worldPage(v)}</main>`;
+  else if (v.ui.tab === 'hero') page = `<main class="page">${heroPage(v)}</main>`;
+  else if (v.ui.tab === 'cast') page = `<main class="page">${castPage(v)}</main>`;
+
+  return `<div class="stars" aria-hidden="true"></div>
+    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}">${nav}${page}${tabbar}</div>
+    ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
+    ${v.ui.pop ? `<div class="scrim" style="background:transparent;backdrop-filter:none" data-a="closePop"></div>${popHtml(v)}` : ''}
+    ${v.ui.toast ? `<div class="toast" role="status"><span class="star4"></span><span>${esc(v.ui.toast.text)}</span>${v.ui.toast.undo?'<button type="button" data-a="undo">Undo</button>':''}</div>` : ''}`;
+};
+
+function chanIcon(v, c){
+  const g = G();
+  if (c === 'table') return `<span class="cic">${IC('users')}</span>`;
+  if (c === 'gm') return `<span class="cic">${IC('lock')}</span>`;
+  if (isGM(v)) { const p = g.P[c.slice(3)] || {name:'?'}, ch = g.chars[p.char] || {}; return N.av({name:p.name, portrait:ch.built?ch.portrait:null, color:p.color}, 24); }
+  return N.av({name:N.gmName(), color:'var(--c-gm)'}, 24);
+}
+function chanBtn(v, c){
+  const n = N.unread(v.role, c), cur = v.ui.tab === 'chat' && v.ui.ch === c;
+  return `<button type="button" data-a="ch" data-v="${c}" ${cur?'aria-current="true"':''} class="${n&&!cur?'new':''}">${chanIcon(v,c)}<span>${esc(N.chName(c, v.role))}</span>${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
+}
+function chanChip(v, c){
+  const n = N.unread(v.role, c), cur = v.ui.ch === c;
+  return `<button type="button" class="cchip" data-a="ch" data-v="${c}" aria-current="${cur}">${chanIcon(v,c)}<span>${esc(N.chName(c, v.role))}</span>${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
+}
+function meBtn(v){
+  const g = G();
+  const me = isGM(v) ? {name:N.gmName(), color:'var(--c-gm)'} : {name:g.P[v.role]?.name || '', color:g.P[v.role]?.color};
+  return `<button type="button" class="me-btn" data-a="sheet" data-v="profile" aria-label="You and settings">${N.av(me,34)}</button>`;
+}
+function sideBtn(v){
+  if (isGM(v)) return `<button type="button" class="ibtn solid" data-a="sheet" data-v="gm" aria-label="GM screen">${IC('crown')}</button>`;
+  const c = N.charOf(v.role);
+  return `<button type="button" class="me-btn" data-a="sheet" data-v="hero" aria-label="My character">${N.av({name:c.short, portrait:c.built?c.portrait:null, color:c.color},34)}</button>`;
+}
+
+/* ================= chat ================= */
+function fightAvail(v){
+  const cb = G().combat;
+  if (isGM(v)) return cb.state !== 'off';
+  return cb.state === 'live' && (cb.joined.includes(v.role) || v.ui.watching);
+}
+function chatPage(v){
+  const gm = isGM(v), fa = fightAvail(v);
+  if (v.dev === 'phone') {
+    if (fa && v.ui.fightPane === 'fight') return `<main class="page">${N.fightView(v)}</main>`;
+    return `<main class="page">${chatView(v)}</main>`;
+  }
+  if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
+  return `<main class="page with-rail">${chatView(v)}<aside class="rail scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</aside></main>`;
+}
+function chatView(v, side){
+  const g = G(), gm = isGM(v), ch = v.ui.ch, sc = g.scenes[ch], cb = g.combat;
+  const fa = fightAvail(v);
+  const topPh = `<div class="top ph">${meBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<div class="chips" style="flex:1;padding:0">${N.channelsFor(v.role).map(c=>chanChip(v,c)).join('')}</div>`}${sideBtn(v)}</div>`;
+  const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
+    ${fa && !v.ui.fightOpen ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}${cb.state==='setup'?'Back to fight setup':'Back to the fight'}</button>` : ''}
+    ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}</header>`;
+  const fightbar = (cb.state === 'live' && (!fa || (v.dev==='desktop' && !v.ui.fightOpen))) ? (() => {
+    const cur = N.curTok();
+    return `<div class="fightbar">${IC('swords','sw')}<div class="t">Fight on ${esc(cb.title)}<span>${cur ? `${esc(N.tokName(cur))}’s turn · exchange ${cb.exchange}` : ''}</span></div>${fa ? `<button type="button" class="btn sm gold" data-a="openFight">Back to the fight</button>` : cb.invited.includes(N.G.P[v.role]?.char) ? `<button type="button" class="btn sm gold" data-a="join">Join</button>` : `<button type="button" class="btn sm" data-a="watch">Watch</button>`}</div>`;
+  })() : '';
+  const chipRow = (!side && fa) ? `<div class="chips only-ph">${N.channelsFor(v.role).map(c=>chanChip(v,c)).join('')}</div>` : '';
+  return `<section class="chat" aria-label="${esc(N.chName(ch, v.role))}">
+    ${side ? '' : topPh}${chipRow}${topDt}
+    ${side ? '' : sceneBanner(v, sc, ch)}
+    <div class="msgs scroll" id="msgs-${v.id}" data-sk="msgs" data-bottom="1">${fightbar && side ? '' : ''}${renderMsgs(v)}</div>
+    ${fightbar && !side ? '' : ''}
+    ${composer(v)}
+  </section>`.replace('<div class="msgs', (fightbar && !side ? fightbar : '') + '<div class="msgs');
+}
+function fightSeg(v){
+  const n = N.unread(v.role, 'table');
+  return `<div class="seg" role="group" aria-label="Fight or chat"><button type="button" data-a="pane" data-v="fight" aria-pressed="${v.ui.fightPane==='fight'}">${IC('swords')}Fight</button><button type="button" data-a="pane" data-v="chat" aria-pressed="${v.ui.fightPane==='chat'}">${IC('chatL')}Chat${n&&v.ui.fightPane!=='chat'?'<span class="dot"></span>':''}</button></div>`;
+}
+N.sceneArt = (sc) => {
+  if (!sc) return '';
+  if (sc.place) { const mp = G().maps.find(m => m.id === sc.place.map), u = mp ? N.imgUrl(mp.src) : ''; return `background-image:${u ? `url(${u})` : 'none'};background-size:420% auto;background-position:${(sc.place.rx*100).toFixed(1)}% ${(sc.place.ry*100).toFixed(1)}%`; }
+  const u = N.imgUrl(sc.art);
+  return `background-image:${u ? `url(${u})` : 'none'}`;
+};
+function sceneBanner(v, sc, ch){
+  const gm = isGM(v), priv = ch.startsWith('dm-');
+  if (!sc) {
+    if (!gm || ch === 'gm') return '';
+    return `<section class="scene empty"><div class="in" style="grid-template-columns:auto 1fr auto;display:grid;align-items:center;gap:12px"><span class="cic" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);color:var(--gold)">${IC('image')}</span><h2>No scene in this chat yet</h2><button type="button" class="btn sm primary" data-a="sheet" data-v="scene">Set the scene</button></div></section>`;
+  }
+  const min = v.ui.sceneMin;
+  const onlyWho = priv ? (gm ? `Only ${esc(G().P[ch.slice(3)]?.name || 'them')} sees this scene` : 'Your private scene') : '';
+  return `<section class="scene${min?' min':''}" aria-label="Scene">
+    <div class="art${sc.place?' map':''}" style="${N.sceneArt(sc)}"></div>
+    <div class="in">
+      ${min ? `<span class="star4"></span>` : `<span class="eyebrow">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}<span>${priv ? onlyWho : 'Scene'}</span>${sc.date?`<span style="color:var(--ink-3);letter-spacing:.1em">· ${esc(sc.date)}</span>`:''}</span>`}
+      <h2>${esc(sc.title)}</h2>
+      <span class="where">${esc(sc.where||'')}</span>
+      ${sc.aspects?.length ? `<div class="icards">${sc.aspects.map((a,i)=>{ const f = N.sceneFreeLeft(sc, i); return `<span class="icard" style="--rot:${i%2?.8:-.9}deg">${esc(a.t)}${f?`<span class="fi">${'<i></i>'.repeat(f)}</span>`:''}</span>`; }).join('')}</div>` : ''}
+    </div>
+    <div class="ctl">${gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Change scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
+  </section>`;
+}
+function renderMsgs(v){
+  const g = G(), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)));
+  if (!ms.length) return `<div class="quiet"><div class="art"></div><p>${v.ui.ch.startsWith('dm-') ? 'Nothing here yet. Anything said here stays between you two.' : 'Nothing here yet.'}</p></div>`;
+  let out = '', prev = null, firstNarr = true;
+  const seen = (g.seen[v.role] || {})[v.ui.ch] || 0; let divDone = false;
+  for (const m of ms) {
+    if (!divDone && m.by !== v.role && m.t > seen && seen > 0 && v.ui.showNew) { out += `<div class="day-div" style="color:var(--ember)">New</div>`; divDone = true; }
+    out += rMsg(v, m, prev, firstNarr);
+    if (m.kind === 'rp' && m.by === 'gm' && m.as === 'Narrator') firstNarr = false;
+    if (m.kind === 'scene') firstNarr = true;
+    prev = m;
+  }
+  return out;
+}
+function rMsg(v, m, prev, firstNarr){
+  const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`;
+  if (m.kind === 'sys') return `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
+  if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}"></span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
+  if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${fmt(m.text)}</div></div></div>`;
+  if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);
+  if (m.kind === 'news') return `<div class="fightcard" style="box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 18px 40px -18px rgba(0,0,0,.9)"><div class="in" style="padding-top:18px;grid-template-columns:auto 1fr;align-items:center"><div class="herald" style="all:unset;display:contents"><span class="np" style="width:54px;height:66px;border-radius:4px;background:#efe6cc;rotate:-4deg;display:grid;place-items:center;font:400 12px/1 var(--f-mast);color:#2a2418;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)">News</span></div><div style="display:grid;gap:6px"><span class="eyebrow" style="color:var(--gold)">${IC('newsL')}New edition</span><h3 style="font-size:18px">${esc(m.text)}</h3><div class="row"><button type="button" class="btn sm gold" data-a="readNews" data-id="${esc(m.nid||'')}">Read it</button></div></div></div></div>`;
+  if (m.kind === 'roll') {
+    const pc = (m.roll.whoKey || '').startsWith('pc:') && g.chars[m.roll.whoKey.slice(3)];
+    const s = pc ? {name:pc.short, portrait:pc.built ? pc.portrait : null, color:pc.color} : m.by === 'gm' ? {name:m.roll.who, color:'var(--c-npc)', portrait:m.pt || N.npcByName(m.roll.who.replace(/ \d+$/,''))?.portrait} : N.speakerObj({by:m.by, as:''});
+    return `<div class="m${mine?' mine':''}">${N.av(s,32)}<div class="body"><div class="who" style="--who:${s.color}">${esc(m.roll.who)}${m.ch==='gm'?'<span class="tag gold">Secret</span>':''}${time}</div>${rRoll(v, m)}</div></div>`;
+  }
+  const cont = prev && prev.by === m.by && prev.kind === m.kind && (prev.as||'') === (m.as||'') && m.t - prev.t < 180000 && m.kind !== 'scene';
+  if (m.kind === 'ooc' || m.kind === 'meta') {
+    const p = N.personObj(m.by);
+    return `<div class="m ooc${mine?' mine':''}${cont?' cont':''}">${N.av(p,32)}<div class="body">${cont?'':`<div class="who" style="--who:var(--ink-3)">${esc(p.name)} ${time}</div>`}<div class="bub">${fmt(m.text)}</div></div></div>`;
+  }
+  const s = N.speakerObj(m);
+  if (s.narr) return `<div class="narr${firstNarr?' first':''}"><div class="who">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}Narrator ${time}</div><p>${fmt(m.text)}</p></div>`;
+  const gmv = mine && isGM(v) ? ' gmv' : '';
+  return `<div class="m${mine?' mine':''}${gmv}${cont?' cont':''}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${fmt(m.text)}</div></div></div>`;
+}
+function rRoll(v, m){
+  const r = m.roll, tot = rollTotal(r), o = outcome(r), fold = v.ui.folded.has(m.id);
+  const dice = r.dice.map(d => `<span class="die ${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':'·'}</span>`).join('');
+  const canInv = isGM(v) || r.whoKey === 'pc:' + (G().P[v.role]||{}).char;
+  return `<div class="roll${fold?' folded':''}${m.ch==='gm'?' secret':''}">
+    <div class="rh"><span class="grow"><b>${esc(r.skill)} ${sgn(r.bonus)}</b> · ${esc(r.action)}${r.target?` on <b>${esc(r.target)}</b>`:''}</span>${fold?`<span class="mini-tot">${sgn(tot)}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
+    <div class="rb"><div class="dice${v.ui.fresh===m.id?' fresh':''}">${dice}</div><div class="tot"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></div></div>
+    ${r.invokes.length ? `<div class="inv">${r.invokes.map(i => `+2 from “${esc(i.aspect)}”`).join(' · ')}</div>` : ''}
+    <div class="rf"><span class="math">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${sgn(r.bonus)}${r.invokes.length?` · invokes +${2*r.invokes.length}`:''}${r.opp!=null?` · vs ${ladderWord(r.opp)}`:''}</span>${o?`<span class="out ${o.k}">${o.t}${o.sh>0?` · ${o.sh}`:''}</span>`:''}${canInv && m.ch!=='gm' ? `<button type="button" class="btn sm" data-a="invoke" data-id="${m.id}" style="--h:28px">${IC('cards')}+2</button>` : ''}</div>
+  </div>`;
+}
+function fightCard(v, m){
+  const g = G(), cb = g.combat, live = cb.state === 'live' && cb.id === m.cid, gm = isGM(v);
+  const toks = cb.tokens.filter(t => t.zone);
+  const mineInv = !gm && cb.invited.includes(g.P[v.role]?.char), joined = cb.joined.includes(v.role);
+  return `<div class="fightcard"><div class="art" style="background-image:url(${esc(N.imgUrl(m.bg || (live ? cb.bg : '') || N.FIGHTBG))})"></div><div class="in">
+    <span class="eyebrow">${IC('swords')}${live?'A fight breaks out':'The fight is over'}</span>
+    <h3>${esc(m.text)}</h3>
+    ${live ? `<div class="who">${toks.slice(0,6).map(t => N.av(N.tokObj(t),28)).join('')}<span>${toks.length} in the fight · ${cb.zones.length} zones</span></div>
+    <div class="row">${gm ? `<button type="button" class="btn gold" data-a="openFight">${IC('swords')}Open the fight</button>` : joined ? `<button type="button" class="btn gold" data-a="openFight">${IC('swords')}Back to the fight</button>` : mineInv ? `<button type="button" class="btn gold lg" data-a="join">${IC('swords')}Join the fight</button>` : `<button type="button" class="btn" data-a="watch">Watch</button>`}</div>` : '<span class="muted" style="font-weight:600">This fight is over.</span>'}
+  </div></div>`;
+}
+function composer(v){
+  const g = G(), gm = isGM(v), ooc = v.ui.mode === 'ooc';
+  let chip, ph;
+  if (ooc) { chip = `<span class="ooc-ic">${IC('chatL')}</span><b>Out of character</b>`; ph = 'Rules talk, questions, snacks…'; }
+  else if (gm) {
+    const n = g.npcs.find(x => x.name === v.ui.voice);
+    chip = (v.ui.voice === 'Narrator' ? N.narrAv(30) : N.av({name:v.ui.voice, portrait:n?.portrait, color:'var(--c-npc)'},30)) + `<b class="only-dt">${esc(v.ui.voice)}</b>`;
+    ph = v.ui.voice === 'Narrator' ? 'Narrate what happens…' : `As ${v.ui.voice}…`;
+  } else {
+    const c = N.charOf(v.role);
+    chip = N.av({name:c.short, portrait:c.built?c.portrait:null, color:c.color},30) + `<b class="only-dt">${esc(c.short)}</b>`;
+    ph = `Speak or act as ${c.short}. *Asterisks* for actions.`;
+  }
+  if (v.ui.ch === 'gm') { chip = `<span class="ooc-ic">${IC('lock')}</span><b class="only-dt">Note</b>`; ph = 'A note only you can see…'; }
+  return `<form class="composer${ooc?' ooc':''}" data-f="send" onsubmit="return false">
+    <div class="box">
+      ${v.ui.ch === 'gm' ? `<span class="voice">${chip}</span>` : `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`}
+      <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="send">${esc(v.ui.draft)}</textarea>
+      <button type="button" class="diceb" data-a="roll" aria-label="Roll the dice" title="Roll">${fateDie}</button>
+      <button type="button" class="sendb" data-a="send" aria-label="Send">${IC('send')}</button>
+    </div>
+  </form>`;
+}
+
+/* ================= side panels ================= */
+function gmScreen(v){
+  const g = G(), cb = g.combat, ch = v.ui.ch, sc = g.scenes[ch];
+  const fight = cb.state === 'off'
+    ? `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>Begin a fight</b><small>Draw zones and add enemies. Players see nothing until you start.</small></span></button>`
+    : `<button type="button" class="bigcta" data-a="openFight"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>${cb.state==='setup'?'Not started yet. Players can’t see it.':`Exchange ${cb.exchange} · ${esc(N.tokName(N.curTok()||{kind:'npc',name:'—'}))}’s turn`}</small></span></button>`;
+  const pcs = N.pcs();
+  return `<div class="gs">
+    ${fight}
+    <section class="gs-sec"><div class="gs-h"><h3>Scene in ${esc(N.chName(ch,'gm'))}</h3><button type="button" class="btn sm" data-a="sheet" data-v="scene">${sc?'Change':'Set'}</button></div>
+      ${sc ? `<div class="scenecard" style="${N.sceneArt(sc)};background-size:${sc.place?'420% auto':'cover'}"><div class="in"><b>${esc(sc.title)}</b><small>${esc(sc.where||'')}</small></div></div>` : `<p class="muted" style="margin:0;font-weight:600;font-size:13px">No scene in this chat.</p>`}
+      <div class="recent">${g.recent.slice(0,4).map(r => `<button type="button" data-a="applyScene" data-v="${r.id}" style="${N.sceneArt(r)};background-size:${r.place?'420% auto':'cover'}" title="Use ${esc(r.title)} here"><span>${esc(r.title)}</span></button>`).join('')}</div>
+    </section>
+    <section class="gs-sec"><div class="gs-h"><h3>Party</h3><button type="button" class="btn sm" data-a="tab" data-v="cast">Cast</button></div>
+      ${pcs.map(c => c.built ? `<div class="pcrow">${N.av(c,40)}<span><b>${esc(c.short)}</b><small>${esc(c.hc)}</small></span>
+        <span class="coins">${coinsHtml(c, true)}</span>
+        <div class="tracks"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<button type="button" class="sbox${c.stress.phys[i]?' on':''}" data-a="stress" data-c="${c.id}" data-k="phys" data-i="${i}" aria-pressed="${c.stress.phys[i]}">${x}</button>`).join('')}</div>
+        <span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<button type="button" class="sbox${c.stress.ment[i]?' on':''}" data-a="stress" data-c="${c.id}" data-k="ment" data-i="${i}" aria-pressed="${c.stress.ment[i]}">${x}</button>`).join('')}</div></div></div>`
+        : `<div class="pcrow" style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)">${N.av({name:pn(c),color:c.color},40)}<span><b>${esc(pn(c))}</b><small>No card yet</small></span><button type="button" class="btn sm primary" data-a="pcEdit" data-v="${c.id}">Make card</button></div>`).join('')}
+    </section>
+    <section class="gs-sec"><div class="gs-h"><h3>Speak as</h3><button type="button" class="btn sm" data-a="castNpcs">NPCs</button></div>
+      <div class="voices">${['Narrator', ...N.voices()].map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="voice" data-v="${esc(n)}" ${v.ui.voice===n&&v.ui.mode==='rp'?'style="background:var(--accent-soft)"':''}>${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text':esc(N.npcSub(npc))}</small></span>${v.ui.voice===n&&v.ui.mode==='rp'?`<span class="go" style="color:var(--gold)">${IC('check')}</span>`:''}</button>`; }).join('')}</div>
+    </section>
+    <section class="gs-sec"><div class="gs-h"><h3>Tools</h3></div>
+      <div class="tools"><button type="button" data-a="roll" data-secret="1">${IC('eyeoff')}Secret roll</button><button type="button" data-a="writeNews">${IC('newsL')}Write news</button><button type="button" data-a="sheet" data-v="export">${IC('export')}Export log</button></div>
+    </section>
+  </div>`;
+}
+function coinsHtml(c, edit){
+  const n = Math.max(c.fp, c.refresh);
+  return Array.from({length:n}, (_,i) => `<span class="coin${i<c.fp?'':' off'}"></span>`).join('') + (edit ? `<span class="mini"><button type="button" data-a="fp" data-c="${c.id}" data-d="-1" aria-label="Take a fate point">−</button><button type="button" data-a="fp" data-c="${c.id}" data-d="1" aria-label="Give a fate point">+</button></span>` : '');
+}
+N.coinsHtml = coinsHtml;
+function heroQuick(v){
+  const g = G(), c = N.charOf(v.role);
+  if (!c.built) return `<div class="gs"><div class="quiet"><div class="art"></div><p>${esc(N.gmName())} hasn’t made your character card yet. It shows up here as soon as it’s ready.</p></div></div>`;
+  const top = Object.entries(c.skills).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  return `<div class="gs">
+    <div class="hero-top">${N.av(c,58)}<span><b>${esc(c.name)}</b><small>${esc(c.hc)}</small></span></div>
+    <section class="gs-sec"><div class="gs-h"><h3>Fate points</h3><span class="muted" style="font-weight:700;font-size:12px">Refresh ${c.refresh}</span></div><div class="coins">${coinsHtml(c,false)}</div></section>
+    <section class="gs-sec"><div class="gs-h"><h3>Aspects</h3></div><div class="icards">${[['High concept',c.hc],['Trouble',c.trouble],...c.aspects.map(a=>['Aspect',a])].map(([k,a],i)=>`<span class="icard" style="--rot:${[-.8,.7,-.4][i%3]}deg"><span class="k">${k}</span>${esc(a)}</span>`).join('')}</div></section>
+    <section class="gs-sec"><div class="gs-h"><h3>Roll a skill</h3></div><div class="quick-sk">${top.map(([n,x])=>`<button type="button" data-a="roll" data-skill="${n}">${esc(n)}<i>${sgn(x)}</i></button>`).join('')}</div></section>
+    <section class="gs-sec"><div class="gs-h"><h3>Stress</h3></div>
+      <div class="pcrow" style="grid-template-columns:auto 1fr"><div class="tracks" style="grid-column:1/-1"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}</div><span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<span class="sbox${c.stress.ment[i]?' on':''}">${x}</span>`).join('')}</div></div></div>
+    </section>
+    <button type="button" class="btn block" data-a="tab" data-v="hero">${IC('hero')}Open my full card</button>
+  </div>`;
+}
+N.gmScreen = gmScreen; N.heroQuick = heroQuick; N.meBtn = meBtn; N.sideBtn = sideBtn; N.fightSeg = fightSeg; N.chatView = chatView; N.fightAvail = fightAvail;
+
+/* ================= popovers ================= */
+function popHtml(v){
+  const p = v.ui.pop, g = G();
+  const pos = `left:${p.x}px;${p.up ? `bottom:${p.y}px` : `top:${p.y}px`}`;
+  if (p.type === 'voice') {
+    const gm = isGM(v);
+    let opts = '';
+    if (gm) {
+      opts += `<div class="lbl">In character</div>` + ['Narrator', ...N.voices()].map(n => { const npc = N.npcByName(n); const sel = v.ui.mode==='rp' && v.ui.voice===n; return `<button type="button" class="opt" data-a="voice" data-v="${esc(n)}" aria-selected="${sel}">${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text, shown as the book':esc(N.npcSub(npc))}</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`; }).join('')
+        + `<button type="button" class="opt" data-a="newVoice"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('plus').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>New NPC voice</span></button>`;
+    } else {
+      const c = N.charOf(v.role), sel = v.ui.mode === 'rp';
+      opts += `<button type="button" class="opt" data-a="voice" data-v="__me" aria-selected="${sel}">${N.av({name:c.short,portrait:c.built?c.portrait:null,color:c.color},30)}<span>As ${esc(c.short)}<small>In character</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`;
+    }
+    opts += `<div class="sep"></div><button type="button" class="opt" data-a="voice" data-v="__ooc" aria-selected="${v.ui.mode==='ooc'}"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--accent-soft);color:var(--ink-2)">${IC('chatL').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>Out of character<small>Questions and table talk</small></span>${v.ui.mode==='ooc'?`<span class="ck">${IC('check')}</span>`:''}</button>`;
+    return `<div class="pop" style="${pos}" role="listbox" aria-label="Speak as">${opts}</div>`;
+  }
+  if (p.type === 'maps') {
+    return `<div class="pop" style="${pos}" role="listbox" aria-label="Maps">${g.maps.filter(m=>isGM(v)||m.vis!==false).map(m => `<button type="button" class="opt" data-a="mapGo" data-v="${m.id}" aria-selected="${N.curMap(v)===m}"><span class="av sq" style="--s:40px;box-shadow:none;background:${N.imgUrl(m.src)?`url(${N.imgUrl(m.src)}) center/cover`:'var(--sunk)'}"></span><span>${esc(m.name)}<small>${m.pins.filter(p=>p.type!=='party'&&(isGM(v)||p.vis)).length} places${m.vis!==false?'':' · hidden from players'}</small></span>${N.curMap(v)===m?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
+      ${isGM(v)?`<div class="sep"></div><button type="button" class="opt" data-a="mapUpload"><span class="av sq" style="--s:40px;box-shadow:inset 0 0 0 1.5px var(--line-2);background:transparent;color:var(--ink-3)">${IC('upload').replace('<svg','<svg style="width:18px;height:18px"')}</span><span>Add a map image</span></button>`:''}</div>`;
+  }
+  return '';
+}
+
+/* ================= map ================= */
+function mapPage(v){
+  const g = G(), gm = isGM(v), m = N.curMap(v);
+  if (!m) return `<div class="mapv"><div class="mapov"><div class="row1">${v.dev==='phone' ? meBtn(v) : ''}<span style="flex:1"></span></div></div>
+    <div class="quiet" style="position:absolute;inset:0;align-content:center"><div class="art"></div><p>${gm ? 'No maps yet. Import the lore file to add the atlases, or upload a map picture.' : 'No maps yet. The GM hasn’t shared one.'}</p>
+    ${gm ? `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button type="button" class="btn primary" data-a="sheet" data-v="import">${IC('upload')}Import lore</button><button type="button" class="btn" data-a="mapUpload">${IC('image')}Upload a map</button></div>` : ''}</div></div>`;
+  const src = N.imgUrl(m.src);
+  const pins = m.pins.filter(p => p.type !== 'party');
+  const types = ['all', ...Object.keys(N.PINT).filter(t => t !== 'party' && pins.some(p => p.type === t && (gm || p.vis)))];
+  if (!types.includes(v.ui.mapType)) v.ui.mapType = 'all';
+  const pin = pins.find(p => p.id === v.ui.pinSel);
+  const party = g.party.map === m.id ? g.party : null;
+  const q = v.ui.mapQ.trim().toLowerCase();
+  const match = p => (v.ui.mapType === 'all' || p.type === v.ui.mapType) && (!q || p.label.toLowerCase().includes(q) || (p.note || '').toLowerCase().includes(q));
+  return `<div class="mapv" data-map="${m.id}">
+    <div class="mapcv" data-mapcv="1"><div class="mapst" style="width:${m.w}px;height:${m.h}px">${src ? `<img src="${src}" alt="${esc(m.name)}" width="${m.w}" height="${m.h}" draggable="false">` : ''}
+      <div class="pins">${pins.filter(p => (gm || p.vis) && match(p)).map(p => {
+        const t = N.PINT[p.type] || N.PINT.note; return `<button type="button" class="pin${m.labeled?' dotp':''}${v.ui.pinSel===p.id?' sel':''}${p.vis?'':' hid'}" data-pin="${p.id}" style="left:${p.rx*m.w}px;top:${p.ry*m.h}px;--pc:${t.col}" aria-label="${esc(p.label)}"><span class="pm">${IC(t.ic)}</span><span class="pl">${esc(p.label)}</span></button>`; }).join('')}
+        ${party ? `<button type="button" class="pin party" data-pin="__party" style="left:${party.rx*m.w}px;top:${party.ry*m.h}px" aria-label="The party is here"><span class="pm">${IC('banner')}</span><span class="pl">The party</span></button>` : ''}
+      </div></div>${src ? '' : '<div class="maploading">Loading the map…</div>'}</div>
+    <div class="mapov">
+      <div class="row1">
+        ${v.dev==='phone' ? meBtn(v) : ''}
+        <button type="button" class="mapsel glass" data-a="pop" data-v="maps"><span class="th" style="${src ? `background-image:url(${src})` : ''}"></span><span style="min-width:0"><small>Map${gm && m.vis === false ? ' · hidden' : ''}</small><b>${esc(m.name)}</b></span>${IC('caret')}</button>
+        <div class="search only-dt" style="width:240px"><svg viewBox="0 0 256 256" fill="currentColor">${(window.ICONS.search||['',''])[1]}</svg><input class="inp glass" id="mapq-${v.id}" data-i="mapQ" placeholder="Find a place" value="${esc(v.ui.mapQ)}" style="border:0"></div>
+        <span style="flex:1"></span>
+        ${gm ? `<button type="button" class="btn ${v.ui.mapEdit?'primary':'glass'}" data-a="mapEdit">${IC('pen')}<span class="only-dt">${v.ui.mapEdit?'Done editing':'Edit map'}</span></button>` : ''}
+      </div>
+      <div class="chips" role="group" aria-label="Show">${types.map(t => `<button type="button" class="cchip" data-a="mapType" data-v="${t}" aria-current="${v.ui.mapType===t}" style="padding:0 12px">${t==='all'?'Everything':IC((N.PINT[t]||N.PINT.note).ic)+esc((N.PINT[t]||N.PINT.note).name)}</button>`).join('')}${party || !g.party.map ? '' : `<button type="button" class="cchip" data-a="findParty" style="padding:0 12px">${IC('banner')}Find the party</button>`}</div>
+      <span></span>
+      ${gm && v.ui.mapEdit ? `<div class="mapedit glass"><button type="button" class="btn ${v.ui.addPin?'primary':'ghost'}" data-a="addPin">${IC('pinL')}${v.ui.addPin?'Tap the map…':'Add pin'}</button><button type="button" class="btn ghost" data-a="mapVis">${IC(m.vis!==false?'eye':'eyeoff')}${m.vis!==false?'Players see it':'Hidden'}</button><button type="button" class="btn ghost" data-a="mapUpload">${IC('upload')}<span class="only-dt">Upload map</span></button></div>` : '<span></span>'}
+    </div>
+    <div class="zoomc glass"><button type="button" data-a="zoom" data-v="1.4" aria-label="Zoom in">${IC('plus')}</button><button type="button" data-a="zoom" data-v="0.7" aria-label="Zoom out">${IC('minus')}</button><button type="button" data-a="zoom" data-v="fit" aria-label="Show the whole map">${IC('fit')}</button></div>
+    ${pin || (v.ui.pinSel === '__party' && party) ? pinCard(v, m, pin) : ''}
+  </div>`;
+}
+const PIN_KINDS = ['town','nation','tavern','shop','temple','landmark','danger','note'];
+function pinCard(v, m, p){
+  const g = G(), gm = isGM(v);
+  if (!p) return `<div class="pincard glass"><div class="hd"><span style="flex:1"><span class="eyebrow">Party</span><b>The party is here</b></span><button type="button" class="ibtn sm" data-a="pinClose" aria-label="Close">${IC('x')}</button></div><p>${gm?'Drag the banner while editing, or use “Move party here” on any place.':`${esc(N.gmName())} moves this banner as you travel.`}</p></div>`;
+  const t = N.PINT[p.type]||N.PINT.note, wk = p.wiki && g.wiki.find(e => e.id === p.wiki && (gm || !e.gm));
+  if (gm && v.ui.mapEdit) return `<div class="pincard glass"><div class="hd"><span class="av sq" style="--s:42px;--c:${t.col};box-shadow:none;background:${t.col};color:#1a1208">${IC(t.ic).replace('<svg','<svg style="width:22px;height:22px"')}</span><input class="inp" id="pinl-${v.id}" data-i="pinLabel" value="${esc(p.label)}" aria-label="Place name" style="flex:1"><button type="button" class="ibtn sm" data-a="pinClose" aria-label="Close">${IC('x')}</button></div>
+    <div class="chips" style="padding:0;flex-wrap:wrap">${PIN_KINDS.map(k => `<button type="button" class="cchip" data-a="pinType" data-v="${k}" aria-current="${p.type===k}" style="padding:0 11px">${IC(N.PINT[k].ic)}${N.PINT[k].name.replace(/s$/,'')}</button>`).join('')}</div>
+    <textarea class="inp" id="pinn-${v.id}" data-i="pinNote" rows="2" placeholder="A short note players see" style="min-height:60px">${esc(p.note||'')}</textarea>
+    <div class="row"><button type="button" class="btn sm ${p.vis?'':'primary'}" data-a="pinVis">${IC(p.vis?'eye':'eyeoff')}${p.vis?'Players see it':'Hidden · show it'}</button><button type="button" class="btn sm" data-a="pinParty" data-v="${p.id}">${IC('banner')}Move party here</button><span style="flex:1"></span><button type="button" class="btn sm danger" data-a="pinDel" aria-label="Delete this place">${IC('trash')}</button></div>
+    <p style="font-size:12px;color:var(--ink-3)">Drag the pin on the map to move it.</p></div>`;
+  return `<div class="pincard glass"><div class="hd"><span class="av sq" style="--s:42px;--c:${t.col};box-shadow:none;background:${t.col};color:#1a1208">${IC(t.ic).replace('<svg','<svg style="width:22px;height:22px"')}</span><span style="flex:1;min-width:0"><span class="eyebrow">${esc(t.name.replace(/s$/,''))}</span><b>${esc(p.label)}</b></span><button type="button" class="ibtn sm" data-a="pinClose" aria-label="Close">${IC('x')}</button></div>
+    ${p.note?`<p>${esc(p.note)}</p>`:''}
+    <div class="row">${wk?`<button type="button" class="btn sm" data-a="wiki" data-v="${wk.id}">${IC('worldL')}Read in World</button>`:''}${gm?`<button type="button" class="btn sm primary" data-a="pinScene" data-v="${p.id}">${IC('image')}Set as scene</button><button type="button" class="btn sm" data-a="pinParty" data-v="${p.id}">${IC('banner')}Move party here</button>`:''}</div>
+    ${gm?`<p style="font-size:12.5px;color:var(--ink-3);display:flex;gap:6px;align-items:center">${IC(p.vis?'eye':'eyeoff').replace('<svg','<svg style="width:15px;height:15px"')}${p.vis?'Players can see this place.':'Hidden from players.'}</p>`:''}
+  </div>`;
+}
+
+/* ================= world ================= */
+function worldPage(v){
+  const g0 = G(), gm = isGM(v), ph = v.dev === 'phone';
+  const g = Object.assign({}, g0, {wiki: g0.wiki.filter(e => gm || !e.gm)});
+  const q = v.ui.wikiQ.trim().toLowerCase();
+  const hit = e => !q || [e.title, e.summary, ...(e.body||[])].join(' ').toLowerCase().includes(q);
+  const issue = g.news.issues[g.news.issues.length-1];
+  const newsNew = !gm && issue && !(g.news.seen[v.role]||[]).includes(issue.id);
+  const herald = `<button type="button" class="herald" data-a="herald"><span class="np"><b>News</b><i></i><i class="s"></i><i></i><i></i><i class="s"></i></span><span><span class="eyebrow" style="color:var(--gold)">The paper ${newsNew?'<span class="tag gold">New</span>':''}</span><h3>${issue ? esc(issue.headline) : 'No editions yet'}</h3><small>${issue ? `No. ${esc(issue.no)}${issue.date ? ' · ' + esc(issue.date) : ''}` : gm ? 'Write the first edition. Players get a ping.' : `Coming soon. ${esc(N.gmName())} publishes editions here.`}</small></span></button>`;
+  const index = `<div class="wi scroll" data-sk="wi">
+    ${ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="btn sm primary" data-a="wNew">${IC('plus')}Entry</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
+    ${herald}
+    <div class="search">${IC('search')}<input class="inp" id="wq-${v.id}" data-i="wikiQ" placeholder="Search ${g.wiki.length} entries" value="${esc(v.ui.wikiQ)}"></div>
+    ${q ? `<div class="ents">${g.wiki.filter(hit).slice(0,40).map(e => entBtn(v,e)).join('') || '<p class="muted" style="font-weight:600">Nothing matches.</p>'}</div>`
+      : `<div class="cats">${N.WCATS.map(c => { const es = g.wiki.filter(e => e.cat === c); if (!es.length) return ''; const open = v.ui.wikiCat === c; return `<button type="button" class="cat" data-a="wCat" data-v="${esc(c)}" aria-current="${open}"><span class="ci">${IC(N.CATICON[c])}</span><b>${esc(c)}</b><span class="n">${es.length}</span>${IC('right','car')}</button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${es.map(e => entBtn(v,e)).join('')}</div>` : ''}`; }).join('')}</div>`}
+  </div>`;
+  const read = v.ui.herald ? heraldPane(v) : v.ui.wikiSel ? articleHtml(v, g.wiki.find(e => e.id === v.ui.wikiSel)) : `<div class="quiet" style="align-self:center"><div class="art" style="width:260px;height:220px"></div><p>Pick a category, or search for a person, place or rule.<br>Everything here comes from Nörne’s lore.</p></div>`;
+  if (!ph) return `<div class="world">${index}<div class="scroll" data-sk="wr" style="min-height:0;display:grid">${read}</div></div>`;
+  if (v.ui.herald || v.ui.wikiSel) return `<div class="world"><div class="scroll" data-sk="wr" style="min-height:0;padding-top:var(--safe-t,0px)"><div class="top ph"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1 style="font-size:16px">${v.ui.herald?'The paper':esc(g.wiki.find(e=>e.id===v.ui.wikiSel)?.cat||'')}</h1></div>${read}</div></div>`;
+  if (v.ui.wikiCat) { const es = g.wiki.filter(e => e.cat === v.ui.wikiCat); return `<div class="world"><div class="wi scroll" data-sk="wc"><div class="top ph" style="padding-left:0;padding-right:0"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1>${esc(v.ui.wikiCat)}</h1><span class="tag">${es.length}</span></div><div class="ents">${es.map(e=>entBtn(v,e)).join('')}</div></div></div>`; }
+  return `<div class="world">${index}</div>`;
+}
+function entBtn(v, e){ return `<button type="button" class="ent" data-a="wiki" data-v="${e.id}" aria-current="${v.ui.wikiSel===e.id}"><b>${esc(e.title)}${e.gm?' <span class="tag gold">GM</span>':''}</b><small>${esc(e.summary)}</small></button>`; }
+function links(s){
+  const g = G(), gm = g.role === 'gm';
+  return esc(s).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, t, lab) => { const e = g.wiki.find(x => esc(x.title).toLowerCase() === t.toLowerCase() && (gm || !x.gm)); lab = lab || t; return e ? `<a class="wl" data-a="wiki" data-v="${e.id}">${lab}</a>` : lab; });
+}
+function block(p){
+  const ls = p.split('\n');
+  if (ls.length && ls.every(l => l.startsWith('- '))) return `<ul>${ls.map(l => `<li>${links(l.slice(2))}</li>`).join('')}</ul>`;
+  if (p.length < 60 && p.endsWith(':') && !p.includes('\n')) return `<h3>${links(p.slice(0,-1))}</h3>`;
+  if (ls.length > 1 && ls[0].endsWith(':') && ls.slice(1).every(l => l.startsWith('- '))) return `<h3>${links(ls[0].slice(0,-1))}</h3><ul>${ls.slice(1).map(l => `<li>${links(l.slice(2))}</li>`).join('')}</ul>`;
+  return `<p class="b">${links(p)}</p>`;
+}
+function articleHtml(v, e){
+  if (!e) return '';
+  const g = G(), gm = isGM(v);
+  const needle = '[[' + e.title.toLowerCase() + ']]';
+  const backs = g.wiki.filter(x => x.id !== e.id && (gm || !x.gm) && [x.summary, ...(x.body||[]), ...(x.info||[]).map(i=>i[1])].join(' ').toLowerCase().includes(needle)).slice(0,8);
+  return `<article class="article">
+    <div style="display:flex;align-items:center;gap:8px"><span class="eyebrow" style="color:var(--gold);flex:1">${IC(N.CATICON[e.cat]||'globe').replace('<svg','<svg style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:6px"')}${esc(e.cat)}${e.gm?' · GM only':''}</span>${gm?`<button type="button" class="btn sm" data-a="wEdit" data-v="${e.id}">${IC('pen')}Edit</button>`:''}</div>
+    <h1>${esc(e.title)}</h1>
+    ${e.summary ? `<p class="sum">${links(e.summary)}</p>` : ''}
+    <div class="rule"><span class="star4"></span></div>
+    ${e.img ? `<figure class="wfig"><img src="${esc(N.imgUrl(e.img.src))}" alt="${esc(e.img.alt||'')}" loading="lazy">${e.img.cap?`<figcaption>${esc(e.img.cap)}</figcaption>`:''}</figure>` : ''}
+    ${e.info?.length ? `<dl class="facts">${e.info.map(([k,x]) => `<dt>${esc(k)}</dt><dd>${links(x)}</dd>`).join('')}</dl>` : ''}
+    ${(e.body||[]).map(block).join('')}
+    ${e.soon || !(e.body||[]).length ? '<p class="muted" style="font-weight:700;font-size:13px">More coming soon.</p>' : ''}
+    ${gm && e.secret ? `<div class="secret"><span class="seal">${IC('lock')}</span><b>GM only · players never see this</b>${e.secret.split(/\n\s*\n/).map(p => `<p>${links(p)}</p>`).join('')}</div>` : ''}
+    ${backs.length ? `<p class="backs"><span class="eyebrow" style="margin-right:8px">Linked from</span>${backs.map(b => `<a class="wl" data-a="wiki" data-v="${b.id}" style="color:var(--link);cursor:pointer">${esc(b.title)}</a>`).join(', ')}</p>` : ''}
+    ${e.src ? `<p class="src">From the lore notes: ${esc(e.src)}</p>` : ''}
+  </article>`;
+}
+function heraldPane(v){
+  const g = G(), gm = isGM(v), issues = [...g.news.issues].sort((a,b) => (+b.no||0) - (+a.no||0));
+  const issue = issues.find(i => i.id === v.ui.newsSel) || issues[0];
+  if (gm && v.ui.newsEdit) {
+    const d = v.ui.newsEdit;
+    const f = (k, l, ph, rows) => `<label class="field"><span>${l}</span>${rows ? `<textarea class="inp" id="nd-${k}-${v.id}" data-i="news" data-k="${k}" rows="${rows}" placeholder="${esc(ph)}">${esc(d[k])}</textarea>` : `<input class="inp" id="nd-${k}-${v.id}" data-i="news" data-k="${k}" value="${esc(d[k])}" placeholder="${esc(ph)}">`}</label>`;
+    return `<div class="article" style="max-width:none;grid-template-columns:1fr;gap:18px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 style="font-size:28px;flex:1">New edition</h1><button type="button" class="btn ghost" data-a="newsCancel">Cancel</button><button type="button" class="btn gold" data-a="newsPub">${IC('send')}Publish</button></div>
+      <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+        <div style="display:grid;gap:12px;align-content:start">
+          ${f('paper','Paper name','Name of the paper')}
+          <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr">${f('no','Issue number','1')}${f('price','Price','Optional')}</div>
+          ${f('date','In-world date','e.g. Restday, the 3rd of High Shine')}
+          ${f('headline','Headline','What everyone is talking about')}
+          ${f('sub','Under the headline','One line of detail')}
+          ${f('lead','Lead story','Leave a blank line between paragraphs.',6)}
+          ${f('s1t','Second story: title','Optional')}${f('s1b','Second story: text','',3)}
+          ${f('s2t','Third story: title','Optional')}${f('s2b','Third story: text','',3)}
+          ${f('notices','Notices, one per line','Wanted posters, ads, announcements…',3)}
+        </div>
+        <div><span class="eyebrow" style="display:block;margin-bottom:8px">Preview</span>${paperHtml(N.draftIssue(d), true)}</div>
+      </div></div>`;
+  }
+  return `<div class="article" style="max-width:760px">
+    ${issues.length > 1 || gm ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${issues.length > 1 ? `<div class="chips" style="padding:0;flex:1;min-width:0">${issues.map(i => `<button type="button" class="cchip" data-a="newsSel" data-v="${i.id}" aria-current="${i===issue}" style="padding:0 12px">No. ${esc(i.no)}${i.date?' · '+esc(i.date):''}</button>`).join('')}</div>` : '<span style="flex:1"></span>'}${gm ? `<button type="button" class="btn primary" data-a="writeNews">${IC('pen')}${issue?'Write a new edition':'Write the first edition'}</button>` : ''}</div>` : ''}
+    ${issue ? paperHtml(issue) : `<div class="paper"><h1 class="mast">The News</h1><div class="strip"><span>No. —</span><span>Coming soon</span><span>—</span></div><div class="soon"><span class="star4" style="background:#8a7a55"></span>No editions yet. Coming soon.</div></div>`}
+  </div>`;
+}
+function paperHtml(p, prev){
+  const ph = (x, f) => x ? esc(x) : prev ? `<span class="ph">${f}</span>` : '';
+  const paras = t => String(t||'').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).map(s => `<p style="margin:0 0 10px">${esc(s)}</p>`).join('');
+  const stories = (p.stories||[]).filter(s => s.title || s.body), notices = (p.notices||[]).filter(Boolean);
+  return `<div class="paper"><h1 class="mast">${ph(p.paper,'Paper name')}</h1><div class="strip"><span>No. ${esc(p.no||'—')}</span><span>${ph(p.date,'In-world date')}</span><span>${ph(p.price, prev ? 'Price' : '')}</span></div>
+    <h2 class="hl">${ph(p.headline,'Your headline here')}</h2>${p.sub || prev ? `<p class="psub">${ph(p.sub,'A line under the headline')}</p>` : ''}
+    <div class="plead">${paras(p.lead) || (prev?'<p class="ph">The lead story goes here.</p>':'')}</div>
+    ${stories.length ? `<div class="pstories">${stories.map(s => `<section><h3>${esc(s.title)}</h3>${paras(s.body)}</section>`).join('')}</div>` : ''}
+    ${notices.length ? `<aside class="pnotices"><h3>Notices</h3><ul>${notices.map(t => `<li>${esc(t)}</li>`).join('')}</ul></aside>` : ''}</div>`;
+}
+
+/* ================= character / cast ================= */
+function heroPage(v){
+  const g = G(), mine = N.charOf(v.role), sel = g.chars[v.ui.charSel] || mine;
+  const others = N.pcs();
+  if (!sel) return `<div class="scroll" data-sk="hero" style="min-height:0">${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>Character</h1></div>` : ''}<div class="quiet"><div class="art"></div><p>No character yet.</p></div></div>`;
+  return `<div class="scroll" data-sk="hero" style="min-height:0">
+    ${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>${sel===mine?'My character':esc(sel.built?sel.short:pn(sel))}</h1></div>` : ''}
+    <div class="sheetv">
+      ${others.length > 1 ? `<div class="party-row full">${others.map(c => `<button type="button" class="pchip" data-a="charSel" data-v="${c.id}" aria-current="${c===sel}">${N.av({name:c.built?c.short:pn(c),portrait:c.built?c.portrait:null,color:c.color},36)}<span><b>${esc(c===mine?'You':c.built?c.short:pn(c))}</b><small>${c.built?esc(c.hc):'No card yet'}</small></span></button>`).join('')}</div>` : ''}
+      ${N.sheetBody(v, sel)}
+    </div></div>`;
+}
+const asps = list => list.filter(x => x[1]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.6,.5,-.3][i%3]}deg"><span class="k">${k}</span>${esc(a)}</span>`).join('');
+N.sheetBody = function(v, c){
+  const g = G(), gm = isGM(v), mine = c.player === v.role;
+  const who = `--who:${c.color}`;
+  if (!c.built) return `<div class="pc-hero full" style="${who}">${N.av({name:pn(c),color:c.color},84)}<div><h2>${esc(pn(c))}’s character</h2><div class="by">${gm?'Not made yet.':mine?`${esc(N.gmName())} will make your character card.`:'Not made yet.'}</div></div></div>
+    ${gm?`<div class="full" style="display:flex;justify-content:center"><button type="button" class="btn primary lg spark" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Make ${esc(pn(c))}’s card</button></div>`:''}
+    <div class="quiet full"><div class="art"></div><p>${gm?'Name, concept, trouble, skills, stunts and fate points. The player gets a note when it’s ready.':'It shows up here as soon as it’s ready.'}</p></div>`;
+  const rungs = [8,7,6,5,4,3,2,1].map(x => [x, Object.entries(c.skills).filter(([,y]) => y === x).map(([n]) => n)]).filter(r => r[1].length);
+  const canRoll = mine || gm, disc = c.disc || {};
+  return `<section class="pc-hero full" style="${who}">
+      ${N.av(c,84)}
+      <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">Played by ${esc(pn(c))}${mine?' · you':''}</div><div class="hc">${esc(c.hc)}</div></div>
+      <div class="fp"><div><span class="eyebrow">Fate points · refresh ${c.refresh}</span><div class="coins">${coinsHtml(c, gm)}</div></div>${gm?`<div class="gmbar"><button type="button" class="btn sm" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Edit card</button><button type="button" class="btn sm danger" data-a="sheet" data-v="pcDel" data-c="${c.id}">${IC('trash')}Delete</button></div>`:''}</div>
+    </section>
+    <section class="sec"><h3>Aspects</h3><div class="asps">${asps([['High concept',c.hc],['Trouble',c.trouble],...c.aspects.map(a=>['Aspect',a])])}</div></section>
+    <section class="sec"><h3>Skills${canRoll?' · tap one to roll':''}</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(n => canRoll ? `<button type="button" data-a="roll" data-skill="${esc(n)}" data-c="${c.id}">${esc(n)}${disc[n]?`<small style="color:var(--ink-3);font-weight:600">${esc(disc[n])}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>` : `<button type="button" disabled>${esc(n)}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div></section>
+    <section class="sec"><h3>Stress</h3><div class="stress2">${[['phys','Physical','Strength'],['ment','Mental','Will']].map(([k,l,s]) => `<div class="trk"><span class="eyebrow">${l} <span style="letter-spacing:0;text-transform:none;font-weight:600">· from ${s}</span></span><div class="boxes">${c.stressV[k].map((x,i)=>`<button type="button" class="sbox${c.stress[k][i]?' on':''}" ${gm?`data-a="stress" data-c="${c.id}" data-k="${k}" data-i="${i}"`:'disabled'} aria-pressed="${!!c.stress[k][i]}" aria-label="${l} ${x}">${x}</button>`).join('')}</div></div>`).join('')}</div></section>
+    <section class="sec"><h3>Consequences</h3><div class="cons">${[['mild','Mild',2],['moderate','Moderate',4],['severe','Severe',6]].map(([k,l,x]) => `<div class="con"><span class="lv"><b>${l}</b>absorbs ${x}</span>${gm?`<input class="inp" id="con-${k}-${c.id}-${v.id}" data-i="con" data-c="${c.id}" data-k="${k}" value="${esc(c.cons[k])}" placeholder="Empty">`:`<span class="slot${c.cons[k]?' full':''}">${esc(c.cons[k])||'Empty'}</span>`}</div>`).join('')}</div></section>
+    <section class="sec"><h3>Stunts</h3>${c.stunts.map(([n,d]) => `<div class="stunt"><b>${esc(n)}</b><p>${esc(d)}</p></div>`).join('') || '<p class="muted">None yet.</p>'}</section>
+    <section class="sec"><h3>Gear</h3><div class="inv">${c.inv.map(([n,q,d,ic],i) => `<div class="it"><span class="ii">${IC(ic||'bag')}</span><span><b>${esc(n)}</b>${d?`<small>${esc(d)}</small>`:''}</span><span class="q">×${q}</span>${gm?`<span class="mini"><button type="button" data-a="invQty" data-c="${c.id}" data-i="${i}" data-d="-1" aria-label="One fewer ${esc(n)}">−</button><button type="button" data-a="invQty" data-c="${c.id}" data-i="${i}" data-d="1" aria-label="One more ${esc(n)}">+</button><button type="button" data-a="invDel" data-c="${c.id}" data-i="${i}" aria-label="Remove ${esc(n)}">${IC('x')}</button></span>`:''}</div>`).join('') || '<p class="muted">Empty.</p>'}</div>
+      ${gm?`<div class="invadd"><input class="inp" id="inv-${c.id}-${v.id}" placeholder="Add an item, e.g. Silver dagger" aria-label="Item name"><input class="inp" id="invq-${c.id}-${v.id}" data-i="invQ" type="number" min="1" value="${v.ui.invQ||1}" aria-label="How many"><button type="button" class="btn sm" data-a="invAdd" data-c="${c.id}">${IC('plus')}Add</button></div><p class="muted" style="margin:6px 0 0;font:600 12px/1.4 var(--f-ui)">Changes post a note in ${esc(pn(c))}’s private chat.</p>`:''}</section>`;
+};
+function castPage(v){
+  const g = G(), seg = v.ui.castSeg, ph = v.dev === 'phone';
+  if (v.ui.castSel) {
+    const c = g.chars[v.ui.castSel], n = g.npcs.find(x => x.id === v.ui.castSel);
+    if (!c && !n) { v.ui.castSel = null; return castPage(v); }
+    return `<div class="scroll" data-sk="cast2" style="min-height:0"><div class="top ${ph?'ph':'dt'}" style="display:flex"><button type="button" class="ibtn" data-a="castBack" aria-label="Back">${IC('left')}</button><h1>${esc(c ? (c.built?c.name:pn(c)+'’s card') : n.name)}</h1>${n?`<button type="button" class="btn sm" data-a="voice" data-v="${esc(n.name)}" data-go="1">${IC('chatL')}Speak as</button>`:''}</div>
+      <div class="sheetv">${c ? N.sheetBody(v, c) : npcBody(v, n)}</div></div>`;
+  }
+  const pcs = N.pcs(), pending = N.MEMBERS.filter(m => m.role === 'pending').length;
+  const q = (v.ui.npcQ || '').trim().toLowerCase();
+  const npcs = g.npcs.filter(n => !q || [n.name, n.race, n.job, n.hc].join(' ').toLowerCase().includes(q));
+  return `<div class="scroll" data-sk="cast" style="min-height:0"><div class="cast">
+    <div style="display:flex;align-items:center;gap:10px;padding-top:var(--safe-t,0px)">${ph?meBtn(v):''}<h1 class="ttl" style="flex:1;font-size:${ph?22:28}px">Cast</h1>${seg==='npcs'?`<button type="button" class="btn sm primary spark" data-a="npcNew">${IC('plus')}New NPC</button>`:''}</div>
+    <div class="seg" role="group" aria-label="Show" style="justify-self:start"><button type="button" data-a="castSeg" data-v="players" aria-pressed="${seg==='players'}">${IC('users')}Players</button><button type="button" data-a="castSeg" data-v="npcs" aria-pressed="${seg==='npcs'}">${IC('npc')}NPCs <span class="tag" style="height:16px">${g.npcs.length}</span></button></div>
+    ${seg === 'players' ? `<div class="cgrid">${pcs.map(c => c.built
+      ? `<button type="button" class="ccard" data-a="castSel" data-v="${c.id}">${N.av(c,52)}<span><b>${esc(c.name)}</b><small>${esc(c.hc)}</small><small>Played by ${esc(pn(c))}</small></span><span class="icon-go">${IC('right')}</span></button>`
+      : `<div class="ccard empty">${N.av({name:pn(c),color:c.color},52)}<span><b>${esc(pn(c))}</b><small>Signed in · no card yet</small></span><button type="button" class="btn sm primary" data-a="pcEdit" data-v="${c.id}">Make card</button></div>`).join('')}
+      <button type="button" class="ccard empty" data-a="sheet" data-v="players"><span class="av" style="--s:52px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('userplus').replace('<svg','<svg style="width:24px;height:24px"')}</span><span><b>Players &amp; sign-ins</b><small>${pending ? `${pending} ${pending===1?'person is':'people are'} waiting to be let in` : pcs.length ? 'Let people in, rename or remove them' : 'Send your players the link to this page'}</small></span>${pending?`<span class="badge">${pending}</span>`:`<span class="icon-go">${IC('right')}</span>`}</button></div>`
+    : `<div class="search">${IC('search')}<input class="inp" id="npcq-${v.id}" placeholder="Find an NPC" data-i="npcQ" value="${esc(v.ui.npcQ||'')}"></div>
+      ${npcs.length ? `<div class="cgrid">${npcs.map(n => `<div class="ccard">${N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},52)}<span><b>${esc(n.name)}</b><small>${esc(N.npcSub(n))}</small><small style="font-style:italic;font-family:var(--f-display)">${esc(n.hc)}</small></span><button type="button" class="ibtn sm" data-a="castSel" data-v="${n.id}" aria-label="Open ${esc(n.name)}">${IC('right')}</button>
+        <div class="acts2"><button type="button" class="btn sm" data-a="voice" data-v="${esc(n.name)}" data-go="1">${IC('chatL')}Speak as</button>${g.combat.state!=='off'?`<button type="button" class="btn sm" data-a="npcToFight" data-v="${n.id}">${IC('swords')}Add to fight</button>`:''}<button type="button" class="btn sm ghost" data-a="npcEdit" data-v="${n.id}">${IC('pen')}Edit</button></div></div>`).join('')}</div>`
+      : `<div class="quiet"><div class="art"></div><p>${g.npcs.length ? 'No NPCs match.' : 'Your NPC cards live here, for your eyes only. Press New NPC to write the first one.'}</p></div>`}`}
+  </div></div>`;
+}
+function npcBody(v, n){
+  const rungs = [8,7,6,5,4,3,2,1].map(x => [x, Object.entries(n.skills).filter(([,y]) => y === x).map(([k]) => k)]).filter(r => r[1].length);
+  const trk = (k, l) => `<div class="trk"><span class="eyebrow">${l}</span><div class="boxes">${n.stressV[k].map((x,i)=>`<button type="button" class="sbox${n.stress[k][i]?' on':''}" data-a="npcStress" data-n="${n.id}" data-k="${k}" data-i="${i}" aria-pressed="${!!n.stress[k][i]}" aria-label="${l} ${x}">${x}</button>`).join('')}</div></div>`;
+  return `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},84)}<div style="min-width:0"><h2>${esc(n.name)}</h2><div class="by">${esc(N.npcSub(n) || 'NPC')} · ${n.type==='nameless'?'Nameless NPC':'Supporting NPC'}</div><div class="hc">${esc(n.hc)}</div></div>
+    <div class="fp"><div><span class="eyebrow">Fate points · refresh ${n.refresh}</span><div class="coins">${Array.from({length:Math.max(n.fp, n.refresh)}, (_,i) => `<span class="coin${i<n.fp?'':' off'}"></span>`).join('')}</div></div><div class="gmbar"><button type="button" class="btn sm" data-a="npcEdit" data-v="${n.id}">${IC('pen')}Edit</button>${G().combat.state!=='off'?`<button type="button" class="btn sm" data-a="npcToFight" data-v="${n.id}">${IC('swords')}Add to fight</button>`:''}<button type="button" class="btn sm ghost" data-a="npcDup" data-v="${n.id}">${IC('copy')}Duplicate</button><button type="button" class="btn sm danger" data-a="sheet" data-v="npcDel" data-c="${n.id}">${IC('trash')}Delete</button></div></div></section>
+    <section class="sec"><h3>Aspects</h3><div class="asps">${asps([['High concept',n.hc],['Trouble',n.trouble],...n.aspects.map(a=>['Aspect',a])]) || '<p class="muted">None yet.</p>'}</div></section>
+    <section class="sec"><h3>Skills · tap one to roll</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(k => `<button type="button" data-a="roll" data-skill="${esc(k)}" data-npc="${n.id}">${esc(k)}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div>
+      ${n.magic ? `<p style="margin:10px 0 0"><b>Magic and disciplines.</b> ${esc(n.magic)}</p>` : ''}</section>
+    <section class="sec"><h3>Stress</h3><div class="stress2">${trk('phys','Physical')}${trk('ment','Mental')}</div></section>
+    <section class="sec"><h3>Consequences</h3><div class="cons">${[['mild','Mild',2],['moderate','Moderate',4],['severe','Severe',6]].map(([k,l,x]) => `<div class="con"><span class="lv"><b>${l}</b>absorbs ${x}</span><input class="inp" id="ncon-${k}-${n.id}-${v.id}" data-i="npcCon" data-n="${n.id}" data-k="${k}" value="${esc(n.cons[k])}" placeholder="Empty"></div>`).join('')}</div></section>
+    <section class="sec"><h3>Stunts</h3>${n.stunts.map(([a,b]) => `<div class="stunt"><b>${esc(a)}</b><p>${esc(b)}</p></div>`).join('') || '<p class="muted">None yet.</p>'}</section>
+    <section class="sec full"><h3>Bio</h3><textarea class="inp" id="npcbio-${n.id}-${v.id}" data-i="npcNotes" data-n="${n.id}" data-k="bio" rows="4" placeholder="Who they are, what they look like, how they talk…">${esc(n.bio)}</textarea></section>
+    <section class="sec full"><h3>GM notes</h3><textarea class="inp" id="npcnotes-${n.id}-${v.id}" data-i="npcNotes" data-n="${n.id}" data-k="notes" rows="3" placeholder="Secrets, plans, who they work for. Only you see these.">${esc(n.notes)}</textarea></section>`;
+}
+})();
