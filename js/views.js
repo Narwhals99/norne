@@ -312,7 +312,7 @@ function coinsHtml(c, edit){
   const n = Math.max(c.fp, c.refresh);
   return Array.from({length:n}, (_,i) => `<span class="coin${i<c.fp?'':' off'}"></span>`).join('') + (edit ? `<span class="mini"><button type="button" data-a="fp" data-c="${c.id}" data-d="-1" aria-label="Take a fate point">−</button><button type="button" data-a="fp" data-c="${c.id}" data-d="1" aria-label="Give a fate point">+</button></span>` : '');
 }
-N.coinsHtml = coinsHtml;
+N.coinsHtml = coinsHtml; N.rRoll = rRoll; N.resCard = resCard;
 function heroQuick(v){
   const g = G(), c = N.charOf(v.role);
   if (!c.built) return `<div class="gs"><div class="quiet"><div class="art"></div><p>${esc(N.gmName())} hasn’t made your character card yet. It shows up here as soon as it’s ready.</p></div></div>`;

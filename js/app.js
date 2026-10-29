@@ -29,7 +29,7 @@ N.mount = function(root, o){
   return v;
 };
 
-const HS = '.hscroll,.who-row,.ribbon,.chips,.ladder-chips,.party-row,.thumbs';
+const HS = '.hscroll,.who-row,.fight-order,.chips,.ladder-chips,.party-row,.thumbs';
 function render(v){
   const root = v.root;
   if (!root.isConnected) return;
@@ -354,7 +354,7 @@ function down(v, e){
   const board = e.target.closest('[data-board]');
   const tokEl = e.target.closest('.tok[data-tok]');
   const mapcv = e.target.closest('[data-mapcv]');
-  if (tokEl && !e.target.closest('.ribbon')) {
+  if (tokEl && !e.target.closest('.fight-order')) {
     const t = N.tokById(tokEl.dataset.tok); if (!t) return;
     const mine = N.isMine(t, v.role) && cb.state === 'live' && N.curTok() === t && !cb.moved;
     const can = (gm && (cb.state === 'setup' || (v.ui.cbTool || 'move') === 'move') && !v.ui.targeting) || (mine && !v.ui.targeting);
@@ -368,7 +368,7 @@ function down(v, e){
     const pt = ev => ({x:(ev.clientX - br.left) / br.width * 100, y:(ev.clientY - br.top) / br.height * 100});
     if (rs) { const z = cb.zones.find(x => x.id === rs.dataset.rs); track(v, e, {kind:'rs', z, pt, z0:{...z}, p0:pt(e)}); return; }
     if (zl) { const z = cb.zones.find(x => x.id === zl.dataset.zl); track(v, e, {kind:'zmove', z, pt, z0:{...z}, p0:pt(e)}); return; }
-    if (!e.target.closest('.gmtools,.hint-chip,.tokpanel,button')) { track(v, e, {kind:'draw', pt, p0:pt(e), board}); return; }
+    if (!e.target.closest('.fight-tools,.hint-chip,.tokpanel,button')) { track(v, e, {kind:'draw', pt, p0:pt(e), board}); return; }
   }
   if (mapcv) {
     const pinEl = e.target.closest('[data-pin]');
@@ -796,6 +796,7 @@ function act(v, a, el, e){
   case 'openFight': close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; break;
   case 'closeFight': ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; break;
   case 'pane': ui.fightPane = val; ui.targeting = null; break;
+  case 'fightTools': ui.fightTools = !ui.fightTools; break;
   case 'watch': ui.watching = true; ui.fightOpen = true; ui.fightPane = 'fight'; ui.tab = 'chat'; ui.ch = N.fightCh(); close(); break;
   case 'join': {
     const c = N.charOf(v.role); if (!c || cb.state !== 'live') break;
