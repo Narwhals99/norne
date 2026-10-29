@@ -37,6 +37,8 @@ const DISC = {
   'Enchantment Magic':[],
 };
 /* magical skills can only be rolled by someone who has them */
+/* the peoples of Nörne (Attributes.xlsx), offered when typing a race */
+N.RACES = ['Human','Half-Elf','Elf','Dwarf','Goblin','Centaur','Werewolf','Vampire','Gorgon','Bugfolk','Kenku','Gnome','Fishfolk','Satyr','Lizardfolk','Ogre'];
 const MAGIC = ['Elemental Magic','Ward Magic','Healing Magic','Conjuring Magic','Alteration Magic','Illusion Magic','Spatial Magic','Mind Magic','Divination Magic','Enchantment Magic'];
 const discOf = (o, k) => { const x = (o.disc || {})[k]; return Array.isArray(x) ? x : x ? [x] : []; };
 const stressVals = r => r <= -1 ? [2] : r === 0 ? [1,2] : r <= 2 ? [1,2,2] : [1,2,2,3];
@@ -140,7 +142,7 @@ N.seatColor = seat => `var(--c-p${((+seat.slice(1) - 1) % SEATCOL) + 1})`;
 function blankChar(id, player){
   const P = N.G.P[player] || {name:'Player'};
   return {id, player, name:`${P.name}’s character`, short:P.name, built:false, portrait:null,
-    hc:'', trouble:'', aspects:[], age:'', people:'', invText:'', skills:{}, disc:{}, stunts:[], refresh:3, fp:3,
+    hc:'', trouble:'', aspects:[], race:'', age:'', people:'', invText:'', skills:{}, disc:{}, stunts:[], refresh:3, fp:3,
     stressV:{phys:stressVals(0), ment:stressVals(0)}, stress:{phys:[false,false], ment:[false,false]}, cons:{mild:'',moderate:'',severe:''}, inv:[]};
 }
 function npcCard(o){
