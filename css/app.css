@@ -901,7 +901,7 @@
   .app .rail{display:block;min-height:0;border-left:1px solid var(--line);background:color-mix(in srgb,var(--sunk) 40%,transparent)}
   .app .chat{grid-template-rows:auto auto 1fr auto}
   .app .chat .top{display:none}
-  .app .chips{display:none}
+  .app .top .chips{display:none}
   .app .scene{margin:12px 12px 0;min-height:150px;border-radius:20px}
   .app .scene h2{font-size:30px}
   .app .scene .in{padding:16px 20px 16px}
