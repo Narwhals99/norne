@@ -17,11 +17,12 @@ N.appHtml = function(v){
   const newsNew = !gm && g.news.issues.some(i => !(g.news.seen[v.role]||[]).includes(i.id));
   const me = gm ? {name:N.gmName(), color:'var(--c-gm)'} : {name:g.P[v.role]?.name || '', color:g.P[v.role]?.color};
 
+  const shelfOn = v.ui.tab === 'chat';
   const nav = `<nav class="nav" aria-label="Sections">
     <div class="mark">${MARK}<b>N<small>ORNE</small></b></div>
     <div class="navl scroll">
-      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='world'&&newsNew?'<span class="badge gold">1</span>':''}</span></button>
-        ${id==='chat' ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
+      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&shelfOn&&otherUnread?'<span class="dot"></span>':''}${id==='world'&&newsNew?'<span class="badge gold">1</span>':''}</span></button>
+        ${id==='chat' && !shelfOn ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
     </div>
     <div class="art" aria-hidden="true"></div>
     <button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>
@@ -38,7 +39,8 @@ N.appHtml = function(v){
   else if (v.ui.tab === 'inv') page = `<main class="page">${invPage(v)}</main>`;
 
   return `<div class="stars" aria-hidden="true"></div>
-    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}">${nav}${page}${tabbar}</div>
+    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}">${nav}${shelfOn && v.dev === 'desktop' ? shelfHtml(v) : ''}${page}${tabbar}</div>
+    ${shelfOn && v.dev === 'phone' && v.ui.shelf ? `<div class="scrim shelf-scrim" data-a="shelf"></div>${shelfHtml(v)}` : ''}
     ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
     ${v.ui.pop ? `<div class="scrim" style="background:transparent;backdrop-filter:none" data-a="closePop"></div>${popHtml(v)}` : ''}
     ${v.ui.toast ? `<div class="toast" role="status"><span class="star4"></span><span>${esc(v.ui.toast.text)}</span>${v.ui.toast.undo?'<button type="button" data-a="undo">Undo</button>':''}</div>` : ''}`;
@@ -55,9 +57,45 @@ function chanBtn(v, c){
   const n = N.unread(v.role, c), cur = v.ui.tab === 'chat' && v.ui.ch === c;
   return `<button type="button" data-a="ch" data-v="${c}" ${cur?'aria-current="true"':''} class="${n&&!cur?'new':''}">${chanIcon(v,c)}<span>${esc(N.chName(c, v.role))}</span>${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
 }
-function chanChip(v, c){
-  const n = N.unread(v.role, c), cur = v.ui.ch === c;
-  return `<button type="button" class="cchip" data-a="ch" data-v="${c}" aria-current="${cur}">${chanIcon(v,c)}<span>${esc(N.chName(c, v.role))}</span>${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
+/* the Discord-style list of chats: always beside the chat on desktop, a drawer from the left on phones */
+function chanLast(v, c){
+  const ms = G().msgs;
+  for (let i = ms.length - 1; i >= 0; i--) {
+    const m = ms[i];
+    if (m.ch !== c || (m.kind === 'scene' && (m.quiet || !m.scene))) continue;
+    if (m.kind === 'scene') return 'New scene: ' + m.scene.title;
+    if (m.kind === 'roll') return `${m.roll.who} rolled`;
+    if (m.kind === 'fight' || m.kind === 'combat') return 'A fight';
+    if (m.kind === 'news') return 'New edition of the paper';
+    if (m.kind === 'sys') return m.text || '';
+    const who = m.by === v.role ? 'You' : m.kind === 'ooc' || m.kind === 'meta' ? N.personObj(m.by).name : N.speakerObj(m).name;
+    return `${who}: ${m.text || ''}`;
+  }
+  return N.chSub(c, v.role);
+}
+function shelfRow(v, c){
+  const n = N.unread(v.role, c), cur = v.ui.ch === c, fight = c === 'table' && G().combat.state === 'live';
+  return `<button type="button" class="shr${n&&!cur?' new':''}" data-a="ch" data-v="${c}" title="${esc(N.chName(c, v.role))}" ${cur?'aria-current="true"':''}>${chanIcon(v,c)}<span class="t"><b>${esc(N.chName(c, v.role))}</b><small>${esc(chanLast(v, c).replace(/\s+/g, ' ').slice(0, 90))}</small></span>${fight?`<span class="tag ember">${IC('swords')}</span>`:''}${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
+}
+function shelfHtml(v){
+  const gm = isGM(v), chs = N.channelsFor(v.role), ph = v.dev === 'phone';
+  const group = (t, list) => list.length ? `<div class="shg" role="group" aria-label="${t}"><h3>${t}</h3>${list.map(c => shelfRow(v, c)).join('')}</div>` : '';
+  const me = gm ? {name:N.gmName(), color:'var(--c-gm)'} : {name:G().P[v.role]?.name || '', color:G().P[v.role]?.color};
+  /* beside an open fight on desktop the list shrinks to just the chat pictures, so the board keeps its room */
+  const mini = !ph && fightAvail(v) && v.ui.fightOpen;
+  return `<aside class="shelf${ph?' drawer':''}${mini?' mini':''}" aria-label="Chats">
+    <header class="shh">${STAR.replace('<svg','<svg class="st"')}<h2>Chats</h2>${ph ? `<button type="button" class="ibtn" data-a="shelf" aria-label="Close the chat list">${IC('x')}</button>` : ''}</header>
+    <div class="shl scroll" data-sk="shelf">
+      ${group('The table', chs.filter(c => c === 'table'))}
+      ${group(gm ? 'Private chats' : 'Just you and the GM', chs.filter(c => c.startsWith('dm-')))}
+      ${group('Only you', chs.filter(c => c === 'gm'))}
+    </div>
+    ${ph ? `<button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>` : ''}
+  </aside>`;
+}
+function shelfBtn(v){
+  const other = N.channelsFor(v.role).some(c => c !== v.ui.ch && N.unread(v.role, c));
+  return `<button type="button" class="ibtn shelfb" data-a="shelf" aria-label="All chats">${IC('list')}${other?'<span class="dot"></span>':''}</button>`;
 }
 function meBtn(v){
   const g = G();
@@ -83,15 +121,21 @@ function chatPage(v){
     return `<main class="page">${chatView(v)}</main>`;
   }
   if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
-  return `<main class="page with-rail">${chatView(v)}<aside class="rail scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</aside></main>`;
+  return `<main class="page${railShown(v) ? ' with-rail' : ''}">${chatView(v)}${railShown(v) ? `<aside class="rail scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</aside>` : ''}</main>`;
+}
+/* the GM screen / character panel beside the chat: on by default when there is room, the viewer can flip it */
+function railShown(v){
+  if (v.ui.rail != null) return v.ui.rail;
+  return (v.root.clientWidth || innerWidth) >= 1180;
 }
 function chatView(v, side){
   const g = G(), gm = isGM(v), ch = v.ui.ch, sc = g.scenes[ch], cb = g.combat;
   const fa = fightAvail(v);
-  const topPh = `<div class="top ph">${meBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<div class="chips" style="flex:1;padding:0">${N.channelsFor(v.role).map(c=>chanChip(v,c)).join('')}</div>`}${sideBtn(v)}</div>`;
+  const topPh = `<div class="top ph">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${sideBtn(v)}</div>`;
   const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
     ${fa && !v.ui.fightOpen ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}${cb.state==='setup'?'Back to fight setup':'Back to the fight'}</button>` : ''}
-    ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}</header>`;
+    ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
+    ${fa && v.ui.fightOpen ? '' : `<button type="button" class="ibtn" data-a="rail" aria-pressed="${railShown(v)}" aria-label="${railShown(v)?'Hide':'Show'} the side panel" title="${railShown(v)?'Hide':'Show'} the ${gm?'GM screen':'character panel'}">${IC('gmscreen')}</button>`}</header>`;
   const fightbar = (cb.state === 'live' && !N.owedTok(v) && (!fa || (v.dev==='desktop' && !v.ui.fightOpen))) ? (() => {
     const cur = N.curTok();
     return `<div class="fightbar">${IC('swords','sw')}<div class="t">Fight on ${esc(cb.title)}<span>${cur ? `${esc(N.tokName(cur))}’s turn · exchange ${cb.exchange}` : ''}</span></div>${fa ? `<button type="button" class="btn sm gold" data-a="openFight">Back to the fight</button>` : cb.invited.includes(N.G.P[v.role]?.char) ? `<button type="button" class="btn sm gold" data-a="join">Join</button>` : `<button type="button" class="btn sm" data-a="watch">Watch</button>`}</div>`;
@@ -101,7 +145,7 @@ function chatView(v, side){
   const owedBar = owed ? (pend.stage === 'defend'
     ? `<div class="fightbar owed">${IC('attack','sw')}<div class="t">${esc(N.tokName(N.tokById(pend.att)))} attacks ${gm ? esc(N.tokName(owed)) : 'you'}!<span>${esc(pend.skill)} for ${sgn(pend.total)} ${ladderWord(pend.total)}. Roll the defense.</span></div>${N.defBtn(owed)}</div>`
     : `<div class="fightbar owed">${IC('warn','sw')}<div class="t">${gm ? esc(N.tokName(owed)) + ' takes' : 'You take'} ${pend.shifts} shift${pend.shifts>1?'s':''}<span>Pick a stress box or a consequence on the board.</span></div><button type="button" class="btn sm gold" data-a="openFight">Soak the hit</button></div>`) : '';
-  const chipRow = (!side && fa) ? `<div class="chips only-ph">${N.channelsFor(v.role).map(c=>chanChip(v,c)).join('')}</div>` : '';
+  const chipRow = (!side && fa) ? `<div class="chname-row only-ph"><button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b></span>${IC('caret')}</button></div>` : '';
   return `<section class="chat" aria-label="${esc(N.chName(ch, v.role))}">
     ${side ? '' : topPh}${chipRow}${topDt}
     ${side ? '' : sceneBanner(v, sc, ch)}
