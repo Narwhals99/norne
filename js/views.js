@@ -119,8 +119,9 @@ function fightAvail(v){
 function chatPage(v){
   const gm = isGM(v), fa = fightAvail(v);
   if (v.dev === 'phone') {
-    if (fa && v.ui.fightPane === 'fight') return `<main class="page">${N.fightView(v)}</main>`;
-    return `<main class="page">${chatView(v)}</main>`;
+    const sl = v.ui.slide ? ` slide-${v.ui.slide}` : '';
+    if (fa && v.ui.fightPane === 'fight') return `<main class="page${sl}">${N.fightView(v)}</main>`;
+    return `<main class="page${sl}">${chatView(v)}</main>`;
   }
   if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
   return `<main class="page${railShown(v) ? ' with-rail' : ''}">${chatView(v)}${railShown(v) ? `<aside class="rail scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</aside>` : ''}</main>`;
@@ -189,6 +190,8 @@ function renderMsgs(v){
   const g = G(), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)));
   if (!ms.length) return `<div class="quiet"><div class="art"></div><p>${v.ui.ch.startsWith('dm-') ? 'Nothing here yet. Anything said here stays between you two.' : 'Nothing here yet.'}</p></div>`;
   let out = '', prev = null, firstNarr = true;
+  /* only the newest roll in a chat starts open; a roll someone opened or closed by hand stays that way */
+  v._lastRoll = (ms.findLast(m => m.kind === 'roll') || {}).id;
   const seen = (g.seen[v.role] || {})[v.ui.ch] || 0; let divDone = false;
   for (const m of ms) {
     if (!divDone && m.by !== v.role && m.t > seen && seen > 0 && v.ui.showNew) { out += `<div class="day-div" style="color:var(--ember)">New</div>`; divDone = true; }
@@ -222,11 +225,11 @@ function rMsg(v, m, prev, firstNarr){
   return `<div class="m${mine?' mine':''}${gmv}${cont?' cont':''}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${fmt(m.text)}</div></div></div>`;
 }
 function rRoll(v, m){
-  const r = m.roll, tot = rollTotal(r), o = outcome(r), fold = v.ui.folded.has(m.id);
+  const r = m.roll, tot = rollTotal(r), o = outcome(r), fold = v.ui.folded.has(m.id) ? v.ui.folded.get(m.id) : m.id !== v._lastRoll;
   const dice = r.dice.map(d => `<span class="die ${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':'·'}</span>`).join('');
   const canInv = isGM(v) || r.whoKey === 'pc:' + (G().P[v.role]||{}).char;
   return `<div class="roll${fold?' folded':''}${m.ch==='gm'?' secret':''}">
-    <div class="rh"><span class="grow"><b>${esc(r.skill)} ${sgn(r.bonus - (r.gear||0))}</b>${r.gear?` + gear ${sgn(r.gear)}`:''} · ${esc(r.action)}${r.target?` ${r.action==='Defend'?'against':'on'} <b>${esc(r.target)}</b>`:''}</span>${fold?`<span class="mini-tot">${sgn(tot)}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
+    <div class="rh"><span class="grow"><b>${esc(r.skill)} ${sgn(r.bonus - (r.gear||0))}</b>${r.gear?` + gear ${sgn(r.gear)}`:''} · ${esc(r.action)}${r.target?` ${r.action==='Defend'?'against':'on'} <b>${esc(r.target)}</b>`:''}</span>${fold?`<span class="mini-tot">${sgn(tot)}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" data-f="${fold?1:''}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
     <div class="rb"><div class="dice${v.ui.fresh===m.id?' fresh':''}">${dice}</div><div class="tot"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></div></div>
     ${r.invokes.length ? `<div class="inv">${r.invokes.map(i => i.reroll ? `Rerolled with “${esc(i.aspect)}” (was ${sgn(i.was ? i.was.reduce((a,b)=>a+b,0) : 0)})` : `+2 from “${esc(i.aspect)}”`).join(' · ')}</div>` : ''}
     <div class="rf"><span class="math">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${sgn(r.bonus - (r.gear||0))}${r.gear?` · gear ${sgn(r.gear)}`:''}${N.plusInvokes(r)?` · invokes +${2*N.plusInvokes(r)}`:''}${r.opp!=null?` · vs ${ladderWord(r.opp)}`:''}</span>${o?`<span class="out ${o.k}">${o.t}${o.sh>0?` · ${o.sh}`:''}</span>`:''}${canInv && m.ch!=='gm' ? `<button type="button" class="btn sm" data-a="invoke" data-id="${m.id}" style="--h:28px">${IC('cards')}Invoke</button>` : ''}</div>

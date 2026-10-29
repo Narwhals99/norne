@@ -1254,3 +1254,9 @@
   .app .shelf.mini .shr{width:52px;min-height:48px;padding:0;justify-content:center}
   .app .shelf.mini .shr .badge{position:absolute;top:1px;right:0;height:17px;min-width:17px;font-size:10px;padding:0 4px;box-shadow:0 0 0 2px var(--page-solid)}
 }
+/* phones: swiping between a chat and its fight slides the new pane in from the side it came from */
+.app .page.slide-l{animation:slidel .22s ease-out both}
+.app .page.slide-r{animation:slider .22s ease-out both}
+@keyframes slidel{from{transform:translateX(28%);opacity:.3}}
+@keyframes slider{from{transform:translateX(-28%);opacity:.3}}
+@media (prefers-reduced-motion:reduce){.app .page.slide-l,.app .page.slide-r{animation:none}}
