@@ -1,0 +1,182 @@
+/* Norne: shared game state, Fate rules and the helpers every screen uses.
+   N.G holds what came from Firestore (see sync.js); screens only read it and actions change it,
+   then N.save() writes the changed parts back. */
+(function(){
+const N = window.N = {};
+
+/* ---------- helpers ---------- */
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = s => esc(s).replace(/\*([^*\n]+)\*/g,'<em>$1</em>').replace(/\n/g,'<br>');
+let _n = 0; const uid = p => p + Date.now().toString(36) + (++_n).toString(36) + Math.random().toString(36).slice(2,6);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const sgn = n => (n < 0 ? '−' : '+') + Math.abs(n);
+const IC = (k, cls='') => { const i = (window.ICONS||{})[k]; return i ? `<svg viewBox="${i[0]}" class="${cls}" aria-hidden="true" fill="currentColor">${i[1]}</svg>` : ''; };
+const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 0c.9 6.6 4.6 10.6 12 12-7.4 1.4-11.1 5.4-12 12-.9-6.6-4.6-10.6-12-12 7.4-1.4 11.1-5.4 12-12z"/></svg>';
+const MARK = '<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="mk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9b0"/><stop offset="1" stop-color="#d9973f"/></linearGradient></defs><path fill="url(#mk)" d="M24 2c1.6 11 7.6 18 20 22-12.4 4-18.4 11-20 22-1.6-11-7.6-18-20-22C16.4 20 22.4 13 24 2z"/><path fill="none" stroke="url(#mk)" stroke-width="1.2" opacity=".7" d="M24 12c.8 5.4 3.8 9 10 12-6.2 3-9.2 6.6-10 12-.8-5.4-3.8-9-10-12 6.2-3 9.2-6.6 10-12z"/></svg>';
+Object.assign(N, {esc, fmt, uid, clamp, sgn, IC, STAR, MARK});
+
+/* ---------- Fate on the Nörne ladder ---------- */
+const LADDER = {8:'Mythic',7:'Legendary',6:'Renowned',5:'Expert',4:'Great',3:'Good',2:'Fair',1:'Average',0:'Mediocre','-1':'Poor','-2':'Terrible'};
+const ladderWord = v => LADDER[clamp(v,-2,8)];
+const MUNDANE = ['Athletics','Riding','Stealth','Fighting','Shooting','Strength','Will','Crafting','Crime','Resources','Contact','Search','Empathy','Notice','Deception','Provoke','Rapport','Lore'];
+const stressVals = r => r <= -1 ? [2] : r === 0 ? [1,2] : r <= 2 ? [1,2,2] : [1,2,2,3];
+const ACTIONS = [['Overcome','overcome'],['Create an advantage','advantage'],['Attack','attack'],['Defend','defend']];
+const diceSum = r => r.dice.reduce((a,b)=>a+b,0);
+const rollTotal = r => diceSum(r) + r.bonus + 2*(r.invokes||[]).length;
+function outcome(r){
+  if (r.opp == null) return null;
+  const sh = rollTotal(r) - r.opp;
+  if (sh < 0) return {k:'fail', t:'Fail', sh};
+  if (sh === 0) return {k:'tie', t:'Tie', sh};
+  if (sh < 3) return {k:'succ', t:'Success', sh};
+  return {k:'style', t:'With style', sh};
+}
+const rollDice = () => [0,0,0,0].map(() => Math.floor(Math.random()*3) - 1);
+Object.assign(N, {LADDER, ladderWord, MUNDANE, stressVals, ACTIONS, diceSum, rollTotal, outcome, rollDice});
+
+/* ---------- art ---------- */
+const FACE = n => `art/pt/${n}-face.png`, BG = n => `art/bg/${n}.jpg`;
+N.FACE = FACE; N.BG = BG;
+N.ARTLIB = [
+  ['town-alley','Back alley'],['river-bridge','River crossing'],['court-intrigue','A lord’s court'],['castle-ramparts','Castle walls'],
+  ['plains-great-tree','Open plains'],['dark-forest','Dark forest'],['mountain-valley','Mountain valley'],['mountain-pass-raid','Mountain pass'],
+  ['dwarven-hall','Dwarven hall'],['cave-temple-deep','Deep cave'],['city-gate','City gate'],['harbor-ship','Harbor'],['storm-sea-night','Storm at sea'],['castle-hill','Hill fort'],
+].map(([k,l]) => ({id:'art-'+k, art:BG(k), label:l}));
+N.FIGHTBG = 'art/bg/river-bridge.jpg';
+
+/* Images kept in Firestore (uploaded maps, scene pictures, portraits) are named "fs:<id>". sync.js loads them. */
+N.imgUrl = src => {
+  if (!src) return '';
+  if (!String(src).startsWith('fs:')) return src;
+  return N.loadImg ? N.loadImg(src.slice(3)) : '';
+};
+/* a portrait is a built-in key (art/pt/<key>-face.png), an "fs:" upload or nothing */
+N.faceUrl = p => !p ? null : /^(fs:|data:|https?:|art\/|img\/)/.test(p) ? (N.imgUrl(p) || null) : FACE(p);
+
+/* ---------- wiki and map vocab ---------- */
+N.WCATS = ['World','Nations','Places','People','Races','Religions','Magic','Factions','History','Prophecies','Food & Drink','Items','Rules','Storylines'];
+N.CATICON = {'World':'globe','Nations':'flag','Places':'places','People':'person','Races':'races','Religions':'religion','Magic':'magic','Factions':'faction','History':'history','Prophecies':'prophecy','Food & Drink':'drink','Items':'items','Rules':'rules','Storylines':'story'};
+N.PINT = {
+  town:{name:'Towns',col:'#efd9a0',ic:'castle'}, nation:{name:'Nations',col:'#f4c46e',ic:'flag'}, landmark:{name:'Landmarks',col:'#c9bdff',ic:'star'},
+  tavern:{name:'Taverns',col:'#f2b25c',ic:'tavern'}, shop:{name:'Shops',col:'#a3d6b4',ic:'bag'}, temple:{name:'Temples',col:'#f4e38d',ic:'religion'},
+  danger:{name:'Danger',col:'#ff8a6e',ic:'warn'}, note:{name:'Notes',col:'#cfd8d3',ic:'pen'}, party:{name:'Party',col:'#8c7cff',ic:'banner'},
+};
+
+/* ---------- the shared game (filled in by sync.js) ---------- */
+const SEATCOL = 8;
+N.G = {
+  me:null, role:'gm',
+  P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
+  chars:{}, npcs:[], quick:[], foes:[], recent:[], msgs:[], combat:null, maps:[], wiki:[], news:{issues:[], seen:{}}, seen:{},
+};
+N.seatColor = seat => `var(--c-p${((+seat.slice(1) - 1) % SEATCOL) + 1})`;
+
+function blankChar(id, player){
+  const P = N.G.P[player] || {name:'Player'};
+  return {id, player, name:`${P.name}’s character`, short:P.name, built:false, portrait:null,
+    hc:'', trouble:'', aspects:[], skills:{}, disc:{}, stunts:[], refresh:3, fp:3,
+    stressV:{phys:stressVals(0), ment:stressVals(0)}, stress:{phys:[false,false], ment:[false,false]}, cons:{mild:'',moderate:'',severe:''}, inv:[]};
+}
+function npcCard(o){
+  const str = (o.skills||{}).Strength||0, wil = (o.skills||{}).Will||0, pv = stressVals(str), mv = stressVals(wil);
+  return Object.assign({id:uid('n'), name:'', race:'', job:'', hc:'', trouble:'', aspects:[], skills:{}, magic:'', stunts:[], refresh:3, fp:3, bio:'', notes:'', type:'supporting', portrait:null,
+    stressV:{phys:pv, ment:mv}, stress:{phys:pv.map(()=>false), ment:mv.map(()=>false)}, cons:{mild:'',moderate:'',severe:''}}, o);
+}
+function freshCombat(){
+  return {state:'off', id:null, title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, acted:false, moved:false};
+}
+N.freshCombat = freshCombat; N.npcCard = npcCard; N.blankChar = blankChar;
+N.G.combat = freshCombat();
+
+/* scenes live in the chat as "scene" messages; the newest one in a chat is its scene */
+let _scV = null, _scC = {};
+Object.defineProperty(N.G, 'scenes', {get(){
+  const ms = N.G.msgs, key = ms.length + ':' + (ms.length ? ms[ms.length-1].id : '');
+  if (key !== _scV) { _scC = {}; _scV = key; for (const m of ms) if (m.kind === 'scene') _scC[m.ch] = m.scene ? Object.assign({msg:m.id}, m.scene) : null; }
+  return _scC;
+}});
+N.invalidateScenes = () => { _scV = null; };
+/* the party banner is a "party" pin on one of the maps */
+Object.defineProperty(N.G, 'party', {get(){
+  for (const m of N.G.maps) { const p = (m.pins||[]).find(x => x.type === 'party'); if (p && (N.G.role === 'gm' || m.vis !== false)) return {map:m.id, rx:p.rx, ry:p.ry, pin:p}; }
+  return {map:null};
+}});
+
+/* free invokes on a scene aspect are spent by the rolls that used them */
+N.sceneFreeLeft = (sc, i) => {
+  const a = sc.aspects[i]; if (!a || !a.free) return 0;
+  const ref = `scene:${sc.msg}:${i}`;
+  let used = 0; for (const m of N.G.msgs) if (m.kind === 'roll') for (const iv of (m.roll.invokes||[])) if (iv.ref === ref) used++;
+  return Math.max(0, a.free - used);
+};
+
+/* ---------- people and chats ---------- */
+N.seats = () => Object.keys(N.G.P).filter(k => k !== 'gm').sort((a,b) => a.slice(1) - b.slice(1));
+N.gmName = () => N.G.P.gm.name;
+N.chName = (id, role) => {
+  if (id === 'table') return 'Everyone';
+  if (id === 'gm') return 'GM notes';
+  const pr = id.slice(3);
+  return role === 'gm' ? (N.G.P[pr]?.name || 'A former player') : `${N.gmName()} · GM`;
+};
+N.chSub = (id, role) => id === 'table' ? 'The whole table sees this chat' : id === 'gm' ? 'Only you see this. Secret rolls land here.' : role === 'gm' ? `Only you and ${N.G.P[id.slice(3)]?.name || 'them'} see this` : 'Only you and the GM see this';
+N.channelsFor = role => role === 'gm' ? ['table', ...N.seats().map(s => 'dm-' + s), 'gm'] : ['table', 'dm-' + role];
+N.unread = (role, ch) => { const s = (N.G.seen[role] || {})[ch] || 0; let n = 0; for (const m of N.G.msgs) if (m.ch === ch && m.by !== role && m.t > s && !(m.kind === 'scene' && m.quiet)) n++; return n; };
+
+/* the characters of the people seated now, in seat order */
+N.pcs = () => N.seats().map(s => N.G.chars[N.G.P[s].char]).filter(Boolean);
+/* names the GM can speak as: NPC cards first, then quick voices without a card */
+N.voices = () => { const names = N.G.npcs.map(n => n.name.trim()).filter(Boolean); return [...new Set([...names, ...N.G.quick.filter(Boolean)])]; };
+N.npcSub = n => n ? [n.race, n.job].filter(Boolean).join(' · ') : 'Quick voice';
+
+/* who can roll / be shown */
+N.charOf = role => role === 'gm' ? null : N.G.chars[N.G.P[role]?.char];
+N.av = (o, s, extra='') => {
+  /* o: {name, portrait|face, color} */
+  const face = o.face || N.faceUrl(o.portrait);
+  const style = `${s ? `--s:${s}px;` : ''}--c:${o.color || 'var(--accent)'}`;
+  return `<span class="av ${extra}" style="${style}">${face ? `<img src="${esc(face)}" alt="" loading="lazy" draggable="false">` : esc(((o.short||o.name||'?').trim()[0]||'?'))}</span>`;
+};
+N.narrAv = s => `<span class="av narrav" style="--s:${s||32}px">${STAR}</span>`;
+N.npcByName = name => N.G.npcs.find(x => x.name === name);
+N.speakerObj = (m) => {
+  const G = N.G;
+  if (m.by === 'gm') {
+    if (m.as === 'Narrator' || !m.as) return {name:'Narrator', narr:true, color:'var(--c-gm)'};
+    const n = N.npcByName(m.as);
+    return {name:m.as, portrait:m.pt || n?.portrait, color:'var(--c-npc)', npc:true};
+  }
+  const p = G.P[m.by], c = p && G.chars[p.char];
+  return {name:m.as || p?.name || 'A former player', portrait:c?.built ? c.portrait : null, color:p?.color || 'var(--ink-3)'};
+};
+N.personObj = by => {
+  const G = N.G, p = G.P[by];
+  if (by === 'gm') return {name:N.gmName(), color:'var(--c-gm)'};
+  if (!p) return {name:'A former player', color:'var(--ink-3)'};
+  const c = G.chars[p.char]; return {name:p.name, portrait:c?.built ? c.portrait : null, color:p.color};
+};
+
+/* ---------- combat helpers ---------- */
+N.cb = () => N.G.combat;
+N.tokById = id => N.G.combat.tokens.find(t => t.id === id);
+N.zoneOf = t => N.G.combat.zones.find(z => z.id === t.zone);
+N.sideOf = t => t.kind === 'pc' ? 'ally' : (t.side || 'foe');
+N.sameZone = t => N.G.combat.tokens.filter(o => o !== t && !o.out && t.zone && o.zone === t.zone);
+N.foesOf = t => N.sameZone(t).filter(o => N.sideOf(o) !== N.sideOf(t));
+N.tokSkills = t => t.kind === 'pc' ? (N.G.chars[t.ref]?.skills || {}) : (t.skills || {});
+N.tokNotice = t => N.tokSkills(t).Notice || 0;
+N.order = () => N.G.combat.tokens.filter(t => !t.out && t.zone).map((t,i)=>({t,i})).sort((a,b)=>N.tokNotice(b.t)-N.tokNotice(a.t)||a.i-b.i).map(x=>x.t);
+N.curTok = () => { const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
+N.tokObj = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref] || {}; const p = N.G.P[c.player]; return {name:c.short || '?', portrait:c.built ? c.portrait : null, color:p?.color || 'var(--accent)'}; }
+  return {name:t.name, portrait:t.portrait, color:t.side === 'ally' ? 'var(--c-npc)' : 'var(--c-foe)'}; };
+N.tokName = t => t.kind === 'pc' ? (N.G.chars[t.ref]?.short || 'Someone') : t.name;
+N.tokStress = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref]; return c ? {v:c.stressV.phys, s:c.stress.phys} : {v:[], s:[]}; } return {v:t.stressV || [], s:t.stress || []}; };
+N.isMine = (t, role) => !!t && t.kind === 'pc' && role !== 'gm' && N.G.P[role]?.char === t.ref;
+N.ZCOL = ['#f4c46e','#6fd6c0','#ff9a7e','#a99bff','#9cd36b','#f39ad0'];
+N.tokFromNpc = (n, side, label) => {
+  const nameless = n.type === 'nameless', v = nameless ? [1] : stressVals((n.skills||{}).Strength||0);
+  return {id:uid('t'), kind:'npc', ref:n.id, name:label || n.name, portrait:n.portrait || null, side, type:n.type || 'supporting', skills:{...(n.skills||{})},
+    aspects:[n.hc, ...(n.aspects||[])].filter(Boolean), stressV:v, stress:v.map(()=>false), mild:'', zone:null, out:false};
+};
+N.tokFromPc = c => ({id:uid('t'), kind:'pc', ref:c.id, zone:null, out:false});
+})();
