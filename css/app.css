@@ -643,14 +643,17 @@
 
 /* ---------- map ---------- */
 .app .mapv{position:relative;min-height:0;height:100%;overflow:hidden;background:var(--sky-0)}
-.app .mapcv{position:absolute;inset:0;touch-action:none;cursor:grab}
+.app .mapcv{position:absolute;inset:0;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .app .mapcv:active{cursor:grabbing}
 .app .mapst{position:absolute;left:0;top:0;transform-origin:0 0}
 .app .mapst img{display:block;user-select:none;-webkit-user-drag:none;pointer-events:none}
 .app[data-theme="night"] .mapst img{filter:saturate(.85) brightness(.88)}
 .app .mapov{position:absolute;inset:0;pointer-events:none;z-index:3;padding:10px;display:grid;grid-template-rows:auto auto 1fr auto;gap:8px}
 .app .mapov>*{pointer-events:auto}
+/* only the controls take taps: the empty spacers and gaps let drags and the wheel through to the map */
+.app .mapov>:empty,.app .mapov .row1{pointer-events:none}
 .app .mapov .row1{display:flex;gap:8px;align-items:center}
+.app .mapov .row1>:not(:empty){pointer-events:auto}
 .app .glass{background:color-mix(in srgb,var(--page-solid) 86%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:var(--shadow-2)}
 .app .mapsel{display:inline-flex;align-items:center;gap:10px;height:46px;padding:0 14px 0 5px;border-radius:999px;min-width:0;max-width:100%}
 .app .mapsel .th{width:36px;height:36px;border-radius:50%;background:center/cover;box-shadow:0 0 0 1.5px var(--gold-soft);flex:none}
@@ -660,10 +663,6 @@
 .app .mapov .chips{padding:0;pointer-events:auto;width:max-content;max-width:100%}
 .app .mapov .chips .cchip{padding:0 12px}
 .app .mapov .chips .cchip svg{width:15px;height:15px}
-.app .zoomc{position:absolute;right:10px;top:50%;translate:0 -50%;display:grid;border-radius:18px;padding:4px;z-index:4}
-.app .zoomc button{width:40px;height:40px;border-radius:14px;display:grid;place-items:center;color:var(--ink-2)}
-.app .zoomc button:hover{background:var(--accent-soft)}
-.app .zoomc button svg{width:20px;height:20px}
 .app .pin{position:absolute;translate:-50% -100%;display:grid;justify-items:center;gap:3px;pointer-events:auto;transform:scale(calc(1 / var(--k,1)));transform-origin:50% 100%}
 .app .pin .pm{width:30px;height:30px;border-radius:50% 50% 50% 6px;rotate:-45deg;display:grid;place-items:center;background:linear-gradient(135deg,var(--pc,#f4c46e),color-mix(in srgb,var(--pc,#f4c46e) 60%,#000));box-shadow:0 0 0 2px rgba(10,10,30,.75),0 6px 12px -4px rgba(0,0,0,.8)}
 .app .pin .pm svg{rotate:45deg;width:15px;height:15px;color:#1a1208}
@@ -681,7 +680,7 @@
 .app .pincard .hd b{display:block;font:600 20px/1.15 var(--f-display)}
 .app .pincard p{margin:0;font:500 14px/1.45 var(--f-ui);color:var(--ink-2)}
 .app .pincard .row{display:flex;gap:8px;flex-wrap:wrap}
-.app .mapedit{justify-self:center;display:flex;gap:4px;padding:5px;border-radius:999px}
+.app .mapedit{grid-row:4;justify-self:center;align-self:end;display:flex;gap:4px;padding:5px;border-radius:999px}
 .app .mapedit .btn{--h:38px}
 
 /* ---------- world ---------- */
@@ -942,9 +941,8 @@
   .app .fight-chat .narr p{font-size:16px}
   .app .setup-panel{position:absolute;right:12px;top:12px;bottom:12px;width:340px;z-index:7;border-radius:22px;overflow:auto}
 
-  .app .pincard{left:auto;right:64px;bottom:auto;top:70px;width:340px}
+  .app .pincard{left:auto;right:14px;bottom:auto;top:70px;width:340px}
   .app .mapov{padding:14px}
-  .app .zoomc{right:14px}
 
   .app .world{grid-template-columns:340px 1fr}
   .app .world .wi{border-right:1px solid var(--line);padding:16px 14px 24px}
