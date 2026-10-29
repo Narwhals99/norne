@@ -116,7 +116,7 @@ function dockInner(v){
   }
   if (p && me && p.def === me.id && p.stage === 'absorb') {
     const opts = c.stressV.phys.map((x,i) => (!c.stress.phys[i] && x >= p.shifts) ? `<button type="button" class="btn" data-a="cbAbsorb" data-k="box" data-i="${i}"><span class="sbox" style="width:22px;height:22px">${x}</span>Stress box</button>` : '').join('');
-    const cons = [['mild',2],['moderate',4],['severe',6]].filter(([k,x]) => !c.cons[k] && x >= p.shifts).slice(0,1).map(([k,x]) => `<button type="button" class="btn" data-a="cbAbsorb" data-k="${k}">${IC('cards')}${k[0].toUpperCase()+k.slice(1)} consequence</button>`).join('');
+    const cons = N.consSlots(c.skills).filter(sl => sl.only !== 'Mental' && !c.cons[sl.k] && sl.hi >= p.shifts).slice(0,1).map(sl => `<button type="button" class="btn" data-a="cbAbsorb" data-k="${sl.k}">${IC('cards')}${sl.l} consequence</button>`).join('');
     return `<div class="dock"><div class="incoming" style="display:grid;gap:10px;animation:none"><div style="display:flex;gap:10px;align-items:center">${IC('warn','ic')}<div class="grow"><b>You take ${p.shifts} shift${p.shifts>1?'s':''}</b><small>Pick how ${esc(c.short)} soaks the hit.</small></div></div><div class="row" style="display:flex;gap:8px;flex-wrap:wrap">${opts}${cons}<button type="button" class="btn danger" data-a="cbAbsorb" data-k="out">Taken out</button></div></div></div>`;
   }
   if (cur && N.isMine(cur, v.role)) {

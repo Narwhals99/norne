@@ -19,6 +19,26 @@ Object.assign(N, {esc, fmt, uid, clamp, sgn, IC, STAR, MARK});
 const LADDER = {8:'Mythic',7:'Legendary',6:'Renowned',5:'Expert',4:'Great',3:'Good',2:'Fair',1:'Average',0:'Mediocre','-1':'Poor','-2':'Terrible'};
 const ladderWord = v => LADDER[clamp(v,-2,8)];
 const MUNDANE = ['Athletics','Riding','Stealth','Fighting','Shooting','Strength','Will','Crafting','Crime','Resources','Contact','Search','Empathy','Notice','Deception','Provoke','Rapport','Lore'];
+/* skills that need a discipline (Skills.docx). A magic gives exactly one; the others can gather more. */
+const DISC = {
+  Fighting:['Hand-to-Hand','Swords & Blades','Hatchets & Axes','Maces & Hammers','Spears & Staffs'],
+  Shooting:['Throwing','Bows','Crossbows','Slings','Magnetic Projectors'],
+  Crafting:['Survival','Alchemy','Smithing','Leather Working','Fletching'],
+  Lore:['Medicine','History','Nature','Navigation','Underworld'],
+  'Elemental Magic':['Flame Casting','Earth Casting','Water Casting','Air Casting','Thunder Casting','Light Casting'],
+  'Ward Magic':['Guard Warding','Cover Warding'],
+  'Healing Magic':['Heal Casting'],
+  'Conjuring Magic':['Necromancy','Manifestation','Summoning'],
+  'Alteration Magic':['Transfiguration','Transmutation','Duplication'],
+  'Illusion Magic':['Obfuscation','Hallucination'],
+  'Spatial Magic':['Phase Casting','Teleportation','Portal Casting'],
+  'Mind Magic':['Telepathy','Mindslaving'],
+  'Divination Magic':['Omnipresence','Clairvoyance','Retrosight'],
+  'Enchantment Magic':[],
+};
+/* magical skills can only be rolled by someone who has them */
+const MAGIC = ['Elemental Magic','Ward Magic','Healing Magic','Conjuring Magic','Alteration Magic','Illusion Magic','Spatial Magic','Mind Magic','Divination Magic','Enchantment Magic'];
+const discOf = (o, k) => { const x = (o.disc || {})[k]; return Array.isArray(x) ? x : x ? [x] : []; };
 const stressVals = r => r <= -1 ? [2] : r === 0 ? [1,2] : r <= 2 ? [1,2,2] : [1,2,2,3];
 const ACTIONS = [['Overcome','overcome'],['Create an advantage','advantage'],['Attack','attack'],['Defend','defend']];
 const diceSum = r => r.dice.reduce((a,b)=>a+b,0);
@@ -32,6 +52,21 @@ function outcome(r){
   return {k:'style', t:'With style', sh};
 }
 const rollDice = () => [0,0,0,0].map(() => Math.floor(Math.random()*3) - 1);
+/* consequence slots: everyone has mild, moderate and severe; Strength and Will at Expert (+5) add a
+   second mild for that kind of harm only, and at Legendary (+7) a second moderate too */
+const consSlots = sk => {
+  sk = sk || {}; const str = sk.Strength || 0, wil = sk.Will || 0, out = [];
+  const add = (k, l, lo, hi, only) => out.push({k, l, lo, hi, only});
+  add('mild', 'Mild', 1, 2);
+  if (str >= 5) add('mildP', 'Mild', 1, 2, 'Physical');
+  if (wil >= 5) add('mildM', 'Mild', 1, 2, 'Mental');
+  add('moderate', 'Moderate', 3, 4);
+  if (str >= 7) add('moderateP', 'Moderate', 3, 4, 'Physical');
+  if (wil >= 7) add('moderateM', 'Moderate', 3, 4, 'Mental');
+  add('severe', 'Severe', 5, 6);
+  return out;
+};
+Object.assign(N, {DISC, MAGIC, discOf, consSlots});
 Object.assign(N, {LADDER, ladderWord, MUNDANE, stressVals, ACTIONS, diceSum, rollTotal, outcome, rollDice});
 
 /* ---------- art ---------- */
@@ -74,12 +109,12 @@ N.seatColor = seat => `var(--c-p${((+seat.slice(1) - 1) % SEATCOL) + 1})`;
 function blankChar(id, player){
   const P = N.G.P[player] || {name:'Player'};
   return {id, player, name:`${P.name}’s character`, short:P.name, built:false, portrait:null,
-    hc:'', trouble:'', aspects:[], skills:{}, disc:{}, stunts:[], refresh:3, fp:3,
+    hc:'', trouble:'', aspects:[], age:'', people:'', invText:'', skills:{}, disc:{}, stunts:[], refresh:3, fp:3,
     stressV:{phys:stressVals(0), ment:stressVals(0)}, stress:{phys:[false,false], ment:[false,false]}, cons:{mild:'',moderate:'',severe:''}, inv:[]};
 }
 function npcCard(o){
   const str = (o.skills||{}).Strength||0, wil = (o.skills||{}).Will||0, pv = stressVals(str), mv = stressVals(wil);
-  return Object.assign({id:uid('n'), name:'', race:'', job:'', hc:'', trouble:'', aspects:[], skills:{}, magic:'', stunts:[], refresh:3, fp:3, bio:'', notes:'', type:'supporting', portrait:null,
+  return Object.assign({id:uid('n'), name:'', race:'', job:'', age:'', hc:'', trouble:'', aspects:[], skills:{}, disc:{}, magic:'', stunts:[], refresh:3, fp:3, bio:'', notes:'', type:'supporting', portrait:null,
     stressV:{phys:pv, ment:mv}, stress:{phys:pv.map(()=>false), ment:mv.map(()=>false)}, cons:{mild:'',moderate:'',severe:''}}, o);
 }
 function freshCombat(){
@@ -155,6 +190,10 @@ N.personObj = by => {
   if (!p) return {name:'A former player', color:'var(--ink-3)'};
   const c = G.chars[p.char]; return {name:p.name, portrait:c?.built ? c.portrait : null, color:p.color};
 };
+
+/* a player card's aspects: older cards kept a high concept and trouble, newer ones just Aspect 1, 2, 3 */
+N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
+N.pcTag = c => N.pcAspects(c)[0] || '';
 
 /* ---------- combat helpers ---------- */
 N.cb = () => N.G.combat;
