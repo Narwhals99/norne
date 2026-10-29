@@ -1260,3 +1260,112 @@
 @keyframes slidel{from{transform:translateX(28%);opacity:.3}}
 @keyframes slider{from{transform:translateX(-28%);opacity:.3}}
 @media (prefers-reduced-motion:reduce){.app .page.slide-l,.app .page.slide-r{animation:none}}
+
+/* =====================================================================
+   fight: command bar layout. The board is the screen; turn order is one line of faces in the header,
+   GM tools sit beside the board (desktop) or behind one button on it (phone), and one bar under the
+   board says whose turn it is and holds every button this screen needs right now.
+   ===================================================================== */
+.app .nb-st{display:inline-flex;gap:2px;vertical-align:middle}
+.app .nb-st i{width:9px;height:9px;border-radius:3px;background:var(--sunk);box-shadow:inset 0 0 0 1.3px var(--line-3)}
+.app .nb-st i.on{background:var(--ember);box-shadow:0 0 8px -2px var(--ember)}
+.app .nb-st.big{gap:3px}
+.app .nb-st.big i{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font:800 10px/1 var(--f-ui);font-style:normal;color:var(--ink-3)}
+.app .nb-st.big i.on{color:#fff}
+.app .nb-zt{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:999px;font:800 10.5px/1 var(--f-ui);color:var(--ink-2);background:color-mix(in srgb,var(--zc) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zc) 50%,transparent);white-space:nowrap}
+.app .nb-zt::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--zc)}
+.app .nb-gear{display:inline-flex;align-items:center;gap:3px;font:800 10.5px/1 var(--f-ui);color:var(--ink-3);white-space:nowrap}
+.app .nb-gear svg{width:12px;height:12px;color:var(--gold)}
+.app .nowbar .mine{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.app .nowbar .mine .lab{font:800 9.5px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);margin:0 2px 0 6px}
+.app .nowbar .mine .lab:first-child{margin-left:0}
+.app .nowbar .mine .sbox{width:20px;height:20px;font-size:10px;border-radius:6px}
+.app .nowbar .mine .coins{display:inline-flex;gap:3px}
+.app .eyebrow svg{width:12px;height:12px;flex:none}
+.app .lnk{display:inline-flex;align-items:center;gap:3px;font:800 11px/1 var(--f-ui);letter-spacing:0;text-transform:none;color:var(--accent)}
+.app .lnk svg{width:12px;height:12px}
+
+.app .fight.cmd{display:flex;flex-direction:column;height:100%;min-height:0;width:100%;min-width:0;max-width:100%;overflow:hidden}
+.app .page:has(>.fight.cmd){grid-template-columns:minmax(0,1fr)}
+@container dev (min-width: 760px){ .app .page.fighting:has(>.fight.cmd){grid-template-columns:minmax(0,1fr) 360px} }
+.app .fight.cmd>*{flex:none}
+/* turn order: one line of faces, the one acting is big and named */
+.app .fight-order{display:flex;align-items:center;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.app .fight-order::-webkit-scrollbar{display:none}
+.app .fight-order .ex{flex:none;display:grid;justify-items:center;padding:0 8px 0 2px;margin-right:4px;border-right:1px solid var(--line-2);font:800 8.5px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.app .fight-order .ex b{font:700 20px/1 var(--f-display);color:var(--gold);letter-spacing:0}
+.app .fight-order .ot{flex:none;display:inline-flex;align-items:center;gap:7px;padding:3px;border-radius:999px;opacity:.75}
+.app .fight-order .ot span{font:700 12px/1 var(--f-ui);color:var(--ink-2);white-space:nowrap;padding-right:8px}
+.app .fight-order .ot.now{opacity:1;background:linear-gradient(90deg,color-mix(in srgb,var(--gold) 26%,var(--raise)),var(--raise));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--gold) 70%,transparent),0 0 22px -8px var(--gold)}
+.app .fight-order .ot.now span{color:var(--gold);font-weight:800}
+.app .fight-order .ot.out{opacity:.35;filter:grayscale(1)}
+.app .fight-order .ar{flex:none;width:8px;height:8px;border-right:2px solid var(--line-3);border-top:2px solid var(--line-3);rotate:45deg;margin:0 3px 0 0}
+/* GM tools: a slim rail beside the board on desktop, one button on the board on phones */
+.app .fight-tools{display:grid;align-content:start;gap:3px;padding:5px;border-radius:16px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .fight-tools button{display:grid;justify-items:center;gap:4px;width:62px;padding:9px 2px 8px;border-radius:12px;color:var(--ink-2);font:700 10.5px/1 var(--f-ui)}
+.app .fight-tools button svg{width:20px;height:20px;color:var(--gold)}
+.app .fight-tools button[aria-pressed="true"]{background:var(--accent);color:#fff;box-shadow:0 0 14px -4px var(--accent-glow)}
+.app .fight-tools button[aria-pressed="true"] svg{color:#fff}
+.app .fight-tools button.end svg{color:var(--ember)}
+.app .fight-tools .sep{height:1px;margin:3px 8px;background:var(--line)}
+.app .fight-tools.ph{position:absolute;left:8px;bottom:8px;z-index:6;display:flex;align-items:center;gap:2px;padding:3px;border-radius:999px;background:color-mix(in srgb,var(--page-solid) 90%,transparent);box-shadow:var(--shadow-2);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.app .fight-tools.ph button{width:auto;flex:none;display:inline-flex;align-items:center;white-space:nowrap;gap:5px;height:30px;padding:0 9px;border-radius:999px;font-size:11.5px}
+.app .fight-tools.ph.open{overflow-x:auto;scrollbar-width:none}
+.app .fight-tools.ph button svg{width:15px;height:15px}
+.app .fight-tools.ph.open button:not(.tg) .lab{display:inline}
+.app .fight-tools.ph.open{right:8px}
+.app .fight-tools.ph.open button{padding:0 7px}
+.app .fight-tools.ph.open .tg .lab{display:none}
+.app .fight-tools.ph .sep{flex:none;width:1px;height:18px;margin:0 2px}
+.app .fight.cmd>.fight-mid{flex:1 1 0;min-height:0;display:flex;gap:10px}
+.app .fight-mid .boardwrap{flex:1;min-width:0}
+/* the now bar */
+.app .nowbar{position:relative;z-index:5;display:grid;gap:12px;padding:12px;border-radius:22px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2),0 18px 40px -20px rgba(0,0,0,.8)}
+.app .nowbar.turn{background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 14%,var(--raise)),var(--raise));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--gold) 55%,transparent),0 0 40px -16px var(--gold)}
+.app .nowbar.alert{background:linear-gradient(90deg,var(--ember-soft),var(--raise));box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ember) 60%,transparent),0 0 40px -16px var(--ember)}
+.app .nowbar .who{display:flex;align-items:center;gap:12px;min-width:0}
+.app .nowbar .txt{flex:1;min-width:0;display:grid;gap:2px}
+.app .nowbar .eyebrow{display:flex;align-items:center;gap:5px;color:var(--ink-3)}
+.app .nowbar.turn .eyebrow{color:var(--gold)}.app .nowbar.alert .eyebrow{color:var(--ember)}
+.app .nowbar b{font:600 19px/1.15 var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .nowbar small{font:600 12px/1.35 var(--f-ui);color:var(--ink-3)}
+.app .nowbar .ln{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:3px}
+.app .nowbar .ln .fp{display:inline-flex;gap:3px}
+.app .nowbar .ln .fp .coin{width:16px;height:16px}
+.app .nowbar .acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.app .nowbar .acts .actbar{flex:1}
+.app .nowbar .end{display:flex;justify-content:flex-end}
+.app .nowbar .mine{border-top:1px solid var(--line);padding-top:10px}
+
+/* ---- desktop ---- */
+.app .fight.cmd.dt{padding:14px 14px 14px;gap:12px;position:relative}
+.app .fight-h{display:flex;align-items:center;gap:16px;min-width:0}
+.app .fight-h .tt{flex:none;max-width:260px}
+.app .fight-h .eyebrow{display:flex;align-items:center;gap:6px;color:var(--ember)}
+.app .fight-h h1{margin:2px 0 0;font:600 21px/1.15 var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .fight-h .fight-order{flex:1;padding:4px;border-radius:999px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .fight.cmd.dt .boardwrap{padding:0}
+.app .fight.cmd.dt .nowbar{grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:16px;padding:12px 14px}
+.app .fight.cmd.dt .nowbar .acts .actbar{grid-template-columns:repeat(4,auto)}
+.app .fight.cmd.dt .nowbar .abtn{grid-auto-flow:column;justify-content:center;align-items:center;gap:8px;padding:0 10px;height:52px;font-size:13px}
+.app .fight.cmd.dt .nowbar .abtn svg{width:22px;height:22px}
+.app .fight.cmd.dt .nowbar .end .btn{--h:52px;padding:0 20px}
+.app .fight.cmd.dt .tokpanel{top:76px;bottom:120px}
+
+/* ---- phone ---- */
+.app .fight.cmd.ph{gap:0}
+.app .fight.cmd.ph .fight-order{padding:2px 12px 8px}
+.app .fight.cmd>.fight-scroll{flex:1 1 0;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:12px;padding-bottom:12px}
+.app .fight-scroll>*{flex:none}
+.app .fight.cmd.ph .boardwrap{padding:0 10px}
+.app .fight-latest{display:grid;gap:8px;padding:0 12px}
+.app .fight-latest>.eyebrow{display:flex;justify-content:space-between;align-items:center}
+.app .fight-latest .resm,.app .fight-latest .roll{margin:0}
+.app .fight.cmd.ph .nowbar{margin:0 8px 8px;border-radius:22px;padding:10px;gap:10px}
+.app .fight.cmd.ph .nowbar b{font-size:17px}
+.app .fight.cmd.ph .nowbar .who{gap:10px}
+.app .fight.cmd.ph .nowbar .abtn{padding:8px 2px 7px;font-size:11px;border-radius:14px}
+.app .fight.cmd.ph .nowbar .abtn svg{width:22px;height:22px}
+.app .fight.cmd.ph .nowbar .end .btn{--h:38px;padding:0 13px;font-size:13px}
+.app .fight.cmd.ph .nowbar .ln .nb-zt{display:none}
+.app .fight.cmd.ph .nowbar .acts>.btn{flex:1}
