@@ -1155,6 +1155,8 @@ body{background:linear-gradient(rgba(8,9,30,.22),rgba(8,9,30,.45)),url("data:ima
 :root[data-theme="light"] .mapctl button:hover{background:rgba(127,163,70,.16)}
 :root[data-theme="light"] .sh-tok{box-shadow:0 0 0 2px #fbf7e8,0 0 0 3px color-mix(in srgb,var(--tc) 70%,#000)}
 .themeseg{margin-top:6px}
+.sh-gm{margin-top:-6px}
+.party.one{grid-template-columns:minmax(0,760px)}
 </style>
 
 <div id="app">
@@ -1201,6 +1203,7 @@ const ICON={
   news:svg('<path d="M4 5h13v14H6a2 2 0 0 1-2-2z"/><path d="M17 8h3v9a2 2 0 0 1-2 2"/><path d="M7 9h7M7 12h7M7 15h4"/>'),
   wiki:svg('<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H20v15H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H20v-3"/><path d="M8 7h8M8 10h6"/>'),
   npcs:svg('<path d="M5 4h14v16H5z"/><circle cx="12" cy="10" r="2.6"/><path d="M7.5 18c.6-2.6 2.4-4 4.5-4s3.9 1.4 4.5 4"/>'),
+  me:svg('<path d="M12 3l7.5 3v5.5c0 4.6-3.2 8-7.5 9.5-4.3-1.5-7.5-4.9-7.5-9.5V6z"/><circle cx="12" cy="10" r="2.4"/><path d="M8.3 16c.7-1.9 2-2.9 3.7-2.9s3 1 3.7 2.9"/>'),
   party:svg('<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.2A5 5 0 0 1 21 19"/>'),
   whisper:svg('<path d="M4 6h16v10H10l-4 3v-3H4z"/><path d="M9 11h.01M12 11h.01M15 11h.01"/>'),
   lock:svg('<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'),
@@ -1280,7 +1283,7 @@ const S={
 };
 S.msgs=[];
 /* when each person last looked at each chat, for the unread dots */
-S.seenT={};S.shelf=false;
+S.seenT={};S.shelf=false;S.pcEdit=null;
 
 function npcFrom(p,label){const v=stressVals(p.skills.Strength||0);return {id:uid('t'),kind:'npc',name:p.name,label,type:p.type,skills:{...p.skills},aspects:[...p.aspects],stressV:v,stress:v.map(()=>false),mild:'',out:false,zone:null}}
 /* Combat is off until the GM begins one from Messages: setup (GM only) → live (everyone can open it beside the chat). */
@@ -1310,7 +1313,8 @@ const personName=by=>ROLES[by]?.person||'A former player';
 const myChar=()=>S.role==='gm'?null:S.chars[ROLES[S.role].char];
 
 /* ---------- top & rail ---------- */
-const TABS=[['table','Messages'],['map','Map'],['news','News'],['wiki','Wiki'],['party','Party'],['npcs','NPCs',true]];
+const TABS=[['table','Messages'],['me','My character','player'],['map','Map'],['news','News'],['wiki','Wiki'],['party','Party'],['npcs','NPCs',true]];
+const tabOk=t=>t[2]===true?S.role==='gm':t[2]==='player'?S.role!=='gm':true;
 function newsUnread(){return S.role!=='gm'&&S.news.issues.some(i=>!S.news.seen[S.role].has(i.id))}
 const chIcon=id=>id==='table'?ICON.party:id==='gm'?ICON.lock:ICON.whisper;
 const chUnread=id=>canSee(id)&&!(S.tab==='table'&&S.ch===id)&&S.msgs.some(m=>m.ch===id&&m.by!==S.role&&m.t>(S.seenT[S.role][id]||0));
@@ -1326,7 +1330,7 @@ function renderTop(){
 }
 function renderRail(){
   const chs=CHANNELS.filter(c=>c.who.includes(S.role));
-  $('#rail').innerHTML=TABS.filter(t=>!t[2]||S.role==='gm').map(([id,l,gmOnly])=>`<button type="button" data-a="tab" data-v="${id}" ${S.tab===id?'aria-current="page"':''}>${ICON[id]}<span>${l}</span>${gmOnly?'<span class="tag gmtag">GM</span>':''}${id==='news'&&newsUnread()?'<span class="dot" title="New edition"></span>':''}</button>`
+  $('#rail').innerHTML=TABS.filter(tabOk).map(([id,l,gmOnly])=>`<button type="button" data-a="tab" data-v="${id}" ${S.tab===id?'aria-current="page"':''}>${ICON[id]}<span>${l}</span>${gmOnly===true?'<span class="tag gmtag">GM</span>':''}${id==='news'&&newsUnread()?'<span class="dot" title="New edition"></span>':''}</button>`
     +(id==='table'?`<div class="sub" role="group" aria-label="Chats">${chs.map(c=>{const nu=chUnread(c.id);return `<button type="button" data-a="chGo" data-v="${c.id}" class="${nu?'new':''}" ${S.tab==='table'&&S.ch===c.id?'aria-current="true"':''} ${nu?'title="New messages"':''}>${chIcon(c.id)}<span>${esc(chMeta(c.id).name)}</span>${nu?'<i class="vh">, new messages</i>':''}</button>`}).join('')}</div>`:'')).join('');
 }
 /* the shelf slides over the page on phones; on desktop it is always open */
@@ -2037,13 +2041,15 @@ function vWiki(){
 
 /* ======================= PARTY ======================= */
 function rSheet(id){
+  if(S.pcEdit===id&&S.role==='gm')return pcEditor(id);
   const ch=S.chars[id], gm=S.role==='gm', mine=ROLES[S.role].char===id;
   const lad=[8,7,6,5,4,3,2,1].map(v=>[v,Object.entries(ch.skills).filter(([,x])=>x===v).map(([n])=>n)]).filter(r=>r[1].length);
   const none=t=>`<span class="muted">${t}</span>`;
   return `<section class="sheet" style="--who:var(--c-${id});--tc:${ch.token}">
     <div class="sh-head"><div class="sh-tok" aria-hidden="true">${esc(ch.short[0])}</div><div><h2>${esc(ch.name)}</h2><div class="eyebrow">Played by ${esc(personName(ch.player))}${mine?' · you':''}</div></div>
       <div class="fpbox"><span class="eyebrow">Fate points</span>${pips(ch)}</div></div>
-    ${ch.built?'':'<div class="sheet-soon"><b>Coming soon.</b> This character hasn’t been built yet.</div>'}
+    ${gm?`<div class="row sh-gm">${ch.built?`<button type="button" class="btn sm" data-a="pcEdit" data-who="${id}">${ICON.pen}Edit card</button><button type="button" class="btn sm danger" data-a="pcDel" data-who="${id}">Delete card</button>`:`<button type="button" class="btn sm primary" data-a="pcEdit" data-who="${id}">${ICON.pen}Make ${esc(personName(ch.player))}’s card</button>`}</div>`:''}
+    ${ch.built?'':`<div class="sheet-soon"><b>Not made yet.</b> ${gm?`Press “Make ${esc(personName(ch.player))}’s card” to fill in their character.`:mine?'Your GM will make your character card here.':'The GM hasn’t made this card yet.'}</div>`}
     <div class="sec"><h3>Aspects</h3><dl class="asp"><dt>Concept</dt><dd>${esc(ch.hc)||none('Not set yet')}</dd><dt>Trouble</dt><dd>${esc(ch.trouble)||none('Not set yet')}</dd>${ch.aspects.map(a=>`<dt></dt><dd>${esc(a)}</dd>`).join('')}</dl></div>
     <div class="sec"><h3>Skills</h3>${lad.length?`<div class="ladder">${lad.map(([v,ns])=>`<span class="lv">${ladderWord(v)} ${sgn(v)}</span><span class="sks">${ns.map(n=>`<span>${esc(n)}</span>`).join('')}</span>`).join('')}</div>`:`<p class="fine">Not chosen yet. A new character picks one Great (+4), two Good (+3), three Fair (+2) and four Average (+1) skills. See <a class="wl" data-a="wsel" data-v="r-skills">Skills</a> in the wiki.</p>`}</div>
     <div class="sec"><h3>Stunts</h3>${ch.stunts.length?`<ul class="stunts">${ch.stunts.map(([n,d])=>`<li><b>${esc(n)}.</b> ${esc(d)}</li>`).join('')}</ul>`:'<p class="fine">None yet.</p>'}</div>
@@ -2053,19 +2059,49 @@ function rSheet(id){
       ${gm?`<div class="addrow" style="margin-top:8px"><input class="inp" id="inv-${id}" placeholder="Add an item, e.g. Silver dagger" aria-label="Item name"><input class="inp" id="invq-${id}" type="number" min="1" value="1" style="width:4.5em" aria-label="Quantity"><button type="button" class="btn sm" data-a="invAdd" data-who="${id}">Add</button></div><p class="fine" style="margin-top:6px">Changes post a note in that player’s private chat.</p>`:''}</div>
   </section>`;
 }
+/* the GM fills in a player's card here; every change saves and reaches the player straight away */
+function pcEditor(id){
+  const c=S.chars[id];
+  const lvl=v=>[8,7,6,5,4,3,2,1,0,-1,-2].map(x=>`<option value="${x}" ${x===v?'selected':''}>${ladderWord(x)} (${sgn(x)})</option>`).join('');
+  const names=[...new Set([...MUNDANE,...Object.keys(c.skills)])];
+  return `<section class="sheet npsheet" style="--who:var(--c-${id});--tc:${c.token}">
+    <div class="sh-head"><div class="sh-tok" aria-hidden="true">${esc((c.short||'?')[0])}</div><div><h2>${c.built?'Edit':'Make'} ${esc(personName(c.player))}’s card</h2><div class="eyebrow">Changes save as you type</div></div></div>
+    <div class="form">
+      <div class="two"><label>Character name<input class="inp" data-i="pc" data-k="name" value="${esc(c.name)}" placeholder="Full name"></label>
+        <label>Short name<input class="inp" data-i="pc" data-k="short" value="${esc(c.short)}" placeholder="Shown in chat and combat"></label></div>
+    </div>
+    <div class="sec"><h3>Aspects</h3><div class="form">
+      <label>High concept<input class="inp" data-i="pc" data-k="hc" value="${esc(c.hc)}"></label>
+      <label>Trouble<input class="inp" data-i="pc" data-k="trouble" value="${esc(c.trouble)}"></label>
+      ${c.aspects.map((a,i)=>`<div class="addrow"><input class="inp" data-i="pcAsp" data-n="${i}" value="${esc(a)}" aria-label="Aspect ${i+3}"><button type="button" class="btn sm" data-a="pcAspDel" data-n="${i}" aria-label="Remove aspect">×</button></div>`).join('')}
+      <div><button type="button" class="btn sm" data-a="pcAspAdd">${ICON.plus}Add aspect</button></div></div></div>
+    <div class="sec"><h3>Skills</h3><div class="npsk">${names.map(k=>`<label><span>${esc(k)}</span><select class="inp" data-c="pcSkill" data-k="${esc(k)}" aria-label="${esc(k)}">${lvl(c.skills[k]||0)}</select></label>`).join('')}</div>
+      <p class="fine" style="margin-top:8px">A new character picks one Great (+4), two Good (+3), three Fair (+2) and four Average (+1). Stress boxes follow Strength and Will.</p></div>
+    <div class="sec"><h3>Stunts</h3><div class="form">
+      ${c.stunts.map(([a,b],i)=>`<div class="stunt"><div class="addrow"><input class="inp" data-i="pcStN" data-n="${i}" value="${esc(a)}" placeholder="Stunt name" aria-label="Stunt name"><button type="button" class="btn sm" data-a="pcStDel" data-n="${i}" aria-label="Remove stunt">×</button></div><textarea class="inp" rows="2" data-i="pcStD" data-n="${i}" placeholder="What it does" aria-label="Stunt description">${esc(b)}</textarea></div>`).join('')}
+      <div><button type="button" class="btn sm" data-a="pcStAdd">${ICON.plus}Add stunt</button></div></div></div>
+    <div class="sec"><h3>Fate points</h3><div class="two"><label class="fl">Refresh<input class="inp" type="number" min="0" max="9" data-i="pcNum" data-k="refresh" value="${c.refresh}"></label><label class="fl">Current<input class="inp" type="number" min="0" max="9" data-i="pcNum" data-k="fp" value="${c.fp}"></label></div></div>
+    <div class="row end"><button type="button" class="btn primary" data-a="pcDone">Done</button></div>
+  </section>`;
+}
+const curPc=()=>S.chars[S.pcEdit];
+function vMe(){
+  const id=ROLES[S.role]?.char;
+  return `<div class="view"><div class="party one">${S.chars[id]?rSheet(id):''}</div></div>`;
+}
 function vParty(){
   const all=Object.keys(S.chars).sort((a,b)=>a.slice(2)-b.slice(2)), mine=ROLES[S.role]?.char, ids=S.role==='gm'||!S.chars[mine]?all:[mine,...all.filter(x=>x!==mine)];
   return `<div class="view"><div class="party">${ids.map(rSheet).join('')}</div></div>`;
 }
 
 /* ======================= render ======================= */
-const VIEWS={table:vTable,map:vMap,news:vNews,wiki:vWiki,party:vParty,npcs:vNpcs};
+const VIEWS={table:vTable,me:vMe,map:vMap,news:vNews,wiki:vWiki,party:vParty,npcs:vNpcs};
 const AFTER={
   table(){const m=$('#msgs');if(m)m.scrollTop=m.scrollHeight;autoGrow();bindBoard()},
   map:mountMap,
 };
 function render(){
-  if(S.tab==='npcs'&&S.role!=='gm')S.tab='table';
+  if(S.tab==='npcs'&&S.role!=='gm'||S.tab==='me'&&S.role==='gm')S.tab='table';
   const prev=$('#main .view'), keep=S._lastTab===S.tab&&prev?prev.scrollTop:0;
   /* keep keyboard focus on the shelf item that was pressed (or hand it back to the menu button once the shelf closes) */
   const fa=document.activeElement, fk=fa&&fa.dataset.a&&$('#shelf').contains(fa)?`#shelf [data-a="${fa.dataset.a}"][data-v="${fa.dataset.v||''}"]`:null;
@@ -2087,6 +2123,14 @@ function render(){
 /* ======================= actions ======================= */
 const stressArr=who=>who.startsWith('pc:')?null:S.combat.tokens.find(t=>'tok:'+t.id===who)?.stress;
 const ACT={
+  pcEdit(a){S.pcEdit=a.dataset.who;render();$('[data-i="pc"][data-k="name"]')?.focus()},
+  pcDone(){const c=curPc();if(c){const was=c.built;c.built=true;if(!c.short.trim())c.short=c.name.split(/\s+/)[0]||personName(c.player);if(!was)sys('dm-'+c.player,`The GM made your character card: ${c.name}.`)}S.pcEdit=null;render()},
+  pcDel(a){const c=S.chars[a.dataset.who];if(!c)return;modal(`<h2>Delete ${esc(c.name)}?</h2><p>${esc(personName(c.player))}’s card goes back to empty: aspects, skills, stunts, stress, consequences and inventory are cleared. ${esc(personName(c.player))} keeps their seat, and you can make a new card any time.</p><div class="row end"><button type="button" class="btn ghost" data-a="close">Keep it</button><button type="button" class="btn danger" data-a="pcDelYes" data-who="${c.id}">Delete card</button></div>`)},
+  pcDelYes(a){const c=S.chars[a.dataset.who];if(!c)return;S.chars[c.id]=blankChar(c.id,c.player,c.token);sys('dm-'+c.player,`The GM deleted ${c.name}’s card.`);S.pcEdit=null;closeModal();render()},
+  pcAspAdd(){curPc().aspects.push('');render();const l=$$('[data-i=pcAsp]');l[l.length-1]?.focus()},
+  pcAspDel(a){curPc().aspects.splice(+a.dataset.n,1);render()},
+  pcStAdd(){curPc().stunts.push(['','']);render();const l=$$('[data-i=pcStN]');l[l.length-1]?.focus()},
+  pcStDel(a){curPc().stunts.splice(+a.dataset.n,1);render()},
   role(a){S.role=a.dataset.v;S.mapEdit=false;S.sel=null;S.pinSel=null;S.newNpc=false;S.speakAs='Narrator';S.wikiEdit=null;S.addPin=false;if(S.role!=='gm')S.news.editing=false;S.shelf=false;closeModal();render()},
   tab(a){if(a.dataset.v==='wiki'&&S.tab!=='wiki'){S.wikiSel=null;S.wikiEdit=null;S.wikiList=true}else S.wikiList=a.dataset.v==='wiki'&&!S.wikiSel;S.tab=a.dataset.v;S.pinSel=null;S.addPin=false;S.shelf=false;render()},
   chGo(a){S.ch=a.dataset.v;ACT.tab({dataset:{v:'table'}})},
@@ -2231,6 +2275,7 @@ const ACT={
   invDel(a){const ch=S.chars[a.dataset.who],it=ch.inv.splice(+a.dataset.i,1)[0];if(it)sys('dm-'+ch.player,`The GM removed ${it[0]} from ${ch.short}’s inventory.`);render()},
 };
 const CHANGE={
+  pcSkill(t){const c=curPc();if(!c)return;const v=+t.value;if(v)c.skills[t.dataset.k]=v;else delete c.skills[t.dataset.k];npcResize(c);render()},
   speakAs_old(t){if(t.value==='__new'){S.newNpc=true;refreshComposer()}else{S.speakAs=t.value;const ta=$('#msgIn');if(ta)ta.placeholder=S.speakAs==='Narrator'?'Describe the scene…':`Speak as ${S.speakAs}…`}},
   ex:updateExport,
   rWho(){fillSkills();fillTargets()},
@@ -2250,6 +2295,11 @@ const CHANGE={
   ppVis(t){const p=pinById(S.pinSel);if(!p)return;p.vis=t.checked;renderPins();if(p.vis){sys('table',`The GM revealed ${p.label} on the ${curMap().name.replace(/ \(.*\)$/,'')} map.`);toast('Revealed to players.')}},
 };
 const INPUT={
+  pc(t){const c=curPc();if(c)c[t.dataset.k]=t.value},
+  pcAsp(t){curPc().aspects[+t.dataset.n]=t.value},
+  pcStN(t){curPc().stunts[+t.dataset.n][0]=t.value},
+  pcStD(t){curPc().stunts[+t.dataset.n][1]=t.value},
+  pcNum(t){curPc()[t.dataset.k]=clamp(parseInt(t.value)||0,0,9)},
   zname(t){const z=S.combat.zones.find(z=>'zone:'+z.id===S.sel);if(z){z.name=t.value;refreshBoardLayers()}},
   zasp(t){const z=S.combat.zones.find(z=>'zone:'+z.id===S.sel);if(z){z.aspect=t.value.trim();refreshBoardLayers()}},
   pinQ(t){S.mapQ=t.value;closePop();renderPins()},
