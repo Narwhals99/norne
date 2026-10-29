@@ -127,7 +127,7 @@ function bind(v){
   root.addEventListener('gesturestart', e => { if (e.target.closest('[data-mapcv]')) e.preventDefault(); });
   root.addEventListener('wheel', e => { const cv = e.target.closest('[data-mapcv]'); if (cv) { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(v, Math.exp(-clamp(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY, -120, 120) * (e.ctrlKey ? .01 : .0018)), e.clientX - r.left, e.clientY - r.top); } }, {passive:false});
   /* phones: swipe in from the left edge for the chat list, swipe it back to close.
-     With a fight in this chat, swipe left for the fight and right for the chat. */
+     With a fight in this chat, swipe right for the fight and left for the chat, like the Fight | Chat switch. */
   const NOSWIPE = HS + ',input,textarea,select,.tok,[data-rs],[data-zl],[data-mapcv],.pop,.sheet';
   let sw = null;
   root.addEventListener('touchstart', e => {
@@ -152,7 +152,7 @@ function bind(v){
       else if (ui.shelf && dx < 0) { ui.shelf = false; render(v); }
       return;
     }
-    const to = dx < 0 ? 'fight' : 'chat';
+    const to = dx > 0 ? 'fight' : 'chat';
     if (!N.fightAvail(v) || ui.fightPane === to) return;
     ui.fightPane = to; ui.targeting = null; ui.slide = dx < 0 ? 'l' : 'r'; ui.stick = to === 'chat';
     render(v); ui.slide = null;
