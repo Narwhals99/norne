@@ -10,6 +10,8 @@ N.now = () => { const ms = G().msgs; const last = ms.length ? ms[ms.length - 1].
 const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as:''}, o); G().msgs.push(m); return m; };
 /* a small grey line in the chat; players write their own (the rules only let them post as themselves) */
 const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, text});
+/* tell the players who can see something: in Everyone when it's for all, otherwise in each one's chat with the GM */
+const tell = (x, kind, text, only) => { const a = N.audOf(x, kind); if (a === 'gm') return; if (a === '*' && !only) { sys(text); return; } for (const s of only || a) if (G().P[s]) sys(text, 'dm-' + s); };
 
 const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:null, pop:null, toast:null, mode:'rp', voice:'Narrator', draft:'', sceneMin:false, folded:new Set(), fresh:null,
   fightPane:'fight', fightOpen:true, watching:false, cbTool:'move', tokSel:null, targeting:null, placing:null, zoneSel:null,
@@ -36,7 +38,11 @@ function render(v){
   const ae = document.activeElement; let focus = null;
   if (ae && root.contains(ae) && ae.id) focus = {id:ae.id, s:ae.selectionStart, e:ae.selectionEnd};
   markSeen(v);
+  /* a sheet that was already open stays put instead of sliding in again on every redraw */
+  const still = v.ui.sheet && v._sheet === v.ui.sheet + ':' + v.ui.sheetArg;
   root.innerHTML = N.appHtml(v);
+  if (still) root.querySelectorAll('.sheet,.scrim').forEach(e => e.classList.add('still'));
+  v._sheet = v.ui.sheet ? v.ui.sheet + ':' + v.ui.sheetArg : null;
   root.querySelectorAll('[data-sk]').forEach(e => {
     const s = sk[e.dataset.sk];
     if (e.dataset.bottom && (!s || s.bottom || v.ui.stick)) e.scrollTop = e.scrollHeight;
@@ -130,9 +136,12 @@ function input(v, el){
       if (k === 'name') render(v); return;
     }
     case 'wd': v.ui.wd[k] = val; if (k === 'title') render(v); return;
+    case 'cd': v.ui.cd[+el.dataset.n].name = val; return;
+    case 'mapName': { const m = G().maps.find(x => x.id === el.dataset.v); if (m) m.name = val; return; }
     case 'npcNotes': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n[k || 'notes'] = val; return; }
     case 'npcCon': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n.cons[k] = val; return; }
     case 'tokMild': { const t = N.tokById(el.dataset.t); if (t) t.mild = val; return; }
+    case 'tokGear': { const t = N.tokById(el.dataset.t); if (t) { t[k] = +val || 0; renderAll(); } return; }
   }
 }
 function change(v, el){
@@ -140,6 +149,9 @@ function change(v, el){
   if (i === 'pdSkill' && val) { v.ui.pd.skills[val] = +el.dataset.x; render(v); }
   if (i === 'ndSkill' && val) { v.ui.nd.skills[val] = +el.dataset.x; render(v); }
   if (i === 'wd') v.ui.wd[el.dataset.k] = val;
+  if (i === 'cd') render(v);
+  if (i === 'cdTo') v.ui.cd[+el.dataset.n].to = val;
+  if (i === 'mapName') renderAll();
   if (i === 'memName') { N.renameMember(el.dataset.v, val); toast(v, 'Name saved.'); render(v); }
   if (i === 'invQ') { const n = parseInt(val, 10); v.ui.invQ = n > 0 ? n : 1; }
 }
@@ -176,16 +188,20 @@ N.openRoll = openRoll;
 function doRoll(v){
   const g = G(), r = v.ui.roll, who = N.rollerOf(v, r.who); if (!who) return;
   const other = who.key === 'other';
-  const skill = other ? 'Bonus' : r.skill, bonus = other ? clamp(+r.otherBonus || 0, -4, 10) : (who.skills[r.skill] || 0), tgt = r.target && N.tokById(r.target);
+  const tgt = r.target && N.tokById(r.target), gear = other ? 0 : N.rollGear(who.key, r.action);
+  const skill = other ? 'Bonus' : r.skill, bonus = other ? clamp(+r.otherBonus || 0, -4, 10) : (who.skills[r.skill] || 0) + gear;
   const label = (N.ACTIONS.find(a => a[1] === r.action) || ['Roll'])[0];
   const name = other ? (r.otherName.trim() || 'Someone') : who.name;
-  const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:r.opp, dice:N.rollDice(), invokes:[]};
-  const secret = isGM(v) && (r.secret || v.ui.ch === 'gm');
-  const ch = secret ? 'gm' : r.ctx === 'cb' ? 'table' : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
+  /* an attack on someone in a live fight always goes to the table and asks them to defend, wherever it was rolled from */
+  const fight = g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
+  const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : r.opp, dice:N.rollDice(), invokes:[]};
+  if (gear) roll.gear = gear;
+  const secret = isGM(v) && !fight && (r.secret || v.ui.ch === 'gm');
+  const ch = secret ? 'gm' : fight ? 'table' : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
   const m = push({ch, kind:'roll', by:v.role, roll});
   if (isGM(v) && who.portrait) m.pt = who.portrait;
   v.ui.fresh = m.id; v.ui.sheet = null; v.ui.targeting = null; v.ui.stick = true;
-  if (r.ctx === 'cb' && !secret) afterFightRoll(v, r, m);
+  if (fight) afterFightRoll(v, r, m);
   if (secret && v.ui.ch !== 'gm') toast(v, 'Secret roll saved in GM notes.');
   else if (ch !== v.ui.ch || v.ui.tab !== 'chat') toast(v, `${name} rolled ${sgn(N.rollTotal(roll))} ${ladderWord(N.rollTotal(roll))}.`);
   renderAll();
@@ -199,7 +215,12 @@ function actorTokOfKey(key){
 function afterFightRoll(v, r, m){
   const cb = G().combat, a = actorTokOfKey(m.roll.whoKey), tot = N.rollTotal(m.roll);
   if (!a || cb.state !== 'live') return;
-  if (r.action === 'attack' && r.target) { cb.pending = {att:a.id, def:r.target, total:tot, skill:m.roll.skill, msgId:m.id, stage:'defend'}; cb.acted = true; return; }
+  if (r.action === 'attack' && r.target) {
+    const d = N.tokById(r.target);
+    cb.pending = {att:a.id, def:r.target, total:tot, skill:m.roll.skill, msgId:m.id, stage:'defend'}; cb.acted = true;
+    sys(`${N.tokName(a)} attacks ${d ? N.tokName(d) : 'someone'} with ${m.roll.skill}: ${sgn(tot)} ${ladderWord(tot)}. ${d ? N.tokName(d) : 'They'} rolls to defend next.`);
+    return;
+  }
   if (r.action === 'advantage') {
     const opp = r.opp ?? 2; m.roll.opp = opp;
     const sh = tot - opp, name = (r.aspect || '').trim() || 'An Opening';
@@ -213,28 +234,28 @@ function afterFightRoll(v, r, m){
   cb.acted = true;
 }
 function cbDefend(v){
-  const g = G(), cb = g.combat, p = cb.pending; if (!p) return;
+  const g = G(), cb = g.combat, p = cb.pending; if (!p || p.stage !== 'defend') return;
   const d = N.tokById(p.def), a = N.tokById(p.att); if (!d || !a) { cb.pending = null; renderAll(); return; }
-  const sk = N.defSkill(d);
+  const [skill, x, gear] = N.defSkill(d);
   const key = d.kind === 'pc' ? 'pc:' + d.ref : 'tok:' + d.id;
-  const roll = {who:N.tokName(d), whoKey:key, skill:sk[0], bonus:sk[1], action:'Defend', target:null, opp:p.total, dice:N.rollDice(), invokes:[]};
+  const roll = {who:N.tokName(d), whoKey:key, skill, bonus:x + gear, action:'Defend', target:N.tokName(a), opp:p.total, dice:N.rollDice(), invokes:[]};
+  if (gear) roll.gear = gear;
   const m = push({ch:'table', kind:'roll', by:v.role, roll});
   if (d.kind === 'npc' && d.portrait) m.pt = d.portrait;
+  /* defending counts as joining the fight */
+  if (!isGM(v) && N.isMine(d, v.role) && !cb.joined.includes(v.role)) cb.joined.push(v.role);
   v.ui.fresh = m.id; v.ui.stick = true;
-  const sh = p.total - N.rollTotal(roll);
-  if (sh > 0) {
-    if (d.kind === 'npc') { sys(`${N.tokName(a)} hits ${N.tokName(d)} for ${sh}. ${N.applyHit(d, sh)}`); cb.pending = null; }
-    else { p.stage = 'absorb'; p.shifts = sh; sys(`${N.tokName(a)} hits ${N.tokName(d)} for ${sh}.`); }
-  } else if (sh === 0) { sys(`A tie: ${N.tokName(d)} is grazed, ${N.tokName(a)} gets a boost.`); cb.pending = null; }
-  else { sys(`${N.tokName(d)} defends${sh <= -3 ? ' with style and gets a boost' : ''}.`); cb.pending = null; }
+  p.defMsg = m.id;
+  N.cbResolve();
   renderAll();
 }
 function cbAbsorb(v, k, i){
   const g = G(), cb = g.combat, p = cb.pending; if (!p) return;
   const t = N.tokById(p.def), c = t && g.chars[t.ref]; if (!c) return;
-  if (k === 'box') { c.stress.phys[i] = true; sys(`${c.short} checks a ${c.stressV.phys[i]}-stress box.`); }
-  else if (k === 'out') { t.out = true; sys(`${c.short} is taken out.`); }
-  else { c.cons[k] = 'Hurt in the fight'; const sl = N.consSlots(c.skills).find(x => x.k === k); sys(`${c.short} takes a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
+  const sh = `${p.shifts} shift${p.shifts>1?'s':''}`;
+  if (k === 'box') { c.stress.phys[i] = true; sys(`${c.short} soaks the ${sh} with their ${c.stressV.phys[i]}-stress box.`); }
+  else if (k === 'out') { t.out = true; sys(`${c.short} can’t soak the ${sh} and is taken out.`); }
+  else { c.cons[k] = 'Hurt in the fight'; const sl = N.consSlots(c.skills).find(x => x.k === k); sys(`${c.short} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
   cb.pending = null; renderAll();
 }
 
@@ -379,11 +400,16 @@ function moveParty(m, rx, ry){
   m.pins.push(p);
 }
 function mapBox(v){ const cv = v.root.querySelector('[data-mapcv]'); return cv ? {cv, w:cv.clientWidth, h:cv.clientHeight} : null; }
-function kMin(v){ const m = curMap(v), b = mapBox(v); return Math.max(b.w / m.w, b.h / m.h); }
+/* any map, whatever its shape: zooming out stops at the whole map in view (centred), and it opens filling the screen,
+   or for a long, thin map (a wide one on a phone) a little bigger than the whole map so it isn't a thin strip */
+function kMin(v){ const m = curMap(v), b = mapBox(v); return Math.min(b.w / m.w, b.h / m.h); }
+function kOpen(v){ const m = curMap(v), b = mapBox(v); return Math.min(Math.max(b.w / m.w, b.h / m.h) * 1.05, kMin(v) * 2.2); }
 function clampT(v){
   const m = curMap(v), b = mapBox(v), T = v.ui.mapT, k0 = kMin(v);
-  T.k = clamp(T.k, k0, Math.max(k0 * 8, 1.6));
-  T.x = clamp(T.x, b.w - m.w * T.k, 0); T.y = clamp(T.y, b.h - m.h * T.k, 0);
+  T.k = clamp(T.k, k0, Math.max(k0 * 10, 1.6));
+  const W = m.w * T.k, H = m.h * T.k;
+  T.x = W <= b.w ? (b.w - W) / 2 : clamp(T.x, b.w - W, 0);
+  T.y = H <= b.h ? (b.h - H) / 2 : clamp(T.y, b.h - H, 0);
 }
 function centerOn(v, rx, ry, k){
   const m = curMap(v), b = mapBox(v); const T = v.ui.mapT = {id:m.id, k:k || v.ui.mapT?.k || kMin(v), x:0, y:0};
@@ -393,10 +419,10 @@ function applyMap(v){
   const b = mapBox(v); if (!b || !b.w) return;
   const m = curMap(v), g = G(); if (!m || !m.w) return;
   if (!v.ui.mapT || v.ui.mapT.id !== m.id || v.ui.mapT.bw !== b.w || v.ui.mapT.bh !== b.h) {
-    const k0 = kMin(v), keep = v.ui.mapT && v.ui.mapT.id === m.id;
+    const keep = v.ui.mapT && v.ui.mapT.id === m.id;
     if (keep) clampT(v);
-    else if (g.party.map === m.id) centerOn(v, g.party.rx, g.party.ry, k0 * 1.6);
-    else centerOn(v, .5, .5, k0 * 1.05);
+    else if (g.party.map === m.id) centerOn(v, g.party.rx, g.party.ry, kOpen(v) * 1.5);
+    else centerOn(v, .5, .5, kOpen(v));
     v.ui.mapT.bw = b.w; v.ui.mapT.bh = b.h;
   }
   clampT(v);
@@ -406,7 +432,7 @@ function applyMap(v){
 }
 function zoomAt(v, f, px, py){
   const T = v.ui.mapT; if (!T) return;
-  const k1 = T.k; T.k = clamp(T.k * f, kMin(v), Math.max(kMin(v) * 8, 1.6)); const r = T.k / k1;
+  const k1 = T.k; T.k = clamp(T.k * f, kMin(v), Math.max(kMin(v) * 10, 1.6)); const r = T.k / k1;
   T.x = px - (px - T.x) * r; T.y = py - (py - T.y) * r; applyMap(v);
 }
 function mapDown(v, e){
@@ -478,6 +504,7 @@ function act(v, a, el, e){
   case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else openPop(v, val, el); break;
   case 'toast': toast(v, val); break;
   case 'undo': if (ui.toast && ui.toast.undo) { ui.toast.undo(); ui.toast = null; renderAll(); return; } break;
+  case 'notify': N.toggleNotify(v); return;
   case 'theme': v.theme = val; try { localStorage.setItem('norne-theme', val); } catch(e) {} if (N.onTheme) N.onTheme(v); break;
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;
@@ -495,7 +522,7 @@ function act(v, a, el, e){
   }
   case 'newVoice': ui.pop = null; openSheet(v, 'npcNew', {from:'voice'}); break;
   case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; break;
-  case 'doInvoke': doInvoke(v, +d.i); return;
+  case 'doInvoke': doInvoke(v, +d.i, d.how === 'reroll'); return;
   case 'readNews': case 'herald': close(); ui.tab = 'world'; ui.herald = true; ui.wikiSel = null; ui.newsEdit = null; ui.newsSel = d.id || null; seeNews(v); break;
   case 'newsSel': ui.newsSel = val; break;
   case 'writeNews': {
@@ -508,9 +535,24 @@ function act(v, a, el, e){
   case 'newsPub': {
     const n = ui.newsEdit; if (!n.headline.trim()) { toast(v, 'Add a headline first.'); break; }
     const issue = Object.assign({id:uid('ed')}, N.draftIssue(n));
+    if (n.see?.length) issue.see = [...n.see];
     g.news.issues.push(issue); (g.news.seen.gm = g.news.seen.gm || []).push(issue.id);
-    push({ch:'table', kind:'news', by:'gm', text:issue.headline, nid:issue.id});
-    ui.newsEdit = null; ui.newsSel = issue.id; toast(v, 'Published. Everyone got a note in chat.'); renderAll(); return;
+    const to = N.audOf(issue, 'news');
+    for (const ch of to === '*' ? ['table'] : to.map(s => 'dm-' + s)) push({ch, kind:'news', by:'gm', text:issue.headline, nid:issue.id});
+    ui.newsEdit = null; ui.newsSel = issue.id; toast(v, to === '*' ? 'Published. Everyone got a note in chat.' : `Published for ${N.audLabel(issue, 'news').replace(/^Only /, '')}. They got a note.`); renderAll(); return;
+  }
+  case 'ndAud': N.audSet(ui.newsEdit, 'news', val); break;
+  case 'newsAud': {
+    const i = g.news.issues.find(x => x.id === ui.sheetArg); if (!i) break;
+    const before = N.audSeats(i, 'news'); N.audSet(i, 'news', val);
+    const added = N.audSeats(i, 'news').filter(s => !before.includes(s));
+    for (const s of added) push({ch:'dm-' + s, kind:'news', by:'gm', text:i.headline, nid:i.id});
+    renderAll(); return;
+  }
+  case 'newsDelGo': {
+    const at = g.news.issues.findIndex(x => x.id === val), i = g.news.issues[at]; if (!i) break;
+    g.news.issues.splice(at, 1); ui.sheet = null; if (ui.newsSel === val) ui.newsSel = null;
+    toast(v, `Deleted No. ${i.no}.`, () => g.news.issues.splice(at, 0, i)); renderAll(); return;
   }
   /* GM screen */
   case 'applyScene': { const r = g.recent.find(x => x.id === val); if (!r) break; setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:r.title, where:r.where, art:r.art, place:r.place, aspects:[]}, true); if (ui.sheet === 'gm') ui.sheet = null; renderAll(); return; }
@@ -522,11 +564,26 @@ function act(v, a, el, e){
   case 'mapEdit': ui.mapEdit = !ui.mapEdit; ui.addPin = false; break;
   case 'mapType': ui.mapType = val; break;
   case 'addPin': ui.addPin = !ui.addPin; if (ui.addPin) toast(v, 'Tap the map where the new place goes.'); break;
-  case 'mapVis': { const m = curMap(v); m.vis = m.vis === false; if (m.vis) sys(`${N.gmName()} shared the ${m.name} map.`); toast(v, m.vis ? 'Players can see this map.' : 'This map is hidden from players.'); renderAll(); return; }
+  case 'mapAud': {
+    const m = g.maps.find(x => x.id === ui.sheetArg); if (!m) break;
+    const before = N.audSeats(m, 'map'), wasAll = N.audOf(m, 'map') === '*'; N.audSet(m, 'map', val);
+    const added = N.audSeats(m, 'map').filter(s => !before.includes(s));
+    if (N.audOf(m, 'map') === '*' && !wasAll) tell(m, 'map', `${N.gmName()} shared the ${m.name} map.`);
+    else if (added.length) tell(m, 'map', `${N.gmName()} shared the ${m.name} map with you.`, added);
+    renderAll(); return;
+  }
+  case 'mapDelGo': {
+    const at = g.maps.findIndex(x => x.id === val), m = g.maps[at]; if (!m) break;
+    g.maps.splice(at, 1); ui.sheet = null; ui.pinSel = null; ui.mapT = null; ui.mapEdit = false;
+    if (ui.mapId === m.id) ui.mapId = g.maps[0]?.id || null;
+    const drop = setTimeout(() => N.dropImg(m.src), 6000);
+    toast(v, `Deleted the ${m.name} map.`, () => { clearTimeout(drop); g.maps.splice(at, 0, m); ui.mapId = m.id; ui.mapT = null; });
+    renderAll(); return;
+  }
   case 'mapUpload': ui.pop = null; N.pickImage((img, f) => {
       const id = uid('map'), src = N.storeImg(N.shrink(img, 2400), false);
       g.maps.push({id, name:f.name.replace(/\.[^.]+$/, ''), src, w:img.naturalWidth, h:img.naturalHeight, vis:false, pins:[]});
-      ui.mapId = id; ui.mapT = null; ui.mapEdit = true; toast(v, 'Map added. It stays hidden from players until you share it.'); renderAll();
+      ui.mapId = id; ui.mapT = null; ui.mapEdit = true; ui.sheet = 'mapSet'; ui.sheetArg = id; toast(v, 'Map added. It stays hidden until you pick who sees it.'); renderAll();
     }); return;
   case 'zoom': { const b = mapBox(v); if (!b || !ui.mapT) return; if (val === 'fit') { ui.mapT.k = kMin(v); clampT(v); applyMap(v); } else zoomAt(v, +val, b.w/2, b.h/2); return; }
   case 'findParty': ui.mapId = g.party.map; ui.mapT = null; ui.pinSel = '__party'; render(v); return;
@@ -534,7 +591,7 @@ function act(v, a, el, e){
   case 'pinScene': { const m = curMap(v), p = m.pins.find(x => x.id === val); setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:p.label, where:m.name, place:{map:m.id, rx:p.rx, ry:p.ry}, aspects:[]}, true); renderAll(); return; }
   case 'pinParty': { const m = curMap(v), p = m.pins.find(x => x.id === val); moveParty(m, p.rx, p.ry + .002); sys(`The party heads to ${p.label}.`); toast(v, `The party is now at ${p.label}. A note went to Everyone.`); renderAll(); return; }
   case 'pinType': { const p = curMap(v).pins.find(x => x.id === ui.pinSel); if (p) p.type = val; renderAll(); return; }
-  case 'pinVis': { const m = curMap(v), p = m.pins.find(x => x.id === ui.pinSel); if (!p) break; p.vis = !p.vis; if (p.vis && m.vis !== false) sys(`${N.gmName()} revealed ${p.label} on the ${m.name.replace(/ \(.*\)$/, '')} map.`); renderAll(); return; }
+  case 'pinVis': { const m = curMap(v), p = m.pins.find(x => x.id === ui.pinSel); if (!p) break; p.vis = !p.vis; if (p.vis) tell(m, 'map', `${N.gmName()} revealed ${p.label} on the ${m.name.replace(/ \(.*\)$/, '')} map.`); renderAll(); return; }
   case 'pinDel': { const m = curMap(v), i = m.pins.findIndex(x => x.id === ui.pinSel), p = m.pins[i]; if (!p) break; m.pins.splice(i, 1); ui.pinSel = null; toast(v, `Removed ${p.label}.`, () => m.pins.splice(i, 0, p)); renderAll(); return; }
   /* world */
   case 'wiki': { const en = g.wiki.find(x => x.id === val); if (!en || (!gm && en.gm)) break; close(); ui.tab = 'world'; ui.wikiSel = val; ui.herald = false; ui.newsEdit = null; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
@@ -542,16 +599,38 @@ function act(v, a, el, e){
   case 'wBack': if (ui.wikiSel || ui.herald) { ui.wikiSel = null; ui.herald = false; ui.newsEdit = null; } else ui.wikiCat = null; break;
   case 'wNew': openSheet(v, 'wEdit', {}); break;
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
-  case 'wdGm': ui.wd.gm = !ui.wd.gm; break;
+  case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;
+  case 'wDelGo': {
+    const at = g.wiki.findIndex(x => x.id === val), en = g.wiki[at]; if (!en) break;
+    g.wiki.splice(at, 1); ui.sheet = null; if (ui.wikiSel === val) ui.wikiSel = null;
+    toast(v, `Deleted ${en.title}.`, () => g.wiki.splice(at, 0, en)); renderAll(); return;
+  }
+  case 'wCats': openSheet(v, 'wCats'); break;
+  case 'cdIcon': ui.cdIc = ui.cdIc === +d.i ? null : +d.i; break;
+  case 'cdIc': ui.cd[+d.i].ic = val; ui.cdIc = null; break;
+  case 'cdMove': { const i = +d.i, j = i + (+d.d), r = ui.cd; if (j < 0 || j >= r.length) break; [r[i], r[j]] = [r[j], r[i]]; ui.cdIc = null; break; }
+  case 'cdAdd': ui.cd.push({from:null, name:'', ic:'globe'}); ui.cdIc = null; setTimeout(() => { const f = v.root.querySelector(`#cdn${ui.cd.length - 1}-${v.id}`); if (f) f.focus(); }, 30); break;
+  case 'cdDel': { const r = ui.cd[+d.i]; if (!r.from) { ui.cd.splice(+d.i, 1); break; } r.del = !r.del; if (r.del) r.to = (ui.cd.find(x => !x.del && x.name.trim()) || {}).name?.trim() || ''; ui.cdIc = null; break; }
+  case 'cdSave': {
+    const keep = ui.cd.filter(r => !r.del), names = keep.map(r => r.name.trim());
+    if (!names.length || names.some((n, i) => !n || names.indexOf(n) !== i)) break;
+    const move = {};
+    for (const r of ui.cd) if (r.from) move[r.from] = r.del ? (r.to && names.includes(r.to) ? r.to : names[0]) : r.name.trim();
+    for (const e of g.wiki) if (move[e.cat] && move[e.cat] !== e.cat) e.cat = move[e.cat];
+    g.cats = keep.map(r => ({name:r.name.trim(), ic:r.ic}));
+    if (ui.wikiCat && move[ui.wikiCat]) ui.wikiCat = move[ui.wikiCat];
+    ui.sheet = null; toast(v, 'Categories saved.'); renderAll(); return;
+  }
   case 'wSave': {
     const w = ui.wd, old = w.id && g.wiki.find(x => x.id === w.id);
     const en = {id:w.id || uid('w'), cat:w.cat, title:w.title.trim(), summary:w.summary.trim(),
       info:w.info.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const i = l.indexOf(':'); return i > 0 ? [l.slice(0,i).trim(), l.slice(i+1).trim()] : [l, '']; }),
       body:w.body.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean), secret:w.secret.trim()};
     if (w.gm) en.gm = true;
+    if (!w.gm && w.see?.length) en.see = [...w.see];
     if (old) for (const k of ['img','src','soon']) if (old[k]) en[k] = old[k];
     const i = g.wiki.findIndex(x => x.id === en.id); if (i >= 0) g.wiki[i] = en; else g.wiki.push(en);
-    ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.herald = false; ui.wikiCat = en.cat; toast(v, en.gm ? 'Saved. Only you can see it.' : 'Saved. Players can read it.'); renderAll(); return;
+    ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.herald = false; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
   }
   /* character + cast */
   case 'charSel': ui.charSel = val; break;
@@ -667,6 +746,7 @@ function act(v, a, el, e){
     if (!cb.joined.includes(v.role)) cb.joined.push(v.role);
     let t = cb.tokens.find(x => x.kind === 'pc' && x.ref === c.id);
     if (!t) { t = N.tokFromPc(c); cb.tokens.push(t); }
+    N.cbLateInit(t);
     if (!t.zone) t.zone = cb.zones[0]?.id;
     if (!cb.invited.includes(c.id)) cb.invited.push(c.id);
     sys(`${c.short} joins the fight.`);
@@ -684,6 +764,7 @@ function act(v, a, el, e){
     break;
   }
   case 'cbDefend': cbDefend(v); return;
+  case 'cbDrop': if (cb.pending) { const t = N.tokById(cb.pending.def); cb.pending = null; sys(`${N.gmName()} settles the hit on ${t ? N.tokName(t) : 'them'} by hand.`); } renderAll(); return;
   case 'cbAbsorb': cbAbsorb(v, d.k, +d.i); return;
   case 'tokClose': ui.tokSel = null; break;
   case 'tokStress': { const t = N.tokById(d.t), s = N.tokStress(t); s.s[+d.i] = !s.s[+d.i]; renderAll(); return; }
@@ -735,9 +816,10 @@ function openSheet(v, s, d={}){
   }
   if (s === 'wEdit') {
     const e = d.v && g.wiki.find(x => x.id === d.v);
-    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), secret:e.secret || '', gm:!!e.gm}
-              : {id:null, title:'', cat:ui.wikiCat || 'People', summary:'', info:'', body:'', secret:'', gm:false};
+    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), secret:e.secret || '', gm:!!e.gm, see:[...(e.see || [])]}
+              : {id:null, title:'', cat:ui.wikiCat || (N.cats().find(c => c.name === 'People') || N.cats()[0] || {name:'People'}).name, summary:'', info:'', body:'', secret:'', gm:false};
   }
+  if (s === 'wCats') { ui.cd = N.catNames(g.wiki).map(name => ({from:name, name, ic:N.catIcon(name)})); ui.cdIc = null; }
   if (s === 'export') ui.exp = {ch:new Set(N.channelsFor('gm').filter(c => c !== 'gm')), rp:true, roll:true, meta:false};
 }
 N.openSheet = openSheet;
@@ -776,7 +858,7 @@ function pickDisc(d, k, x){
 function saveNpc(v){
   const g = G(), d = v.ui.nd, old = d.edit && g.npcs.find(x => x.id === d.edit);
   const base = {name:d.name.trim(), race:d.race.trim(), job:d.job.trim(), hc:d.hc.trim(), trouble:(d.trouble||'').trim(), aspects:d.aspects.map(a => a.trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
-    skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp};
+    skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0};
   let n;
   if (old) {
     n = Object.assign(old, base);
@@ -787,7 +869,7 @@ function saveNpc(v){
   if (d.from === 'voice') { v.ui.voice = n.name; v.ui.mode = 'rp'; }
   toast(v, old ? 'NPC saved.' : `${n.name} saved. Pick them in “Speak as”.`); renderAll();
 }
-function doInvoke(v, i){
+function doInvoke(v, i, reroll){
   const g = G(), m = g.msgs.find(x => x.id === v.ui.sheetArg), o = m && N.invokeOptions(v, m)[i];
   if (!o) return;
   let how = 'gm';
@@ -796,10 +878,14 @@ function doInvoke(v, i){
     if (o.kind === 'cb') g.combat.aspects[o.i].free--;
     if (o.kind === 'zone') g.combat.zones.find(z => z.id === o.z).free--;
   } else if (!isGM(v)) { const c = N.charOf(v.role); if (!c || c.fp < 1) { toast(v, 'No fate points left.'); return; } c.fp--; how = 'fp'; }
-  m.roll.invokes.push(Object.assign({aspect:o.t, how}, o.ref ? {ref:o.ref} : {}));
+  const iv = Object.assign({aspect:o.t, how}, o.ref ? {ref:o.ref} : {});
+  if (reroll) { iv.reroll = true; iv.was = m.roll.dice; m.roll.dice = N.rollDice(); v.ui.fresh = m.id; }
+  m.roll.invokes.push(iv);
   const p = g.combat.pending; if (p && p.msgId === m.id) p.total = N.rollTotal(m.roll);
+  N.cbReresolve(m);
   v.ui.sheet = null;
-  toast(v, `+2 from “${o.t}”${o.free ? ' (free)' : isGM(v) ? '' : ', 1 fate point spent'}.`);
+  const cost = o.free ? ' (free)' : isGM(v) ? '' : ', 1 fate point spent';
+  toast(v, reroll ? `Rerolled with “${o.t}”${cost}: now ${sgn(N.rollTotal(m.roll))} ${ladderWord(N.rollTotal(m.roll))}.` : `+2 from “${o.t}”${cost}.`);
   renderAll();
 }
 function seeNews(v){ const g = G(), s = g.news.seen[v.role] || (g.news.seen[v.role] = []); g.news.issues.forEach(i => { if (!s.includes(i.id)) s.push(i.id); }); }

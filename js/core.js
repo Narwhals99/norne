@@ -42,7 +42,9 @@ const discOf = (o, k) => { const x = (o.disc || {})[k]; return Array.isArray(x) 
 const stressVals = r => r <= -1 ? [2] : r === 0 ? [1,2] : r <= 2 ? [1,2,2] : [1,2,2,3];
 const ACTIONS = [['Overcome','overcome'],['Create an advantage','advantage'],['Attack','attack'],['Defend','defend']];
 const diceSum = r => r.dice.reduce((a,b)=>a+b,0);
-const rollTotal = r => diceSum(r) + r.bonus + 2*(r.invokes||[]).length;
+/* an invoke is +2, or a reroll of all four dice (marked reroll:true, adds nothing) */
+const plusInvokes = r => (r.invokes||[]).filter(i => !i.reroll).length;
+const rollTotal = r => diceSum(r) + r.bonus + 2*plusInvokes(r);
 function outcome(r){
   if (r.opp == null) return null;
   const sh = rollTotal(r) - r.opp;
@@ -67,7 +69,7 @@ const consSlots = sk => {
   return out;
 };
 Object.assign(N, {DISC, MAGIC, discOf, consSlots});
-Object.assign(N, {LADDER, ladderWord, MUNDANE, stressVals, ACTIONS, diceSum, rollTotal, outcome, rollDice});
+Object.assign(N, {LADDER, ladderWord, MUNDANE, stressVals, ACTIONS, diceSum, plusInvokes, rollTotal, outcome, rollDice});
 
 /* ---------- art ---------- */
 const FACE = n => `art/pt/${n}-face.png`, BG = n => `art/bg/${n}.jpg`;
@@ -91,6 +93,35 @@ N.faceUrl = p => !p ? null : /^(fs:|data:|https?:|art\/|img\/)/.test(p) ? (N.img
 /* ---------- wiki and map vocab ---------- */
 N.WCATS = ['World','Nations','Places','People','Races','Religions','Magic','Factions','History','Prophecies','Food & Drink','Items','Rules','Storylines'];
 N.CATICON = {'World':'globe','Nations':'flag','Places':'places','People':'person','Races':'races','Religions':'religion','Magic':'magic','Factions':'faction','History':'history','Prophecies':'prophecy','Food & Drink':'drink','Items':'items','Rules':'rules','Storylines':'story'};
+N.CATICONS = ['globe','flag','places','person','races','religion','magic','faction','history','prophecy','drink','items','rules','story','castle','tavern','crown','sword','helm','dwarf','potion','spellbook','skull','coins','scroll','mask','herald','campfire','star','heart'];
+/* the GM can rename, add, remove and reorder categories (game/meta); until then the built-in list is used */
+N.cats = () => N.G.cats || N.WCATS.map(name => ({name, ic:N.CATICON[name] || 'globe'}));
+N.catIcon = name => (N.cats().find(c => c.name === name) || {}).ic || N.CATICON[name] || 'globe';
+/* every category with entries in it: the GM's list in order, then any an entry still names */
+N.catNames = wiki => { const names = N.cats().map(c => c.name); for (const e of wiki) if (e.cat && !names.includes(e.cat)) names.push(e.cat); return names; };
+
+/* ---------- who sees a wiki entry, a map or a news edition ----------
+   Hidden (wiki gm:true, map vis:false) is GM only. Otherwise see:['p1',…] limits it to those seats; no see is everyone. */
+const hiddenOf = (x, kind) => kind === 'wiki' ? !!x.gm : kind === 'map' ? x.vis === false : false;
+N.audOf = (x, kind) => hiddenOf(x, kind) ? 'gm' : (Array.isArray(x.see) && x.see.length ? x.see : '*');
+N.audSet = (x, kind, val) => {
+  const hide = h => { if (kind === 'wiki') { if (h) x.gm = true; else delete x.gm; } else if (kind === 'map') x.vis = !h; };
+  const cur = N.audOf(x, kind);
+  if (val === '*' || val === 'gm') { hide(val === 'gm'); delete x.see; return; }
+  const s = new Set(Array.isArray(cur) ? cur : []);
+  s.has(val) ? s.delete(val) : s.add(val);
+  if (s.size) { hide(false); x.see = [...s].sort((a,b) => a.slice(1) - b.slice(1)); }
+  else { delete x.see; hide(kind !== 'news'); }
+};
+/* the seats that can see it right now */
+N.audSeats = (x, kind) => { const a = N.audOf(x, kind); return a === 'gm' ? [] : a === '*' ? N.seats() : a.filter(s => N.G.P[s]); };
+N.audLabel = (x, kind) => {
+  const a = N.audOf(x, kind);
+  if (a === 'gm') return 'Only you';
+  if (a === '*') return 'Everyone';
+  const names = a.map(s => N.G.P[s]?.name || 'a former player');
+  return 'Only ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0]);
+};
 N.PINT = {
   town:{name:'Towns',col:'#efd9a0',ic:'castle'}, nation:{name:'Nations',col:'#f4c46e',ic:'flag'}, landmark:{name:'Landmarks',col:'#c9bdff',ic:'star'},
   tavern:{name:'Taverns',col:'#f2b25c',ic:'tavern'}, shop:{name:'Shops',col:'#a3d6b4',ic:'bag'}, temple:{name:'Temples',col:'#f4e38d',ic:'religion'},
@@ -102,7 +133,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], foes:[], recent:[], msgs:[], combat:null, maps:[], wiki:[], news:{issues:[], seen:{}}, seen:{},
+  chars:{}, npcs:[], quick:[], foes:[], recent:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{},
 };
 N.seatColor = seat => `var(--c-p${((+seat.slice(1) - 1) % SEATCOL) + 1})`;
 
@@ -115,7 +146,7 @@ function blankChar(id, player){
 function npcCard(o){
   const str = (o.skills||{}).Strength||0, wil = (o.skills||{}).Will||0, pv = stressVals(str), mv = stressVals(wil);
   return Object.assign({id:uid('n'), name:'', race:'', job:'', age:'', hc:'', trouble:'', aspects:[], skills:{}, disc:{}, magic:'', stunts:[], refresh:3, fp:3, bio:'', notes:'', type:'supporting', portrait:null,
-    stressV:{phys:pv, ment:mv}, stress:{phys:pv.map(()=>false), ment:mv.map(()=>false)}, cons:{mild:'',moderate:'',severe:''}}, o);
+    stressV:{phys:pv, ment:mv}, stress:{phys:pv.map(()=>false), ment:mv.map(()=>false)}, cons:{mild:'',moderate:'',severe:''}, gearAtk:0, gearDef:0}, o);
 }
 function freshCombat(){
   return {state:'off', id:null, title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, acted:false, moved:false};
@@ -204,7 +235,12 @@ N.sameZone = t => N.G.combat.tokens.filter(o => o !== t && !o.out && t.zone && o
 N.foesOf = t => N.sameZone(t).filter(o => N.sideOf(o) !== N.sideOf(t));
 N.tokSkills = t => t.kind === 'pc' ? (N.G.chars[t.ref]?.skills || {}) : (t.skills || {});
 N.tokNotice = t => N.tokSkills(t).Notice || 0;
-N.order = () => N.G.combat.tokens.filter(t => !t.out && t.zone).map((t,i)=>({t,i})).sort((a,b)=>N.tokNotice(b.t)-N.tokNotice(a.t)||a.i-b.i).map(x=>x.t);
+/* turn order: the Notice roll made when the fight started (t.init), Notice itself breaks ties.
+   Fights saved before Notice was rolled have no t.init and fall back to plain Notice. */
+const initOf = t => t.init ?? N.tokNotice(t);
+N.order = () => N.G.combat.tokens.filter(t => !t.out && t.zone).map((t,i)=>({t,i})).sort((a,b)=>initOf(b.t)-initOf(a.t)||N.tokNotice(b.t)-N.tokNotice(a.t)||a.i-b.i).map(x=>x.t);
+/* gear bonuses only NPC tokens carry (0 to 9): added to attack rolls and to defense rolls */
+N.tokGear = (t, k) => t && t.kind === 'npc' ? (+t[k] || 0) : 0;
 N.curTok = () => { const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
 N.tokObj = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref] || {}; const p = N.G.P[c.player]; return {name:c.short || '?', portrait:c.built ? c.portrait : null, color:p?.color || 'var(--accent)'}; }
   return {name:t.name, portrait:t.portrait, color:t.side === 'ally' ? 'var(--c-npc)' : 'var(--c-foe)'}; };
@@ -215,7 +251,7 @@ N.ZCOL = ['#f4c46e','#6fd6c0','#ff9a7e','#a99bff','#9cd36b','#f39ad0'];
 N.tokFromNpc = (n, side, label) => {
   const nameless = n.type === 'nameless', v = nameless ? [1] : stressVals((n.skills||{}).Strength||0);
   return {id:uid('t'), kind:'npc', ref:n.id, name:label || n.name, portrait:n.portrait || null, side, type:n.type || 'supporting', skills:{...(n.skills||{})},
-    aspects:[n.hc, ...(n.aspects||[])].filter(Boolean), stressV:v, stress:v.map(()=>false), mild:'', zone:null, out:false};
+    aspects:[n.hc, ...(n.aspects||[])].filter(Boolean), stressV:v, stress:v.map(()=>false), mild:'', zone:null, out:false, gearAtk:+n.gearAtk || 0, gearDef:+n.gearDef || 0};
 };
 N.tokFromPc = c => ({id:uid('t'), kind:'pc', ref:c.id, zone:null, out:false});
 })();
