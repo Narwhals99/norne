@@ -650,6 +650,7 @@
 .app[data-theme="night"] .mapst img{filter:saturate(.85) brightness(.88)}
 .app .mapov{position:absolute;inset:0;pointer-events:none;z-index:3;padding:10px;display:grid;grid-template-rows:auto auto 1fr auto;gap:8px}
 .app .mapov>*{pointer-events:auto}
+.app .mapov>span{pointer-events:none}
 .app .mapov .row1{display:flex;gap:8px;align-items:center}
 .app .glass{background:color-mix(in srgb,var(--page-solid) 86%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:var(--shadow-2)}
 .app .mapsel{display:inline-flex;align-items:center;gap:10px;height:46px;padding:0 14px 0 5px;border-radius:999px;min-width:0;max-width:100%}
@@ -681,7 +682,7 @@
 .app .pincard .hd b{display:block;font:600 20px/1.15 var(--f-display)}
 .app .pincard p{margin:0;font:500 14px/1.45 var(--f-ui);color:var(--ink-2)}
 .app .pincard .row{display:flex;gap:8px;flex-wrap:wrap}
-.app .mapedit{justify-self:center;display:flex;gap:4px;padding:5px;border-radius:999px}
+.app .mapedit{grid-row:4;align-self:end;justify-self:center;display:flex;gap:4px;padding:5px;border-radius:999px}
 .app .mapedit .btn{--h:38px}
 
 /* ---------- world ---------- */
@@ -902,7 +903,7 @@
   .app .rail{display:block;min-height:0;border-left:1px solid var(--line);background:color-mix(in srgb,var(--sunk) 40%,transparent)}
   .app .chat{grid-template-rows:auto auto 1fr auto}
   .app .chat .top{display:none}
-  .app .chips{display:none}
+  .app .top .chips{display:none}
   .app .scene{margin:12px 12px 0;min-height:150px;border-radius:20px}
   .app .scene h2{font-size:30px}
   .app .scene .in{padding:16px 20px 16px}
