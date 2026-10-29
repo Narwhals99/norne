@@ -1,0 +1,79 @@
+rules_version = '2';
+
+// Norne security rules. Paste this whole file into
+// Firebase console > Firestore Database > Rules, then press Publish.
+//
+// Who is who:
+//   - The GM is the one Google account named below.
+//   - Players are accounts the GM has let in; each has a seat p1, p2, ...
+//   - Everyone else who signs in waits as "pending" and can read nothing.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isGM() {
+      return signedIn()
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == '__GM_EMAIL__';
+    }
+    function memberPath() { return /databases/$(database)/documents/members/$(request.auth.uid); }
+    function seat() {
+      return signedIn() && exists(memberPath()) ? get(memberPath()).data.role : 'none';
+    }
+    function isPlayer() { return seat().matches('p[0-9]+'); }
+    function canReadMsg(d) { return isGM() || (isPlayer() && ('*' in d.aud || seat() in d.aud)); }
+
+    // Accounts. A new account may only create itself as pending (or as GM, for the GM's own account).
+    // Only the GM can give someone a seat or take it away.
+    match /members/{uid} {
+      allow read: if isGM() || isPlayer() || (signedIn() && request.auth.uid == uid);
+      allow create: if signedIn() && request.auth.uid == uid
+        && (request.resource.data.role == 'pending' || (request.resource.data.role == 'gm' && isGM()));
+      allow update: if isGM()
+        || (signedIn() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']));
+      allow delete: if isGM();
+    }
+
+    // The GM's own copy: secrets, hidden maps and wiki entries, NPC cards, combat being set up.
+    match /gm/{doc} {
+      allow read, write: if isGM();
+    }
+
+    // What the table sees. Only the GM writes it, with two exceptions below.
+    match /game/{doc} {
+      allow read: if isGM() || isPlayer();
+      allow write: if isGM();
+    }
+    // A player may change only their own character sheet (fate points spent on invokes).
+    match /game/chars {
+      allow update: if isPlayer()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([seat().replace('p', 'pc')]);
+    }
+    // A player may update the live fight (free invokes used on scene aspects).
+    match /game/combat {
+      allow update: if isPlayer()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['c']);
+    }
+
+    // Chat messages. aud says who may read one: '*' is everyone at the table,
+    // 'p1' is that player's private chat with the GM, 'gm' is the GM's own notes.
+    match /msgs/{id} {
+      allow read: if canReadMsg(resource.data);
+      allow create: if isGM()
+        || (isPlayer()
+            && request.resource.data.by == seat()
+            && ((request.resource.data.ch == 'table' && request.resource.data.aud == ['*'])
+                || (request.resource.data.ch == 'dm-' + seat() && request.resource.data.aud == [seat()])));
+      allow update: if isGM()
+        || (canReadMsg(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roll']));
+      allow delete: if isGM();
+    }
+
+    // Map images kept out of the public site. Players can load one only once the GM shares that map.
+    match /mapimgs/{id} {
+      allow read: if isGM() || (isPlayer() && resource.data.vis == true);
+      allow write: if isGM();
+    }
+  }
+}
