@@ -210,7 +210,7 @@ function fightCard(v, m){
 function composer(v){
   const g = G(), gm = isGM(v), ooc = v.ui.mode === 'ooc';
   let chip, ph;
-  if (ooc) { chip = `<span class="ooc-ic">${IC('chatL')}</span><b>Out of character</b>`; ph = 'Rules talk, questions, snacks…'; }
+  if (ooc) { chip = `<span class="ooc-ic">${IC('chatL')}</span><b><span class="only-dt">Out of character</span><span class="only-ph">OOC</span></b>`; ph = 'Rules talk, questions, snacks…'; }
   else if (gm) {
     const n = g.npcs.find(x => x.name === v.ui.voice);
     chip = (v.ui.voice === 'Narrator' ? N.narrAv(30) : N.av({name:v.ui.voice, portrait:n?.portrait, color:'var(--c-npc)'},30)) + `<b class="only-dt">${esc(v.ui.voice)}</b>`;
