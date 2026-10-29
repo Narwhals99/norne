@@ -151,7 +151,7 @@ function npcCard(o){
     stressV:{phys:pv, ment:mv}, stress:{phys:pv.map(()=>false), ment:mv.map(()=>false)}, cons:{mild:'',moderate:'',severe:''}, gearAtk:0, gearDef:0}, o);
 }
 function freshCombat(){
-  return {state:'off', id:null, title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, acted:false, moved:false};
+  return {state:'off', id:null, ch:'table', title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, acted:false, moved:false};
 }
 N.freshCombat = freshCombat; N.npcCard = npcCard; N.blankChar = blankChar;
 N.G.combat = freshCombat();
@@ -230,6 +230,11 @@ N.pcTag = c => N.pcAspects(c)[0] || '';
 
 /* ---------- combat helpers ---------- */
 N.cb = () => N.G.combat;
+/* a fight lives in the chat it was started in: Everyone, or one player's private chat with the GM */
+N.fightCh = () => N.G.combat.ch || 'table';
+N.chSeat = ch => /^dm-p\d+$/.test(ch || '') ? ch.slice(3) : null;
+/* the characters whose players can see a chat */
+N.pcsIn = ch => { const s = N.chSeat(ch); return N.pcs().filter(c => !s || c.player === s); };
 N.tokById = id => N.G.combat.tokens.find(t => t.id === id);
 N.zoneOf = t => N.G.combat.zones.find(z => z.id === t.zone);
 N.sideOf = t => t.kind === 'pc' ? 'ally' : (t.side || 'foe');

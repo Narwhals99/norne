@@ -322,7 +322,7 @@ N.invokeOptions = function(v, m){
   const sc = g.scenes[m.ch];
   if (sc) (sc.aspects || []).forEach((a,i) => out.push({t:a.t, free:N.sceneFreeLeft(sc, i), from:'Scene', ref:`scene:${sc.msg}:${i}`}));
   const cb = g.combat;
-  if (cb.state === 'live' && m.ch === 'table') {
+  if (cb.state === 'live' && m.ch === N.fightCh()) {
     cb.aspects.forEach((a,i) => out.push({t:a.t, free:a.free || 0, from:'Fight', kind:'cb', i}));
     cb.zones.filter(z => z.aspect).forEach(z => out.push({t:z.aspect, free:z.free || 0, from:z.name, kind:'zone', z:z.id}));
   }
