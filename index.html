@@ -884,6 +884,14 @@ input[type=checkbox],input[type=radio],input[type=range]{accent-color:var(--viol
 .m.rp p{font-size:1.1rem;line-height:1.5}
 .m.rp.narr{background:linear-gradient(90deg,rgba(243,182,91,.08),rgba(21,23,58,.7) 40%);border-color:rgba(243,182,91,.22)}
 .m.meta{font-size:.92rem}
+/* your own messages sit on the right in violet, everyone else's on the left */
+.m.rp,.m.meta{border-radius:18px 18px 18px 6px}
+.m.mine{align-self:flex-end}
+.m.rp.mine,.m.meta.mine,.m.rp.narr.mine{background:linear-gradient(135deg,#4c41b6,#3a3394);border-color:rgba(170,160,255,.45);border-radius:18px 18px 6px 18px;box-shadow:0 8px 22px -12px var(--glow)}
+.m.rp.mine .who{justify-content:flex-end;color:color-mix(in srgb,var(--who) 45%,#fff)}
+.m.mine time{color:rgba(255,255,255,.62)}
+.m.mine p,.m.mine .mt{color:#fff}
+.m.roll.mine{border-color:rgba(170,160,255,.4)}
 .m.sys{font:800 .7rem/1.3 var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);padding-block:8px}
 .m.sys::before,.m.sys::after{background:var(--rule-strong)}
 .m.roll,.m.cbm{margin-block:4px}
@@ -1251,14 +1259,14 @@ function speakerColor(m){
   return `var(--c-${ROLES[m.by]?.char||'npc'})`;
 }
 function rMsg(m){
-  const time=`<time>${hhmm(m.t)}</time>`;
+  const time=`<time>${hhmm(m.t)}</time>`, mine=m.by===S.role?' mine':'';
   if(m.kind==='sys') return `<div class="m sys">${esc(m.text)}</div>`;
-  if(m.kind==='meta') return `<div class="m meta"><span class="tag">Meta</span><b>${esc(personName(m.by))}</b><span class="mt">${fmt(m.text)}</span>${time}</div>`;
+  if(m.kind==='meta') return `<div class="m meta${mine}"><span class="tag">Meta</span><b>${esc(personName(m.by))}</b><span class="mt">${fmt(m.text)}</span>${time}</div>`;
   if(m.kind==='roll') return rRoll(m);
   if(m.kind==='combat'){const live=S.combat.state==='live'&&S.combat.id===m.cid;
     return `<div class="m cbm${live?'':' over'}"><div class="cbm-h">${ICON.combat}<span>${live?'Combat has begun':'Combat'}</span>${time}</div><p>${esc(m.text)}</p>${live?`<button type="button" class="btn sm primary" data-a="cbOpen">${ICON.combat}Open combat</button>`:'<p>This combat has ended.</p>'}</div>`}
   const narr=m.by==='gm'&&m.as==='Narrator';
-  return `<div class="m rp${narr?' narr':''}" style="--who:${speakerColor(m)}"><div class="who">${esc(m.as)}${m.by==='gm'&&!narr?'<span class="tag">NPC</span>':''}${time}</div><p>${fmt(m.text)}</p></div>`;
+  return `<div class="m rp${narr?' narr':''}${mine}" style="--who:${speakerColor(m)}"><div class="who">${esc(m.as)}${m.by==='gm'&&!narr?'<span class="tag">NPC</span>':''}${time}</div><p>${fmt(m.text)}</p></div>`;
 }
 function rollerColor(r){return r.whoKey.startsWith('pc:')?`var(--c-${r.whoKey.slice(3)})`:'var(--c-npc)'}
 function canInvoke(r){return S.role==='gm'||r.whoKey==='pc:'+ROLES[S.role].char}
@@ -1267,8 +1275,8 @@ function rRoll(m){
   const dice=r.dice.map(d=>`<span class="die ${d>0?'p':d<0?'m':'z'}" aria-label="${d>0?'plus':d<0?'minus':'blank'}">${d>0?'+':d<0?'−':''}</span>`).join('');
   const fold=S.folded.has(m.id);
   const head=`<div class="rh"><b style="color:${rollerColor(r)}">${esc(r.who)}</b><span>rolls <b>${esc(r.skill)}</b> ${sgn(r.bonus)}</span>${fold?`<span class="rsum">→ <b>${sgn(tot)}</b> <i>${ladderWord(tot)}</i></span>`:`<span class="act">· ${esc(r.action)}${r.target?` on ${esc(r.target)}`:''}</span>`}${m.ch==='gm'?'<span class="tag">Secret</span>':''}<time>${hhmm(m.t)}</time><button type="button" class="rfold" data-a="fold" data-id="${m.id}" aria-expanded="${!fold}" aria-label="${fold?'Expand':'Collapse'} this roll" title="${fold?'Expand':'Collapse'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg></button></div>`;
-  if(fold) return `<div class="m roll folded${m.ch==='gm'?' secret':''}" data-rid="${m.id}">${head}</div>`;
-  return `<div class="m roll${m.ch==='gm'?' secret':''}" data-rid="${m.id}">
+  if(fold) return `<div class="m roll folded${m.by===S.role?' mine':''}${m.ch==='gm'?' secret':''}" data-rid="${m.id}">${head}</div>`;
+  return `<div class="m roll${m.by===S.role?' mine':''}${m.ch==='gm'?' secret':''}" data-rid="${m.id}">
     ${head}
     <div class="rb"><div class="dice${S.fresh===m.id?' fresh':''}">${dice}</div><div class="tot"><span class="big">${sgn(tot)}</span><span class="lw">${ladderWord(tot)}</span></div></div>
     <div class="rmath">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${sgn(r.bonus)}${r.invokes.length?` · Invokes +${2*r.invokes.length}`:''}</div>
