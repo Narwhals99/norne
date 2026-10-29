@@ -13,7 +13,7 @@ service cloud.firestore {
     function isGM() {
       return signedIn()
         && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() == '__GM_EMAIL__';
+        && request.auth.token.email.lower() == 'theusualsuspect41995@gmail.com';
     }
     function memberPath() { return /databases/$(database)/documents/members/$(request.auth.uid); }
     function seat() {
