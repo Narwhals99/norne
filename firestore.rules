@@ -74,8 +74,12 @@ service cloud.firestore {
             && request.resource.data.by == seat()
             && ((request.resource.data.ch == 'table' && request.resource.data.aud == ['*'])
                 || (request.resource.data.ch == 'dm-' + seat() && request.resource.data.aud == [seat()])));
-      // Players may change a roll (invokes) and their own reactions: rx.p1 is p1's list of emoji on this message.
+      // Players may change a roll (invokes), the words of their own messages, and their own reactions
+      // (rx.p1 is p1's list of emoji on this message).
       allow update: if isGM()
+        || (isPlayer() && resource.data.by == seat()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'ed', 'roll'])
+            && request.resource.data.text is string)
         || (canReadMsg(resource.data)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roll']))
         || (canReadMsg(resource.data)

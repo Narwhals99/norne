@@ -9,6 +9,8 @@ const views = N.views = [];
 N.now = () => { const ms = G().msgs; const last = ms.length ? ms[ms.length - 1].t : 0; return Math.max(Date.now(), last + 1); };
 /* messages the GM can rewrite: anything typed, not rolls, scenes or cards */
 N.msgEditable = m => ['rp','ooc','meta','note'].includes(m.kind) && typeof m.text === 'string';
+/* the GM can edit any typed message, a player only their own */
+N.canEdit = (v, m) => N.msgEditable(m) && (isGM(v) || m.by === v.role);
 N.msgWho = m => m.kind === 'roll' ? m.roll.who : m.kind === 'rp' ? N.speakerObj(m).name : N.personObj(m.by).name;
 /* messages anyone can react to or reply to: not scene changes, fight cards or small grey lines */
 /* a pasted GIF link: any https picture address */
@@ -713,9 +715,9 @@ function act(v, a, el, e){
   case 'emoDel': { const at = g.emoji.findIndex(x => x.n === val); if (!gm || at < 0) break; const x = g.emoji.splice(at, 1)[0];
     toast(v, `Removed :${x.n}:.`, () => { if (!g.emoji.some(y => y.n === x.n)) g.emoji.splice(at, 0, x); }); renderAll(); return; }
   /* the GM editing or deleting a chat message */
-  case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!gm || !m || !N.msgEditable(m)) break; ui.med = {id:m.id, text:m.text}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
+  case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m || !N.canEdit(v, m)) break; ui.med = {id:m.id, text:m.text}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
   case 'msgSave': {
-    const m = g.msgs.find(x => x.id === ui.med?.id), t = (ui.med?.text || '').trim(); if (!gm || !m || !t) break;
+    const m = g.msgs.find(x => x.id === ui.med?.id), t = (ui.med?.text || '').trim(); if (!m || !t || !N.canEdit(v, m)) break;
     if (t !== m.text) { m.text = t; m.ed = 1; }
     ui.sheet = null; ui.med = null; toast(v, 'Message edited.'); renderAll(); return;
   }
