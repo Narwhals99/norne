@@ -105,6 +105,8 @@ N.catNames = wiki => { const names = N.cats().map(c => c.name); for (const e of 
 /* ---------- who sees a wiki entry, a map or a news edition ----------
    Hidden (wiki gm:true, map vis:false) is GM only. Otherwise see:['p1',…] limits it to those seats; no see is everyone. */
 const hiddenOf = (x, kind) => kind === 'wiki' ? !!x.gm : kind === 'map' ? x.vis === false : false;
+/* a wiki entry's pictures: the lore's own picture (img) and any the GM added (imgs) */
+N.wikiPics = e => { const seen = new Set(); return [...(e.img ? [e.img] : []), ...(e.imgs || [])].filter(p => p?.src && !seen.has(p.src) && seen.add(p.src)); };
 N.audOf = (x, kind) => hiddenOf(x, kind) ? 'gm' : (Array.isArray(x.see) && x.see.length ? x.see : '*');
 N.audSet = (x, kind, val) => {
   const hide = h => { if (kind === 'wiki') { if (h) x.gm = true; else delete x.gm; } else if (kind === 'map') x.vis = !h; };
