@@ -212,9 +212,15 @@ function msgWrap(v, m, h){
   const narr = m.kind === 'rp' && !!N.speakerObj(m).narr, mine = m.by === v.role && !narr;
   const tools = `<span class="mtools">${social ? `<button type="button" data-a="msgMenu" data-v="${m.id}" data-emo="1" aria-label="React" title="React">${IC('smile')}</button><button type="button" data-a="reply" data-v="${m.id}" aria-label="Reply" title="Reply">${IC('reply')}</button>` : ''}${gm || N.canEdit(v, m) ? `<button type="button" class="mdots" data-a="msgMenu" data-v="${m.id}" aria-label="${gm ? 'Edit or delete this message' : 'Edit this message'}" title="More">${IC('dots')}</button>` : ''}</span>`;
   /* the hover buttons sit beside the message itself where there is one, otherwise at the row's corner */
-  const at = h.indexOf('<div class="body">'), body = at >= 0 ? at + 18 : h.startsWith('<div class="narr') ? h.indexOf('>') + 1 : -1;
-  const rx = social ? rxPill(v, m) : '', add = tools + rx;
-  const inner = body > 0 ? h.slice(0, body) + add + h.slice(body) : `<div class="mwb">${h}${add}</div>`;
+  const rx = social ? rxPill(v, m) : '', ins = (s, at, x) => s.slice(0, at) + x + s.slice(at);
+  let inner;
+  const at = h.indexOf('<div class="body">');
+  if (at >= 0) inner = ins(h, at + 18, tools + rx);
+  /* narrator text: the buttons follow the "Narrator" line, so they sit by the words, not at the column's far edge */
+  else if (h.startsWith('<div class="narr')) { const w = h.indexOf('</div>', h.indexOf('<div class="who">')); inner = ins(ins(h, h.indexOf('>') + 1, rx), w + rx.length, tools); }
+  /* a result card: the buttons sit just outside its right edge */
+  else if (h.startsWith('<div class="resm')) inner = ins(h, h.indexOf('>') + 1, tools + rx);
+  else inner = `<div class="mwb">${h}${tools}${rx}</div>`;
   return `<div class="mw${mine ? ' mine' : ''}${narr ? ' nw' : ''}${rx ? ' hasrx' : ''}${v.ui.pop?.mid === m.id || v.ui.reply === m.id ? ' on' : ''}" data-mid="${m.id}">${m.re ? replyQuote(v, m.re) : ''}${inner}</div>`;
 }
 /* the line above a reply that shows what it answers; tapping it jumps to that message */
