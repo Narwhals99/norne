@@ -228,7 +228,7 @@ function input(v, el){
     case 'cbAsp': v.ui.cbAsp = val; return;
     case 'emn': if (v.ui.emoNew) { v.ui.emoNew.n = val; const n = N.emoName(val), b = v.root.querySelector('[data-a="emoSave"]'), t = v.root.querySelector('.emo-new small');
       const dup = !!n && G().emoji.some(x => x.n === n); if (b) b.disabled = !n || dup; if (t) t.textContent = !n ? 'Letters, numbers and _ only.' : dup ? `:${n}: is already taken.` : `Type :${n}: in a message, or pick it from the emoji button.`; } return;
-    case 'gifQ': v.ui.gifQ = val; clearTimeout(v._gq); v._gq = setTimeout(() => gifSearch(v), 350); return;
+    case 'gifQ': v.ui.gifQ = val; clearTimeout(v._gq); v._gq = setTimeout(() => gifSearch(v), 700); return;
     case 'gifUrl': { v.ui.gifUrl = val; const b = v.root.querySelector('[data-a="gifLink"]'); if (b) b.disabled = !N.gifLinkOk(val); return; }
     case 'gifKey': v.ui.gifKeyD = val; return;
     case 'boostName': v.ui.boostName = val; return;
@@ -287,17 +287,26 @@ function sendGif(v, gif){
   if (v.ui.reply && G().msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
   push(m); v.ui.pop = null; v.ui.reply = null; v.ui.stick = true; renderAll();
 }
-/* GIPHY's GIF search (Tenor's API closed in 2026); with nothing typed it shows what's trending */
+/* GIPHY's GIF search (Tenor's API closed in 2026); with nothing typed it shows what's trending.
+   A free GIPHY key allows 100 searches an hour, so answers are kept for the session and a search waits for a pause in typing.
+   GIPHY can answer a bad key or a spent quota with an empty list, so the status is checked before "nothing found". */
+const gifCache = new Map();
 function gifSearch(v){
   const ui = v.ui, key = G().gifKey; if (!key) return;
-  const q = (ui.gifQ || '').trim(), n = (v._gn = (v._gn || 0) + 1);
-  const url = `https://api.giphy.com/v1/gifs/${q ? 'search' : 'trending'}?api_key=${encodeURIComponent(key)}&limit=24&rating=pg-13${q ? '&q=' + encodeURIComponent(q) : ''}`;
+  const q = (ui.gifQ || '').trim().toLowerCase(), n = (v._gn = (v._gn || 0) + 1), ck = key + '|' + q;
+  if (gifCache.has(ck)) { ui.gifRes = gifCache.get(ck); ui.gifErr = ''; ui.gifBusy = false; if (ui.pop?.type === 'emo') render(v); return; }
+  const url = `https://api.giphy.com/v1/gifs/${q ? 'search' : 'trending'}?api_key=${encodeURIComponent(key.trim())}&limit=24&rating=pg-13${q ? '&q=' + encodeURIComponent(q) : ''}`;
   ui.gifBusy = true; ui.gifErr = '';
-  fetch(url).then(r => r.json()).then(d => {
+  fetch(url).then(r => r.json().catch(() => ({})).then(d => {
     if (n !== v._gn) return;
-    if (!Array.isArray(d.data)) throw new Error('key: ' + (d.meta?.msg || d.message || 'refused'));
+    const st = +(d.meta?.status || r.status);
+    if (!r.ok || st >= 400 || !Array.isArray(d.data)) { const e = new Error(d.meta?.msg || d.message || 'refused'); e.st = st; throw e; }
     ui.gifRes = d.data.map(x => { const f = x.images || {}, big = f.downsized || f.fixed_width || f.original, sm = f.fixed_width_downsampled || f.fixed_width || big; return big?.url && sm?.url ? {u:big.url, p:sm.url, w:+big.width || 1, h:+big.height || 1, t:x.title || ''} : null; }).filter(Boolean);
-  }).catch(err => { if (n === v._gn) { ui.gifRes = []; ui.gifErr = /key/i.test(err?.message || '') ? 'The GIF search key isn’t working. The GM can check it in GM tools.' : 'GIF search didn’t answer. Check your connection.'; } })
+    gifCache.set(ck, ui.gifRes);
+  })).catch(err => { if (n === v._gn) { ui.gifRes = []; const st = err?.st;
+    ui.gifErr = st === 429 ? 'GIPHY’s free key is out of searches for this hour. Try again later, or paste a GIF link below.'
+      : st === 401 || st === 403 ? 'GIPHY refused the key. The GM can check it in GM tools > Emoji and GIFs (it must be the API key, not an SDK key).'
+      : st ? `GIPHY said no (${st}${err.message && err.message !== 'refused' ? ': ' + err.message : ''}).` : 'GIF search didn’t answer. Check your connection.'; } })
     .finally(() => { if (n !== v._gn) return; ui.gifBusy = false; if (ui.pop?.type === 'emo') render(v); });
 }
 
@@ -647,7 +656,7 @@ function act(v, a, el, e){
   case 'sheet': ui.pop = null; openSheet(v, val, d); break;
   case 'closeSheet': ui.sheet = null; break;
   case 'closePop': ui.pop = null; break;
-  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else openPop(v, val, el); break;
+  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { openPop(v, val, el); if (val === 'emo' && ui.emoTab === 'gif' && !ui.gifRes?.length && g.gifKey) gifSearch(v); } break;
   case 'toast': toast(v, val); break;
   case 'undo': if (ui.toast && ui.toast.undo) { ui.toast.undo(); ui.toast = null; renderAll(); return; } break;
   case 'notify': N.toggleNotify(v); return;
