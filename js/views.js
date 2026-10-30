@@ -398,13 +398,13 @@ function heroQuick(v){
 N.gmScreen = gmScreen; N.heroQuick = heroQuick; N.meBtn = meBtn; N.sideBtn = sideBtn; N.fightSeg = fightSeg; N.chatView = chatView; N.fightAvail = fightAvail;
 
 /* ================= popovers ================= */
-/* GIFs: search Tenor (once the GM has saved a key) or paste a link to any GIF */
+/* GIFs: search GIPHY (once the GM has saved a key) or paste a link to any GIF */
 function gifPane(v){
   const ui = v.ui, key = G().gifKey, res = ui.gifRes || [];
   const search = key ? `<div class="pop-find">${IC('search')}<input class="inp" id="gq-${v.id}" data-i="gifQ" placeholder="Search GIFs" value="${esc(ui.gifQ || '')}" autocomplete="off" enterkeyhint="search"></div>
     <div class="gif-grid">${ui.gifErr ? `<p class="muted gif-msg">${esc(ui.gifErr)}</p>` : !res.length ? `<p class="muted gif-msg">${ui.gifBusy ? 'Looking…' : 'Nothing found.'}</p>` : res.map((r, i) => `<button type="button" class="gifb" data-a="gifSend" data-i="${i}" aria-label="${esc(r.t || 'GIF')}"><img src="${esc(r.p)}" alt="" loading="lazy" style="aspect-ratio:${r.w}/${r.h}"></button>`).join('')}</div>
-    <p class="gif-by">Search by Tenor</p>`
-    : `<div class="note" style="margin:4px 2px 8px">${IC('info')}${isGM(v) ? 'GIF search needs a free Tenor key. Add it in GM tools &gt; Emoji and GIFs.' : `GIF search isn’t switched on yet. ${esc(N.gmName())} can turn it on.`} Pasting a link works already.</div>`;
+    <p class="gif-by">Powered by GIPHY</p>`
+    : `<div class="note" style="margin:4px 2px 8px">${IC('info')}${isGM(v) ? 'GIF search needs a free GIPHY key. Add it in GM tools &gt; Emoji and GIFs.' : `GIF search isn’t switched on yet. ${esc(N.gmName())} can turn it on.`} Pasting a link works already.</div>`;
   return `${search}<div class="gif-link"><input class="inp" id="gl-${v.id}" data-i="gifUrl" placeholder="…or paste a GIF link" value="${esc(ui.gifUrl || '')}" autocomplete="off" inputmode="url"><button type="button" class="btn sm primary" data-a="gifLink" ${N.gifLinkOk(ui.gifUrl) ? '' : 'disabled'}>Send</button></div>`;
 }
 function emoGrid(v, attrs, mine){

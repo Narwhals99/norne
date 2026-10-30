@@ -285,16 +285,16 @@ function sendGif(v, gif){
   if (v.ui.reply && G().msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
   push(m); v.ui.pop = null; v.ui.reply = null; v.ui.stick = true; renderAll();
 }
-/* Tenor's GIF search; with nothing typed it shows what's popular */
+/* GIPHY's GIF search (Tenor's API closed in 2026); with nothing typed it shows what's trending */
 function gifSearch(v){
   const ui = v.ui, key = G().gifKey; if (!key) return;
   const q = (ui.gifQ || '').trim(), n = (v._gn = (v._gn || 0) + 1);
-  const url = `https://tenor.googleapis.com/v2/${q ? 'search' : 'featured'}?key=${encodeURIComponent(key)}&client_key=norne&limit=24&contentfilter=medium&media_filter=tinygif,gif${q ? '&q=' + encodeURIComponent(q) : ''}`;
+  const url = `https://api.giphy.com/v1/gifs/${q ? 'search' : 'trending'}?api_key=${encodeURIComponent(key)}&limit=24&rating=pg-13${q ? '&q=' + encodeURIComponent(q) : ''}`;
   ui.gifBusy = true; ui.gifErr = '';
   fetch(url).then(r => r.json()).then(d => {
     if (n !== v._gn) return;
-    if (d.error) throw new Error(d.error.message);
-    ui.gifRes = (d.results || []).map(x => { const f = x.media_formats || {}, big = f.gif || f.tinygif, sm = f.tinygif || f.gif; return big && sm ? {u:big.url, p:sm.url, w:big.dims?.[0] || 1, h:big.dims?.[1] || 1, t:x.content_description || ''} : null; }).filter(Boolean);
+    if (!Array.isArray(d.data)) throw new Error('key: ' + (d.meta?.msg || d.message || 'refused'));
+    ui.gifRes = d.data.map(x => { const f = x.images || {}, big = f.downsized || f.fixed_width || f.original, sm = f.fixed_width_downsampled || f.fixed_width || big; return big?.url && sm?.url ? {u:big.url, p:sm.url, w:+big.width || 1, h:+big.height || 1, t:x.title || ''} : null; }).filter(Boolean);
   }).catch(err => { if (n === v._gn) { ui.gifRes = []; ui.gifErr = /key/i.test(err?.message || '') ? 'The GIF search key isn’t working. The GM can check it in GM tools.' : 'GIF search didn’t answer. Check your connection.'; } })
     .finally(() => { if (n !== v._gn) return; ui.gifBusy = false; if (ui.pop?.type === 'emo') render(v); });
 }
