@@ -122,7 +122,7 @@ function nowState(v){
     if (cb.phase === 'notice') return {tone:'turn', eye:'The fight is on', title:'Notice roll', sub:'Rolls Notice for everyone in the fight to see who goes first.', acts:`<button type="button" class="btn gold" data-a="cbNotice">${N.fateDie}Notice roll</button>`};
     if (cb.phase === 'pick') return {tone:'turn', eye:'Notice roll', title:'Who goes first?', sub:'Highest roll goes first. Tap someone else to start with them.', acts:noticeChips(), cls:'pick', end:`<button type="button" class="btn primary" data-a="cbGo">Start${IC('next')}</button>`};
     if (p && p.stage === 'defend' && pa && pd)
-      return {tok:pd, tone:'alert', eye:'Defend', title:`${N.tokName(pa)} attacks ${N.tokName(pd)}`, sub:`${p.skill} for ${sgn(p.total)} ${ladderWord(p.total)}. Roll ${N.tokName(pd)}’s defense.`, acts:defBtn(pd)};
+      return {tok:pd, tone:'alert', eye:'Defend', title:`${N.tokName(pa)} attacks ${N.tokName(pd)}`, sub:`${p.skill} for ${sgn(p.total)} ${ladderWord(p.total)}. Roll ${N.tokName(pd)}’s defense.`, acts:defBtn(pd, p.skill)};
     if (p && p.stage === 'style' && pa && pd) {
       const less = Math.max(0, p.dmg - 2);
       return {tok:pa, tone:'alert', eye:'Succeeded with style', title:`${N.tokName(pa)} hits ${N.tokName(pd)} with style`, sub:`Do the full ${p.dmg} shift${pl(p.dmg)}, or ${less} and put a boost on ${N.tokName(pd)}.`,
@@ -229,14 +229,17 @@ function gmRow(v){
     ${cb.state==='live'?`<button type="button" class="end" data-a="sheet" data-v="cbEnd">${IC('stop')}End fight</button>`:''}
   </div>`;
 }
-/* the better of Athletics and Fighting: [skill, skill value]. Armor doesn't change the roll. */
-function defSkill(t){
+/* the defense skill: [skill, skill value]. Athletics defends against anything; Fighting only parries a Fighting
+   attack (Fate rule, asked for by Jake), so it's used when the attack was Fighting and it's the higher of the two.
+   Armor doesn't change the roll. */
+function defSkill(t, vs){
   const s = N.tokSkills(t);
-  const opts = [['Athletics', s.Athletics||0], ['Fighting', s.Fighting||0]];
+  const opts = [['Athletics', s.Athletics||0]];
+  if (vs === 'Fighting') opts.push(['Fighting', s.Fighting||0]);
   return opts.sort((a,b) => b[1]-a[1])[0];
 }
 N.defSkill = defSkill;
-const defBtn = t => { const [sk, x] = defSkill(t); return `<button type="button" class="btn gold" data-a="cbDefend">${N.fateDie}Defend: ${esc(sk)} ${sgn(x)}</button>`; };
+const defBtn = (t, vs) => { const [sk, x] = defSkill(t, vs); return `<button type="button" class="btn gold" data-a="cbDefend">${N.fateDie}Defend: ${esc(sk)} ${sgn(x)}</button>`; };
 N.defBtn = defBtn;
 /* the token the GM has to defend or soak for right now (players never roll in a fight) */
 N.owedTok = v => {

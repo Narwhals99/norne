@@ -380,7 +380,7 @@ function cbDefend(v){
   const g = G(), cb = g.combat, p = cb.pending; if (!p || p.stage !== 'defend') return;
   const d = N.tokById(p.def), a = N.tokById(p.att); if (!d || !a) { cb.pending = null; renderAll(); return; }
   N.boostTick(d);
-  const [skill, x] = N.defSkill(d);
+  const [skill, x] = N.defSkill(d, p.skill);
   const key = d.kind === 'pc' ? 'pc:' + d.ref : 'tok:' + d.id;
   const roll = {who:N.tokName(d), whoKey:key, skill, bonus:x, action:'Defend', target:N.tokName(a), opp:p.total, dice:N.rollDice(), invokes:[]};
   const m = push({ch:N.fightCh(), kind:'roll', by:v.role, roll});
