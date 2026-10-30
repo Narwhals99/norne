@@ -135,6 +135,8 @@ N.PUSH = [];
 N.pushSave = (dev, sub) => sub
   ? F.setDoc(dref('push/' + dev), {uid:ME.uid, role:G().role, sub:JSON.stringify(sub), t:Date.now()})
   : F.deleteDoc(dref('push/' + dev));
+/* when this device last had Norne open on screen (0 once it goes to the background) */
+N.pushSeen = (dev, at) => F.updateDoc(dref('push/' + dev), {seen:at});
 /* addresses the push service says are dead (notifications turned off, app deleted) */
 N.pushDrop = gone => { for (const d of N.PUSH) if (gone.includes(d.sub.endpoint)) F.deleteDoc(dref('push/' + d.id)).catch(() => {}); };
 function listenPush(){
