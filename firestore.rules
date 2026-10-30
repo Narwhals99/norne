@@ -86,6 +86,15 @@ service cloud.firestore {
       allow write: if isGM();
     }
 
+    // Push addresses: one per phone or computer with notifications on, so whoever writes a message
+    // can ping the others. A person saves only their own; anyone at the table may clear a dead one.
+    match /push/{dev} {
+      allow read: if isGM() || isPlayer();
+      allow create, update: if (isGM() || isPlayer())
+        && request.resource.data.uid == request.auth.uid && request.resource.data.role == seat();
+      allow delete: if isGM() || isPlayer();
+    }
+
     // Map images kept out of the public site. Players can load one only once the GM shares that map,
     // with everyone (vis) or with their seat (aud).
     match /mapimgs/{id} {

@@ -8,6 +8,16 @@ self.addEventListener('notificationclick', e => {
   e.waitUntil(self.clients.matchAll({type:'window', includeUncontrolled:true}).then(list => {
     const c = list[0];
     if (c) { c.postMessage({open:ch}); return c.focus(); }
-    return self.clients.openWindow('./');
+    return self.clients.openWindow(ch ? './?open=' + encodeURIComponent(ch) : './');
+  }));
+});
+/* a push from the Worker (push/worker.js): someone wrote in a chat this device can read.
+   Skipped while Norne is in front, except on Apple devices, which turn push off for a site that skips one. */
+self.addEventListener('push', e => {
+  let d = {}; try { d = e.data.json(); } catch(x) { d = {body:e.data ? e.data.text() : ''}; }
+  const apple = /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Android/.test(navigator.userAgent);
+  e.waitUntil(self.clients.matchAll({type:'window', includeUncontrolled:true}).then(list => {
+    if (!apple && list.some(c => c.focused && c.visibilityState === 'visible')) return;
+    return self.registration.showNotification(d.title || 'Norne', {body:d.body || '', icon:'img/icon-192.png', badge:'img/icon-192.png', data:{ch:d.ch}});
   }));
 });
