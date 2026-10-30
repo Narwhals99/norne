@@ -50,6 +50,7 @@ const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:n
 N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', ui:newUi(o.role)};
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
+  try { const w = +localStorage.getItem('norne-railw'); if (w) v.ui.railW = w; v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; } catch(e) {}
   views.push(v); bind(v); render(v);
   return v;
 };
@@ -131,6 +132,17 @@ function bind(v){
     if (!k || !el || !typing() || !e.cancelable || Math.hypot(t.clientX - k.x, t.clientY - k.y) > 10) return;
     e.preventDefault(); v.kb = true; el.click();
   });
+  /* desktop: drag the line between the chat and the side panel to share the width; double-click puts it back */
+  root.addEventListener('pointerdown', e => {
+    const grip = e.target.closest('.railgrip'), page = grip && grip.closest('.page');
+    if (!page || e.button !== 0) return;
+    e.preventDefault(); grip.setPointerCapture(e.pointerId); page.classList.add('resizing');
+    const box = page.getBoundingClientRect();
+    const move = ev => { v.ui.railW = Math.round(Math.min(box.width - 380, Math.max(260, box.right - ev.clientX))); page.style.setProperty('--railw', v.ui.railW + 'px'); };
+    const up = () => { grip.removeEventListener('pointermove', move); page.classList.remove('resizing'); try { localStorage.setItem('norne-railw', v.ui.railW); } catch(err) {} };
+    grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up, {once:true}); grip.addEventListener('pointercancel', up, {once:true});
+  });
+  root.addEventListener('dblclick', e => { const page = e.target.closest('.railgrip') && e.target.closest('.page'); if (!page) return; v.ui.railW = null; page.style.removeProperty('--railw'); try { localStorage.removeItem('norne-railw'); } catch(err) {} });
   /* long-press a message on a phone to react, reply or (GM) edit it; a right-click does the same on a computer */
   let lp = null;
   root.addEventListener('pointerdown', () => { if (!lp) v.lpHold = false; }, true);
@@ -657,6 +669,7 @@ function act(v, a, el, e){
   case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') ui.charSel = null; if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.herald = false; } break;
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
+  case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; openSheet(v, val, d); break;
   case 'closeSheet': ui.sheet = null; break;

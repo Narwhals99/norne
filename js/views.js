@@ -125,7 +125,15 @@ function chatPage(v){
     return `<main class="page${sl}">${chatView(v)}</main>`;
   }
   if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
-  return `<main class="page${railShown(v) ? ' with-rail' : ''}">${chatView(v)}${railShown(v) ? `<aside class="rail scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</aside>` : ''}</main>`;
+  if (!railShown(v)) return `<main class="page">${chatView(v)}</main>`;
+  /* desktop side panel: the card (or GM screen) on top, recent actions below; the line on its left edge drags to resize it */
+  const off = v.ui.recentOff;
+  return `<main class="page with-rail"${v.ui.railW ? ` style="--railw:${v.ui.railW}px"` : ''}>${chatView(v)}<aside class="rail${off ? ' rc-off' : ''}">
+    <div class="railgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the side panel" title="Drag to resize"></div>
+    <div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>
+    <section class="recent"><button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC('dice')}<b>Recent actions</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
+      ${off ? '' : N.recentHtml(v)}</section>
+  </aside></main>`;
 }
 /* the GM screen / character panel beside the chat: on by default when there is room, the viewer can flip it */
 function railShown(v){

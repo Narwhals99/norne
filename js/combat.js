@@ -187,6 +187,13 @@ function feedHtml(v){
   return `<div class="ffeed"><span class="eyebrow">Fight log<button type="button" class="lnk" data-a="pane" data-v="chat">Whole chat${IC('right')}</button></span>
     <div class="ff-list scroll" data-sk="ffeed" data-bottom="1">${rows || '<p class="muted">Rolls and results show up here.</p>'}</div></div>`;
 }
+/* desktop side panel: the rolls and results of the open chat as small lines, newest at the bottom; a line jumps to its message */
+function recentHtml(v){
+  const g = G(), ms = g.msgs.filter(m => m.ch === v.ui.ch && (m.kind === 'roll' || m.kind === 'sys' || m.kind === 'combat' || m.kind === 'fight')).slice(-40);
+  const rows = ms.map(m => feedRow(m, false).replace('<div class="ff', `<div data-a="jumpMsg" data-v="${m.id}" class="ff`)).filter(Boolean).join('');
+  return `<div class="ff-list scroll" data-sk="recent" data-bottom="1">${rows || '<p class="muted">Rolls and fight results in this chat show up here.</p>'}</div>`;
+}
+N.recentHtml = recentHtml;
 function feedRow(m, live){
   const line = (ic, body, cls='', end='') => `<div class="ff${cls}"><span class="ffi">${ic}</span><span class="fft">${body}</span>${end}</div>`;
   if (m.kind === 'roll') {
