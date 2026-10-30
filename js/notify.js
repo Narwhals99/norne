@@ -9,7 +9,7 @@ const N = window.N;
 const G = () => N.G;
 const KEY = 'norne-notify';
 /* the push Worker's address on Cloudflare, and the public half of its key (the private half lives only there) */
-const PUSH_URL = '';
+const PUSH_URL = 'https://norne-push.jackhelling10.workers.dev/';
 const PUSH_KEY = 'BPBQEPocVuzUeY2Gg4qvIO4lHIHL01dm3k6y8Q66WXHywkVi0emkNE6XL5xB1TO4ncJAssCUg2B1HDTA_6mep_Y';
 const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
