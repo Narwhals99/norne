@@ -135,11 +135,12 @@ function bind(v){
     const w = e.touches.length === 1 && e.target.closest('.msgs [data-mid]');
     if (!w || e.target.closest('button,a,input,textarea,.roll .rh')) return;
     const t = e.touches[0], id = w.dataset.mid;
-    lp = {x:t.clientX, y:t.clientY, id, tm:setTimeout(() => { lp.fired = true; v.lpHold = true; try { navigator.vibrate?.(12); } catch(err) {} lpOpen(id); }, 480)};
+    lp = {x:t.clientX, y:t.clientY, id, tm:setTimeout(() => { lp.fired = true; v.lpHold = true; try { getSelection()?.removeAllRanges(); } catch(err) {} try { navigator.vibrate?.(12); } catch(err) {} lpOpen(id); }, 480)};
   }, {passive:true});
   root.addEventListener('touchmove', e => { if (!lp || lp.fired) return; const t = e.touches[0]; if (Math.hypot(t.clientX - lp.x, t.clientY - lp.y) > 10) { clearTimeout(lp.tm); lp = null; } }, {passive:true});
   root.addEventListener('touchend', e => { if (!lp) return; clearTimeout(lp.tm); if (lp.fired && e.cancelable) e.preventDefault(); lp = null; });
   root.addEventListener('touchcancel', () => { if (lp) { clearTimeout(lp.tm); lp = null; } });
+  root.addEventListener('selectstart', e => { const t = e.target.nodeType === 1 ? e.target : e.target.parentElement; if (TOUCH.matches && !t?.closest('input,textarea,[contenteditable]')) e.preventDefault(); });
   root.addEventListener('contextmenu', e => {
     const w = e.target.closest('.msgs [data-mid]'); if (!w || e.target.closest('textarea,input')) return;
     e.preventDefault(); if (lp?.fired || v.ui.pop?.mid === w.dataset.mid) return; lpOpen(w.dataset.mid);

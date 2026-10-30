@@ -283,7 +283,9 @@
 .app .mw:has(>.m.mine)>.mdots{right:auto;left:0}
 .app .mw.on>.mdots,.app .mdots:focus-visible{opacity:1;pointer-events:auto}
 @media (hover:hover){ .app .mw:hover>.mdots{opacity:1;pointer-events:auto} .app .mdots:hover{color:var(--ink);background:var(--raise)} }
-@media (hover:none){ .app .mw{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none} .app .mdots{display:none} }
+/* phones: holding a message opens its menu, so nothing on the page may start a text selection
+   (iPhone Safari selects the whole page when only the pressed message is made unselectable) */
+@media (hover:none){ .app,.app *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none} .app input,.app textarea,.app [contenteditable]{-webkit-user-select:text;user-select:text} .app .mdots{display:none} }
 .app .bub .ed,.app .narr .ed{font:600 11px/1 var(--f-ui);color:var(--ink-4);white-space:nowrap}
 .app .m.mine .bub .ed{color:rgba(255,255,255,.7)}
 .app .pop .opt.danger{color:var(--ember)}
@@ -1490,11 +1492,17 @@
 /* ---------- message tools: react, reply, GM menu; reply quotes; reactions; emoji ---------- */
 .app .mtools{position:absolute;top:-8px;right:6px;z-index:3;display:flex;gap:1px;padding:2px;border-radius:999px;background:var(--page-solid);box-shadow:0 0 0 1px var(--line-2),0 4px 10px -4px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .12s}
 .app .mw.mine>.mtools{right:auto;left:6px}
+/* beside the message itself: right of a message on the left, left of one on the right */
+.app .m .body{position:relative}
+.app .m .body>.mtools{top:auto;bottom:2px;right:auto;left:calc(100% + 8px)}
+.app .mw.mine .m .body>.mtools{left:auto;right:calc(100% + 8px)}
+.app .narr{position:relative}
+.app .narr>.mtools{top:-10px;right:0}
 .app .mtools button,.app .mtools .mdots{position:static;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2);background:none;box-shadow:none;opacity:1;pointer-events:auto}
 .app .mtools svg{width:17px;height:17px}
-.app .mw.on>.mtools,.app .mtools:focus-within{opacity:1;pointer-events:auto}
-@media (hover:hover){ .app .mw:hover>.mtools{opacity:1;pointer-events:auto} .app .mtools button:hover{color:var(--ink);background:var(--raise)} }
-@media (hover:none){ .app .mtools,.app .rx.add{display:none} }
+.app .mw.on .mtools,.app .mtools:focus-within{opacity:1;pointer-events:auto}
+@media (hover:hover){ .app .mw:hover .mtools{opacity:1;pointer-events:auto} .app .mtools button:hover{color:var(--ink);background:var(--raise)} }
+@media (hover:none){ .app .mtools{display:none} }
 .app .mw.flash{animation:mflash 1.6s ease-out}
 @keyframes mflash{0%,35%{background:var(--accent-soft);box-shadow:0 0 0 6px var(--accent-soft)}100%{background:transparent;box-shadow:0 0 0 6px transparent}}
 .app .rq{display:flex;align-items:center;gap:6px;min-width:0;max-width:calc(100% - 50px);margin:10px 0 -6px 41px;padding:2px 4px;border-radius:8px;font:600 12px/1.25 var(--f-ui);color:var(--ink-3);text-align:left}
@@ -1504,17 +1512,19 @@
 .app .rq.gone{font-style:italic}
 @media (hover:hover){ .app button.rq:hover{color:var(--ink);background:var(--accent-soft)} }
 .app .mw.mine>.rq{align-self:flex-end;margin-left:0;margin-right:4px}
-.app .rxs{display:flex;flex-wrap:wrap;gap:4px;margin:5px 0 2px 41px}
-.app .mw.mine>.rxs{justify-content:flex-end;margin-left:0;margin-right:2px}
-.app .mw.nw>.rq,.app .mw.nw>.rxs{width:100%;max-width:640px;margin-inline:auto;padding-left:18px}
-.app .mw.nw>.rq{margin-top:12px;margin-bottom:-14px}
-.app .rx{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px 0 7px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2);font:700 15px/1 var(--f-ui);color:var(--ink-2)}
-.app .rx b{font:800 12px/1 var(--f-ui)}
-.app .rx.me{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 75%,transparent);color:var(--ink)}
-.app .rx.add{color:var(--ink-4);padding:0 8px;font-size:12px}
-.app .rx.add svg{width:15px;height:15px}
-.app .rx .cemo{width:20px;height:20px}
-@media (hover:hover){ .app .rx:hover{box-shadow:inset 0 0 0 1.5px var(--line-3)} .app .rx.add{opacity:0;transition:opacity .12s} .app .mw:hover .rx.add,.app .rx.add:focus-visible{opacity:1} }
+.app .mw.hasrx{padding-bottom:14px}
+.app .mwb{position:relative}
+.app .rxp{position:absolute;z-index:2;bottom:-16px;right:-10px;display:inline-flex;align-items:center;gap:1px;height:26px;padding:0 7px 0 5px;border-radius:999px;background:var(--raise-2);box-shadow:0 0 0 2px var(--page-solid),0 4px 10px -4px rgba(0,0,0,.6);font:400 15px/1 system-ui,sans-serif;color:var(--ink-2);white-space:nowrap}
+.app .rxp span{display:grid;place-items:center;width:19px}
+.app .rxp b{margin-left:3px;font:800 11.5px/1 var(--f-ui)}
+.app .rxp .cemo{width:18px;height:18px;vertical-align:0}
+.app .rxp.me{box-shadow:0 0 0 2px var(--page-solid),inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 80%,transparent),0 4px 10px -4px rgba(0,0,0,.6)}
+.app .mw.mine .m .body>.rxp{right:auto;left:-10px}
+.app .narr>.rxp{bottom:-12px;right:4px}
+.app .mwb>.rxp{bottom:-12px;right:8px}
+.app .rxp.pop{animation:rxpop .5s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes rxpop{0%{transform:scale(0) rotate(-25deg);opacity:0}60%{transform:scale(1.25) rotate(6deg);opacity:1}100%{transform:scale(1) rotate(0)}}
+@media (hover:hover){ .app .rxp:hover{background:var(--raise)} }
 .app .cemo{display:inline-block;width:1.6em;height:1.6em;object-fit:contain;vertical-align:-.45em}
 .app .pop.msgpop{min-width:236px}
 .app .pop.msgpop.wide{width:min(320px,calc(100% - 16px))}
@@ -1573,3 +1583,5 @@
 .app .gearln{display:flex;align-items:center;gap:8px;margin:0 0 6px;font:600 14px/1.3 var(--f-ui);color:var(--ink)}
 .app .gearln svg{width:16px;height:16px;flex:none;color:var(--gold)}
 .app .gearln .muted{font-size:12px}
+.app .rxwho{display:grid;gap:4px;margin:0 4px 6px;padding:8px 10px;border-radius:12px;background:var(--sunk);font:600 12.5px/1.3 var(--f-ui);color:var(--ink-2)}
+.app .rxwho .cemo{width:18px;height:18px;vertical-align:-4px}

@@ -211,7 +211,11 @@ function msgWrap(v, m, h){
   if (!social && !gm) return h;
   const narr = m.kind === 'rp' && !!N.speakerObj(m).narr, mine = m.by === v.role && !narr;
   const tools = `<span class="mtools">${social ? `<button type="button" data-a="msgMenu" data-v="${m.id}" data-emo="1" aria-label="React" title="React">${IC('smile')}</button><button type="button" data-a="reply" data-v="${m.id}" aria-label="Reply" title="Reply">${IC('reply')}</button>` : ''}${gm || N.canEdit(v, m) ? `<button type="button" class="mdots" data-a="msgMenu" data-v="${m.id}" aria-label="${gm ? 'Edit or delete this message' : 'Edit this message'}" title="More">${IC('dots')}</button>` : ''}</span>`;
-  return `<div class="mw${mine ? ' mine' : ''}${narr ? ' nw' : ''}${v.ui.pop?.mid === m.id || v.ui.reply === m.id ? ' on' : ''}" data-mid="${m.id}">${m.re ? replyQuote(v, m.re) : ''}${h}${social ? rxRow(v, m) : ''}${tools}</div>`;
+  /* the hover buttons sit beside the message itself where there is one, otherwise at the row's corner */
+  const at = h.indexOf('<div class="body">'), body = at >= 0 ? at + 18 : h.startsWith('<div class="narr') ? h.indexOf('>') + 1 : -1;
+  const rx = social ? rxPill(v, m) : '', add = tools + rx;
+  const inner = body > 0 ? h.slice(0, body) + add + h.slice(body) : `<div class="mwb">${h}${add}</div>`;
+  return `<div class="mw${mine ? ' mine' : ''}${narr ? ' nw' : ''}${rx ? ' hasrx' : ''}${v.ui.pop?.mid === m.id || v.ui.reply === m.id ? ' on' : ''}" data-mid="${m.id}">${m.re ? replyQuote(v, m.re) : ''}${inner}</div>`;
 }
 /* the line above a reply that shows what it answers; tapping it jumps to that message */
 function replyQuote(v, id){
@@ -219,12 +223,19 @@ function replyQuote(v, id){
   if (!o) return `<div class="rq gone">${IC('reply')}<span>The message this answers was deleted</span></div>`;
   return `<button type="button" class="rq" data-a="jumpMsg" data-v="${o.id}">${IC('reply')}<b style="--who:${N.msgColor(o)}">${esc(N.msgWho(o))}</b><span>${N.emoText(esc(N.msgSnip(o)))}</span></button>`;
 }
-/* reactions under a message: one chip per emoji, lit when it's yours */
-function rxRow(v, m){
+/* reactions: a little bubble on the message's inner bottom corner (the most used emoji and a count).
+   Tapping it opens the message menu, where your own reactions are lit and can be taken back.
+   It pops in only when the reactions changed, not on every redraw. */
+function rxPill(v, m){
   const by = {}, order = [];
   for (const [who, list] of Object.entries(m.rx || {})) for (const e of list || []) { if (!by[e]) { by[e] = []; order.push(e); } by[e].push(who); }
+  order.sort((a, b) => by[b].length - by[a].length);
+  const sig = order.map(e => e + by[e].length).join(','), seen = v._rxSig || (v._rxSig = new Map()), fresh = seen.has(m.id) && seen.get(m.id) !== sig;
+  seen.set(m.id, sig);
   if (!order.length) return '';
-  return `<div class="rxs">${order.map(e => { const w = by[e], me = w.includes(v.role); return `<button type="button" class="rx${me ? ' me' : ''}" data-a="react" data-id="${m.id}" data-v="${esc(e)}" aria-pressed="${me}" title="${esc(w.map(x => N.personObj(x).name).join(', '))}" aria-label="${esc(e)} ${w.length}">${N.emj(e)}<b>${w.length}</b></button>`; }).join('')}<button type="button" class="rx add" data-a="msgMenu" data-v="${m.id}" data-emo="1" aria-label="Add a reaction">${IC('smile')}<span>+</span></button></div>`;
+  const n = order.reduce((s, e) => s + by[e].length, 0), me = order.some(e => by[e].includes(v.role));
+  const who = order.map(e => `${e} ${by[e].map(x => N.personObj(x).name).join(', ')}`).join(' · ');
+  return `<button type="button" class="rxp${me ? ' me' : ''}${fresh ? ' pop' : ''}" data-a="msgMenu" data-v="${m.id}" title="${esc(who)}" aria-label="Reactions: ${esc(who)}">${order.slice(0, 3).map(e => `<span>${N.emj(e)}</span>`).join('')}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
 }
 function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
@@ -423,7 +434,9 @@ function popHtml(v){
     const m = g.msgs.find(x => x.id === p.mid); if (!m) return '';
     const social = N.msgSocial(m), mine = (m.rx || {})[v.role] || [];
     const quick = social ? `<div class="emo-quick">${N.EMO_QUICK.map(e => `<button type="button" class="emo${mine.includes(e)?' me':''}" data-a="react" data-id="${m.id}" data-v="${e}" aria-label="React ${e}">${e}</button>`).join('')}<button type="button" class="emo more" data-a="emoMore" aria-label="More emoji" aria-expanded="${!!p.all}">${IC(p.all ? 'minus' : 'plus')}</button></div>${p.all ? emoGrid(v, e => `data-a="react" data-id="${m.id}" data-v="${esc(e)}"`, mine) : ''}` : '';
-    return `<div class="pop msgpop${p.all?' wide':''}" style="${pos}" role="menu" aria-label="Message">${quick}${social ? `<button type="button" class="opt" role="menuitem" data-a="reply" data-v="${m.id}">${IC('reply')}<span>Reply</span></button>` : ''}${isGM(v) || N.canEdit(v, m) ? `${social ? '<div class="sep"></div>' : ''}${N.canEdit(v, m) ? `<button type="button" class="opt" role="menuitem" data-a="msgEdit" data-v="${m.id}">${IC('pen')}<span>Edit message</span></button>` : ''}${isGM(v) ? `<button type="button" class="opt danger" role="menuitem" data-a="sheet" data-v="msgDel" data-c="${m.id}">${IC('trash')}<span>Delete message</span></button>` : ''}` : ''}</div>`;
+    const by = {}; for (const [who, l] of Object.entries(m.rx || {})) for (const e of l || []) (by[e] = by[e] || []).push(N.personObj(who).name);
+    const whoRx = Object.keys(by).length ? `<div class="rxwho">${Object.entries(by).map(([e, w]) => `<span>${N.emj(e)} ${esc(w.join(', '))}</span>`).join('')}</div>` : '';
+    return `<div class="pop msgpop${p.all?' wide':''}" style="${pos}" role="menu" aria-label="Message">${quick}${whoRx}${social ? `<button type="button" class="opt" role="menuitem" data-a="reply" data-v="${m.id}">${IC('reply')}<span>Reply</span></button>` : ''}${isGM(v) || N.canEdit(v, m) ? `${social ? '<div class="sep"></div>' : ''}${N.canEdit(v, m) ? `<button type="button" class="opt" role="menuitem" data-a="msgEdit" data-v="${m.id}">${IC('pen')}<span>Edit message</span></button>` : ''}${isGM(v) ? `<button type="button" class="opt danger" role="menuitem" data-a="sheet" data-v="msgDel" data-c="${m.id}">${IC('trash')}<span>Delete message</span></button>` : ''}` : ''}</div>`;
   }
   /* the composer's emoji button: puts the emoji into what you're typing */
   if (p.type === 'emo') {
