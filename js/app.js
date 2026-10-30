@@ -941,7 +941,7 @@ function act(v, a, el, e){
   }
   /* roll sheet */
   case 'rollWho': { ui.roll.who = val; const r = N.rollerOf(v, val); ui.roll.skill = Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'Notice'; ui.roll.target = null; break; }
-  case 'rollAct': ui.roll.action = val; if (val === 'defend') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Athletics||0) >= (r.skills.Fighting||0) ? 'Athletics' : 'Fighting'; } if (val === 'attack') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Shooting||0) > (r.skills.Fighting||0) ? 'Shooting' : 'Fighting'; } break;
+  case 'rollAct': ui.roll.action = val; if (val === 'defend') { ui.roll.skill = 'Athletics'; } if (val === 'attack') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Shooting||0) > (r.skills.Fighting||0) ? 'Shooting' : 'Fighting'; } break;
   case 'rollTgt': ui.roll.target = val; ui.roll.ctx = 'cb'; break;
   case 'rollSkill': ui.roll.skill = val; break;
   case 'rollAll': ui.roll.all = true; break;
