@@ -10,10 +10,10 @@ N.fateDie = fateDie;
 
 /* ================= shell ================= */
 N.appHtml = function(v){
-  const g = G(), gm = isGM(v), cb = g.combat;
+  const g = G(), gm = isGM(v);
   const tabs = [['chat','Chat','chat'],['map','Map','map'],['world','World','world'], ...(gm ? [['cast','Cast','cast'], ['gm','GM','crown']] : [['hero','Character','hero'], ['inv','Inventory','bag']])];
   const otherUnread = N.channelsFor(v.role).some(c => !(v.ui.tab === 'chat' && v.ui.ch === c) && N.unread(v.role, c));
-  const fightLive = cb.state === 'live';
+  const fightLive = Object.values(N.allFights()).some(f => f.state === 'live');
   const newsNew = !gm && g.news.issues.some(i => !(g.news.seen[v.role]||[]).includes(i.id));
   const me = gm ? {name:N.gmName(), color:'var(--c-gm)'} : {name:g.P[v.role]?.name || '', color:g.P[v.role]?.color};
 
@@ -75,7 +75,7 @@ function chanLast(v, c){
   return N.chSub(c, v.role);
 }
 function shelfRow(v, c){
-  const n = N.unread(v.role, c), cur = v.ui.ch === c, cb = G().combat, fight = c === N.fightCh() && (cb.state === 'live' || (isGM(v) && cb.state === 'setup'));
+  const n = N.unread(v.role, c), cur = v.ui.ch === c, cb = N.fightIn(c), fight = !!cb && (cb.state === 'live' || (isGM(v) && cb.state === 'setup'));
   return `<button type="button" class="shr${n&&!cur?' new':''}" data-a="ch" data-v="${c}" title="${esc(N.chName(c, v.role))}" ${cur?'aria-current="true"':''}>${chanIcon(v,c)}<span class="t"><b>${esc(N.chName(c, v.role))}</b><small>${esc(chanLast(v, c).replace(/\s+/g, ' ').slice(0, 90))}</small></span>${fight?`<span class="tag ember">${IC('swords')}</span>`:''}${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
 }
 function shelfHtml(v){
@@ -285,10 +285,13 @@ function composer(v){
 
 /* ================= side panels ================= */
 function gmScreen(v){
-  const g = G(), cb = g.combat, ch = v.ui.ch;
-  const fight = cb.state === 'off'
-    ? `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>Begin a fight</b><small>In ${ch === 'gm' || ch === 'table' ? 'Everyone' : `your chat with ${esc(N.chName(ch,'gm'))}`}. Draw zones and add enemies. Players see nothing until you start.</small></span></button>`
-    : `<button type="button" class="bigcta" data-a="openFight"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>${N.fightCh() === 'table' ? '' : `In your chat with ${esc(N.chName(N.fightCh(),'gm'))} · `}${cb.state==='setup'?'Not started yet. Players can’t see it.':`Exchange ${cb.exchange} · ${esc(N.tokName(N.curTok()||{kind:'npc',name:'—'}))}’s turn`}</small></span></button>`;
+  const g = G(), ch = v.ui.ch, here = ch === 'gm' ? 'table' : ch, fights = N.allFights();
+  /* one fight per chat: every running fight gets a button, and the open chat can start one if it has none */
+  const where = c => c === 'table' ? 'Everyone' : `your chat with ${esc(N.chName(c,'gm'))}`;
+  const fight = Object.entries(fights).sort(([a],[b]) => (a !== 'table') - (b !== 'table') || a.localeCompare(b)).map(([c, cb]) => {
+    const o = N.order(cb), cur = cb.state === 'live' && cb.phase !== 'notice' && o.length ? o[cb.turn % o.length] : null;
+    return `<button type="button" class="bigcta" data-a="openFight" data-v="${c}"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>In ${where(c)} · ${cb.state==='setup'?'Not started yet. Players can’t see it.':`Exchange ${cb.exchange}${cur ? ` · ${esc(N.tokName(cur))}’s turn` : ''}`}</small></span></button>`;
+  }).join('') + (fights[here] ? '' : `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>${Object.keys(fights).length ? 'Begin another fight' : 'Begin a fight'}</b><small>In ${where(here)}. Draw zones and add enemies. Players see nothing until you start.</small></span></button>`);
   const pcs = N.pcs(), npc1 = g.npcs[0], waiting = N.MEMBERS.filter(m => m.role === 'pending').length;
   const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
     ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
@@ -566,9 +569,17 @@ const noteBox = (v, c, k, edit, ph) => edit ? `<textarea class="inp" id="cn-${k}
 function invList(v, c, gm, owner){
   /* owner: an NPC being made or edited keeps its items on the draft (data-nd) until it is saved */
   const own = owner || (c.player ? `data-c="${c.id}"` : `data-n="${c.id}"`), key = owner ? 'nd' : c.id;
-  return `<div class="inv">${(c.inv || []).map(([n,q,d,ic],i) => `<div class="it"><span class="ii">${IC(ic||'bag')}</span><span><b>${esc(n)}</b>${d?`<small>${esc(d)}</small>`:''}</span><span class="q">×${q}</span>${gm?`<span class="mini"><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="-1" aria-label="One fewer ${esc(n)}">−</button><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="1" aria-label="One more ${esc(n)}">+</button><button type="button" data-a="invDel" ${own} data-i="${i}" aria-label="Remove ${esc(n)}">${IC('x')}</button></span>`:''}</div>`).join('') || `<p class="muted">${gm?'No items yet.':`No items yet. ${esc(N.gmName())} adds them here.`}</p>`}</div>
+  const ed = v.ui.invEdit;
+  return `<div class="inv">${(c.inv || []).map(([n,q,d,ic],i) => gm && ed && ed.key === key && ed.i === i ? invEditRow(v, key, own, i, ed.n ?? n, ed.q ?? q, ed.d ?? d, ed.ic ?? ic) : `<div class="it"><span class="ii">${IC(ic||'bag')}</span><span><b>${esc(n)}</b>${d?`<small>${esc(d)}</small>`:''}</span><span class="q">×${q}</span>${gm?`<span class="mini"><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="-1" aria-label="One fewer ${esc(n)}">−</button><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="1" aria-label="One more ${esc(n)}">+</button><button type="button" data-a="invEdit" ${own} data-i="${i}" aria-label="Edit ${esc(n)}">${IC('pen')}</button><button type="button" data-a="invDel" ${own} data-i="${i}" aria-label="Remove ${esc(n)}">${IC('x')}</button></span>`:''}</div>`).join('') || `<p class="muted">${gm?'No items yet.':`No items yet. ${esc(N.gmName())} adds them here.`}</p>`}</div>
       ${gm?`<div class="invadd"><input class="inp" id="inv-${key}-${v.id}" placeholder="Add an item, e.g. Silver dagger" aria-label="Item name"><input class="inp" id="invq-${key}-${v.id}" data-i="invQ" type="number" min="1" value="${v.ui.invQ||1}" aria-label="How many"><button type="button" class="btn sm" data-a="invAdd" ${own}>${IC('plus')}Add</button><input class="inp" id="invd-${key}-${v.id}" placeholder="What it does (optional), e.g. Melee 1" aria-label="Item note" style="grid-column:1/-1"></div>${c.player?`<p class="muted" style="margin:6px 0 0;font:600 12px/1.4 var(--f-ui)">Changes post a note in ${esc(pn(c))}’s private chat.</p>`:''}`:''}`;
 }
+/* the GM changes an item in place: name, how many, what it does and its picture */
+const INV_IC = ['bag','sword','helm','potion','coins','scroll','drink','boots','knuckles','skull'];
+const invEditRow = (v, key, own, i, n, q, d, ic) => `<div class="it ied">
+  <div class="ied-ics" role="group" aria-label="Picture">${INV_IC.map(x => `<button type="button" data-a="invIc" data-v="${x}" aria-pressed="${(ic || 'bag') === x}" aria-label="${x}">${IC(x)}</button>`).join('')}</div>
+  <div class="invadd" style="margin:0"><input class="inp" id="ien-${key}-${v.id}" data-i="ie" data-k="n" value="${esc(n)}" placeholder="Item name" aria-label="Item name"><input class="inp" id="ieq-${key}-${v.id}" data-i="ie" data-k="q" type="number" min="0" value="${q}" aria-label="How many"><span></span>
+  <input class="inp" id="ied-${key}-${v.id}" data-i="ie" data-k="d" value="${esc(d || '')}" placeholder="What it does (optional)" aria-label="Item note" style="grid-column:1/-1"></div>
+  <div class="ied-act"><button type="button" class="btn sm ghost" data-a="invEditCancel">Cancel</button><button type="button" class="btn sm primary" data-a="invSave" ${own} data-i="${i}">${IC('check')}Save</button></div></div>`;
 N.invList = invList;
 function invBody(v){
   const gm = isGM(v);
