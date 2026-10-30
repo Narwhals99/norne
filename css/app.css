@@ -1557,4 +1557,19 @@
 .app .gif-by{margin:4px 2px 2px;font:700 10px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4);text-align:right}
 .app .gif-link{display:flex;gap:6px;align-items:center;padding:4px 2px 2px}
 .app .gif-link .inp{flex:1;min-width:0;height:38px;min-height:38px}
-.app .m.gifm .gif{display:block;width:min(260px,100%);max-height:320px;object-fit:cover;border-radius:16px;background:var(--sunk);box-shadow:0 0 0 1px var(--line)}
+.app .m.gifm .gifbox{padding:5px;border-radius:20px;border:1.5px dashed var(--line-3)}
+.app .m.gifm .gif{display:block;width:min(260px,100%);max-height:320px;object-fit:cover;border-radius:14px;background:var(--sunk)}
+/* GM screen: the picture shelf at the bottom */
+.app .gs-pics .gs-h small{font:700 12px/1 var(--f-ui)}
+.app .gs-pics .gs-note{margin:0;font:600 12.5px/1.4 var(--f-ui)}
+.app .gs-pics .pic-acts{display:flex;gap:8px;flex-wrap:wrap}
+@container dev (min-width: 760px){
+  .app .gm-page .gs>.gs-sec.gs-pics{grid-column:1/-1}
+  .app .gs-pics .thumbs{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+}
+.app .resm .rs-calc{display:flex;align-items:center;gap:6px;font:600 12px/1.3 var(--f-ui);color:var(--ink-2)}
+.app .resm .rs-calc svg{width:14px;height:14px;flex:none;color:var(--gold)}
+.app .icard.boost{box-shadow:0 0 0 1.5px var(--gold),0 6px 14px -8px rgba(0,0,0,.7)}
+.app .gearln{display:flex;align-items:center;gap:8px;margin:0 0 6px;font:600 14px/1.3 var(--f-ui);color:var(--ink)}
+.app .gearln svg{width:16px;height:16px;flex:none;color:var(--gold)}
+.app .gearln .muted{font-size:12px}

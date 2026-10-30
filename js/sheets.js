@@ -46,8 +46,7 @@ N.sheetHtml = function(v){
     const cb = g.combat, tokOfWho = r.who.startsWith('tok:') ? N.tokById(r.who.slice(4)) : r.who.startsWith('pc:') ? cb.tokens.find(t => t.kind==='pc' && t.ref === r.who.slice(3)) : null;
     const inFight = isGM(v) && cb.state === 'live' && tokOfWho && tokOfWho.zone && !tokOfWho.out;
     const targets = inFight ? N.foesOf(tokOfWho) : [];
-    const gear = other ? 0 : N.rollGear(who.key, r.action);
-    const bonus = other ? (+r.otherBonus || 0) : (who.skills[r.skill] ?? 0) + gear;
+    const bonus = other ? (+r.otherBonus || 0) : (who.skills[r.skill] ?? 0);
     const fightAtk = r.action === 'attack' && inFight;
     const whoAv = o => o.other ? `<span class="av" style="--s:44px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('person-plus').replace('<svg','<svg style="width:20px;height:20px"')}</span>` : N.av(o,44);
     const body = `
@@ -62,7 +61,7 @@ N.sheetHtml = function(v){
         ${r.all || !skills.length ? '' : `<button type="button" class="btn sm ghost" data-a="rollAll" style="margin-top:8px">Show every skill (${rest.length} more at +0)</button>`}</div>`}
       ${fightAtk ? `<div class="note">${IC('defend')}Your target rolls to defend right after you. The result shows in the chat once both rolls are in.</div>` : `<div><h4>Against ${r.action==='attack'||r.action==='defend'?'(the other side rolls)':'(optional)'}</h4><div class="ladder-chips">${[null,0,1,2,3,4,5,6].map(x => `<button type="button" class="lchip" data-a="rollOpp" data-v="${x}" aria-pressed="${r.opp===x}"><b>${x==null?'—':sgn(x)}</b>${x==null?'No target':ladderWord(x)}</button>`).join('')}</div></div>`}
       ${gm ? `<button type="button" class="toggle" data-a="rollSecret" aria-pressed="${!!r.secret}">${IC('eyeoff')}<span>Secret roll<small>Only you see it, in GM notes.</small></span><span class="sw"></span></button>` : ''}
-      <p class="rollsum">4 Fate dice + ${other ? 'bonus' : esc(r.skill)} ${sgn(bonus - gear)}${gear?` + gear ${sgn(gear)}`:''}. After you see the roll you can invoke aspects for +2 or a reroll.</p>`;
+      <p class="rollsum">4 Fate dice + ${other ? 'bonus' : esc(r.skill)} ${sgn(bonus)}.${fightAtk && tokOfWho && N.tokGear(tokOfWho, 'gearAtk') ? ` A hit gets +${N.tokGear(tokOfWho, 'gearAtk')} shifts from the weapon.` : ''} After you see the roll you can invoke aspects for +2 or a reroll.</p>`;
     const dis = r.action === 'attack' && inFight && !r.target;
     return sheet('Roll the dice', body, `<button type="button" class="btn gold lg" data-a="doRoll" ${dis?'disabled':''}>${N.fateDie}Roll ${other ? '' : esc(r.skill) + ' '}${sgn(bonus)}</button>`, {lead:other ? '' : N.av(who,36)});
   }
@@ -83,7 +82,7 @@ N.sheetHtml = function(v){
     const pins = g.maps.flatMap(mp => mp.pins.filter(p => ['town','tavern','landmark','shop','temple','nation'].includes(p.type)).map(p => ({map:mp.id, id:p.id, rx:p.rx, ry:p.ry, label:p.label, sub:mp.name})));
     const pics = tab === 'recent' ? g.recent.map(r => ({...r, sub:r.where}))
       : tab === 'maps' ? pins.map(p => ({id:`pl:${p.map}:${p.id}`, title:p.label, sub:p.sub, place:{map:p.map, rx:p.rx, ry:p.ry}}))
-      : [...(d.uploads||[]).map((u,i) => ({id:'up'+i, title:'', art:u, sub:'Your picture', up:true})), ...N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Picture'}))];
+      : [...g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your picture', up:true})), ...N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Picture'}))];
     const isOn = p => p.place ? (d.place && d.place.map === p.place.map && d.place.rx === p.place.rx && d.place.ry === p.place.ry) : (d.art && d.art === p.art);
     const forwho = ['table', ...N.seats().map(x => 'dm-' + x)];
     const body = `
@@ -311,6 +310,10 @@ function pcEditor(v){
     <div><h4>Skills · a starting character usually has one Great, two Good, three Fair and four Average</h4>${skillLadder(v, d, 'pdSkill', 'pdSkillDel', RUNGS)}
       ${extra.length ? `<p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">Also: ${extra.map(([k,x]) => `<button type="button" class="btn sm ghost" data-a="pdSkillDel" data-v="${esc(k)}" style="--h:28px">${esc(k)} ${sgn(x)} ${IC('x')}</button>`).join(' ')}</p>` : ''}
       ${discPick(d, 'pdDisc')}</div>
+    <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+      <label class="field"><span>Weapon rating · shifts added to a hit</span>${N.gearSelect(`pdga-${v.id}`, 'data-i="pd" data-k="gearAtk"', d.gearAtk)}</label>
+      <label class="field"><span>Armor rating · shifts taken off a hit</span>${N.gearSelect(`pdgd-${v.id}`, 'data-i="pd" data-k="gearDef"', d.gearDef)}</label>
+    </div>
     <div><h4>Stunts</h4>${stunts(v, d, 'pd')}</div>
     ${steppers(d, 'pd')}
     <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Stress boxes and extra consequence slots come from Strength and Will automatically.</p>
@@ -333,8 +336,8 @@ function npcEditor(v){
     </div></div>
     <div><h4>Skills</h4>${skillLadder(v, d, 'ndSkill', 'ndSkillDel', RUNGS)}${discPick(d, 'ndDisc')}</div>
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
-      <label class="field"><span>Gear attack bonus</span>${N.gearSelect(`ndga-${v.id}`, 'data-i="nd" data-k="gearAtk"', d.gearAtk)}</label>
-      <label class="field"><span>Gear defense bonus</span>${N.gearSelect(`ndgd-${v.id}`, 'data-i="nd" data-k="gearDef"', d.gearDef)}</label>
+      <label class="field"><span>Weapon rating · shifts added to a hit</span>${N.gearSelect(`ndga-${v.id}`, 'data-i="nd" data-k="gearAtk"', d.gearAtk)}</label>
+      <label class="field"><span>Armor rating · shifts taken off a hit</span>${N.gearSelect(`ndgd-${v.id}`, 'data-i="nd" data-k="gearDef"', d.gearDef)}</label>
     </div>
     <label class="field"><span>Disciplines</span><textarea class="inp" id="ndm-${v.id}" data-i="nd" data-k="magic" rows="2" placeholder="Notes on their disciplines and anything else they can do">${esc(d.magic||'')}</textarea></label>
     <div><h4>Stunts</h4>${stunts(v, d, 'nd')}</div>
@@ -351,7 +354,9 @@ N.invokeOptions = function(v, m){
   if (sc) (sc.aspects || []).forEach((a,i) => out.push({t:a.t, free:N.sceneFreeLeft(sc, i), from:'Scene', ref:`scene:${sc.msg}:${i}`}));
   const cb = g.combat;
   if (cb.state === 'live' && m.ch === N.fightCh()) {
-    cb.aspects.forEach((a,i) => out.push({t:a.t, free:a.free || 0, from:'Fight', kind:'cb', i}));
+    /* a boost can only be invoked by its owner, for free */
+    const rk = m.roll.whoKey || '', rt = rk.startsWith('tok:') ? rk.slice(4) : (cb.tokens.find(t => t.kind === 'pc' && 'pc:' + t.ref === rk) || {}).id;
+    cb.aspects.forEach((a,i) => { if (a.boost && (a.tok !== rt || !a.free)) return; out.push({t:a.t || 'Unnamed boost', free:a.free || 0, from:a.boost ? `${a.by}’s boost` : 'Fight', kind:'cb', i}); });
     cb.zones.filter(z => z.aspect).forEach(z => out.push({t:z.aspect, free:z.free || 0, from:z.name, kind:'zone', z:z.id}));
   }
   const k = m.roll.whoKey || '';
