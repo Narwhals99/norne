@@ -1602,3 +1602,10 @@
 .app .m .bigemo .cemo{width:48px;height:48px;vertical-align:-6px}
 .app .m .bigemo .ed{font-size:11px;letter-spacing:0;vertical-align:middle}
 .app .mw.hasrx .m.emom .body{padding-bottom:14px}
+
+/* desktop: rolls sit in the middle of the chat like fight results, so talk stays left and right and actions read down the centre (phones keep them on their sender's side) */
+.app[data-dev="desktop"] .msgs .m.rollm{flex-direction:row;justify-content:center;padding-right:41px}
+.app[data-dev="desktop"] .msgs .m.rollm .body{justify-items:center}
+.app[data-dev="desktop"] .msgs .m.rollm .av{display:grid}
+.app[data-dev="desktop"] .msgs .mw.mine .m.rollm .body>.mtools{right:auto;left:calc(100% + 8px)}
+.app[data-dev="desktop"] .msgs .mw.mine .m.rollm .body>.rxp{left:auto;right:-10px}
