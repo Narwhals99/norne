@@ -55,5 +55,7 @@ noscript{position:fixed;inset:0;display:grid;place-items:center;padding:24px;col
   wide.addEventListener ? wide.addEventListener('change', onWide) : wide.addListener(onWide);
   N.kbInit();
   N.boot(v);
+  /* sw.js makes every visit check for the newest scripts (see the note at its top) */
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 </script>

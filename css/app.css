@@ -1497,7 +1497,11 @@
 .app .m .body>.mtools{top:auto;bottom:2px;right:auto;left:calc(100% + 8px)}
 .app .mw.mine .m .body>.mtools{left:auto;right:calc(100% + 8px)}
 .app .narr{position:relative}
-.app .narr>.mtools{top:-10px;right:0}
+.app .narr .who>.mtools{position:relative;top:auto;right:auto;height:0;margin-left:6px;padding:0;display:flex;align-items:center;background:none;box-shadow:none;overflow:visible}
+.app .narr .who>.mtools button{background:var(--page-solid);box-shadow:0 0 0 1px var(--line-2),0 4px 10px -4px rgba(0,0,0,.5);margin-right:3px;color:var(--ink-2)}
+.app .resm{position:relative}
+.app .resm>.mtools{top:4px;right:auto;left:calc(100% + 8px)}
+.app .resm>.rxp{bottom:-12px;right:10px}
 .app .mtools button,.app .mtools .mdots{position:static;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2);background:none;box-shadow:none;opacity:1;pointer-events:auto}
 .app .mtools svg{width:17px;height:17px}
 .app .mw.on .mtools,.app .mtools:focus-within{opacity:1;pointer-events:auto}

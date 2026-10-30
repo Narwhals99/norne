@@ -212,9 +212,15 @@ function msgWrap(v, m, h){
   const narr = m.kind === 'rp' && !!N.speakerObj(m).narr, mine = m.by === v.role && !narr;
   const tools = `<span class="mtools">${social ? `<button type="button" data-a="msgMenu" data-v="${m.id}" data-emo="1" aria-label="React" title="React">${IC('smile')}</button><button type="button" data-a="reply" data-v="${m.id}" aria-label="Reply" title="Reply">${IC('reply')}</button>` : ''}${gm || N.canEdit(v, m) ? `<button type="button" class="mdots" data-a="msgMenu" data-v="${m.id}" aria-label="${gm ? 'Edit or delete this message' : 'Edit this message'}" title="More">${IC('dots')}</button>` : ''}</span>`;
   /* the hover buttons sit beside the message itself where there is one, otherwise at the row's corner */
-  const at = h.indexOf('<div class="body">'), body = at >= 0 ? at + 18 : h.startsWith('<div class="narr') ? h.indexOf('>') + 1 : -1;
-  const rx = social ? rxPill(v, m) : '', add = tools + rx;
-  const inner = body > 0 ? h.slice(0, body) + add + h.slice(body) : `<div class="mwb">${h}${add}</div>`;
+  const rx = social ? rxPill(v, m) : '', ins = (s, at, x) => s.slice(0, at) + x + s.slice(at);
+  let inner;
+  const at = h.indexOf('<div class="body">');
+  if (at >= 0) inner = ins(h, at + 18, tools + rx);
+  /* narrator text: the buttons follow the "Narrator" line, so they sit by the words, not at the column's far edge */
+  else if (h.startsWith('<div class="narr')) { const w = h.indexOf('</div>', h.indexOf('<div class="who">')); inner = ins(ins(h, h.indexOf('>') + 1, rx), w + rx.length, tools); }
+  /* a result card: the buttons sit just outside its right edge */
+  else if (h.startsWith('<div class="resm')) inner = ins(h, h.indexOf('>') + 1, tools + rx);
+  else inner = `<div class="mwb">${h}${tools}${rx}</div>`;
   return `<div class="mw${mine ? ' mine' : ''}${narr ? ' nw' : ''}${rx ? ' hasrx' : ''}${v.ui.pop?.mid === m.id || v.ui.reply === m.id ? ' on' : ''}" data-mid="${m.id}">${m.re ? replyQuote(v, m.re) : ''}${inner}</div>`;
 }
 /* the line above a reply that shows what it answers; tapping it jumps to that message */
@@ -398,13 +404,13 @@ function heroQuick(v){
 N.gmScreen = gmScreen; N.heroQuick = heroQuick; N.meBtn = meBtn; N.sideBtn = sideBtn; N.fightSeg = fightSeg; N.chatView = chatView; N.fightAvail = fightAvail;
 
 /* ================= popovers ================= */
-/* GIFs: search Tenor (once the GM has saved a key) or paste a link to any GIF */
+/* GIFs: search GIPHY (once the GM has saved a key) or paste a link to any GIF */
 function gifPane(v){
   const ui = v.ui, key = G().gifKey, res = ui.gifRes || [];
   const search = key ? `<div class="pop-find">${IC('search')}<input class="inp" id="gq-${v.id}" data-i="gifQ" placeholder="Search GIFs" value="${esc(ui.gifQ || '')}" autocomplete="off" enterkeyhint="search"></div>
     <div class="gif-grid">${ui.gifErr ? `<p class="muted gif-msg">${esc(ui.gifErr)}</p>` : !res.length ? `<p class="muted gif-msg">${ui.gifBusy ? 'Looking…' : 'Nothing found.'}</p>` : res.map((r, i) => `<button type="button" class="gifb" data-a="gifSend" data-i="${i}" aria-label="${esc(r.t || 'GIF')}"><img src="${esc(r.p)}" alt="" loading="lazy" style="aspect-ratio:${r.w}/${r.h}"></button>`).join('')}</div>
-    <p class="gif-by">Search by Tenor</p>`
-    : `<div class="note" style="margin:4px 2px 8px">${IC('info')}${isGM(v) ? 'GIF search needs a free Tenor key. Add it in GM tools &gt; Emoji and GIFs.' : `GIF search isn’t switched on yet. ${esc(N.gmName())} can turn it on.`} Pasting a link works already.</div>`;
+    <p class="gif-by">Powered by GIPHY</p>`
+    : `<div class="note" style="margin:4px 2px 8px">${IC('info')}${isGM(v) ? 'GIF search needs a free GIPHY key. Add it in GM tools &gt; Emoji and GIFs.' : `GIF search isn’t switched on yet. ${esc(N.gmName())} can turn it on.`} Pasting a link works already.</div>`;
   return `${search}<div class="gif-link"><input class="inp" id="gl-${v.id}" data-i="gifUrl" placeholder="…or paste a GIF link" value="${esc(ui.gifUrl || '')}" autocomplete="off" inputmode="url"><button type="button" class="btn sm primary" data-a="gifLink" ${N.gifLinkOk(ui.gifUrl) ? '' : 'disabled'}>Send</button></div>`;
 }
 function emoGrid(v, attrs, mine){

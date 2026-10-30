@@ -1,7 +1,13 @@
-/* Norne's service worker. It only shows notifications and brings Norne to the front when one is tapped;
-   it caches nothing, so the site always loads fresh. */
+/* Norne's service worker. It shows notifications and brings Norne to the front when one is tapped.
+   It caches nothing, and it makes the browser check for a newer copy of the page and its scripts on every load:
+   GitHub Pages lets browsers keep files for 10 minutes, so a phone could run old code long after an update. */
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+self.addEventListener('fetch', e => {
+  const r = e.request, u = new URL(r.url);
+  if (r.method !== 'GET' || u.origin !== location.origin) return;
+  if (r.mode === 'navigate' || /\.(html|js|css|webmanifest)$/.test(u.pathname)) e.respondWith(fetch(r, {cache:'no-cache'}).catch(() => fetch(r)));
+});
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const ch = e.notification.data && e.notification.data.ch;
