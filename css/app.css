@@ -1383,3 +1383,100 @@
 .app .fight.cmd.ph .nowbar .end .btn{--h:38px;padding:0 13px;font-size:13px}
 .app .fight.cmd.ph .nowbar .ln .nb-zt{display:none}
 .app .fight.cmd.ph .nowbar .acts>.btn{flex:1}
+
+/* ---------- GM home: the GM screen as its own tab, every GM tool in one labelled grid ---------- */
+.app .gm-page{min-height:0}
+.app .gm-for .seg{max-width:100%;overflow-x:auto;scrollbar-width:none;justify-self:start}
+.app .gm-for .seg svg{width:15px;height:15px}
+.app .gmrow button.end{color:var(--ember)}
+.app .gmrow button.end svg{color:var(--ember)}
+.app .fight.ph .fight-scroll>.gmrow{padding:10px 2px 2px}
+@container dev (min-width: 760px){
+  .app .gm-page{max-width:1080px;margin:0 auto;width:100%;padding:0 22px 40px}
+  .app .gm-page .gs{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 26px;padding-inline:0}
+  .app .gm-page .gs>.bigcta,.app .gm-page .gs>.gs-tools,.app .gm-page .gs>.gm-for{grid-column:1/-1}
+  .app .gm-page .gs-tools .tools{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+}
+/* phones, live fight: the GM tools sit under the board as a five-slot bar, every one visible at once */
+.app .fight.ph .fight-scroll>.gmrow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;overflow:visible}
+.app .fight.ph .fight-scroll>.gmrow button{flex-direction:column;justify-content:center;height:auto;min-height:54px;padding:7px 2px;gap:4px;border-radius:14px;font-size:11.5px;text-align:center;line-height:1.1}
+.app .gm-page .gs{align-items:start}
+@container dev (min-width: 760px){ .app .gm-page .gs-tools .tools{grid-template-columns:repeat(auto-fill,minmax(108px,1fr))} }
+.app .pop .pop-find{position:sticky;top:-6px;z-index:1;display:flex;align-items:center;gap:8px;margin:-6px -6px 4px;padding:10px 12px 8px;background:var(--page-solid)}
+.app .pop .pop-find svg{width:16px;height:16px;color:var(--ink-3);flex:none}
+.app .pop .pop-find .inp{flex:1;min-width:0;height:36px}
+@container dev (min-width: 760px){
+  .app .gm-page .gs>.gs-sec:last-child{grid-column:1/-1}
+  .app .gm-page .voices{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+}
+
+/* ---------- the GM rolls every fight: Notice roll first, a log of the fight, dice on the board ---------- */
+/* whose turn it is: a bigger, brighter ring on the board and a bigger face in the turn order */
+.app .zone .tok.now{z-index:3;transform:scale(1.2)}
+.app .tok.now .av{box-shadow:0 0 0 3px var(--page-solid),0 0 0 7px var(--gold),0 0 34px 8px color-mix(in srgb,var(--gold) 60%,transparent);animation:glowbig 2s ease-in-out infinite}
+@keyframes glowbig{50%{box-shadow:0 0 0 3px var(--page-solid),0 0 0 7px var(--gold),0 0 48px 14px color-mix(in srgb,var(--gold) 42%,transparent)}}
+.app .zone .tok.now .nm,.app .zone .tok.now.me .nm{display:block;background:var(--gold);color:#241a06}
+.app .fight-order .ot.now{padding:4px;box-shadow:inset 0 0 0 2px var(--gold),0 0 28px -6px var(--gold)}
+.app .fight-order .ot.now span{font-size:14px;padding-right:10px}
+.app .nowbar.turn .who>.av{box-shadow:0 0 0 2px var(--page-solid),0 0 0 4px var(--gold)}
+/* Notice roll results: tap who goes first */
+.app .nchips{display:flex;gap:6px;flex-wrap:wrap;width:100%}
+.app .nchips button{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 10px 0 4px;border-radius:999px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);font:700 12px/1 var(--f-ui);color:var(--ink-2)}
+.app .nchips button b{font:600 14px/1 var(--f-display);color:var(--gold)}
+.app .nchips button[aria-pressed="true"]{background:color-mix(in srgb,var(--gold) 22%,var(--raise));box-shadow:inset 0 0 0 1.5px var(--gold);color:var(--ink)}
+/* dice tumbling onto the board for every roll in the fight */
+.app .dicefx{position:absolute;left:50%;top:46%;translate:-50% -50%;z-index:8;display:grid;justify-items:center;gap:10px;padding:16px 20px 14px;border-radius:22px;pointer-events:none;
+  background:color-mix(in srgb,var(--page-solid) 86%,transparent);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--gold) 55%,transparent),0 24px 60px -18px #000;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  animation:dfx 2.6s ease both;animation-delay:var(--el,0s)}
+.app .dicefx .dice{gap:8px}
+.app .dicefx .die{width:40px;height:40px;font-size:26px;border-radius:10px;animation:dfxroll .95s cubic-bezier(.2,.9,.3,1.2) both;animation-delay:calc(var(--el,0s) + var(--d,0s))}
+.app .dicefx .die:nth-child(1){--x:-40px}.app .dicefx .die:nth-child(2){--d:.07s;--x:-14px}.app .dicefx .die:nth-child(3){--d:.14s;--x:14px}.app .dicefx .die:nth-child(4){--d:.21s;--x:40px}
+.app .dicefx .dfx-t{display:grid;justify-items:center;gap:3px;animation:fade .3s ease both;animation-delay:calc(var(--el,0s) + .95s)}
+.app .dicefx .dfx-t small{font:700 11.5px/1.2 var(--f-ui);color:var(--ink-3);white-space:nowrap}
+.app .dicefx .dfx-t b{font:600 28px/1 var(--f-display);color:var(--gold);white-space:nowrap}
+.app .dicefx .dfx-t b span{font:800 10.5px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);margin-left:4px}
+@keyframes dfx{0%{opacity:0;scale:.85}8%{opacity:1;scale:1}86%{opacity:1}100%{opacity:0;scale:.96}}
+@keyframes dfxroll{0%{transform:translate(var(--x,0),-70px) rotate(-560deg) scale(.4);opacity:0}55%{transform:translateY(5px) rotate(20deg) scale(1.1);opacity:1}78%{transform:translateY(-3px) rotate(-7deg)}100%{transform:none}}
+@media (prefers-reduced-motion: reduce){ .app .dicefx .die,.app .zone .tok.now .av{animation:none} }
+/* the GM's fight log on phones: fills the space between his tools and the turn bar, and scrolls on its own */
+.app .fight.cmd>.fight-scroll>.ffeed{flex:1 1 0;min-height:150px;display:flex;flex-direction:column;gap:6px;padding:0 12px}
+.app .ffeed>.eyebrow{display:flex;justify-content:space-between;align-items:center}
+.app .ffeed .ff-list{flex:1 1 0;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:1px;padding:5px;border-radius:16px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .ffeed .ff-list>.muted{margin:auto;font:600 12px/1.4 var(--f-ui)}
+.app .ff{flex:none;display:flex;align-items:center;gap:8px;padding:5px 7px;border-radius:10px;font:600 12px/1.3 var(--f-ui);color:var(--ink-2)}
+.app .ff:last-child{background:var(--raise)}
+.app .ff .ffi{flex:none;min-width:20px;display:grid;place-items:center;color:var(--ink-3)}
+.app .ff .ffi svg{width:14px;height:14px}
+.app .ff .fft{flex:1;min-width:0}
+.app .ff .fft b{color:var(--ink);font-weight:800}
+.app .ff.talk{color:var(--ink-3)}
+.app .ff.res .ffi{color:var(--jade)}.app .ff.res.hit .ffi{color:var(--ember)}.app .ff.res.tie .ffi{color:var(--gold)}
+.app .ff .ffd{display:inline-flex;gap:2px}
+.app .ff .ffd i{width:13px;height:13px;border-radius:4px;display:grid;place-items:center;background:#e9e0c6;color:#2a2418;font:800 10px/1 var(--f-ui);font-style:normal}
+.app .ff .ffd i.p{color:#1f7a4c}.app .ff .ffd i.m{color:#b23b2a}
+.app .ff .ffv{flex:none;font:600 16px/1 var(--f-display);color:var(--gold)}
+.app .ff .ffb{flex:none;display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border-radius:999px;background:var(--raise-2);box-shadow:inset 0 0 0 1px var(--line-2);font:700 11px/1 var(--f-ui);color:var(--ink-2)}
+.app .ff .ffb svg{width:12px;height:12px;color:var(--gold)}
+/* GM screen: the Scene changer sits under Begin a fight, in the scene's own colours */
+.app .bigcta.scn{background:linear-gradient(120deg,color-mix(in srgb,var(--accent) 26%,var(--raise)),var(--raise) 70%);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent),0 10px 24px -14px var(--accent)}
+.app .bigcta.scn .ic{background:var(--accent)}
+@container dev (min-width: 760px){
+  .app .gm-page .gs>.bigcta.scn{grid-column:1/-1}
+  .app .gm-page .gs>.gs-sec:last-child{grid-column:auto}
+}
+/* phones: the "A fight breaks out" card in the chat is a slim strip with its button on the right */
+@container dev (max-width: 759px){
+  .app .msgs .fightcard{margin:8px 0 4px;border-radius:16px}
+  .app .msgs .fightcard::before{background:linear-gradient(90deg,rgba(12,8,26,.94) 45%,rgba(12,8,26,.6))}
+  .app[data-theme="day"] .msgs .fightcard::before{background:linear-gradient(90deg,rgba(255,250,235,.97) 45%,rgba(255,250,235,.7))}
+  .app .msgs .fightcard .in{padding:11px 12px 11px 14px;gap:3px 10px;grid-template-columns:minmax(0,1fr) auto;align-items:center}
+  .app .msgs .fightcard .in>*{grid-column:1}
+  .app .msgs .fightcard .in>.row{grid-column:2;grid-row:1/span 3}
+  .app .msgs .fightcard h3{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .app .msgs .fightcard .who .av{display:none}
+  .app .msgs .fightcard .who span{margin-left:0;font-size:11.5px}
+  .app .msgs .fightcard .row .btn{--h:36px;padding:0 12px;font-size:13px}
+}
+/* desktop: the Notice results get their own row in the turn bar */
+.app .fight.cmd.dt .nowbar.pick{grid-template-columns:minmax(0,1fr) auto}
+.app .fight.cmd.dt .nowbar.pick .acts{grid-column:1/-1;grid-row:2}

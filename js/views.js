@@ -11,7 +11,7 @@ N.fateDie = fateDie;
 /* ================= shell ================= */
 N.appHtml = function(v){
   const g = G(), gm = isGM(v), cb = g.combat;
-  const tabs = [['chat','Chat','chat'],['map','Map','map'],['world','World','world'], gm ? ['cast','Cast','cast'] : ['hero','Character','hero'], ['inv','Inventory','bag']];
+  const tabs = [['chat','Chat','chat'],['map','Map','map'],['world','World','world'], ...(gm ? [['cast','Cast','cast'], ['gm','GM','crown']] : [['hero','Character','hero'], ['inv','Inventory','bag']])];
   const otherUnread = N.channelsFor(v.role).some(c => !(v.ui.tab === 'chat' && v.ui.ch === c) && N.unread(v.role, c));
   const fightLive = cb.state === 'live';
   const newsNew = !gm && g.news.issues.some(i => !(g.news.seen[v.role]||[]).includes(i.id));
@@ -21,8 +21,8 @@ N.appHtml = function(v){
   const nav = `<nav class="nav" aria-label="Sections">
     <div class="mark">${MARK}<b>N<small>ORNE</small></b></div>
     <div class="navl scroll">
-      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&shelfOn&&otherUnread?'<span class="dot"></span>':''}${id==='world'&&newsNew?'<span class="badge gold">1</span>':''}</span></button>
-        ${id==='chat' && !shelfOn ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
+      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&otherUnread?'<span class="dot"></span>':''}${id==='world'&&newsNew?'<span class="badge gold">1</span>':''}</span></button>
+        ${id==='chat' && !shelfOn && !gm ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
     </div>
     <div class="art" aria-hidden="true"></div>
     <button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>
@@ -37,6 +37,7 @@ N.appHtml = function(v){
   else if (v.ui.tab === 'hero') page = `<main class="page">${heroPage(v)}</main>`;
   else if (v.ui.tab === 'cast') page = `<main class="page">${castPage(v)}</main>`;
   else if (v.ui.tab === 'inv') page = `<main class="page">${invPage(v)}</main>`;
+  else if (v.ui.tab === 'gm') page = `<main class="page">${gmPage(v)}</main>`;
 
   return `<div class="stars" aria-hidden="true"></div>
     <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}">${nav}${shelfOn && v.dev === 'desktop' ? shelfHtml(v) : ''}${page}${tabbar}</div>
@@ -102,8 +103,8 @@ function meBtn(v){
   const me = isGM(v) ? {name:N.gmName(), color:'var(--c-gm)'} : {name:g.P[v.role]?.name || '', color:g.P[v.role]?.color};
   return `<button type="button" class="me-btn" data-a="sheet" data-v="profile" aria-label="You and settings">${N.av(me,34)}</button>`;
 }
-function sideBtn(v){
-  if (isGM(v)) return `<button type="button" class="ibtn solid" data-a="sheet" data-v="gm" aria-label="GM screen">${IC('crown')}</button>`;
+function sideBtn(v, where){
+  if (isGM(v)) return where === 'chat' ? meBtn(v) : '<span class="ibtn" style="visibility:hidden" aria-hidden="true"></span>';
   const c = N.charOf(v.role);
   return `<button type="button" class="me-btn" data-a="sheet" data-v="hero" aria-label="My character">${N.av({name:c.short, portrait:c.built?c.portrait:null, color:c.color},34)}</button>`;
 }
@@ -114,7 +115,7 @@ function fightAvail(v){
   const cb = G().combat;
   if (v.ui.ch !== N.fightCh()) return false;
   if (isGM(v)) return cb.state !== 'off';
-  return cb.state === 'live' && (cb.joined.includes(v.role) || v.ui.watching);
+  return cb.state === 'live' && (cb.joined.includes(v.role) || v.ui.watching || !!N.myTok(v));
 }
 function chatPage(v){
   const gm = isGM(v), fa = fightAvail(v);
@@ -134,14 +135,14 @@ function railShown(v){
 function chatView(v, side){
   const g = G(), gm = isGM(v), ch = v.ui.ch, sc = g.scenes[ch], cb = g.combat;
   const fa = fightAvail(v);
-  const topPh = `<div class="top ph">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${sideBtn(v)}</div>`;
+  const topPh = `<div class="top ph">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${sideBtn(v, 'chat')}</div>`;
   const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
     ${fa && !v.ui.fightOpen ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}${cb.state==='setup'?'Back to fight setup':'Back to the fight'}</button>` : ''}
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
-    ${fa && v.ui.fightOpen ? '' : `<button type="button" class="ibtn" data-a="rail" aria-pressed="${railShown(v)}" aria-label="${railShown(v)?'Hide':'Show'} the side panel" title="${railShown(v)?'Hide':'Show'} the ${gm?'GM screen':'character panel'}">${IC('gmscreen')}</button>`}</header>`;
+    ${fa && v.ui.fightOpen ? '' : `${gm ? `<button type="button" class="btn sm" data-a="rail" aria-pressed="${railShown(v)}" style="--h:36px">${IC('crown')}${railShown(v)?'Hide GM screen':'GM screen'}</button>` : `<button type="button" class="ibtn" data-a="rail" aria-pressed="${railShown(v)}" aria-label="${railShown(v)?'Hide':'Show'} the side panel" title="${railShown(v)?'Hide':'Show'} the ${gm?'GM screen':'character panel'}">${IC('gmscreen')}</button>`}`}</header>`;
   const fightbar = (cb.state === 'live' && ch === N.fightCh() && !N.owedTok(v) && (!fa || (v.dev==='desktop' && !v.ui.fightOpen))) ? (() => {
     const cur = N.curTok();
-    return `<div class="fightbar">${IC('swords','sw')}<div class="t">Fight on ${esc(cb.title)}<span>${cur ? `${esc(N.tokName(cur))}’s turn · exchange ${cb.exchange}` : ''}</span></div>${fa ? `<button type="button" class="btn sm gold" data-a="openFight">Back to the fight</button>` : cb.invited.includes(N.G.P[v.role]?.char) ? `<button type="button" class="btn sm gold" data-a="join">Join</button>` : `<button type="button" class="btn sm" data-a="watch">Watch</button>`}</div>`;
+    return `<div class="fightbar">${IC('swords','sw')}<div class="t">Fight on ${esc(cb.title)}<span>${cur ? `${esc(N.tokName(cur))}’s turn · exchange ${cb.exchange}` : ''}</span></div>${fa ? `<button type="button" class="btn sm gold" data-a="openFight">Back to the fight</button>` : `<button type="button" class="btn sm" data-a="watch">Watch</button>`}</div>`;
   })() : '';
   /* an attack waiting on this screen's defense shows above the chat too, so it isn't missed with the board closed */
   const owed = N.owedTok(v), pend = cb.pending;
@@ -229,7 +230,7 @@ function rMsg(v, m, prev, firstNarr){
 function rRoll(v, m){
   const r = m.roll, tot = rollTotal(r), o = outcome(r), fold = v.ui.folded.has(m.id) ? v.ui.folded.get(m.id) : m.id !== v._lastRoll;
   const dice = r.dice.map(d => `<span class="die ${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':'·'}</span>`).join('');
-  const canInv = isGM(v) || r.whoKey === 'pc:' + (G().P[v.role]||{}).char;
+  const canInv = isGM(v) || (r.whoKey === 'pc:' + (G().P[v.role]||{}).char && m.by === v.role);
   return `<div class="roll${fold?' folded':''}${m.ch==='gm'?' secret':''}">
     <div class="rh"><span class="grow"><b>${esc(r.skill)} ${sgn(r.bonus - (r.gear||0))}</b>${r.gear?` + gear ${sgn(r.gear)}`:''} · ${esc(r.action)}${r.target?` ${r.action==='Defend'?'against':'on'} <b>${esc(r.target)}</b>`:''}</span>${fold?`<span class="mini-tot">${sgn(tot)}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" data-f="${fold?1:''}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
     <div class="rb"><div class="dice${v.ui.fresh===m.id?' fresh':''}">${dice}</div><div class="tot"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></div></div>
@@ -250,12 +251,12 @@ function resCard(res){
 function fightCard(v, m){
   const g = G(), cb = g.combat, live = cb.state === 'live' && cb.id === m.cid, gm = isGM(v);
   const toks = cb.tokens.filter(t => t.zone);
-  const mineInv = !gm && cb.invited.includes(g.P[v.role]?.char), joined = cb.joined.includes(v.role);
+  const mine = !gm && !!N.myTok(v);
   return `<div class="fightcard"><div class="art" style="background-image:url(${esc(N.imgUrl(m.bg || (live ? cb.bg : '') || N.FIGHTBG))})"></div><div class="in">
     <span class="eyebrow">${IC('swords')}${live?'A fight breaks out':'The fight is over'}</span>
     <h3>${esc(m.text)}</h3>
     ${live ? `<div class="who">${toks.slice(0,6).map(t => N.av(N.tokObj(t),28)).join('')}<span>${toks.length} in the fight · ${cb.zones.length} zones</span></div>
-    <div class="row">${gm ? `<button type="button" class="btn gold" data-a="openFight">${IC('swords')}Open the fight</button>` : joined ? `<button type="button" class="btn gold" data-a="openFight">${IC('swords')}Back to the fight</button>` : mineInv ? `<button type="button" class="btn gold lg" data-a="join">${IC('swords')}Join the fight</button>` : `<button type="button" class="btn" data-a="watch">Watch</button>`}</div>` : '<span class="muted" style="font-weight:600">This fight is over.</span>'}
+    <div class="row">${gm ? `<button type="button" class="btn gold" data-a="openFight">${IC('swords')}Open the fight</button>` : mine ? `<button type="button" class="btn gold" data-a="watch">${IC('swords')}Watch the fight</button>` : `<button type="button" class="btn" data-a="watch">Watch</button>`}</div>` : '<span class="muted" style="font-weight:600">This fight is over.</span>'}
   </div></div>`;
 }
 function composer(v){
@@ -284,16 +285,20 @@ function composer(v){
 
 /* ================= side panels ================= */
 function gmScreen(v){
-  const g = G(), cb = g.combat, ch = v.ui.ch, sc = g.scenes[ch];
+  const g = G(), cb = g.combat, ch = v.ui.ch;
   const fight = cb.state === 'off'
     ? `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>Begin a fight</b><small>In ${ch === 'gm' || ch === 'table' ? 'Everyone' : `your chat with ${esc(N.chName(ch,'gm'))}`}. Draw zones and add enemies. Players see nothing until you start.</small></span></button>`
     : `<button type="button" class="bigcta" data-a="openFight"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>${N.fightCh() === 'table' ? '' : `In your chat with ${esc(N.chName(N.fightCh(),'gm'))} · `}${cb.state==='setup'?'Not started yet. Players can’t see it.':`Exchange ${cb.exchange} · ${esc(N.tokName(N.curTok()||{kind:'npc',name:'—'}))}’s turn`}</small></span></button>`;
-  const pcs = N.pcs();
+  const pcs = N.pcs(), npc1 = g.npcs[0], waiting = N.MEMBERS.filter(m => m.role === 'pending').length;
+  const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
+    ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
+    ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export the log', 'data-v="export"'], ['sheet', 'upload', 'Import lore', 'data-v="import"']];
+  const scenes = ['table', ...N.seats().map(x => 'dm-' + x)].filter(c => g.scenes[c]).length;
   return `<div class="gs">
     ${fight}
-    <section class="gs-sec"><div class="gs-h"><h3>Scene in ${esc(N.chName(ch,'gm'))}</h3><button type="button" class="btn sm" data-a="sheet" data-v="scene">${sc?'Change':'Set'}</button></div>
-      ${sc ? `<div class="scenecard" style="${N.sceneArt(sc)};background-size:${sc.place?'420% auto':'cover'}"><div class="in"><b>${esc(sc.title)}</b><small>${esc(sc.where||'')}</small></div></div>` : `<p class="muted" style="margin:0;font-weight:600;font-size:13px">No scene in this chat.</p>`}
-      <div class="recent">${g.recent.slice(0,4).map(r => `<button type="button" data-a="applyScene" data-v="${r.id}" style="${N.sceneArt(r)};background-size:${r.place?'420% auto':'cover'}" title="Use ${esc(r.title)} here"><span>${esc(r.title)}</span></button>`).join('')}</div>
+    <button type="button" class="bigcta scn" data-a="sheet" data-v="scene"><span class="ic">${IC('image')}</span><span><b>Scene changer</b><small>Pick who it’s for, Everyone or one player, then set the picture, name and aspects.${scenes ? ` ${scenes} chat${scenes > 1 ? 's have' : ' has'} a scene now.` : ''}</small></span></button>
+    <section class="gs-sec gs-tools"><div class="gs-h"><h3>GM tools</h3></div>
+      <div class="tools">${tiles.map(([a, ic, l, x]) => `<button type="button" data-a="${a}" ${x}>${IC(ic)}${l}</button>`).join('')}</div>
     </section>
     <section class="gs-sec"><div class="gs-h"><h3>Party</h3><button type="button" class="btn sm" data-a="tab" data-v="cast">Cast</button></div>
       ${pcs.map(c => c.built ? `<div class="pcrow">${N.av(c,40)}<span><b>${esc(c.short)}</b><small>${esc(N.pcTag(c))}</small></span>
@@ -305,10 +310,15 @@ function gmScreen(v){
     <section class="gs-sec"><div class="gs-h"><h3>Speak as</h3><button type="button" class="btn sm" data-a="castNpcs">NPCs</button></div>
       <div class="voices">${['Narrator', ...N.voices()].map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="voice" data-v="${esc(n)}" ${v.ui.voice===n&&v.ui.mode==='rp'?'style="background:var(--accent-soft)"':''}>${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text':esc(N.npcSub(npc))}</small></span>${v.ui.voice===n&&v.ui.mode==='rp'?`<span class="go" style="color:var(--gold)">${IC('check')}</span>`:''}</button>`; }).join('')}</div>
     </section>
-    <section class="gs-sec"><div class="gs-h"><h3>Tools</h3></div>
-      <div class="tools"><button type="button" data-a="roll" data-secret="1">${IC('eyeoff')}Secret roll</button><button type="button" data-a="writeNews">${IC('newsL')}Write news</button><button type="button" data-a="sheet" data-v="export">${IC('export')}Export log</button></div>
-    </section>
+
   </div>`;
+}
+function gmPage(v){
+  const ph = v.dev === 'phone', cur = v.ui.ch === 'gm' ? 'table' : v.ui.ch;
+  const chans = N.channelsFor('gm').filter(c => c !== 'gm');
+  const top = ph ? `<div class="top ph">${meBtn(v)}<h1>GM screen</h1></div>` : `<div class="top dt" style="display:flex"><h1>GM screen</h1></div>`;
+  const forRow = `<section class="gs-sec gm-for"><div class="gs-h"><h3>Working in</h3></div><div class="seg" role="group" aria-label="Chat">${chans.map(c => `<button type="button" data-a="gmFor" data-v="${c}" aria-pressed="${cur===c}">${c === 'table' ? IC('users') : ''}${esc(N.chName(c,'gm'))}</button>`).join('')}</div></section>`;
+  return `<div class="scroll" data-sk="gmp" style="min-height:0">${top}<div class="gm-page">${gmScreen(v).replace('<div class="gs">', '<div class="gs">' + forRow)}</div></div>`;
 }
 function coinsHtml(c, edit){
   const n = Math.max(c.fp, c.refresh);
@@ -340,7 +350,9 @@ function popHtml(v){
     const gm = isGM(v);
     let opts = '';
     if (gm) {
-      opts += `<div class="lbl">In character</div>` + ['Narrator', ...N.voices()].map(n => { const npc = N.npcByName(n); const sel = v.ui.mode==='rp' && v.ui.voice===n; return `<button type="button" class="opt" data-a="voice" data-v="${esc(n)}" aria-selected="${sel}">${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text, shown as the book':esc(N.npcSub(npc))}</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`; }).join('')
+      const all = ['Narrator', ...N.voices()], vq = (v.ui.voiceQ || '').trim().toLowerCase();
+      if (all.length > 5) opts += `<div class="pop-find">${IC('search')}<input class="inp" id="vq-${v.id}" data-i="voiceQ" placeholder="Find a voice" value="${esc(v.ui.voiceQ || '')}" autocomplete="off"></div>`;
+      opts += `<div class="lbl">In character</div>` + all.filter(n => !vq || n.toLowerCase().includes(vq)).map(n => { const npc = N.npcByName(n); const sel = v.ui.mode==='rp' && v.ui.voice===n; return `<button type="button" class="opt" data-a="voice" data-v="${esc(n)}" aria-selected="${sel}">${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text, shown as the book':esc(N.npcSub(npc))}</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`; }).join('')
         + `<button type="button" class="opt" data-a="newVoice"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('plus').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>New NPC voice</span></button>`;
     } else {
       const c = N.charOf(v.role), sel = v.ui.mode === 'rp';
@@ -352,6 +364,10 @@ function popHtml(v){
   if (p.type === 'msg') {
     const m = g.msgs.find(x => x.id === p.mid); if (!m) return '';
     return `<div class="pop" style="${pos};min-width:190px" role="menu" aria-label="Message">${N.msgEditable(m) ? `<button type="button" class="opt" role="menuitem" data-a="msgEdit" data-v="${m.id}">${IC('pen')}<span>Edit message</span></button>` : ''}<button type="button" class="opt danger" role="menuitem" data-a="sheet" data-v="msgDel" data-c="${m.id}">${IC('trash')}<span>Delete message</span></button></div>`;
+  }
+  if (p.type === 'wnew') {
+    const row = (a, ic, l, sub, x='') => `<button type="button" class="opt" data-a="${a}" ${x}><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${l}<small>${sub}</small></span></button>`;
+    return `<div class="pop" style="${pos}" role="menu" aria-label="New">${row('wNew', 'quill', 'Wiki entry', 'A person, place or rule')}${row('writeNews', 'newsL', 'News edition', 'Players get a ping')}<div class="sep"></div>${row('sheet', 'gear', 'Categories', 'Rename, reorder, icons', 'data-v="wCats"')}</div>`;
   }
   if (p.type === 'maps') {
     return `<div class="pop" style="${pos}" role="listbox" aria-label="Maps">${g.maps.filter(m=>isGM(v)||m.vis!==false).map(m => `<button type="button" class="opt" data-a="mapGo" data-v="${m.id}" aria-selected="${N.curMap(v)===m}"><span class="av sq" style="--s:40px;box-shadow:none;background:${N.imgUrl(m.src)?`url(${N.imgUrl(m.src)}) center/cover`:'var(--sunk)'}"></span><span>${esc(m.name)}<small>${m.pins.filter(p=>p.type!=='party'&&(isGM(v)||p.vis)).length} places${isGM(v)&&N.audOf(m,'map')!=='*'?' · '+esc(N.audOf(m,'map')==='gm'?'hidden from players':N.audLabel(m,'map')):''}</small></span>${N.curMap(v)===m?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
@@ -386,7 +402,7 @@ function mapPage(v){
         <button type="button" class="mapsel glass" data-a="pop" data-v="maps"><span class="th" style="${src ? `background-image:url(${src})` : ''}"></span><span style="min-width:0"><small>Map${gm && N.audOf(m,'map') !== '*' ? ' · ' + (N.audOf(m,'map') === 'gm' ? 'hidden' : esc(N.audLabel(m,'map'))) : ''}</small><b>${esc(m.name)}</b></span>${IC('caret')}</button>
         <div class="search only-dt" style="width:240px"><svg viewBox="0 0 256 256" fill="currentColor">${(window.ICONS.search||['',''])[1]}</svg><input class="inp glass" id="mapq-${v.id}" data-i="mapQ" placeholder="Find a place" value="${esc(v.ui.mapQ)}" style="border:0"></div>
         <span style="flex:1"></span>
-        ${gm ? `<button type="button" class="btn ${v.ui.mapEdit?'primary':'glass'}" data-a="mapEdit">${IC('pen')}<span class="only-dt">${v.ui.mapEdit?'Done editing':'Edit map'}</span></button>` : ''}
+        ${gm ? `<button type="button" class="btn ${v.ui.mapEdit?'primary':'glass'}" data-a="mapEdit">${IC('pen')}<span class="only-dt">${v.ui.mapEdit?'Done editing':'Edit map'}</span><span class="only-ph">${v.ui.mapEdit?'Done':'Edit'}</span></button>` : ''}
       </div>
       <div class="chips" role="group" aria-label="Show">${types.map(t => `<button type="button" class="cchip" data-a="mapType" data-v="${t}" aria-current="${v.ui.mapType===t}" style="padding:0 12px">${t==='all'?'Everything':IC((N.PINT[t]||N.PINT.note).ic)+esc((N.PINT[t]||N.PINT.note).name)}</button>`).join('')}${party || !g.party.map ? '' : `<button type="button" class="cchip" data-a="findParty" style="padding:0 12px">${IC('banner')}Find the party</button>`}</div>
       <span></span>
@@ -422,7 +438,7 @@ function worldPage(v){
   const newsNew = !gm && issue && !(g.news.seen[v.role]||[]).includes(issue.id);
   const herald = `<button type="button" class="herald" data-a="herald"><span class="np"><b>News</b><i></i><i class="s"></i><i></i><i></i><i class="s"></i></span><span><span class="eyebrow" style="color:var(--gold)">The paper ${newsNew?'<span class="tag gold">New</span>':''}</span><h3>${issue ? esc(issue.headline) : 'No editions yet'}</h3><small>${issue ? `No. ${esc(issue.no)}${issue.date ? ' · ' + esc(issue.date) : ''}` : gm ? 'Write the first edition. Players get a ping.' : `Coming soon. ${esc(N.gmName())} publishes editions here.`}</small></span></button>`;
   const index = `<div class="wi scroll" data-sk="wi">
-    ${ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="ibtn sm" data-a="sheet" data-v="wCats" aria-label="Edit categories" title="Edit categories">${IC('gear')}</button><button type="button" class="btn sm primary" data-a="wNew">${IC('plus')}Entry</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm ghost" data-a="sheet" data-v="wCats">${IC('gear')}Categories</button><button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
+    ${ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm ghost" data-a="sheet" data-v="wCats">${IC('gear')}Categories</button><button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
     ${herald}
     <div class="search">${IC('search')}<input class="inp" id="wq-${v.id}" data-i="wikiQ" placeholder="Search ${g.wiki.length} entries" value="${esc(v.ui.wikiQ)}"></div>
     ${q ? `<div class="ents">${g.wiki.filter(hit).slice(0,40).map(e => entBtn(v,e)).join('') || '<p class="muted" style="font-weight:600">Nothing matches.</p>'}</div>`
@@ -547,21 +563,27 @@ N.conLv = conLv;
 const noteBox = (v, c, k, edit, ph) => edit ? `<textarea class="inp" id="cn-${k}-${c.id}-${v.id}" data-i="cnote" data-c="${c.id}" data-k="${k}" rows="3" placeholder="${ph}">${esc(c[k]||'')}</textarea>`
   : c[k] ? `<p style="margin:0;white-space:pre-line">${esc(c[k])}</p>` : '<p class="muted">Nothing yet.</p>';
 /* the items the GM hands out; only the GM changes them */
-function invList(v, c, gm){
-  const own = c.player ? `data-c="${c.id}"` : `data-n="${c.id}"`;
+function invList(v, c, gm, owner){
+  /* owner: an NPC being made or edited keeps its items on the draft (data-nd) until it is saved */
+  const own = owner || (c.player ? `data-c="${c.id}"` : `data-n="${c.id}"`), key = owner ? 'nd' : c.id;
   return `<div class="inv">${(c.inv || []).map(([n,q,d,ic],i) => `<div class="it"><span class="ii">${IC(ic||'bag')}</span><span><b>${esc(n)}</b>${d?`<small>${esc(d)}</small>`:''}</span><span class="q">×${q}</span>${gm?`<span class="mini"><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="-1" aria-label="One fewer ${esc(n)}">−</button><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="1" aria-label="One more ${esc(n)}">+</button><button type="button" data-a="invDel" ${own} data-i="${i}" aria-label="Remove ${esc(n)}">${IC('x')}</button></span>`:''}</div>`).join('') || `<p class="muted">${gm?'No items yet.':`No items yet. ${esc(N.gmName())} adds them here.`}</p>`}</div>
-      ${gm?`<div class="invadd"><input class="inp" id="inv-${c.id}-${v.id}" placeholder="Add an item, e.g. Silver dagger" aria-label="Item name"><input class="inp" id="invq-${c.id}-${v.id}" data-i="invQ" type="number" min="1" value="${v.ui.invQ||1}" aria-label="How many"><button type="button" class="btn sm" data-a="invAdd" ${own}>${IC('plus')}Add</button><input class="inp" id="invd-${c.id}-${v.id}" placeholder="What it does (optional), e.g. Melee 1" aria-label="Item note" style="grid-column:1/-1"></div>${c.player?`<p class="muted" style="margin:6px 0 0;font:600 12px/1.4 var(--f-ui)">Changes post a note in ${esc(pn(c))}’s private chat.</p>`:''}`:''}`;
+      ${gm?`<div class="invadd"><input class="inp" id="inv-${key}-${v.id}" placeholder="Add an item, e.g. Silver dagger" aria-label="Item name"><input class="inp" id="invq-${key}-${v.id}" data-i="invQ" type="number" min="1" value="${v.ui.invQ||1}" aria-label="How many"><button type="button" class="btn sm" data-a="invAdd" ${own}>${IC('plus')}Add</button><input class="inp" id="invd-${key}-${v.id}" placeholder="What it does (optional), e.g. Melee 1" aria-label="Item note" style="grid-column:1/-1"></div>${c.player?`<p class="muted" style="margin:6px 0 0;font:600 12px/1.4 var(--f-ui)">Changes post a note in ${esc(pn(c))}’s private chat.</p>`:''}`:''}`;
 }
-function invPage(v){
-  const gm = isGM(v), ph = v.dev === 'phone';
+N.invList = invList;
+function invBody(v){
+  const gm = isGM(v);
   const list = gm ? N.pcs() : [N.charOf(v.role)].filter(Boolean);
-  const top = ph ? `<div class="top ph">${meBtn(v)}<h1>Inventory</h1></div>` : `<div class="top dt" style="display:flex"><h1>Inventory</h1></div>`;
   const body = list.length ? list.map(c => !c.built
       ? `<section class="sec"><h3>${esc(pn(c))}</h3><p class="muted">${gm?'No card yet. Make it in Cast first.':`${esc(N.gmName())} hasn’t made your character card yet.`}</p></section>`
       : `<section class="sec"><h3>${gm?esc(c.short):'Items'}</h3>${gm?`<div style="display:flex;gap:10px;align-items:center">${N.av(c,36)}<span class="muted" style="font:600 13px/1.3 var(--f-ui)">Played by ${esc(pn(c))}</span></div>`:''}${invList(v, c, gm)}</section>
         <section class="sec"><h3>${gm?`${esc(c.short)}’s notes`:'Your notes'}</h3>${noteBox(v, c, 'invText', gm || c.player === v.role, 'What you carry, in your own words')}</section>`).join('')
     : `<div class="quiet full"><div class="art"></div><p>${gm?'No one has a seat yet.':'Nothing here yet.'}</p></div>`;
-  return `<div class="scroll" data-sk="inv" style="min-height:0">${top}<div class="sheetv">${body}</div></div>`;
+  return `<div class="sheetv">${body}</div>`;
+}
+function invPage(v){
+  const ph = v.dev === 'phone';
+  const top = ph ? `<div class="top ph">${meBtn(v)}<h1>Inventory</h1></div>` : `<div class="top dt" style="display:flex"><h1>Inventory</h1></div>`;
+  return `<div class="scroll" data-sk="inv" style="min-height:0">${top}${invBody(v)}</div>`;
 }
 
 function castPage(v){
@@ -576,9 +598,9 @@ function castPage(v){
   const q = (v.ui.npcQ || '').trim().toLowerCase();
   const npcs = g.npcs.filter(n => !q || [n.name, n.race, n.job, n.hc].join(' ').toLowerCase().includes(q));
   return `<div class="scroll" data-sk="cast" style="min-height:0"><div class="cast">
-    <div style="display:flex;align-items:center;gap:10px;padding-top:var(--safe-t,0px)">${ph?meBtn(v):''}<h1 class="ttl" style="flex:1;font-size:${ph?22:28}px">Cast</h1>${seg==='npcs'?`<button type="button" class="btn sm primary spark" data-a="npcNew">${IC('plus')}New NPC</button>`:''}</div>
-    <div class="seg" role="group" aria-label="Show" style="justify-self:start"><button type="button" data-a="castSeg" data-v="players" aria-pressed="${seg==='players'}">${IC('users')}Players</button><button type="button" data-a="castSeg" data-v="npcs" aria-pressed="${seg==='npcs'}">${IC('npc')}NPCs <span class="tag" style="height:16px">${g.npcs.length}</span></button></div>
-    ${seg === 'players' ? `<div class="cgrid">${pcs.map(c => c.built
+    <div style="display:flex;align-items:center;gap:10px;padding-top:var(--safe-t,0px)">${ph?meBtn(v):''}<h1 class="ttl" style="flex:1;font-size:${ph?22:28}px">Cast</h1><button type="button" class="btn sm primary spark" data-a="npcNew">${IC('plus')}New NPC</button></div>
+    <div class="seg" role="group" aria-label="Show" style="justify-self:start"><button type="button" data-a="castSeg" data-v="players" aria-pressed="${seg==='players'}">${IC('users')}Players</button><button type="button" data-a="castSeg" data-v="npcs" aria-pressed="${seg==='npcs'}">${IC('npc')}NPCs <span class="tag" style="height:16px">${g.npcs.length}</span></button><button type="button" data-a="castSeg" data-v="items" aria-pressed="${seg==='items'}">${IC('bag')}Items</button></div>
+    ${seg === 'items' ? invBody(v) : seg === 'players' ? `<div class="cgrid">${pcs.map(c => c.built
       ? `<button type="button" class="ccard" data-a="castSel" data-v="${c.id}">${N.av(c,52)}<span><b>${esc(c.name)}</b><small>${esc(N.pcTag(c))}</small><small>Played by ${esc(pn(c))}</small></span><span class="icon-go">${IC('right')}</span></button>`
       : `<div class="ccard empty">${N.av({name:pn(c),color:c.color},52)}<span><b>${esc(pn(c))}</b><small>Signed in · no card yet</small></span><button type="button" class="btn sm primary" data-a="pcEdit" data-v="${c.id}">Make card</button></div>`).join('')}
       <button type="button" class="ccard empty" data-a="sheet" data-v="players"><span class="av" style="--s:52px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('userplus').replace('<svg','<svg style="width:24px;height:24px"')}</span><span><b>Players &amp; sign-ins</b><small>${pending ? `${pending} ${pending===1?'person is':'people are'} waiting to be let in` : pcs.length ? 'Let people in, rename or remove them' : 'Send your players the link to this page'}</small></span>${pending?`<span class="badge">${pending}</span>`:`<span class="icon-go">${IC('right')}</span>`}</button></div>`

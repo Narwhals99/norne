@@ -44,7 +44,7 @@ N.sheetHtml = function(v){
     const skills = Object.entries(who.skills).sort((a,b) => b[1]-a[1]);
     const rest = N.MUNDANE.filter(k => !(k in who.skills));
     const cb = g.combat, tokOfWho = r.who.startsWith('tok:') ? N.tokById(r.who.slice(4)) : r.who.startsWith('pc:') ? cb.tokens.find(t => t.kind==='pc' && t.ref === r.who.slice(3)) : null;
-    const inFight = cb.state === 'live' && tokOfWho && tokOfWho.zone && !tokOfWho.out;
+    const inFight = isGM(v) && cb.state === 'live' && tokOfWho && tokOfWho.zone && !tokOfWho.out;
     const targets = inFight ? N.foesOf(tokOfWho) : [];
     const gear = other ? 0 : N.rollGear(who.key, r.action);
     const bonus = other ? (+r.otherBonus || 0) : (who.skills[r.skill] ?? 0) + gear;
@@ -87,7 +87,7 @@ N.sheetHtml = function(v){
     const isOn = p => p.place ? (d.place && d.place.map === p.place.map && d.place.rx === p.place.rx && d.place.ry === p.place.ry) : (d.art && d.art === p.art);
     const forwho = ['table', ...N.seats().map(x => 'dm-' + x)];
     const body = `
-      <div><h4>Who sees it</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
+      <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
       <div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">Picture</h4><div class="seg"><button type="button" data-a="sdTab" data-v="recent" aria-pressed="${tab==='recent'}">Recent</button><button type="button" data-a="sdTab" data-v="pics" aria-pressed="${tab==='pics'}">Pictures</button><button type="button" data-a="sdTab" data-v="maps" aria-pressed="${tab==='maps'}">Map places</button></div></div>
         <div class="thumbs">${pics.map(p => `<button type="button" class="thumb${isOn(p)?' on':''}" ${p.up ? `data-a="sdPickUp" data-v="${esc(p.art)}"` : `data-a="sdPick" data-v="${esc(p.id)}"`} style="${N.sceneArt(p)};${p.place?'background-size:420% auto':''}"><span>${esc(p.title)}<small>${esc(p.sub||'')}</small></span>${isOn(p)?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
           ${tab==='pics'?`<button type="button" class="thumb up" data-a="sdUpload"><span>${IC('upload')}Upload a picture</span></button>`:''}
@@ -102,7 +102,7 @@ N.sheetHtml = function(v){
         <span style="display:flex;gap:6px;flex:1;min-width:200px"><input class="inp" id="sda-${v.id}" data-i="sd" data-k="newAsp" value="${esc(d.newAsp||'')}" placeholder="Add an aspect" style="min-height:36px;padding:6px 12px"><button type="button" class="btn sm" data-a="sdAspAdd">${IC('plus')}Add</button></span></div></div>
       <button type="button" class="toggle" data-a="sdPost" aria-pressed="${d.post}">${IC('scroll')}<span>Mark it in the chat<small>Adds a small “New scene” line so the log reads like chapters.</small></span><span class="sw"></span></button>`;
     const has = g.scenes[d.ch];
-    return sheet(has ? 'Change the scene' : 'Set the scene', body, `${has?`<button type="button" class="btn ghost" data-a="sdClear" style="flex:0 0 auto">Clear</button>`:''}<button type="button" class="btn primary lg" data-a="sdApply" ${d.title.trim() && (d.art||d.place) ? '' : 'disabled'}>${IC('image')}Set the scene for ${d.ch==='table'?'everyone':esc(pName(d.ch.slice(3)))}</button>`, {wide:true});
+    return sheet(has ? 'Change the scene' : 'Set the scene', body, `${has?`<button type="button" class="btn ghost" data-a="sdClear" style="flex:0 0 auto">Clear</button>`:''}<button type="button" class="btn primary lg" data-a="sdApply" ${d.title.trim() && (d.art||d.place) ? '' : 'disabled'}>${IC('image')}Change scene for ${d.ch==='table'?'everyone':esc(pName(d.ch.slice(3)))}</button>`, {wide:true});
   }
   /* ---------------- GM screen / my hero on phones ---------------- */
   case 'gm': return sheet('GM screen', N.gmScreen(v).replace('<div class="gs">','<div class="gs" style="padding:0">'), '', {lead:`<span class="av narrav" style="--s:34px">${N.STAR}</span>`});
@@ -325,6 +325,7 @@ function npcEditor(v){
     <label class="field"><span>Disciplines</span><textarea class="inp" id="ndm-${v.id}" data-i="nd" data-k="magic" rows="2" placeholder="Notes on their disciplines and anything else they can do">${esc(d.magic||'')}</textarea></label>
     <div><h4>Stunts</h4>${stunts(v, d, 'nd')}</div>
     ${steppers(d, 'nd')}
+    <div><h4>Inventory</h4>${N.invList(v, d, true, 'data-nd="1"')}</div>
     <label class="field"><span>Bio</span><textarea class="inp" id="ndb-${v.id}" data-i="nd" data-k="bio" rows="3" placeholder="Who they are, what they look like, how they talk…">${esc(d.bio||'')}</textarea></label>
     <label class="field"><span>${lockIc}GM notes</span><textarea class="inp" id="ndx-${v.id}" data-i="nd" data-k="notes" rows="2" placeholder="Only you see these">${esc(d.notes||'')}</textarea></label>`;
 }
