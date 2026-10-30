@@ -55,5 +55,7 @@ noscript{position:fixed;inset:0;display:grid;place-items:center;padding:24px;col
   wide.addEventListener ? wide.addEventListener('change', onWide) : wide.addListener(onWide);
   N.kbInit();
   N.boot(v);
+  /* the service worker makes each reload pick up the newest version of the site (see sw.js) */
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
 </script>
