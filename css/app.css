@@ -1557,7 +1557,7 @@
 .app .gif-by{margin:4px 2px 2px;font:700 10px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4);text-align:right}
 .app .gif-link{display:flex;gap:6px;align-items:center;padding:4px 2px 2px}
 .app .gif-link .inp{flex:1;min-width:0;height:38px;min-height:38px}
-.app .m.gifm .gifbox{padding:5px;border-radius:20px;border:1.5px dashed var(--line-3)}
+.app .m.gifm .gifbox{width:fit-content;max-width:100%;padding:5px;border-radius:20px;border:1.5px dashed var(--line-3)}
 .app .m.gifm .gif{display:block;width:min(260px,100%);max-height:320px;object-fit:cover;border-radius:14px;background:var(--sunk)}
 /* GM screen: the picture shelf at the bottom */
 .app .gs-pics .gs-h small{font:700 12px/1 var(--f-ui)}
