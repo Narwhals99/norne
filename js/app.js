@@ -357,7 +357,7 @@ function afterFightRoll(v, r, m){
   if (r.action === 'attack' && r.target) {
     const d = N.tokById(r.target);
     N.boostTick(a);
-    cb.pending = {att:a.id, def:r.target, total:tot, skill:m.roll.skill, msgId:m.id, stage:'defend'}; cb.acted = true;
+    cb.pending = {att:a.id, def:r.target, total:tot, skill:m.roll.skill, msgId:m.id, stage:'defend'}; cb.last = null; cb.acted = true;
     fsys(`${N.tokName(a)} attacks ${d ? N.tokName(d) : 'someone'} with ${m.roll.skill}: ${sgn(tot)} ${ladderWord(tot)}. ${d ? N.tokName(d) : 'They'} rolls to defend next.`);
     return;
   }
@@ -396,10 +396,11 @@ function cbAbsorb(v, k, i){
   const g = G(), cb = g.combat, p = cb.pending; if (!p) return;
   const t = N.tokById(p.def), c = t && g.chars[t.ref]; if (!c) return;
   const sh = `${p.shifts} shift${p.shifts>1?'s':''}`;
+  (p.fx = p.fx || {}).pc = {k, i};
   if (k === 'box') { c.stress.phys[i] = true; fsys(`${c.short} soaks the ${sh} with their ${c.stressV.phys[i]}-stress box.`); }
   else if (k === 'out') { t.out = true; fsys(`${c.short} can’t soak the ${sh} and is taken out.`); }
   else { c.cons[k] = 'Hurt in the fight'; const sl = N.consSlots(c.skills).find(x => x.k === k); fsys(`${c.short} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
-  cb.pending = null; renderAll();
+  N.cbSettled(p); renderAll();
 }
 
 /* ---------------- tokens and zones ---------------- */

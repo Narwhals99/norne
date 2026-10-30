@@ -171,7 +171,7 @@ function npcCard(o){
     stressV:{phys:pv, ment:mv}, stress:{phys:pv.map(()=>false), ment:mv.map(()=>false)}, cons:{mild:'',moderate:'',severe:''}, gearAtk:0, gearDef:0}, o);
 }
 function freshCombat(){
-  return {state:'off', id:null, ch:'table', title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, acted:false, moved:false, phase:null, lead:null};
+  return {state:'off', id:null, ch:'table', title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, last:null, acted:false, moved:false, phase:null, lead:null};
 }
 N.freshCombat = freshCombat; N.npcCard = npcCard; N.blankChar = blankChar;
 N.G.combat = freshCombat();

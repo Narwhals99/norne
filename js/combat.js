@@ -422,12 +422,12 @@ N.cbMove = function(t, zid){
   if (G().combat.state === 'live') sys(`${N.tokName(t)} moves to ${z.name}.`);
   return true;
 };
-N.applyHit = function(t, shifts){
-  /* GM side: put shifts on an NPC the simple way */
+N.applyHit = function(t, shifts, fx){
+  /* GM side: put shifts on an NPC the simple way. fx (optional) remembers what changed so it can be taken back. */
   if (t.kind === 'npc') {
     const i = t.stressV.findIndex((x,k) => !t.stress[k] && x >= shifts);
-    if (i >= 0) { t.stress[i] = true; return `${N.tokName(t)} checks their ${t.stressV[i]}-stress box.`; }
-    t.out = true; return `${N.tokName(t)} can’t soak ${shifts} shift${shifts>1?'s':''} and is taken out!`;
+    if (i >= 0) { t.stress[i] = true; if (fx) fx.box = i; return `${N.tokName(t)} checks their ${t.stressV[i]}-stress box.`; }
+    t.out = true; if (fx) fx.out = true; return `${N.tokName(t)} can’t soak ${shifts} shift${shifts>1?'s':''} and is taken out!`;
   }
   return '';
 };
@@ -435,7 +435,7 @@ N.applyHit = function(t, shifts){
 /* A boost: a very short-lived fight aspect. Its owner (tok) can invoke it once for free; then it is gone.
    The GM names it (t is '' until then). It lasts for its owner's next two attacks or defenses (left counts
    down at the start of each one) and fades if it isn't invoked by then. on = who it was put on. */
-N.addBoost = (owner, on, t) => { G().combat.aspects.push({t:t || '', free:1, boost:true, by:N.tokName(owner), tok:owner.id, on:on ? N.tokName(on) : '', left:2}); };
+N.addBoost = (owner, on, t) => { const b = {id:N.uid('b'), t:t || '', free:1, boost:true, by:N.tokName(owner), tok:owner.id, on:on ? N.tokName(on) : '', left:2}; G().combat.aspects.push(b); return b; };
 N.boostTick = t => {
   const cb = G().combat; if (!t) return;
   cb.aspects = cb.aspects.filter(a => {
@@ -459,19 +459,19 @@ N.cbResolve = function(again){
   if (!a || !d || !dm) { cb.pending = null; return; }
   const an = N.tokName(a), dn = N.tokName(d), dt = N.rollTotal(dm.roll), sh = p.total - dt;
   const wpn = sh > 0 ? N.tokGear(a, 'gearAtk') : 0, arm = sh > 0 ? N.tokGear(d, 'gearDef') : 0;
-  const dmg = Math.max(0, sh + wpn - arm - (p.boosted ? 2 : 0));
-  if (again && sh > 0 && dmg === p.shifts) return;
+  const dmg = Math.max(0, sh + wpn - arm - (p.boosted ? 2 : 0)), fx = p.fx = p.fx || {};
+  const boost = (o, on) => { (fx.boosts = fx.boosts || []).push(N.addBoost(o, on).id); };
   let out, after, calc = null;
   if (sh > 0) {
     if (wpn || arm || p.boosted) calc = `Hit by ${sh}${wpn ? ` · weapon +${wpn}` : ''}${arm ? ` · armor −${arm}` : ''}${p.boosted ? ' · traded −2 for a boost' : ''} = ${dmg} shift${dmg===1?'':'s'}`;
-    const style = sh >= 3 && dmg > 0 && !again && !p.boosted;
+    const style = sh >= 3 && dmg > 0 && !p.boosted;
     out = {k:'hit', t:dmg ? `Hit${style ? ' with style' : ''} · ${dmg} shift${dmg>1?'s':''}` : 'Hit · armor holds'};
-    if (!dmg) { after = `${dn}’s armor takes the whole blow. No harm done.`; cb.pending = null; }
+    if (!dmg) { after = `${dn}’s armor takes the whole blow. No harm done.`; N.cbSettled(p); }
     else if (style) { p.stage = 'style'; p.dmg = dmg; after = `${N.gmName()} picks: the full ${dmg} shift${dmg>1?'s':''}, or ${Math.max(0, dmg - 2)} and a boost on ${dn}.`; }
-    else if (d.kind === 'npc') { after = N.applyHit(d, dmg); cb.pending = null; }
+    else if (d.kind === 'npc') { after = N.applyHit(d, dmg, fx); N.cbSettled(p); }
     else { p.stage = 'absorb'; p.shifts = dmg; after = `${dn} must soak ${dmg} shift${dmg>1?'s':''}: check a stress box or take a consequence.`; }
-  } else if (sh === 0) { out = {k:'tie', t:'Tie'}; after = `No harm done. ${an} gets a boost on ${dn}.`; cb.pending = null; N.addBoost(a, d); }
-  else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ` and gets a boost on ${an}` : ''}. No harm done.`; cb.pending = null; if (sh <= -3) N.addBoost(d, a); }
+  } else if (sh === 0) { out = {k:'tie', t:'Tie'}; after = `No harm done. ${an} gets a boost on ${dn}.`; N.cbSettled(p); boost(a, d); }
+  else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ` and gets a boost on ${an}` : ''}. No harm done.`; N.cbSettled(p); if (sh <= -3) boost(d, a); }
   const att = am ? rollLine(an, am.roll) : {n:an, sk:p.skill, b:0, g:0, tot:p.total}; att.tot = p.total;
   const title = `${an} attacks ${dn}${again ? ', after invokes' : ''}`;
   const res = {k:'clash', title, rows:[att, rollLine(dn, dm.roll)], out, after};
@@ -484,15 +484,37 @@ N.cbStyle = function(choice){
   const a = N.tokById(p.att), d = N.tokById(p.def); if (!a || !d) { cb.pending = null; return; }
   const an = N.tokName(a), dn = N.tokName(d);
   let dmg = p.dmg;
-  if (choice === 'boost') { dmg = Math.max(0, dmg - 2); p.boosted = true; N.addBoost(a, d); }
+  const fx = p.fx = p.fx || {};
+  if (choice === 'boost') { dmg = Math.max(0, dmg - 2); p.boosted = true; (fx.boosts = fx.boosts || []).push(N.addBoost(a, d).id); }
   const how = choice === 'boost' ? `${an} takes 2 off the damage and puts a boost on ${dn}.` : `${an} goes for the full damage.`;
-  if (!dmg) { cb.pending = null; sys(`${how} No harm done.`); return; }
-  if (d.kind === 'npc') { cb.pending = null; sys(`${how} ${dmg} shift${dmg>1?'s':''}: ${N.applyHit(d, dmg)}`); return; }
+  if (!dmg) { N.cbSettled(p); sys(`${how} No harm done.`); return; }
+  if (d.kind === 'npc') { N.cbSettled(p); sys(`${how} ${dmg} shift${dmg>1?'s':''}: ${N.applyHit(d, dmg, fx)}`); return; }
   p.stage = 'absorb'; p.shifts = dmg; sys(`${how} ${dn} must soak ${dmg} shift${dmg>1?'s':''}.`);
 };
-/* an invoke on either roll while the defender is still soaking changes the result: post it again */
+/* An attack is settled once its harm is on the cards. It stays as combat.last until the next attack, so an invoke
+   on either of its rolls can still change the outcome: N.cbReresolve takes back what it did (stress box, taken out,
+   consequence, boosts, the style pick) and settles it again with the new totals. */
+N.cbSettled = p => { const cb = G().combat; cb.pending = null; cb.last = p; };
+N.cbUndo = function(p){
+  const g = G(), cb = g.combat, fx = p.fx || {}, d = N.tokById(p.def);
+  if (d && d.kind === 'npc') { if (fx.box != null) d.stress[fx.box] = false; if (fx.out) d.out = false; }
+  const c = d && d.kind === 'pc' && g.chars[d.ref];
+  if (c && fx.pc) {
+    if (fx.pc.k === 'box') c.stress.phys[fx.pc.i] = false;
+    else if (fx.pc.k === 'out') d.out = false;
+    else if (c.cons[fx.pc.k] === 'Hurt in the fight') c.cons[fx.pc.k] = '';
+  }
+  if (fx.boosts) cb.aspects = cb.aspects.filter(a => !fx.boosts.includes(a.id));
+  p.fx = {}; p.boosted = false; delete p.shifts; delete p.dmg; p.stage = 'defend';
+};
 N.cbReresolve = function(m){
-  const p = G().combat.pending;
-  if (p && p.stage === 'absorb' && (m.id === p.msgId || m.id === p.defMsg)) N.cbResolve(true);
+  const g = G(), cb = g.combat, p = cb.pending, l = cb.last;
+  let q = null;
+  if (p && p.defMsg && (m.id === p.msgId || m.id === p.defMsg)) q = p;
+  else if (!p && l && (m.id === l.msgId || m.id === l.defMsg)) q = l;
+  if (!q) return;
+  if (m.id === q.msgId) q.total = N.rollTotal(m.roll);
+  N.cbUndo(q); cb.pending = q; cb.last = null;
+  N.cbResolve(true);
 };
 })();
