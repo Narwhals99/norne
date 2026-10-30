@@ -195,7 +195,9 @@ function renderMsgs(v){
   const seen = (g.seen[v.role] || {})[v.ui.ch] || 0; let divDone = false;
   for (const m of ms) {
     if (!divDone && m.by !== v.role && m.t > seen && seen > 0 && v.ui.showNew) { out += `<div class="day-div" style="color:var(--ember)">New</div>`; divDone = true; }
-    out += rMsg(v, m, prev, firstNarr);
+    const h = rMsg(v, m, prev, firstNarr);
+    /* the GM can edit or delete any message: long-press on a phone, the ⋯ button on a computer */
+    out += h && isGM(v) ? `<div class="mw${v.ui.pop?.mid === m.id ? ' on' : ''}" data-mid="${m.id}">${h}<button type="button" class="mdots" data-a="msgMenu" data-v="${m.id}" aria-label="Edit or delete this message">${IC('dots')}</button></div>` : h;
     if (m.kind === 'rp' && m.by === 'gm' && m.as === 'Narrator') firstNarr = false;
     if (m.kind === 'scene') firstNarr = true;
     prev = m;
@@ -203,10 +205,10 @@ function renderMsgs(v){
   return out;
 }
 function rMsg(v, m, prev, firstNarr){
-  const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`;
+  const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`, txt = fmt(m.text) + (m.ed ? ' <span class="ed">edited</span>' : '');
   if (m.kind === 'sys') return m.res ? resCard(m.res) : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
   if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}"></span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
-  if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${fmt(m.text)}</div></div></div>`;
+  if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
   if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);
   if (m.kind === 'news') return `<div class="fightcard" style="box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 18px 40px -18px rgba(0,0,0,.9)"><div class="in" style="padding-top:18px;grid-template-columns:auto 1fr;align-items:center"><div class="herald" style="all:unset;display:contents"><span class="np" style="width:54px;height:66px;border-radius:4px;background:#efe6cc;rotate:-4deg;display:grid;place-items:center;font:400 12px/1 var(--f-mast);color:#2a2418;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)">News</span></div><div style="display:grid;gap:6px"><span class="eyebrow" style="color:var(--gold)">${IC('newsL')}New edition</span><h3 style="font-size:18px">${esc(m.text)}</h3><div class="row"><button type="button" class="btn sm gold" data-a="readNews" data-id="${esc(m.nid||'')}">Read it</button></div></div></div></div>`;
   if (m.kind === 'roll') {
@@ -217,12 +219,12 @@ function rMsg(v, m, prev, firstNarr){
   const cont = prev && prev.by === m.by && prev.kind === m.kind && (prev.as||'') === (m.as||'') && m.t - prev.t < 180000 && m.kind !== 'scene';
   if (m.kind === 'ooc' || m.kind === 'meta') {
     const p = N.personObj(m.by);
-    return `<div class="m ooc${mine?' mine':''}${cont?' cont':''}">${N.av(p,32)}<div class="body">${cont?'':`<div class="who" style="--who:var(--ink-3)">${esc(p.name)} ${time}</div>`}<div class="bub">${fmt(m.text)}</div></div></div>`;
+    return `<div class="m ooc${mine?' mine':''}${cont?' cont':''}">${N.av(p,32)}<div class="body">${cont?'':`<div class="who" style="--who:var(--ink-3)">${esc(p.name)} ${time}</div>`}<div class="bub">${txt}</div></div></div>`;
   }
   const s = N.speakerObj(m);
-  if (s.narr) return `<div class="narr${firstNarr?' first':''}"><div class="who">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}Narrator ${time}</div><p>${fmt(m.text)}</p></div>`;
+  if (s.narr) return `<div class="narr${firstNarr?' first':''}"><div class="who">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}Narrator ${time}</div><p>${txt}</p></div>`;
   const gmv = mine && isGM(v) ? ' gmv' : '';
-  return `<div class="m${mine?' mine':''}${gmv}${cont?' cont':''}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${fmt(m.text)}</div></div></div>`;
+  return `<div class="m${mine?' mine':''}${gmv}${cont?' cont':''}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${txt}</div></div></div>`;
 }
 function rRoll(v, m){
   const r = m.roll, tot = rollTotal(r), o = outcome(r), fold = v.ui.folded.has(m.id) ? v.ui.folded.get(m.id) : m.id !== v._lastRoll;
@@ -346,6 +348,10 @@ function popHtml(v){
     }
     opts += `<div class="sep"></div><button type="button" class="opt" data-a="voice" data-v="__ooc" aria-selected="${v.ui.mode==='ooc'}"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--accent-soft);color:var(--ink-2)">${IC('chatL').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>Out of character<small>Questions and table talk</small></span>${v.ui.mode==='ooc'?`<span class="ck">${IC('check')}</span>`:''}</button>`;
     return `<div class="pop" style="${pos}" role="listbox" aria-label="Speak as">${opts}</div>`;
+  }
+  if (p.type === 'msg') {
+    const m = g.msgs.find(x => x.id === p.mid); if (!m) return '';
+    return `<div class="pop" style="${pos};min-width:190px" role="menu" aria-label="Message">${N.msgEditable(m) ? `<button type="button" class="opt" role="menuitem" data-a="msgEdit" data-v="${m.id}">${IC('pen')}<span>Edit message</span></button>` : ''}<button type="button" class="opt danger" role="menuitem" data-a="sheet" data-v="msgDel" data-c="${m.id}">${IC('trash')}<span>Delete message</span></button></div>`;
   }
   if (p.type === 'maps') {
     return `<div class="pop" style="${pos}" role="listbox" aria-label="Maps">${g.maps.filter(m=>isGM(v)||m.vis!==false).map(m => `<button type="button" class="opt" data-a="mapGo" data-v="${m.id}" aria-selected="${N.curMap(v)===m}"><span class="av sq" style="--s:40px;box-shadow:none;background:${N.imgUrl(m.src)?`url(${N.imgUrl(m.src)}) center/cover`:'var(--sunk)'}"></span><span>${esc(m.name)}<small>${m.pins.filter(p=>p.type!=='party'&&(isGM(v)||p.vis)).length} places${isGM(v)&&N.audOf(m,'map')!=='*'?' · '+esc(N.audOf(m,'map')==='gm'?'hidden from players':N.audLabel(m,'map')):''}</small></span>${N.curMap(v)===m?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
