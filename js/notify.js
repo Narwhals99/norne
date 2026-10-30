@@ -45,9 +45,23 @@ async function subscribe(){
     await worker(); const r = await navigator.serviceWorker.ready;
     const sub = await r.pushManager.getSubscription() || await r.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:PUSH_KEY});
     await N.pushSave(devId(), sub.toJSON());
-    return (pushed = true);
+    pushed = true; seen();
+    return true;
   } catch(e) { console.warn('push', e); return (pushed = false); }
 }
+/* while Norne is on screen here, tell the others' devices so they don't push to this one.
+   A fresh mark every 30 seconds: one older than 45 seconds means the app was closed without saying so. */
+const SEEN_EVERY = 30000, SEEN_FOR = 45000;
+let seenT = 0;
+function seen(){
+  clearTimeout(seenT);
+  if (!pushed || !N.pushSeen) return;
+  const on = !document.hidden;
+  N.pushSeen(devId(), on ? Date.now() : 0).catch(() => {});
+  if (on) seenT = setTimeout(seen, SEEN_EVERY);
+}
+document.addEventListener('visibilitychange', seen);
+addEventListener('pagehide', () => { if (pushed && N.pushSeen) N.pushSeen(devId(), 0).catch(() => {}); });
 async function unsubscribe(){
   pushed = false;
   try { const r = reg && await navigator.serviceWorker.ready, sub = r && await r.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch(e) {}
@@ -121,10 +135,12 @@ N.pushOut = m => {
 };
 function flush(){
   const list = out; out = [];
-  const role = G().role, pushes = [];
+  const role = G().role, pushes = [], now = Date.now();
   for (const d of N.PUSH || []) {
     const who = N.MEMBERS.find(x => x.uid === d.uid);
     if (d.role === role || !who || who.role !== d.role) continue;
+    /* Norne is open on that device right now, so they'll see it there */
+    if (d.seen && now - d.seen < SEEN_FOR) continue;
     const byCh = {};
     for (const m of list) { if (!N.channelsFor(d.role).includes(m.ch)) continue; const t = line(m); if (t) (byCh[m.ch] = byCh[m.ch] || []).push(t); }
     for (const [ch, ts] of Object.entries(byCh)) pushes.push({sub:d.sub, title:`Norne · ${N.chName(ch, d.role)}`, body:pings(ts), ch});

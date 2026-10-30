@@ -18,7 +18,8 @@ self.addEventListener('notificationclick', e => {
   }));
 });
 /* a push from the Worker (push/worker.js): someone wrote in a chat this device can read.
-   Skipped while Norne is in front, except on Apple devices, which turn push off for a site that skips one. */
+   Skipped while Norne is in front, except on Apple devices, which turn push off for a site that skips one.
+   (The sender also leaves out devices that have Norne on screen, see js/notify.js, so iPhones stay quiet too.) */
 self.addEventListener('push', e => {
   let d = {}; try { d = e.data.json(); } catch(x) { d = {body:e.data ? e.data.text() : ''}; }
   const apple = /AppleWebKit/.test(navigator.userAgent) && !/Chrome|Chromium|Android/.test(navigator.userAgent);
