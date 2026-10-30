@@ -191,6 +191,7 @@ function input(v, el){
     case 'mapQ': v.ui.mapQ = val; render(v); return;
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
     case 'npcQ': v.ui.npcQ = val; render(v); return;
+    case 'voiceQ': v.ui.voiceQ = val; render(v); return;
     case 'news': v.ui.newsEdit[k] = val; render(v); return;
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
     case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || c.player === v.role)) c[k] = val; return; }
@@ -593,7 +594,7 @@ function act(v, a, el, e){
   case 'fold': ui.folded.set(d.id, !d.f); break;
   case 'send': send(v); return;
   case 'roll': openRoll(v, {skill:d.skill, who: d.who || (d.c ? 'pc:' + d.c : d.npc ? 'npc:' + d.npc : null), secret:!!d.secret}); break;
-  case 'voice': {
+  case 'voice': { ui.voiceQ = '';
     if (val === '__ooc') ui.mode = 'ooc';
     else if (val === '__me') ui.mode = 'rp';
     else { ui.mode = 'rp'; ui.voice = val; }
@@ -654,6 +655,8 @@ function act(v, a, el, e){
   case 'applyScene': { const r = g.recent.find(x => x.id === val); if (!r) break; setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:r.title, where:r.where, art:r.art, place:r.place, aspects:[]}, true); if (ui.sheet === 'gm') ui.sheet = null; renderAll(); return; }
   case 'stress': { const c = g.chars[d.c]; c.stress[d.k][+d.i] = !c.stress[d.k][+d.i]; renderAll(); return; }
   case 'fp': { const c = g.chars[d.c], before = c.fp; c.fp = clamp(c.fp + (+d.d), 0, 10); if (c.fp !== before) sys(+d.d > 0 ? `${N.gmName()} gave ${c.short} a fate point.` : `${c.short} spent a fate point.`); renderAll(); return; }
+  case 'gmFor': ui.ch = val; break;
+  case 'mapEditGo': close(); ui.tab = 'map'; ui.mapEdit = true; ui.addPin = false; break;
   case 'castNpcs': close(); ui.tab = 'cast'; ui.castSeg = 'npcs'; ui.castSel = null; break;
   /* map */
   case 'mapGo': ui.mapId = val; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break;

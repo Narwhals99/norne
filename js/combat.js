@@ -168,7 +168,7 @@ function gmRow(v){
     <button type="button" data-a="cbTool" data-v="zone" aria-pressed="${tool==='zone'}">${IC('zone')}Zones</button>
     <button type="button" data-a="sheet" data-v="addFoe">${IC('person-plus')}Add</button>
     <button type="button" data-a="sheet" data-v="cbAspect">${IC('cards')}Aspect</button>
-    ${cb.state==='live'?`<button type="button" data-a="sheet" data-v="cbEnd">${IC('stop')}End</button>`:''}
+    ${cb.state==='live'?`<button type="button" class="end" data-a="sheet" data-v="cbEnd">${IC('stop')}End fight</button>`:''}
   </div>`;
 }
 /* the better of Athletics and Fighting, plus any gear defense bonus: [skill, skill value, gear] */
@@ -230,7 +230,7 @@ N.fightView = function(v){
   }
   const sel = v.ui.tokSel && N.tokById(v.ui.tokSel);
   if (ph) {
-    const board = boardHtml(v).replace(/<\/div><\/div>$/, toolsHtml(v, true) + '</div></div>');
+    const board = boardHtml(v) + (isGM(v) ? gmRow(v) : '');
     return `<section class="fight cmd ph" aria-label="Fight on ${esc(cb.title)}">
       <div class="top ph">${N.meBtn(v)}<div style="flex:1;display:flex;justify-content:center">${N.fightSeg(v)}</div>${N.sideBtn(v)}</div>
       ${orderStrip(v, true)}

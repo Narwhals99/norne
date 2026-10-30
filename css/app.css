@@ -1383,3 +1383,29 @@
 .app .fight.cmd.ph .nowbar .end .btn{--h:38px;padding:0 13px;font-size:13px}
 .app .fight.cmd.ph .nowbar .ln .nb-zt{display:none}
 .app .fight.cmd.ph .nowbar .acts>.btn{flex:1}
+
+/* ---------- GM home: the GM screen as its own tab, every GM tool in one labelled grid ---------- */
+.app .gm-page{min-height:0}
+.app .gm-for .seg{max-width:100%;overflow-x:auto;scrollbar-width:none;justify-self:start}
+.app .gm-for .seg svg{width:15px;height:15px}
+.app .gmrow button.end{color:var(--ember)}
+.app .gmrow button.end svg{color:var(--ember)}
+.app .fight.ph .fight-scroll>.gmrow{padding:10px 2px 2px}
+@container dev (min-width: 760px){
+  .app .gm-page{max-width:1080px;margin:0 auto;width:100%;padding:0 22px 40px}
+  .app .gm-page .gs{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 26px;padding-inline:0}
+  .app .gm-page .gs>.bigcta,.app .gm-page .gs>.gs-tools,.app .gm-page .gs>.gm-for{grid-column:1/-1}
+  .app .gm-page .gs-tools .tools{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+}
+/* phones, live fight: the GM tools sit under the board as a five-slot bar, every one visible at once */
+.app .fight.ph .fight-scroll>.gmrow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;overflow:visible}
+.app .fight.ph .fight-scroll>.gmrow button{flex-direction:column;justify-content:center;height:auto;min-height:54px;padding:7px 2px;gap:4px;border-radius:14px;font-size:11.5px;text-align:center;line-height:1.1}
+.app .gm-page .gs{align-items:start}
+@container dev (min-width: 760px){ .app .gm-page .gs-tools .tools{grid-template-columns:repeat(auto-fill,minmax(108px,1fr))} }
+.app .pop .pop-find{position:sticky;top:-6px;z-index:1;display:flex;align-items:center;gap:8px;margin:-6px -6px 4px;padding:10px 12px 8px;background:var(--page-solid)}
+.app .pop .pop-find svg{width:16px;height:16px;color:var(--ink-3);flex:none}
+.app .pop .pop-find .inp{flex:1;min-width:0;height:36px}
+@container dev (min-width: 760px){
+  .app .gm-page .gs>.gs-sec:last-child{grid-column:1/-1}
+  .app .gm-page .voices{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+}
