@@ -572,7 +572,9 @@ function openPop(v, type, el){
 /* ---------------- pictures ---------------- */
 /* portraits and scene pictures are shared with players, so they are stored as visible */
 function uploadFace(v, cb){ N.pickImage(img => { cb(N.storeImg(N.shrinkFace(img), true)); render(v); }); }
-function uploadPicture(v, cb){ N.pickImage(img => { cb(N.storeImg(N.shrink(img, 1600, 700000), true)); render(v); }); }
+/* every background the GM uploads is kept on the GM screen shelf until it is deleted */
+function keepPic(src){ const p = {id:uid('pic'), src}; G().pics = [p, ...G().pics]; return p; }
+function uploadPicture(v, cb){ N.pickImage(img => { const src = N.storeImg(N.shrink(img, 1600, 700000), true); keepPic(src); cb(src); render(v); }); }
 
 /* ---------------- actions ---------------- */
 /* the fight on screen is the one in the open chat; picks made in another chat's fight don't carry over */
@@ -855,7 +857,7 @@ function act(v, a, el, e){
     break;
   }
   case 'sdPickUp': ui.sd.art = val; ui.sd.place = null; ui.sd.touched = true; break;
-  case 'sdUpload': uploadPicture(v, src => { ui.sd.art = src; ui.sd.place = null; ui.sd.touched = true; ui.sd.tab = 'pics'; ui.sd.uploads = [src, ...(ui.sd.uploads || [])]; }); return;
+  case 'sdUpload': uploadPicture(v, src => { ui.sd.art = src; ui.sd.place = null; ui.sd.touched = true; ui.sd.tab = 'pics'; }); return;
   case 'sdAspAdd': { const t = (ui.sd.newAsp || '').trim(); if (t) { ui.sd.aspects.push({t, free:0}); ui.sd.newAsp = ''; } break; }
   case 'sdAspFree': { const a = ui.sd.aspects[+d.i]; a.free = ((a.free || 0) + 1) % 3; break; }
   case 'sdAspDel': ui.sd.aspects.splice(+d.i, 1); break;
@@ -905,6 +907,20 @@ function act(v, a, el, e){
   case 'tokOut': { const t = N.tokById(d.t); t.out = !t.out; if (t.out && cb.state === 'live') fsys(`${N.tokName(t)} is taken out.`); ui.sheet = null; renderAll(); return; }
   case 'tokRemove': { const i = cb.tokens.findIndex(t => t.id === d.t), t = cb.tokens[i]; cb.tokens.splice(i, 1); ui.tokSel = null; ui.sheet = null; toast(v, `${N.tokName(t)} removed from the fight.`, () => cb.tokens.splice(i, 0, t)); renderAll(); return; }
   case 'cbBg': cb.bg = val; renderAll(); return;
+  /* picture shelf on the GM screen */
+  case 'picSel': ui.picSel = ui.picSel === val ? null : val; break;
+  case 'picUpload': uploadPicture(v, src => { ui.picSel = g.pics[0].id; }); return;
+  case 'picFight': { const p = g.pics.find(x => x.id === val); if (!p || cb.state === 'off') break; cb.bg = p.src; ui.picSel = null; toast(v, `Fight background changed for ${cb.title}.`); renderAll(); return; }
+  case 'picScene': { const p = g.pics.find(x => x.id === val); if (!p) break; ui.picSel = null; openSheet(v, 'scene'); Object.assign(ui.sd, {art:p.src, place:null, touched:true, tab:'pics'}); render(v); return; }
+  case 'picDel': {
+    const i = g.pics.findIndex(x => x.id === val); if (i < 0) break;
+    const p = g.pics[i]; let kept = false;
+    g.pics.splice(i, 1); ui.picSel = null;
+    /* the picture itself is only removed once the Undo has run out */
+    toast(v, 'Picture deleted.', () => { kept = true; g.pics.splice(Math.min(i, g.pics.length), 0, p); });
+    setTimeout(() => { if (!kept && !g.pics.some(x => x.src === p.src) && N.dropImg) N.dropImg(p.src); }, 5500);
+    renderAll(); return;
+  }
   case 'cbBgUpload': uploadPicture(v, src => { cb.bg = src; }); return;
   case 'zoneEdit': ui.zoneSel = ui.zoneSel === val && v.dev === 'desktop' ? null : val; ui.cbTool = 'zone'; if (v.dev === 'phone') { ui.sheet = 'zone'; ui.sheetArg = val; } break;
   case 'zoneCol': cb.zones.find(z => z.id === d.z).col = val; renderAll(); return;

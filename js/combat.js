@@ -303,7 +303,7 @@ N.setupPanel = function(v){
   const g = G(), cb = g.combat, tray = cb.tokens.filter(t => !t.zone), placed = cb.tokens.filter(t => t.zone);
   const pcs = N.pcsIn(cb.ch);
   const sc = g.scenes[N.fightCh()];
-  const bgs = [...(sc && sc.art ? [{src:sc.art, label:sc.title, sub:'Current scene'}] : []), ...(cb.bg && cb.bg.startsWith('fs:') ? [{src:cb.bg, label:'Your picture', sub:'Uploaded'}] : []),
+  const bgs = [...(sc && sc.art ? [{src:sc.art, label:sc.title, sub:'Current scene'}] : []), ...(cb.bg && cb.bg.startsWith('fs:') ? [{src:cb.bg, label:'Your picture', sub:'Uploaded'}] : []), ...g.pics.map(p => ({src:p.src, label:'Your picture', sub:'Uploaded'})),
     {src:'img/bf-eastfork.jpg', label:'East Fork Road', sub:'Drinkhold map'}, ...N.ARTLIB.map(a => ({src:a.art, label:a.label, sub:'Picture'}))].filter((x,i,arr) => arr.findIndex(y => y.src === x.src) === i);
   const step = (n, done, title, body) => `<div class="step${done?' done':''}"><span class="n">${done?IC('check'):n}</span><b>${title}</b><div class="c">${body}</div></div>`;
   const zs = v.ui.zoneSel && cb.zones.find(z => z.id === v.ui.zoneSel);
@@ -315,7 +315,7 @@ N.setupPanel = function(v){
           : `<button type="button" disabled style="opacity:.55">${N.av({name:g.P[c.player]?.name||'?',color:c.color},30)}${esc(g.P[c.player]?.name||'?')} · no card</button>`).join('') || '<span class="muted" style="font:600 13px/1.4 var(--f-ui)">Nobody has a seat yet.</span>'}</div>
           <small>They stand in the first zone you draw. You roll for everyone; players watch.</small>`)}
       ${step(2, true, 'Battlefield', `<label class="field"><span class="vh">Name of the fight</span><input class="inp" id="cbt-${v.id}" data-i="cbTitle" value="${esc(cb.title)}" placeholder="Where the fight happens"></label>
-        <div class="hscroll">${bgs.map(b => `<button type="button" class="thumb${cb.bg===b.src?' on':''}" data-a="cbBg" data-v="${esc(b.src)}" style="background-image:url(${esc(N.imgUrl(b.src))});width:128px"><span>${esc(b.label)}<small>${esc(b.sub)}</small></span>${cb.bg===b.src?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}<button type="button" class="thumb up" data-a="cbBgUpload" style="width:128px"><span>${IC('upload')}Upload</span></button></div>`)}
+        <div class="hscroll"><button type="button" class="thumb up" data-a="cbBgUpload" style="width:128px"><span>${IC('upload')}Upload</span></button>${bgs.map(b => `<button type="button" class="thumb${cb.bg===b.src?' on':''}" data-a="cbBg" data-v="${esc(b.src)}" style="background-image:url(${esc(N.imgUrl(b.src))});width:128px"><span>${esc(b.label)}<small>${esc(b.sub)}</small></span>${cb.bg===b.src?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}</div>`)}
       ${step(3, cb.zones.length > 0, 'Zones', `<small>${(v.ui.cbTool||'move')==='zone' ? 'Drag on the map to draw a zone. Drag a name to move it, the corner to resize.' : 'Zones are what matter: people can only attack inside their own zone.'}</small>
         ${cb.zones.length ? `<div class="zlist">${cb.zones.map(z => `<div class="zi" style="--zc:${z.col}${v.ui.zoneSel===z.id?';box-shadow:inset 0 0 0 1.5px var(--gold)':''}"><i></i><span>${esc(z.name)}${z.aspect?`<small>${esc(z.aspect)}</small>`:''}</span><button type="button" class="ibtn sm" data-a="zoneEdit" data-v="${z.id}" aria-label="Edit ${esc(z.name)}">${IC('pen')}</button></div>`).join('')}</div>` : ''}
         ${zs && v.dev==='desktop' ? zoneForm(v, zs) : ''}
