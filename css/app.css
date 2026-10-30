@@ -283,7 +283,9 @@
 .app .mw:has(>.m.mine)>.mdots{right:auto;left:0}
 .app .mw.on>.mdots,.app .mdots:focus-visible{opacity:1;pointer-events:auto}
 @media (hover:hover){ .app .mw:hover>.mdots{opacity:1;pointer-events:auto} .app .mdots:hover{color:var(--ink);background:var(--raise)} }
-@media (hover:none){ .app .mw{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none} .app .mdots{display:none} }
+/* phones: holding a message opens its menu, so nothing on the page may start a text selection
+   (iPhone Safari selects the whole page when only the pressed message is made unselectable) */
+@media (hover:none){ .app,.app *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none} .app input,.app textarea,.app [contenteditable]{-webkit-user-select:text;user-select:text} .app .mdots{display:none} }
 .app .bub .ed,.app .narr .ed{font:600 11px/1 var(--f-ui);color:var(--ink-4);white-space:nowrap}
 .app .m.mine .bub .ed{color:rgba(255,255,255,.7)}
 .app .pop .opt.danger{color:var(--ember)}
@@ -1490,10 +1492,16 @@
 /* ---------- message tools: react, reply, GM menu; reply quotes; reactions; emoji ---------- */
 .app .mtools{position:absolute;top:-8px;right:6px;z-index:3;display:flex;gap:1px;padding:2px;border-radius:999px;background:var(--page-solid);box-shadow:0 0 0 1px var(--line-2),0 4px 10px -4px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .12s}
 .app .mw.mine>.mtools{right:auto;left:6px}
+/* beside the message itself: right of a message on the left, left of one on the right */
+.app .m .body{position:relative}
+.app .m .body>.mtools{top:auto;bottom:2px;right:auto;left:calc(100% + 8px)}
+.app .mw.mine .m .body>.mtools{left:auto;right:calc(100% + 8px)}
+.app .narr{position:relative}
+.app .narr>.mtools{top:-10px;right:0}
 .app .mtools button,.app .mtools .mdots{position:static;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;color:var(--ink-2);background:none;box-shadow:none;opacity:1;pointer-events:auto}
 .app .mtools svg{width:17px;height:17px}
-.app .mw.on>.mtools,.app .mtools:focus-within{opacity:1;pointer-events:auto}
-@media (hover:hover){ .app .mw:hover>.mtools{opacity:1;pointer-events:auto} .app .mtools button:hover{color:var(--ink);background:var(--raise)} }
+.app .mw.on .mtools,.app .mtools:focus-within{opacity:1;pointer-events:auto}
+@media (hover:hover){ .app .mw:hover .mtools{opacity:1;pointer-events:auto} .app .mtools button:hover{color:var(--ink);background:var(--raise)} }
 @media (hover:none){ .app .mtools,.app .rx.add{display:none} }
 .app .mw.flash{animation:mflash 1.6s ease-out}
 @keyframes mflash{0%,35%{background:var(--accent-soft);box-shadow:0 0 0 6px var(--accent-soft)}100%{background:transparent;box-shadow:0 0 0 6px transparent}}

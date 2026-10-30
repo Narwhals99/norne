@@ -211,7 +211,10 @@ function msgWrap(v, m, h){
   if (!social && !gm) return h;
   const narr = m.kind === 'rp' && !!N.speakerObj(m).narr, mine = m.by === v.role && !narr;
   const tools = `<span class="mtools">${social ? `<button type="button" data-a="msgMenu" data-v="${m.id}" data-emo="1" aria-label="React" title="React">${IC('smile')}</button><button type="button" data-a="reply" data-v="${m.id}" aria-label="Reply" title="Reply">${IC('reply')}</button>` : ''}${gm || N.canEdit(v, m) ? `<button type="button" class="mdots" data-a="msgMenu" data-v="${m.id}" aria-label="${gm ? 'Edit or delete this message' : 'Edit this message'}" title="More">${IC('dots')}</button>` : ''}</span>`;
-  return `<div class="mw${mine ? ' mine' : ''}${narr ? ' nw' : ''}${v.ui.pop?.mid === m.id || v.ui.reply === m.id ? ' on' : ''}" data-mid="${m.id}">${m.re ? replyQuote(v, m.re) : ''}${h}${social ? rxRow(v, m) : ''}${tools}</div>`;
+  /* the hover buttons sit beside the message itself where there is one, otherwise at the row's corner */
+  const at = h.indexOf('<div class="body">'), body = at >= 0 ? at + 18 : h.startsWith('<div class="narr') ? h.indexOf('>') + 1 : -1;
+  const inner = body > 0 ? h.slice(0, body) + tools + h.slice(body) : h + tools;
+  return `<div class="mw${mine ? ' mine' : ''}${narr ? ' nw' : ''}${v.ui.pop?.mid === m.id || v.ui.reply === m.id ? ' on' : ''}" data-mid="${m.id}">${m.re ? replyQuote(v, m.re) : ''}${inner}${social ? rxRow(v, m) : ''}</div>`;
 }
 /* the line above a reply that shows what it answers; tapping it jumps to that message */
 function replyQuote(v, id){
