@@ -239,7 +239,7 @@ N.sheetHtml = function(v){
 
 function notifyToggle(){
   const st = N.notifyState ? N.notifyState() : 'none';
-  const sub = {on:'You get a ping for new messages, rolls and news while Norne isn’t in front.', off:'Get a ping for new messages, rolls and news on this device.',
+  const sub = {on:N.notifyPush && N.notifyPush() ? 'You get a ping for new messages, rolls and news, even with Norne closed.' : 'You get a ping for new messages, rolls and news while Norne is open but not in front.', off:'Get a ping for new messages, rolls and news on this device.',
     blocked:'Your browser blocks them for this site. Allow notifications in its site settings, then try again.', install:'On iPhone, add Norne to your home screen first (Share > Add to Home Screen), then turn this on there.', none:'This browser can’t show notifications.'}[st];
   return `<button type="button" class="toggle" data-a="notify" aria-pressed="${st==='on'}">${IC(st==='on'?'herald':'clock')}<span>Notifications on this device<small>${sub}</small></span><span class="sw"></span></button>`;
 }

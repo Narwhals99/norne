@@ -81,8 +81,10 @@ function syncMsgs(){
   for (const m of G().msgs) {
     const j = JSON.stringify(m); if (MKNOWN.get(m.id) === j) continue;
     if (!isGM() && (m.ch === 'gm' || (m.by !== G().role && MKNOWN.has(m.id) && !m.roll))) continue;
+    const fresh = !MKNOWN.has(m.id);
     MKNOWN.set(m.id, j); const {roll, ...rest} = m;
-    track(F.setDoc(dref('msgs/' + m.id), {...rest, aud:audOf(m.ch), roll:roll ? JSON.stringify(roll) : null}, {merge:true}));
+    track(F.setDoc(dref('msgs/' + m.id), {...rest, aud:audOf(m.ch), roll:roll ? JSON.stringify(roll) : null}, {merge:true})
+      .then(() => { if (fresh && N.pushOut) try { N.pushOut(m); } catch(e) { console.warn('push', e); } }));
   }
 }
 function applyMsgDocs(ids, removed){
@@ -118,6 +120,19 @@ N.delMsg = id => {
   g.msgs.splice(i, 1); N.invalidateScenes();
   if (isGM() && MKNOWN.has(id)) { MKNOWN.delete(id); MDOCS.delete(id); track(F.deleteDoc(dref('msgs/' + id))); }
 };
+
+/* ---------- push addresses: one document per phone or computer that has notifications on ---------- */
+N.PUSH = [];
+N.pushSave = (dev, sub) => sub
+  ? F.setDoc(dref('push/' + dev), {uid:ME.uid, role:G().role, sub:JSON.stringify(sub), t:Date.now()})
+  : F.deleteDoc(dref('push/' + dev));
+/* addresses the push service says are dead (notifications turned off, app deleted) */
+N.pushDrop = gone => { for (const d of N.PUSH) if (gone.includes(d.sub.endpoint)) F.deleteDoc(dref('push/' + d.id)).catch(() => {}); };
+function listenPush(){
+  F.onSnapshot(F.collection(db, 'push'), snap => {
+    N.PUSH = snap.docs.map(d => { try { return {id:d.id, ...d.data(), sub:JSON.parse(d.data().sub)}; } catch(e) { return null; } }).filter(Boolean);
+  }, err => console.warn('push', err?.code));
+}
 
 /* ---------- pictures kept in the database (maps, scene pictures, portraits) ---------- */
 const MIMG = new Map(), MVIS = new Map();
@@ -410,6 +425,8 @@ async function start(role){
   window.addEventListener('pagehide', syncNow);
   document.addEventListener('visibilitychange', () => { if (document.hidden) syncNow(); });
   live = true;
+  listenPush();
+  if (N.notifyStart) N.notifyStart();
   if (g.maps[0]) V.ui.mapId = (g.maps.find(m => m.id === 'norne') || g.maps.find(m => isGM() || m.vis !== false) || g.maps[0]).id;
   if (readyCheck()) N.renderAll();
   if (isGM() && !g.wiki.length && !g.maps.length) { V.ui.sheet = 'import'; N.renderAll(); }
