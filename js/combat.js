@@ -294,7 +294,7 @@ N.fightView = function(v){
       <button type="button" class="btn sm ghost" data-a="closeFight">${IC('chatL')}${gm?'Chat only':'Hide the board'}</button></header>
     <div class="fight-mid">${toolsHtml(v, false)}${boardHtml(v)}</div>
     ${nowBar(v, false)}
-    ${sel ? `<div class="tokpanel glass">${N.tokCard(v, sel)}</div>` : ''}
+    ${sel ? `<div class="tokpanel glass" data-sk="tokpanel">${N.tokCard(v, sel)}</div>` : ''}
   </section>`;
 };
 

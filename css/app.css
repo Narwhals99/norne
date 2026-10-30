@@ -369,7 +369,7 @@
 .app .fightbar .t span{display:block;font-weight:600;font-size:11.5px;color:var(--ink-2)}
 
 /* ---------- popovers, sheets, toasts ---------- */
-.app .sheet.still,.app .scrim.still{animation:none}
+.app .sheet.still,.app .scrim.still,.app .tokpanel.still{animation:none}
 .app .scrim{position:absolute;inset:0;z-index:40;background:var(--scrim);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);animation:fade .2s ease both}
 .app .sheet{position:absolute;z-index:41;left:0;right:0;bottom:0;max-height:88%;display:grid;grid-template-rows:auto 1fr auto;border-radius:26px 26px 0 0;
   background:linear-gradient(180deg,var(--page-solid),color-mix(in srgb,var(--page-solid) 92%,var(--sky-0)));box-shadow:0 -1px 0 var(--line-2),0 -30px 60px -20px rgba(0,0,0,.6);

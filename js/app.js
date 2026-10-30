@@ -72,6 +72,9 @@ function render(v){
   root.innerHTML = N.appHtml(v);
   if (still) root.querySelectorAll('.sheet,.scrim').forEach(e => e.classList.add('still'));
   v._sheet = v.ui.sheet ? v.ui.sheet + ':' + v.ui.sheetArg : null;
+  /* the same goes for a fighter's card on the desktop board: new chat lines must not make it slide in again */
+  if (v.ui.tokSel && v._tokSel === v.ui.tokSel) root.querySelectorAll('.tokpanel').forEach(e => e.classList.add('still'));
+  v._tokSel = root.querySelector('.tokpanel') ? v.ui.tokSel : null;
   root.querySelectorAll('[data-sk]').forEach(e => {
     const s = sk[e.dataset.sk];
     if (e.dataset.bottom && (!s || s.bottom || v.ui.stick)) e.scrollTop = e.scrollHeight;
