@@ -271,8 +271,9 @@ function doRoll(v){
   const skill = other ? 'Bonus' : r.skill, bonus = other ? clamp(+r.otherBonus || 0, -4, 10) : (who.skills[r.skill] || 0) + gear;
   const label = (N.ACTIONS.find(a => a[1] === r.action) || ['Roll'])[0];
   const name = other ? (r.otherName.trim() || 'Someone') : who.name;
-  /* an attack on someone in a live fight always goes to the fight's chat and asks them to defend, wherever it was rolled from */
-  const fight = g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
+  /* a GM attack on someone in a live fight always goes to the fight's chat and asks for a defense, wherever it was rolled from.
+     Players' own rolls never move the fight: the GM rolls for everyone in it. */
+  const fight = isGM(v) && g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
   const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : r.opp, dice:N.rollDice(), invokes:[]};
   if (gear) roll.gear = gear;
   const secret = isGM(v) && !fight && (r.secret || v.ui.ch === 'gm');
@@ -455,6 +456,7 @@ function track(v, e, d){
       if (d.r && d.r.w > 6 && d.r.h > 8) {
         const z = {id:uid('z'), name:`Zone ${cb.zones.length + 1}`, ...d.r, col:N.ZCOL[cb.zones.length % N.ZCOL.length], aspect:''};
         cb.zones.push(z); v.ui.zoneSel = z.id;
+        if (cb.zones.length === 1) N.cbPlacePcs();
         if (v.dev === 'phone') { v.ui.sheet = 'zone'; v.ui.sheetArg = z.id; }
         setTimeout(() => { const f = v.root.querySelector(`#zn-${z.id}-${v.id}`); if (f) { f.focus(); f.select(); } }, 30);
       }
@@ -750,17 +752,18 @@ function act(v, a, el, e){
     ui.sheet = null; toast(v, `${old.short}’s card is empty again.`, () => { g.chars[val] = old; }); renderAll(); return;
   }
   case 'invAdd': {
-    const c = invOwner(d), inp = v.root.querySelector(`#inv-${c.id}-${v.id}`), n = (inp?.value || '').trim(), q = ui.invQ || 1;
-    const note = (v.root.querySelector(`#invd-${c.id}-${v.id}`)?.value || '').trim();
+    const c = invOwner(d, v), key = d.nd ? 'nd' : c.id, inp = v.root.querySelector(`#inv-${key}-${v.id}`), n = (inp?.value || '').trim(), q = ui.invQ || 1;
+    const note = (v.root.querySelector(`#invd-${key}-${v.id}`)?.value || '').trim();
     if (!n) { toast(v, 'Type an item name first.'); break; }
     if (!c.inv) c.inv = [];
     const ex = c.inv.find(x => x[0].toLowerCase() === n.toLowerCase()); if (ex) { ex[1] += q; if (note) ex[2] = note; } else c.inv.push(note ? [n, q, note] : [n, q]);
+    if (d.nd) { ui.invQ = 1; renderAll(); return; }
     if (!d.c) { ui.invQ = 1; toast(v, `Added to ${c.name}’s inventory.`); renderAll(); return; }
     sys(`${N.gmName()} added ${n} ×${q} to ${c.short}’s inventory.`, 'dm-' + c.player); ui.invQ = 1;
     toast(v, `Added to ${c.short}’s inventory. They got a note.`); renderAll(); return;
   }
-  case 'invQty': { const c = invOwner(d), it = c?.inv?.[+d.i]; if (!it) break; it[1] += +d.d; if (it[1] <= 0) { c.inv.splice(+d.i, 1); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); } renderAll(); return; }
-  case 'invDel': { const c = invOwner(d), it = c?.inv?.splice(+d.i, 1)[0]; if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
+  case 'invQty': { const c = invOwner(d, v), it = c?.inv?.[+d.i]; if (!it) break; it[1] += +d.d; if (it[1] <= 0) { c.inv.splice(+d.i, 1); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); } renderAll(); return; }
+  case 'invDel': { const c = invOwner(d, v), it = c?.inv?.splice(+d.i, 1)[0]; if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
   case 'npcNew': openSheet(v, 'npcNew', d); break;
   case 'npcEdit': openSheet(v, 'npcNew', {edit:val}); break;
   case 'ndPortrait': ui.nd.portrait = val; break;
@@ -853,6 +856,9 @@ function act(v, a, el, e){
   }
   case 'cbTool': ui.cbTool = val; ui.targeting = null; ui.placing = null; if (val !== 'zone') ui.zoneSel = null; break;
   case 'cbNext': N.cbNext(); ui.targeting = null; renderAll(); return;
+  case 'cbNotice': N.cbNotice(); renderAll(); return;
+  case 'cbFirst': N.cbFirst(d.t); renderAll(); return;
+  case 'cbGo': N.cbGo(); ui.targeting = null; renderAll(); return;
   case 'cbCancel': ui.targeting = null; ui.placing = null; break;
   case 'cbAct': {
     const a2 = N.actorTok(v) || (gm ? N.curTok() : null); if (!a2) break;
@@ -876,10 +882,10 @@ function act(v, a, el, e){
   case 'zoneCol': cb.zones.find(z => z.id === d.z).col = val; renderAll(); return;
   case 'zoneDel': { const i = cb.zones.findIndex(z => z.id === d.z), z = cb.zones[i]; cb.zones.splice(i, 1); const moved = cb.tokens.filter(t => t.zone === z.id); moved.forEach(t => t.zone = null); ui.zoneSel = null; ui.sheet = null; toast(v, `Deleted ${z.name}.`, () => { cb.zones.splice(i, 0, z); moved.forEach(t => t.zone = z.id); }); renderAll(); return; }
   case 'cbQuickZones': N.cbQuickZones(); ui.cbTool = 'move'; renderAll(); return;
-  case 'cbInvite': { const i = cb.invited.indexOf(val); if (i >= 0) { cb.invited.splice(i, 1); cb.tokens = cb.tokens.filter(t => !(t.kind === 'pc' && t.ref === val)); } else { cb.invited.push(val); cb.tokens.push(N.tokFromPc(g.chars[val])); } renderAll(); return; }
+  case 'cbInvite': { const i = cb.invited.indexOf(val); if (i >= 0) { cb.invited.splice(i, 1); cb.tokens = cb.tokens.filter(t => !(t.kind === 'pc' && t.ref === val)); } else { cb.invited.push(val); cb.tokens.push(N.tokFromPc(g.chars[val])); N.cbPlacePcs(); } renderAll(); return; }
   case 'cbAddNpc': { const t = N.cbAddNpc(val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
   case 'cbAddFoe': { const t = N.cbAddFoe(+val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
-  case 'cbStart': if (N.fightBlocked && N.fightBlocked(cb.ch)) { toast(v, 'To run a fight in a private chat, publish the new security rules first: paste firestore.rules into Firebase > Firestore > Rules, press Publish, then reload.'); break; } N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, 'The fight is on. Invited players got a Join button.'); renderAll(); return;
+  case 'cbStart': if (N.fightBlocked && N.fightBlocked(cb.ch)) { toast(v, 'To run a fight in a private chat, publish the new security rules first: paste firestore.rules into Firebase > Firestore > Rules, press Publish, then reload.'); break; } N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, 'The fight is on. Roll Notice to see who goes first.'); renderAll(); return;
   case 'cbCancelSetup': g.combat = N.freshCombat(); ui.fightPane = 'chat'; ui.fightOpen = true; ui.zoneSel = null; toast(v, 'Fight setup thrown away.'); renderAll(); return;
   case 'cbEndGo': N.cbEnd(); ui.sheet = null; ui.tokSel = null; ui.targeting = null; ui.watching = false; renderAll(); return;
   case 'cbAspAdd': { const t = (ui.cbAsp || '').trim(); if (t) { cb.aspects.push({t, free:+ui.cbAspFree || 0}); ui.cbAsp = ''; ui.sheet = null; renderAll(); return; } break; }
@@ -951,7 +957,7 @@ function savePc(v){
   renderAll();
 }
 /* items belong to a player's character (data-c) or an NPC (data-n) */
-const invOwner = d => d.c ? G().chars[d.c] : G().npcs.find(x => x.id === d.n);
+const invOwner = (d, v) => d.nd ? v.ui.nd : d.c ? G().chars[d.c] : G().npcs.find(x => x.id === d.n);
 /* disciplines only for skills still on the card */
 const keepDisc = d => Object.fromEntries(Object.keys(d.skills).map(k => [k, N.discOf(d, k)]).filter(([k, x]) => x.length && (N.DISC[k] || []).length));
 function pickDisc(d, k, x){
@@ -962,7 +968,8 @@ function pickDisc(d, k, x){
 function saveNpc(v){
   const g = G(), d = v.ui.nd, old = d.edit && g.npcs.find(x => x.id === d.edit);
   const base = {name:d.name.trim(), race:d.race.trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
-    skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0};
+    skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0,
+    inv:(d.inv || []).map(x => [...x])};
   let n;
   if (old) {
     n = Object.assign(old, base);
