@@ -1480,3 +1480,11 @@
 /* desktop: the Notice results get their own row in the turn bar */
 .app .fight.cmd.dt .nowbar.pick{grid-template-columns:minmax(0,1fr) auto}
 .app .fight.cmd.dt .nowbar.pick .acts{grid-column:1/-1;grid-row:2}
+/* GM screen: the picture shelf at the bottom */
+.app .gs-pics .gs-h small{font:700 12px/1 var(--f-ui)}
+.app .gs-pics .gs-note{margin:0;font:600 12.5px/1.4 var(--f-ui)}
+.app .gs-pics .pic-acts{display:flex;gap:8px;flex-wrap:wrap}
+@container dev (min-width: 760px){
+  .app .gm-page .gs>.gs-sec.gs-pics{grid-column:1/-1}
+  .app .gs-pics .thumbs{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
+}

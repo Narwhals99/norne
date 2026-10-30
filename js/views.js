@@ -310,8 +310,18 @@ function gmScreen(v){
     <section class="gs-sec"><div class="gs-h"><h3>Speak as</h3><button type="button" class="btn sm" data-a="castNpcs">NPCs</button></div>
       <div class="voices">${['Narrator', ...N.voices()].map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="voice" data-v="${esc(n)}" ${v.ui.voice===n&&v.ui.mode==='rp'?'style="background:var(--accent-soft)"':''}>${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text':esc(N.npcSub(npc))}</small></span>${v.ui.voice===n&&v.ui.mode==='rp'?`<span class="go" style="color:var(--gold)">${IC('check')}</span>`:''}</button>`; }).join('')}</div>
     </section>
-
+    ${picShelf(v)}
   </div>`;
+}
+/* backgrounds the GM uploaded, kept for scenes and fights until deleted */
+function picShelf(v){
+  const g = G(), cb = g.combat, sel = g.pics.find(p => p.id === v.ui.picSel);
+  const acts = sel ? `<div class="pic-acts">${cb.state !== 'off' ? `<button type="button" class="btn sm primary" data-a="picFight" data-v="${sel.id}">${IC('swords')}Use for the fight</button>` : ''}<button type="button" class="btn sm" data-a="picScene" data-v="${sel.id}">${IC('image')}Use as scene</button><button type="button" class="btn sm danger" data-a="picDel" data-v="${sel.id}">${IC('trash')}Delete</button></div>` : '';
+  return `<section class="gs-sec gs-pics"><div class="gs-h"><h3>Your pictures</h3>${g.pics.length ? `<small class="muted">${g.pics.length}</small>` : ''}</div>
+      <p class="muted gs-note">Backgrounds you upload for scenes and fights stay here. Tap one to use it or delete it.</p>
+      <div class="thumbs"><button type="button" class="thumb up" data-a="picUpload"><span>${IC('upload')}Upload a picture</span></button>${g.pics.map(p => `<button type="button" class="thumb${sel === p ? ' on' : ''}" data-a="picSel" data-v="${p.id}" aria-pressed="${sel === p}" aria-label="Your picture" style="background-image:url(${esc(N.imgUrl(p.src))})">${cb.bg === p.src && cb.state !== 'off' ? '<span><small>In the fight</small></span>' : ''}${sel === p ? `<span class="ck">${IC('check')}</span>` : ''}</button>`).join('')}</div>
+      ${acts}
+    </section>`;
 }
 function gmPage(v){
   const ph = v.dev === 'phone', cur = v.ui.ch === 'gm' ? 'table' : v.ui.ch;
