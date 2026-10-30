@@ -253,7 +253,7 @@ function rMsg(v, m, prev, firstNarr){
   if (m.kind === 'roll') {
     const pc = (m.roll.whoKey || '').startsWith('pc:') && g.chars[m.roll.whoKey.slice(3)];
     const s = pc ? {name:pc.short, portrait:pc.built ? pc.portrait : null, color:pc.color} : m.by === 'gm' ? {name:m.roll.who, color:'var(--c-npc)', portrait:m.pt || N.npcByName(m.roll.who.replace(/ \d+$/,''))?.portrait} : N.speakerObj({by:m.by, as:''});
-    return `<div class="m${mine?' mine':''}">${N.av(s,32)}<div class="body"><div class="who" style="--who:${s.color}">${esc(m.roll.who)}${m.ch==='gm'?'<span class="tag gold">Secret</span>':''}${time}</div>${rRoll(v, m)}</div></div>`;
+    return `<div class="m rollm${mine?' mine':''}">${N.av(s,32)}<div class="body"><div class="who" style="--who:${s.color}">${esc(m.roll.who)}${m.ch==='gm'?'<span class="tag gold">Secret</span>':''}${time}</div>${rRoll(v, m)}</div></div>`;
   }
   const cont = prev && prev.by === m.by && prev.kind === m.kind && (prev.as||'') === (m.as||'') && m.t - prev.t < 180000 && m.kind !== 'scene';
   if (m.kind === 'gif') {
