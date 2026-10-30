@@ -7,6 +7,9 @@ const isGM = v => v.role === 'gm';
 const views = N.views = [];
 
 N.now = () => { const ms = G().msgs; const last = ms.length ? ms[ms.length - 1].t : 0; return Math.max(Date.now(), last + 1); };
+/* messages the GM can rewrite: anything typed, not rolls, scenes or cards */
+N.msgEditable = m => ['rp','ooc','meta','note'].includes(m.kind) && typeof m.text === 'string';
+N.msgWho = m => m.kind === 'roll' ? m.roll.who : m.kind === 'rp' ? N.speakerObj(m).name : N.personObj(m.by).name;
 const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as:''}, o); G().msgs.push(m); return m; };
 /* a small grey line in the chat; players write their own (the rules only let them post as themselves) */
 const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, text});
@@ -102,8 +105,29 @@ function bind(v){
     if (!k || !el || !typing() || !e.cancelable || Math.hypot(t.clientX - k.x, t.clientY - k.y) > 10) return;
     e.preventDefault(); v.kb = true; el.click();
   });
+  /* the GM long-presses a message on a phone to edit or delete it (a right-click does the same on a computer) */
+  let lp = null;
+  root.addEventListener('pointerdown', () => { if (!lp) v.lpHold = false; }, true);
+  const lpOpen = id => { if (v.ui.pop?.mid === id || !v.root.querySelector(`[data-mid="${CSS.escape(id)}"]`)) return; v.ui.sheet = null; act(v, 'msgMenu', {dataset:{v:id, lp:1}}); render(v); };
+  root.addEventListener('touchstart', e => {
+    clearTimeout(lp?.tm); lp = null;
+    const w = isGM(v) && e.touches.length === 1 && e.target.closest('.msgs [data-mid]');
+    if (!w || e.target.closest('button,a,input,textarea,.roll .rh')) return;
+    const t = e.touches[0], id = w.dataset.mid;
+    lp = {x:t.clientX, y:t.clientY, id, tm:setTimeout(() => { lp.fired = true; v.lpHold = true; try { navigator.vibrate?.(12); } catch(err) {} lpOpen(id); }, 480)};
+  }, {passive:true});
+  root.addEventListener('touchmove', e => { if (!lp || lp.fired) return; const t = e.touches[0]; if (Math.hypot(t.clientX - lp.x, t.clientY - lp.y) > 10) { clearTimeout(lp.tm); lp = null; } }, {passive:true});
+  root.addEventListener('touchend', e => { if (!lp) return; clearTimeout(lp.tm); if (lp.fired && e.cancelable) e.preventDefault(); lp = null; });
+  root.addEventListener('touchcancel', () => { if (lp) { clearTimeout(lp.tm); lp = null; } });
+  root.addEventListener('contextmenu', e => {
+    const w = isGM(v) && e.target.closest('.msgs [data-mid]'); if (!w) return;
+    e.preventDefault(); if (lp?.fired || v.ui.pop?.mid === w.dataset.mid) return; lpOpen(w.dataset.mid);
+  });
   root.addEventListener('click', e => {
     if (v.suppress) { v.suppress = false; e.preventDefault(); e.stopPropagation(); return; }
+    /* lifting the finger after a long-press must not also tap the menu that opened under it
+       (the pressed message was redrawn, so its touchend never reaches us) */
+    if (v.lpHold) { v.lpHold = false; e.preventDefault(); return; }
     const a = e.target.closest('[data-a]');
     if (a && root.contains(a)) {
       if (a.disabled) return; e.preventDefault(); act(v, a.dataset.a, a, e);
@@ -176,6 +200,7 @@ function input(v, el){
     case 'rollOther': v.ui.roll.otherName = val; return;
     case 'sd': v.ui.sd[k] = val; if (k === 'title' || k === 'where') { v.ui.sd.autoTitle = false; v.ui.sd.touched = true; } if (k === 'title') render(v); return;
     case 'cbAsp': v.ui.cbAsp = val; return;
+    case 'med': if (v.ui.med) v.ui.med.text = val; { const b = v.root.querySelector('[data-a="msgSave"]'); if (b) b.disabled = !val.trim(); } return;
     case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .pl`); if (lab) lab.textContent = val; return; }
     case 'pinNote': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (pin) pin.note = val; return; }
     case 'pd': {
@@ -604,6 +629,20 @@ function act(v, a, el, e){
     const before = N.audSeats(i, 'news'); N.audSet(i, 'news', val);
     const added = N.audSeats(i, 'news').filter(s => !before.includes(s));
     for (const s of added) push({ch:'dm-' + s, kind:'news', by:'gm', text:i.headline, nid:i.id});
+    renderAll(); return;
+  }
+  /* the GM editing or deleting a chat message */
+  case 'msgMenu': { const w = v.root.querySelector(`[data-mid="${CSS.escape(val)}"]`); if (ui.pop?.mid === val) ui.pop = null; else if (w) { openPop(v, 'msg', (!d.lp && w.querySelector('.mdots')) || w.firstElementChild || w); ui.pop.mid = val; } break; }
+  case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!gm || !m || !N.msgEditable(m)) break; ui.med = {id:m.id, text:m.text}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
+  case 'msgSave': {
+    const m = g.msgs.find(x => x.id === ui.med?.id), t = (ui.med?.text || '').trim(); if (!gm || !m || !t) break;
+    if (t !== m.text) { m.text = t; m.ed = 1; }
+    ui.sheet = null; ui.med = null; toast(v, 'Message edited.'); renderAll(); return;
+  }
+  case 'msgDelGo': {
+    const m = g.msgs.find(x => x.id === val); ui.sheet = null; if (!gm || !m) break;
+    N.delMsg(m.id);
+    toast(v, 'Message deleted.', () => { if (!g.msgs.some(x => x.id === m.id)) { g.msgs.push(m); g.msgs.sort((a,b) => a.t - b.t || (a.id < b.id ? -1 : 1)); N.invalidateScenes(); } });
     renderAll(); return;
   }
   case 'newsDelGo': {

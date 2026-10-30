@@ -221,6 +221,19 @@ N.sheetHtml = function(v){
     return sheet(`Delete the ${esc(m.name)} map?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The map${n ? ` and its ${n} ${n>1?'places':'place'}` : ''} are removed for everyone.${party ? ' The party banner is on this map, so it goes too.' : ''} ${String(m.src||'').startsWith('fs:') ? 'Its picture is deleted after a few seconds, so you can still undo.' : ''} Importing the lore file again brings back the atlas maps.</p>`,
       `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="mapDelGo" data-v="${esc(m.id)}">${IC('trash')}Delete map</button>`);
   }
+  /* ---------------- a chat message (GM) ---------------- */
+  case 'msgEdit': {
+    const m = g.msgs.find(x => x.id === arg), d = v.ui.med; if (!m || !d) return '';
+    return sheet('Edit message', `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">${esc(N.msgWho(m))} · ${esc(N.chName(m.ch, 'gm'))}. Everyone who can see it sees the new words, marked “edited”.</p>
+      <textarea class="inp" id="med-${v.id}" data-i="med" rows="5" style="font:500 15.5px/1.45 var(--f-ui)">${esc(d.text)}</textarea>`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn primary" data-a="msgSave" ${d.text.trim()?'':'disabled'}>${IC('check')}Save</button>`);
+  }
+  case 'msgDel': {
+    const m = g.msgs.find(x => x.id === arg); if (!m) return '';
+    const what = m.text ? `“${esc(m.text.length > 140 ? m.text.slice(0, 140) + '…' : m.text)}”` : m.kind === 'roll' ? `the ${esc(m.roll.skill)} roll` : m.kind === 'scene' ? 'this scene change' : 'this card';
+    return sheet('Delete this message?', `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">${esc(N.msgWho(m))}: ${what} is removed for everyone. You can undo it for a few seconds.</p>`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="msgDelGo" data-v="${esc(m.id)}">${IC('trash')}Delete</button>`);
+  }
   /* ---------------- a news edition (GM) ---------------- */
   case 'newsSet': {
     const i = g.news.issues.find(x => x.id === arg); if (!i) return '';
