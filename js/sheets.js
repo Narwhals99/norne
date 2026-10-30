@@ -220,6 +220,20 @@ N.sheetHtml = function(v){
     return sheet(`Delete the ${esc(m.name)} map?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The map${n ? ` and its ${n} ${n>1?'places':'place'}` : ''} are removed for everyone.${party ? ' The party banner is on this map, so it goes too.' : ''} ${String(m.src||'').startsWith('fs:') ? 'Its picture is deleted after a few seconds, so you can still undo.' : ''} Importing the lore file again brings back the atlas maps.</p>`,
       `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="mapDelGo" data-v="${esc(m.id)}">${IC('trash')}Delete map</button>`);
   }
+  /* ---------------- custom emoji (GM) ---------------- */
+  case 'emoji': {
+    const list = g.emoji, e = v.ui.emoNew, n = e ? N.emoName(e.n) : '', dup = !!n && list.some(x => x.n === n), full = list.length >= 80;
+    const add = e ? `<div class="emo-new"><img src="${esc(e.d)}" alt=""><label class="field" style="flex:1;min-width:0"><span>Name</span><input class="inp" id="emn-${v.id}" data-i="emn" value="${esc(e.n)}" placeholder="e.g. dragon" autocomplete="off" autocapitalize="off"><small>${!n ? 'Letters, numbers and _ only.' : dup ? `:${esc(n)}: is already taken.` : `Type :${esc(n)}: in a message, or pick it from the emoji button.`}</small></label>
+        <div class="row"><button type="button" class="btn ghost sm" data-a="emoCancel">Cancel</button><button type="button" class="btn primary sm" data-a="emoSave" ${n && !dup ? '' : 'disabled'}>${IC('check')}Add</button></div></div>`
+      : `<button type="button" class="btn sm" data-a="emoAdd" style="justify-self:start" ${full ? 'disabled' : ''}>${IC('upload')}Upload a picture</button>`;
+    const gifKey = `<div><h4>GIF search</h4><p class="muted" style="margin:0 0 8px;font:600 13px/1.4 var(--f-ui)">${g.gifKey ? 'On. Everyone can search GIFs from the smiley button in the chat.' : 'Off. Paste a free Tenor key here to let everyone search GIFs. Pasting GIF links works without it.'}</p>
+      <div class="gif-link"><input class="inp" id="gk-${v.id}" data-i="gifKey" value="${esc(v.ui.gifKeyD ?? g.gifKey ?? '')}" placeholder="Tenor API key" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" class="btn sm primary" data-a="gifKeySave">${IC('check')}Save</button></div></div>`;
+    return sheet('Emoji and GIFs', `${gifKey}<h4 style="margin:6px 0 -6px">Custom emoji</h4><p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Your own little pictures for reactions and messages. Everyone at the table can use them. A small square picture with a clear background works best.</p>
+      ${add}
+      ${list.length ? `<div class="emo-list">${list.map(x => `<div class="emo-it"><img src="${esc(x.d)}" alt=""><b>:${esc(x.n)}:</b><button type="button" class="ibtn sm" data-a="emoDel" data-v="${esc(x.n)}" aria-label="Remove :${esc(x.n)}:">${IC('trash')}</button></div>`).join('')}</div>` : '<div class="note">' + IC('info') + 'No custom emoji yet.</div>'}
+      ${full ? `<div class="note">${IC('info')}That’s the most Norne can keep (80). Remove one to add another.</div>` : ''}`,
+      `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+  }
   /* ---------------- a chat message (GM) ---------------- */
   case 'msgEdit': {
     const m = g.msgs.find(x => x.id === arg), d = v.ui.med; if (!m || !d) return '';

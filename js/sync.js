@@ -83,8 +83,9 @@ function syncMsgs(){
     const j = JSON.stringify(m); if (MKNOWN.get(m.id) === j) continue;
     if (!isGM() && (m.ch === 'gm' || (m.by !== G().role && MKNOWN.has(m.id) && !m.roll))) continue;
     const fresh = !MKNOWN.has(m.id);
-    MKNOWN.set(m.id, j); const {roll, ...rest} = m;
-    track(F.setDoc(dref('msgs/' + m.id), {...rest, aud:audOf(m.ch), roll:roll ? JSON.stringify(roll) : null}, {merge:true})
+    /* reactions are written on their own (saveRx), so a message saved again never overwrites someone else's */
+    MKNOWN.set(m.id, j); const {roll, rx, ...rest} = m;
+    track(F.setDoc(dref('msgs/' + m.id), {...rest, ...(fresh && rx ? {rx} : {}), aud:audOf(m.ch), roll:roll ? JSON.stringify(roll) : null}, {merge:true})
       .then(() => { if (fresh && N.pushOut) try { N.pushOut(m); } catch(e) { console.warn('push', e); } }));
   }
 }
@@ -115,6 +116,13 @@ function listenMsgs(){
     if (waiting > 0 && --waiting === 0) { LOADED.add('msgs'); res(); } else if (ids.length || removed.length) changed();
   }, err => { fail(err); res(); })));
 }
+/* each person's reactions on a message are their own field (rx.<seat>), so two people reacting at once both count */
+N.saveRx = (m, who) => {
+  if (!F || !MKNOWN.has(m.id)) return;
+  MKNOWN.set(m.id, JSON.stringify(m));
+  const l = (m.rx || {})[who];
+  track(F.updateDoc(dref('msgs/' + m.id), new F.FieldPath('rx', who), l && l.length ? l : F.deleteField()));
+};
 /* only the GM can take a message back (an undone scene change) */
 N.delMsg = id => {
   const g = G(), i = g.msgs.findIndex(m => m.id === id); if (i < 0) return;
@@ -158,6 +166,14 @@ N.shrink = (img, max, limit=900000) => {
     if (q > .6) q -= .1; else k *= .8;
   }
   return out;
+};
+/* custom emoji: the whole picture fitted in a small square, transparent edges kept */
+N.shrinkEmoji = img => {
+  const S = 96, c = document.createElement('canvas'); c.width = c.height = S;
+  const k = S / Math.max(img.naturalWidth, img.naturalHeight), w = img.naturalWidth * k, h = img.naturalHeight * k;
+  c.getContext('2d').drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
+  const png = c.toDataURL('image/png');
+  return png.length < 24000 ? png : c.toDataURL('image/webp', .9).startsWith('data:image/webp') ? c.toDataURL('image/webp', .9) : png;
 };
 /* square crop for portraits */
 N.shrinkFace = img => {
@@ -230,7 +246,9 @@ function syncNow(){
       writeUnits('gm/news', Object.fromEntries(g.news.issues.map(i => [i.id, i])));
       writeUnits('game/news', Object.fromEntries(g.news.issues.map(i => [i.id, share(i, 'news', 'n:' + i.id, i)]).filter(e => e[1])));
     }
-    if (g.cats) writeUnits('game/meta', {cats:g.cats});
+    /* wiki categories and the GIF search key; the server copy is read back into g first, so writing it all is safe */
+    { const meta = {}; if (g.cats) meta.cats = g.cats; if (g.gifKey) meta.gif = g.gifKey; writeUnits('game/meta', meta); }
+    writeUnits('game/emoji', asUnits(g.emoji));
     for (const [st, units] of Object.entries(only)) {
       const path = 'only/' + st;
       if (!LOADED.has(path)) { listenOnly(st); if (DENIED.has(path) && Object.keys(units).length && !RULES_WARNED) { RULES_WARNED = true; syncErr('To share things with single players, publish the new security rules: paste firestore.rules into Firebase > Firestore > Rules and press Publish, then reload.'); } continue; }
@@ -418,8 +436,8 @@ async function start(role){
   const g = G(); g.role = role; V.role = role; V.ui = N.newUi(role); g.me = ME;
   loadLocal();
   const docs = isGM()
-    ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','game/news','gm/news','game/maps','game/wiki','game/meta']
-    : ['game/chars','game/combat','game/maps','game/wiki','game/news','game/meta'];
+    ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','game/news','gm/news','game/maps','game/wiki','game/meta','game/emoji']
+    : ['game/chars','game/combat','game/maps','game/wiki','game/news','game/meta','game/emoji'];
   const APPLY = {
     'game/chars': u => { g.chars = Object.fromEntries(Object.entries(u).map(([k,j]) => [k, N.decorate(JSON.parse(j))])); ensureChars(); },
     'game/combat': u => { GC = u.c ? JSON.parse(u.c) : null; setCombat(); },
@@ -433,7 +451,8 @@ async function start(role){
     'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
     'game/maps': u => { PUB.maps = u; mergeView(); },
     'game/wiki': u => { PUB.wiki = u; mergeView(); },
-    'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; },
+    'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; g.gifKey = u.gif ? JSON.parse(u.gif) : ''; },
+    'game/emoji': u => { g.emoji = vals(u).sort(byO); },
   };
   await new Promise(res => F.onSnapshot(F.collection(db, 'members'), snap => { applyMembers(snap.docs.map(d => ({uid:d.id, ...d.data()}))); changed(); res(); }, err => { fail(err); res(); }));
   await Promise.all([...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs(), isGM() ? null : listenDoc('only/' + role, setMine, true), ...(isGM() ? N.seats() : [role]).map(listenFight)]);

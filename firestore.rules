@@ -66,6 +66,7 @@ service cloud.firestore {
 
     // Chat messages. aud says who may read one: '*' is everyone at the table,
     // 'p1' is that player's private chat with the GM, 'gm' is the GM's own notes.
+    // re (optional) is the id of the message it replies to.
     match /msgs/{id} {
       allow read: if canReadMsg(resource.data);
       allow create: if isGM()
@@ -73,9 +74,18 @@ service cloud.firestore {
             && request.resource.data.by == seat()
             && ((request.resource.data.ch == 'table' && request.resource.data.aud == ['*'])
                 || (request.resource.data.ch == 'dm-' + seat() && request.resource.data.aud == [seat()])));
+      // Players may change a roll (invokes), the words of their own messages, and their own reactions
+      // (rx.p1 is p1's list of emoji on this message).
       allow update: if isGM()
+        || (isPlayer() && resource.data.by == seat()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'ed', 'roll'])
+            && request.resource.data.text is string)
         || (canReadMsg(resource.data)
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roll']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roll']))
+        || (canReadMsg(resource.data)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rx'])
+            && request.resource.data.rx is map
+            && request.resource.data.rx.diff(resource.data.get('rx', {})).affectedKeys().hasOnly([seat()]));
       allow delete: if isGM();
     }
 

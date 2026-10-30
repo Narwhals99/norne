@@ -9,7 +9,27 @@ const views = N.views = [];
 N.now = () => { const ms = G().msgs; const last = ms.length ? ms[ms.length - 1].t : 0; return Math.max(Date.now(), last + 1); };
 /* messages the GM can rewrite: anything typed, not rolls, scenes or cards */
 N.msgEditable = m => ['rp','ooc','meta','note'].includes(m.kind) && typeof m.text === 'string';
+/* the GM can edit any typed message, a player only their own */
+N.canEdit = (v, m) => N.msgEditable(m) && (isGM(v) || m.by === v.role);
 N.msgWho = m => m.kind === 'roll' ? m.roll.who : m.kind === 'rp' ? N.speakerObj(m).name : N.personObj(m.by).name;
+/* messages anyone can react to or reply to: not scene changes, fight cards or small grey lines */
+/* a pasted GIF link: any https picture address */
+N.gifLinkOk = u => /^https:\/\/\S+$/i.test(String(u || '').trim());
+N.msgSocial = m => !['scene','fight','combat'].includes(m.kind) && !(m.kind === 'sys' && !m.res);
+N.emoName = s => String(s || '').trim().toLowerCase().replace(/^:+|:+$/g, '').replace(/\s+/g, '_').replace(/[^\w-]/g, '').slice(0, 32);
+N.msgColor = m => (m.kind === 'rp' ? N.speakerObj(m).color : m.kind === 'roll' ? 'var(--ink-2)' : N.personObj(m.by).color) || 'var(--ink-2)';
+/* a one-line taste of a message, for the line above a reply */
+N.msgSnip = m => {
+  if (m.kind === 'roll') return `${m.roll.skill} roll · ${sgn(N.rollTotal(m.roll))} ${ladderWord(N.rollTotal(m.roll))}`;
+  if (m.kind === 'sys' && m.res) return m.res.title || 'Turn order';
+  if (m.kind === 'news') return 'News: ' + m.text;
+  if (m.kind === 'gif') return 'GIF';
+  const x = String(m.text || '').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
+  return x.length > 90 ? x.slice(0, 90) + '…' : x;
+};
+/* on a computer Enter sends and Shift+Enter starts a new line; on a phone Return starts a new line and the arrow sends */
+const TOUCH = matchMedia('(hover: none) and (pointer: coarse)');
+N.enterSends = () => !TOUCH.matches;
 const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as:''}, o); G().msgs.push(m); return m; };
 /* a small grey line in the chat; players write their own (the rules only let them post as themselves) */
 const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, text});
@@ -94,7 +114,7 @@ const local = (v, cx, cy) => { const r = v.root.getBoundingClientRect(); return 
 function bind(v){
   const root = v.root;
   /* the speak-as picker must not close the phone keyboard: taps on it never take focus from the message box */
-  const KB = '.composer .voice,.pop .opt[data-a="voice"],.scrim[data-a="closePop"]';
+  const KB = '.composer .voice,.composer .emob,.composer .replying button,.pop .opt[data-a="voice"],.pop .emo,.scrim[data-a="closePop"]';
   const typing = () => document.activeElement && document.activeElement.matches('.composer textarea');
   root.addEventListener('pointerdown', e => { v.kb = typing() && !!e.target.closest(KB); });
   root.addEventListener('mousedown', e => { if (e.target.closest(KB) && typing()) e.preventDefault(); });
@@ -106,13 +126,13 @@ function bind(v){
     if (!k || !el || !typing() || !e.cancelable || Math.hypot(t.clientX - k.x, t.clientY - k.y) > 10) return;
     e.preventDefault(); v.kb = true; el.click();
   });
-  /* the GM long-presses a message on a phone to edit or delete it (a right-click does the same on a computer) */
+  /* long-press a message on a phone to react, reply or (GM) edit it; a right-click does the same on a computer */
   let lp = null;
   root.addEventListener('pointerdown', () => { if (!lp) v.lpHold = false; }, true);
   const lpOpen = id => { if (v.ui.pop?.mid === id || !v.root.querySelector(`[data-mid="${CSS.escape(id)}"]`)) return; v.ui.sheet = null; act(v, 'msgMenu', {dataset:{v:id, lp:1}}); render(v); };
   root.addEventListener('touchstart', e => {
     clearTimeout(lp?.tm); lp = null;
-    const w = isGM(v) && e.touches.length === 1 && e.target.closest('.msgs [data-mid]');
+    const w = e.touches.length === 1 && e.target.closest('.msgs [data-mid]');
     if (!w || e.target.closest('button,a,input,textarea,.roll .rh')) return;
     const t = e.touches[0], id = w.dataset.mid;
     lp = {x:t.clientX, y:t.clientY, id, tm:setTimeout(() => { lp.fired = true; v.lpHold = true; try { navigator.vibrate?.(12); } catch(err) {} lpOpen(id); }, 480)};
@@ -121,7 +141,7 @@ function bind(v){
   root.addEventListener('touchend', e => { if (!lp) return; clearTimeout(lp.tm); if (lp.fired && e.cancelable) e.preventDefault(); lp = null; });
   root.addEventListener('touchcancel', () => { if (lp) { clearTimeout(lp.tm); lp = null; } });
   root.addEventListener('contextmenu', e => {
-    const w = isGM(v) && e.target.closest('.msgs [data-mid]'); if (!w) return;
+    const w = e.target.closest('.msgs [data-mid]'); if (!w || e.target.closest('textarea,input')) return;
     e.preventDefault(); if (lp?.fired || v.ui.pop?.mid === w.dataset.mid) return; lpOpen(w.dataset.mid);
   });
   root.addEventListener('click', e => {
@@ -144,8 +164,8 @@ function bind(v){
   root.addEventListener('input', e => { const el = e.target; if (el.dataset.i) input(v, el); });
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
   root.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft') { e.preventDefault(); send(v); }
-    if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
+    if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
   root.addEventListener('pointerdown', e => down(v, e));
   /* iPhone Safari zooms the whole page on a pinch unless its own gesture events are stopped over the map */
@@ -203,6 +223,11 @@ function input(v, el){
     case 'rollOther': v.ui.roll.otherName = val; return;
     case 'sd': v.ui.sd[k] = val; if (k === 'title' || k === 'where') { v.ui.sd.autoTitle = false; v.ui.sd.touched = true; } if (k === 'title') render(v); return;
     case 'cbAsp': v.ui.cbAsp = val; return;
+    case 'emn': if (v.ui.emoNew) { v.ui.emoNew.n = val; const n = N.emoName(val), b = v.root.querySelector('[data-a="emoSave"]'), t = v.root.querySelector('.emo-new small');
+      const dup = !!n && G().emoji.some(x => x.n === n); if (b) b.disabled = !n || dup; if (t) t.textContent = !n ? 'Letters, numbers and _ only.' : dup ? `:${n}: is already taken.` : `Type :${n}: in a message, or pick it from the emoji button.`; } return;
+    case 'gifQ': v.ui.gifQ = val; clearTimeout(v._gq); v._gq = setTimeout(() => gifSearch(v), 350); return;
+    case 'gifUrl': { v.ui.gifUrl = val; const b = v.root.querySelector('[data-a="gifLink"]'); if (b) b.disabled = !N.gifLinkOk(val); return; }
+    case 'gifKey': v.ui.gifKeyD = val; return;
     case 'boostName': v.ui.boostName = val; return;
     case 'med': if (v.ui.med) v.ui.med.text = val; { const b = v.root.querySelector('[data-a="msgSave"]'); if (b) b.disabled = !val.trim(); } return;
     case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .pl`); if (lab) lab.textContent = val; return; }
@@ -247,12 +272,31 @@ function send(v){
   else if (v.ui.mode === 'ooc') m = {kind:'meta'};
   else if (gm) { const n = N.npcByName(v.ui.voice); m = {kind:'rp', as:v.ui.voice}; if (n?.portrait) m.pt = n.portrait; }
   else m = {kind:'rp', as:c && c.built ? c.short : g.P[v.role].name};
+  if (v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
   push(Object.assign(m, {ch, by:v.role, text}));
-  v.ui.draft = ''; v.ui.stick = true;
+  v.ui.draft = ''; v.ui.stick = true; v.ui.reply = null;
   renderAll();
   const ta = v.root.querySelector('.composer textarea'); if (ta) ta.focus({preventScroll:true});
 }
 N.send = send;
+function sendGif(v, gif){
+  const ch = v.ui.ch, m = {kind:'gif', ch, by:v.role, text:'', gif};
+  if (v.ui.reply && G().msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
+  push(m); v.ui.pop = null; v.ui.reply = null; v.ui.stick = true; renderAll();
+}
+/* Tenor's GIF search; with nothing typed it shows what's popular */
+function gifSearch(v){
+  const ui = v.ui, key = G().gifKey; if (!key) return;
+  const q = (ui.gifQ || '').trim(), n = (v._gn = (v._gn || 0) + 1);
+  const url = `https://tenor.googleapis.com/v2/${q ? 'search' : 'featured'}?key=${encodeURIComponent(key)}&client_key=norne&limit=24&contentfilter=medium&media_filter=tinygif,gif${q ? '&q=' + encodeURIComponent(q) : ''}`;
+  ui.gifBusy = true; ui.gifErr = '';
+  fetch(url).then(r => r.json()).then(d => {
+    if (n !== v._gn) return;
+    if (d.error) throw new Error(d.error.message);
+    ui.gifRes = (d.results || []).map(x => { const f = x.media_formats || {}, big = f.gif || f.tinygif, sm = f.tinygif || f.gif; return big && sm ? {u:big.url, p:sm.url, w:big.dims?.[0] || 1, h:big.dims?.[1] || 1, t:x.content_description || ''} : null; }).filter(Boolean);
+  }).catch(err => { if (n === v._gn) { ui.gifRes = []; ui.gifErr = /key/i.test(err?.message || '') ? 'The GIF search key isn’t working. The GM can check it in GM tools.' : 'GIF search didn’t answer. Check your connection.'; } })
+    .finally(() => { if (n !== v._gn) return; ui.gifBusy = false; if (ui.pop?.type === 'emo') render(v); });
+}
 
 function openRoll(v, o={}){
   const g = G();
@@ -594,7 +638,7 @@ function act(v, a, el, e){
   case 'signOut': N.signOut(); return;
   /* navigation */
   case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') ui.charSel = null; if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.herald = false; } break;
-  case 'ch': close(); ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
+  case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; openSheet(v, val, d); break;
@@ -648,11 +692,38 @@ function act(v, a, el, e){
     for (const s of added) push({ch:'dm-' + s, kind:'news', by:'gm', text:i.headline, nid:i.id});
     renderAll(); return;
   }
+  /* a message's menu: reactions and reply for everyone, edit and delete for the GM */
+  case 'msgMenu': { const w = v.root.querySelector(`[data-mid="${CSS.escape(val)}"]`); if (ui.pop?.mid === val) ui.pop = null; else if (w) { openPop(v, 'msg', d.lp ? (w.querySelector('.m,.narr,.resm,.roll') || w) : el); ui.pop.mid = val; } break; }
+  case 'emoMore': if (ui.pop) ui.pop.all = !ui.pop.all; break;
+  case 'emoTab': ui.emoTab = val; if (val === 'gif' && !ui.gifRes && g.gifKey) gifSearch(v); break;
+  case 'gifSend': { const r = (ui.gifRes || [])[+d.i]; if (r) sendGif(v, {u:r.u, w:r.w, h:r.h}); return; }
+  case 'gifLink': { const u = (ui.gifUrl || '').trim(); if (!N.gifLinkOk(u)) break; ui.gifUrl = ''; sendGif(v, {u}); return; }
+  case 'gifKeySave': if (!gm) break; g.gifKey = (ui.gifKeyD ?? g.gifKey ?? '').trim(); ui.gifKeyD = undefined; ui.gifRes = null; toast(v, g.gifKey ? 'GIF search is on.' : 'GIF search is off.'); renderAll(); return;
+  case 'react': { const m = g.msgs.find(x => x.id === d.id); if (!m || !val || !N.msgSocial(m)) break;
+    const rx = m.rx || (m.rx = {}), l = (rx[v.role] || []).slice(), at = l.indexOf(val);
+    if (at >= 0) l.splice(at, 1); else if (l.length < 12) l.push(val);
+    if (l.length) rx[v.role] = l; else delete rx[v.role];
+    if (!Object.keys(rx).length) delete m.rx;
+    ui.pop = null; if (N.saveRx) N.saveRx(m, v.role); renderAll(); return; }
+  case 'reply': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m) break; ui.reply = m.id; if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; render(v); const ta = v.root.querySelector('.composer textarea'); if (ta) ta.focus({preventScroll:true}); return; }
+  case 'replyOff': ui.reply = null; break;
+  case 'jumpMsg': { const w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`); if (!w) { toast(v, 'That message isn’t in this chat any more.'); break; }
+    w.scrollIntoView({block:'center', behavior:'smooth'}); w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash'); setTimeout(() => w.classList.remove('flash'), 1600); return; }
+  case 'emoIns': { const ta = v.root.querySelector('.composer textarea'), t = val.startsWith(':') ? val + ' ' : val;
+    const a = ta ? ta.selectionStart ?? ui.draft.length : ui.draft.length, b = ta ? ta.selectionEnd ?? a : a;
+    ui.draft = ui.draft.slice(0, a) + t + ui.draft.slice(b); ui.pop = null; render(v);
+    const f = v.root.querySelector('.composer textarea'); if (f) { f.focus({preventScroll:true}); f.setSelectionRange(a + t.length, a + t.length); } return; }
+  /* the GM's own emoji pictures */
+  case 'emoAdd': if (!gm) break; N.pickImage(img => { ui.emoNew = {d:N.shrinkEmoji(img), n:''}; render(v); setTimeout(() => v.root.querySelector(`#emn-${v.id}`)?.focus(), 30); }); return;
+  case 'emoCancel': ui.emoNew = null; break;
+  case 'emoSave': { const e = ui.emoNew, n = N.emoName(e?.n); if (!gm || !e || !n || g.emoji.some(x => x.n === n)) break;
+    g.emoji.push({id:n, n, d:e.d}); ui.emoNew = null; toast(v, `Added :${n}:. Everyone can use it now.`); renderAll(); return; }
+  case 'emoDel': { const at = g.emoji.findIndex(x => x.n === val); if (!gm || at < 0) break; const x = g.emoji.splice(at, 1)[0];
+    toast(v, `Removed :${x.n}:.`, () => { if (!g.emoji.some(y => y.n === x.n)) g.emoji.splice(at, 0, x); }); renderAll(); return; }
   /* the GM editing or deleting a chat message */
-  case 'msgMenu': { const w = v.root.querySelector(`[data-mid="${CSS.escape(val)}"]`); if (ui.pop?.mid === val) ui.pop = null; else if (w) { openPop(v, 'msg', (!d.lp && w.querySelector('.mdots')) || w.firstElementChild || w); ui.pop.mid = val; } break; }
-  case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!gm || !m || !N.msgEditable(m)) break; ui.med = {id:m.id, text:m.text}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
+  case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m || !N.canEdit(v, m)) break; ui.med = {id:m.id, text:m.text}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
   case 'msgSave': {
-    const m = g.msgs.find(x => x.id === ui.med?.id), t = (ui.med?.text || '').trim(); if (!gm || !m || !t) break;
+    const m = g.msgs.find(x => x.id === ui.med?.id), t = (ui.med?.text || '').trim(); if (!m || !t || !N.canEdit(v, m)) break;
     if (t !== m.text) { m.text = t; m.ed = 1; }
     ui.sheet = null; ui.med = null; toast(v, 'Message edited.'); renderAll(); return;
   }
