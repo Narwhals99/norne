@@ -27,6 +27,8 @@ N.msgSnip = m => {
   const x = String(m.text || '').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
   return x.length > 90 ? x.slice(0, 90) + '…' : x;
 };
+/* what Copy puts on the clipboard: typed text as written, a GIF's link, otherwise the one-line summary */
+N.msgCopyText = m => m.kind === 'gif' ? (m.gif?.u || '') : (m.text && m.kind !== 'roll' && m.kind !== 'sys' ? String(m.text) : N.msgSnip(m));
 /* on a computer Enter sends and Shift+Enter starts a new line; on a phone Return starts a new line and the arrow sends */
 const TOUCH = matchMedia('(hover: none) and (pointer: coarse)');
 N.enterSends = () => !TOUCH.matches;
@@ -893,6 +895,12 @@ function act(v, a, el, e){
   /* export */
   case 'expCh': { const s = ui.exp.ch; s.has(val) ? s.delete(val) : s.add(val); break; }
   case 'expKind': ui.exp[val] = !ui.exp[val]; break;
+  case 'copyMsg': {
+    const m = g.msgs.find(x => x.id === val); ui.pop = null; render(v); if (!m) return;
+    const t = N.msgCopyText(m), old = () => { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0'; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch(err) {} ta.remove(); toast(v, ok ? 'Copied.' : 'Could not copy on this device.'); };
+    try { navigator.clipboard.writeText(t).then(() => toast(v, 'Copied.'), old); } catch(err) { old(); }
+    return;
+  }
   case 'expCopy': {
     const t = v.root.querySelector('#exOut'); if (!t) return;
     const sel = () => { t.select(); toast(v, 'Text selected. Copy it with your keyboard.'); };
