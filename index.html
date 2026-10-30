@@ -11,8 +11,9 @@
 <meta name="apple-mobile-web-app-title" content="Norne">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,0..100;1,9..144,300..700,0..100&family=IM+Fell+English:ital@0;1&family=Nunito+Sans:ital,opsz,wght@0,6..12,400..900;1,6..12,400..900&family=UnifrakturMaguntia&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..700,0..100;1,9..144,300..700,0..100&family=IM+Fell+English:ital@0;1&family=Nunito+Sans:ital,opsz,wght@0,6..12,400..900;1,6..12,400..900&family=UnifrakturMaguntia&family=Alegreya:ital,wght@0,400..900;1,400..900&family=Alegreya+SC:wght@400;500;700;800&family=IM+Fell+DW+Pica:ital@0;1&family=IM+Fell+English+SC&display=swap">
 <link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/parchment.css">
 <style>
 /* The page is only a frame: the app fills the visible screen (shrinking above the phone keyboard). */
 html,body{height:100%;margin:0;background:#060819;overflow:hidden;overscroll-behavior:none}
@@ -22,6 +23,8 @@ body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 .app.kb{--safe-b:0px}
 body:has(.app[data-theme="day"]){background:#f1e9d0}
+body:has(.app[data-style="parchment"]){background:#0e0906}
+body:has(.app[data-style="parchment"][data-theme="day"]){background:#dcc79d}
 noscript{position:fixed;inset:0;display:grid;place-items:center;padding:24px;color:#efecff;font:600 16px/1.5 system-ui,sans-serif;text-align:center}
 </style>
 <body>
@@ -48,9 +51,9 @@ noscript{position:fixed;inset:0;display:grid;place-items:center;padding:24px;col
 <script>
 (function(){
   const N = window.N, root = document.getElementById('app');
-  let theme = 'night'; try { theme = localStorage.getItem('norne-theme') || 'night'; } catch(e) {}
+  let theme = 'night', style = 'storybook'; try { theme = localStorage.getItem('norne-theme') || 'night'; style = localStorage.getItem('norne-style') || 'storybook'; } catch(e) {}
   const wide = matchMedia('(min-width: 760px)');
-  const v = N.mount(root, {role:null, dev:wide.matches ? 'desktop' : 'phone', theme});
+  const v = N.mount(root, {role:null, dev:wide.matches ? 'desktop' : 'phone', theme, style});
   const onWide = () => { v.dev = wide.matches ? 'desktop' : 'phone'; N.render(v); };
   wide.addEventListener ? wide.addEventListener('change', onWide) : wide.addListener(onWide);
   N.kbInit();

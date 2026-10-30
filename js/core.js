@@ -15,6 +15,20 @@ const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><p
 const MARK = '<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="mk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9b0"/><stop offset="1" stop-color="#d9973f"/></linearGradient></defs><path fill="url(#mk)" d="M24 2c1.6 11 7.6 18 20 22-12.4 4-18.4 11-20 22-1.6-11-7.6-18-20-22C16.4 20 22.4 13 24 2z"/><path fill="none" stroke="url(#mk)" stroke-width="1.2" opacity=".7" d="M24 12c.8 5.4 3.8 9 10 12-6.2 3-9.2 6.6-10 12-.8-5.4-3.8-9-10-12 6.2-3 9.2-6.6 10-12z"/></svg>';
 Object.assign(N, {esc, fmt, uid, clamp, sgn, IC, STAR, MARK});
 
+/* ---------- styles: whole looks picked under Profile > Style, each with a Night and a Day ----------
+   A new style is one entry here plus its own stylesheet scoped to .app[data-style="<id>"] (see css/parchment.css).
+   The swatches only draw the little preview card in the picker. */
+const STYLES = [
+  {id:'storybook', name:'Storybook', sub:'Starry indigo by night, green and gold by day',
+    night:{bg:'#0b0e2a', card:'#232864', ink:'#efecff', acc:'#8c7cff', hi:'#f4c46e'},
+    day:{bg:'#f1e9d0', card:'#fffcf2', ink:'#27301b', acc:'#5e8a2e', hi:'#d29b2a'}},
+  {id:'parchment', name:'Parchment & Wax', sub:'Papyrus, old ink and red sealing wax',
+    night:{bg:'#1b130c url(art/ui/vellum-night.jpg) 0 0/180px', card:'#3b2d1f', ink:'#f0e2c4', acc:'#b8322b', hi:'#e0b263'},
+    day:{bg:'#dcc79d url(art/ui/parchment.jpg) 0 0/180px', card:'#fbf4e1', ink:'#2a1c0f', acc:'#9b2320', hi:'#9a6a1c'}}
+];
+N.STYLES = STYLES;
+N.styleOk = id => STYLES.some(s => s.id === id) ? id : 'storybook';
+
 /* ---------- Fate on the Nörne ladder ---------- */
 const LADDER = {8:'Mythic',7:'Legendary',6:'Renowned',5:'Expert',4:'Great',3:'Good',2:'Fair',1:'Average',0:'Mediocre','-1':'Poor','-2':'Terrible'};
 const ladderWord = v => LADDER[clamp(v,-2,8)];
