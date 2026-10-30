@@ -135,8 +135,16 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], foes:[], recent:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{},
+  chars:{}, npcs:[], quick:[], foes:[], recent:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], gifKey:'',
 };
+/* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
+N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
+N.EMO_ALL = ['👍','👎','❤️','😂','🤣','😮','😢','😡','🔥','🎉','👏','🙏','💀','😱','🤔','😏','😎','🥲','😬','🙄','🤯','😴','🤝','✨','⚔️','🛡️','🏹','🗡️','🪓','🍺','🎲','🐉','👑','🕯️','🌙','☀️','💰','🧪','📜','🗺️','✅','❌','❓','❗'];
+N.emoById = n => (N.G.emoji || []).find(e => e.n === n);
+/* one reaction or emoji as html: a custom one is :name:, anything else is a plain emoji character */
+N.emj = (e, cls='cemo') => { const c = /^:([\w-]+):$/.exec(e || ''); if (!c) return esc(e); const x = N.emoById(c[1]); return x ? `<img class="${cls}" src="${esc(x.d)}" alt=":${esc(x.n)}:" title=":${esc(x.n)}:" draggable="false">` : esc(e); };
+/* custom emoji typed into a message, after fmt() */
+N.emoText = h => (N.G.emoji || []).length ? h.replace(/:([\w-]{1,32}):/g, (all, n) => N.emoById(n) ? N.emj(all) : all) : h;
 N.seatColor = seat => `var(--c-p${((+seat.slice(1) - 1) % SEATCOL) + 1})`;
 
 function blankChar(id, player){

@@ -196,17 +196,38 @@ function renderMsgs(v){
   const seen = (g.seen[v.role] || {})[v.ui.ch] || 0; let divDone = false;
   for (const m of ms) {
     if (!divDone && m.by !== v.role && m.t > seen && seen > 0 && v.ui.showNew) { out += `<div class="day-div" style="color:var(--ember)">New</div>`; divDone = true; }
-    const h = rMsg(v, m, prev, firstNarr);
-    /* the GM can edit or delete any message: long-press on a phone, the ⋯ button on a computer */
-    out += h && isGM(v) ? `<div class="mw${v.ui.pop?.mid === m.id ? ' on' : ''}" data-mid="${m.id}">${h}<button type="button" class="mdots" data-a="msgMenu" data-v="${m.id}" aria-label="Edit or delete this message">${IC('dots')}</button></div>` : h;
+    const h = rMsg(v, m, m.re ? null : prev, firstNarr);
+    out += h ? msgWrap(v, m, h) : h;
     if (m.kind === 'rp' && m.by === 'gm' && m.as === 'Narrator') firstNarr = false;
     if (m.kind === 'scene') firstNarr = true;
     prev = m;
   }
   return out;
 }
+/* Everyone can react to a message or reply to it: long-press on a phone, the buttons beside it on a computer.
+   The GM can also edit or delete any message from the same menu. */
+function msgWrap(v, m, h){
+  const social = N.msgSocial(m), gm = isGM(v);
+  if (!social && !gm) return h;
+  const narr = m.kind === 'rp' && !!N.speakerObj(m).narr, mine = m.by === v.role && !narr;
+  const tools = `<span class="mtools">${social ? `<button type="button" data-a="msgMenu" data-v="${m.id}" data-emo="1" aria-label="React" title="React">${IC('smile')}</button><button type="button" data-a="reply" data-v="${m.id}" aria-label="Reply" title="Reply">${IC('reply')}</button>` : ''}${gm ? `<button type="button" class="mdots" data-a="msgMenu" data-v="${m.id}" aria-label="Edit or delete this message" title="More">${IC('dots')}</button>` : ''}</span>`;
+  return `<div class="mw${mine ? ' mine' : ''}${narr ? ' nw' : ''}${v.ui.pop?.mid === m.id || v.ui.reply === m.id ? ' on' : ''}" data-mid="${m.id}">${m.re ? replyQuote(v, m.re) : ''}${h}${social ? rxRow(v, m) : ''}${tools}</div>`;
+}
+/* the line above a reply that shows what it answers; tapping it jumps to that message */
+function replyQuote(v, id){
+  const o = G().msgs.find(x => x.id === id);
+  if (!o) return `<div class="rq gone">${IC('reply')}<span>The message this answers was deleted</span></div>`;
+  return `<button type="button" class="rq" data-a="jumpMsg" data-v="${o.id}">${IC('reply')}<b style="--who:${N.msgColor(o)}">${esc(N.msgWho(o))}</b><span>${N.emoText(esc(N.msgSnip(o)))}</span></button>`;
+}
+/* reactions under a message: one chip per emoji, lit when it's yours */
+function rxRow(v, m){
+  const by = {}, order = [];
+  for (const [who, list] of Object.entries(m.rx || {})) for (const e of list || []) { if (!by[e]) { by[e] = []; order.push(e); } by[e].push(who); }
+  if (!order.length) return '';
+  return `<div class="rxs">${order.map(e => { const w = by[e], me = w.includes(v.role); return `<button type="button" class="rx${me ? ' me' : ''}" data-a="react" data-id="${m.id}" data-v="${esc(e)}" aria-pressed="${me}" title="${esc(w.map(x => N.personObj(x).name).join(', '))}" aria-label="${esc(e)} ${w.length}">${N.emj(e)}<b>${w.length}</b></button>`; }).join('')}<button type="button" class="rx add" data-a="msgMenu" data-v="${m.id}" data-emo="1" aria-label="Add a reaction">${IC('smile')}<span>+</span></button></div>`;
+}
 function rMsg(v, m, prev, firstNarr){
-  const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`, txt = fmt(m.text) + (m.ed ? ' <span class="ed">edited</span>' : '');
+  const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
   if (m.kind === 'sys') return m.res ? resCard(m.res) : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
   if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}"></span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
@@ -218,6 +239,10 @@ function rMsg(v, m, prev, firstNarr){
     return `<div class="m${mine?' mine':''}">${N.av(s,32)}<div class="body"><div class="who" style="--who:${s.color}">${esc(m.roll.who)}${m.ch==='gm'?'<span class="tag gold">Secret</span>':''}${time}</div>${rRoll(v, m)}</div></div>`;
   }
   const cont = prev && prev.by === m.by && prev.kind === m.kind && (prev.as||'') === (m.as||'') && m.t - prev.t < 180000 && m.kind !== 'scene';
+  if (m.kind === 'gif') {
+    const p = N.personObj(m.by), gf = m.gif || {};
+    return `<div class="m gifm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:${p.color || 'var(--ink-2)'}">${esc(p.name)} ${time}</div><img class="gif" src="${esc(gf.u)}" alt="GIF" loading="lazy" ${gf.w && gf.h ? `style="aspect-ratio:${+gf.w}/${+gf.h}"` : ''}></div></div>`;
+  }
   if (m.kind === 'ooc' || m.kind === 'meta') {
     const p = N.personObj(m.by);
     return `<div class="m ooc${mine?' mine':''}${cont?' cont':''}">${N.av(p,32)}<div class="body">${cont?'':`<div class="who" style="--who:var(--ink-3)">${esc(p.name)} ${time}</div>`}<div class="bub">${txt}</div></div></div>`;
@@ -273,13 +298,17 @@ function composer(v){
     ph = `Speak or act as ${c.short}. *Asterisks* for actions.`;
   }
   if (v.ui.ch === 'gm') { chip = `<span class="ooc-ic">${IC('lock')}</span><b class="only-dt">Note</b>`; ph = 'A note only you can see…'; }
+  const re = v.ui.reply && g.msgs.find(x => x.id === v.ui.reply);
   return `<form class="composer${ooc?' ooc':''}" data-f="send" onsubmit="return false">
+    ${re ? `<div class="replying">${IC('reply')}<span>Replying to <b>${esc(N.msgWho(re))}</b><small>${N.emoText(esc(N.msgSnip(re)))}</small></span><button type="button" class="ibtn sm" data-a="replyOff" aria-label="Stop replying">${IC('x')}</button></div>` : ''}
     <div class="box">
       ${v.ui.ch === 'gm' ? `<span class="voice">${chip}</span>` : `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`}
-      <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="send">${esc(v.ui.draft)}</textarea>
+      <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="${N.enterSends() ? 'send' : 'enter'}">${esc(v.ui.draft)}</textarea>
+      <button type="button" class="emob" data-a="pop" data-v="emo" aria-label="Emoji" title="Emoji">${IC('smile')}</button>
       <button type="button" class="diceb" data-a="roll" aria-label="Roll the dice" title="Roll">${fateDie}</button>
       <button type="button" class="sendb" data-a="send" aria-label="Send">${IC('send')}</button>
     </div>
+    ${N.enterSends() ? '<div class="nlhint"><b>Enter</b> sends · <b>Shift + Enter</b> for a new line</div>' : ''}
   </form>`;
 }
 
@@ -295,7 +324,7 @@ function gmScreen(v){
   const pcs = N.pcs(), npc1 = g.npcs[0], waiting = N.MEMBERS.filter(m => m.role === 'pending').length;
   const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
     ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
-    ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export the log', 'data-v="export"'], ['sheet', 'upload', 'Import lore', 'data-v="import"']];
+    ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export the log', 'data-v="export"'], ['sheet', 'smile', 'Emoji and GIFs', 'data-v="emoji"'], ['sheet', 'upload', 'Import lore', 'data-v="import"']];
   const scenes = ['table', ...N.seats().map(x => 'dm-' + x)].filter(c => g.scenes[c]).length;
   return `<div class="gs">
     ${fight}
@@ -346,6 +375,20 @@ function heroQuick(v){
 N.gmScreen = gmScreen; N.heroQuick = heroQuick; N.meBtn = meBtn; N.sideBtn = sideBtn; N.fightSeg = fightSeg; N.chatView = chatView; N.fightAvail = fightAvail;
 
 /* ================= popovers ================= */
+/* GIFs: search Tenor (once the GM has saved a key) or paste a link to any GIF */
+function gifPane(v){
+  const ui = v.ui, key = G().gifKey, res = ui.gifRes || [];
+  const search = key ? `<div class="pop-find">${IC('search')}<input class="inp" id="gq-${v.id}" data-i="gifQ" placeholder="Search GIFs" value="${esc(ui.gifQ || '')}" autocomplete="off" enterkeyhint="search"></div>
+    <div class="gif-grid">${ui.gifErr ? `<p class="muted gif-msg">${esc(ui.gifErr)}</p>` : !res.length ? `<p class="muted gif-msg">${ui.gifBusy ? 'Looking…' : 'Nothing found.'}</p>` : res.map((r, i) => `<button type="button" class="gifb" data-a="gifSend" data-i="${i}" aria-label="${esc(r.t || 'GIF')}"><img src="${esc(r.p)}" alt="" loading="lazy" style="aspect-ratio:${r.w}/${r.h}"></button>`).join('')}</div>
+    <p class="gif-by">Search by Tenor</p>`
+    : `<div class="note" style="margin:4px 2px 8px">${IC('info')}${isGM(v) ? 'GIF search needs a free Tenor key. Add it in GM tools &gt; Emoji and GIFs.' : `GIF search isn’t switched on yet. ${esc(N.gmName())} can turn it on.`} Pasting a link works already.</div>`;
+  return `${search}<div class="gif-link"><input class="inp" id="gl-${v.id}" data-i="gifUrl" placeholder="…or paste a GIF link" value="${esc(ui.gifUrl || '')}" autocomplete="off" inputmode="url"><button type="button" class="btn sm primary" data-a="gifLink" ${N.gifLinkOk(ui.gifUrl) ? '' : 'disabled'}>Send</button></div>`;
+}
+function emoGrid(v, attrs, mine){
+  const cus = G().emoji || [];
+  const b = (e, label) => `<button type="button" class="emo${mine.includes(e)?' me':''}" ${attrs(e)} aria-label="${esc(label || e)}">${N.emj(e)}</button>`;
+  return `<div class="emo-grid">${cus.length ? `<div class="lbl">Norne</div>${cus.map(x => b(':' + x.n + ':', x.n)).join('')}<div class="lbl">Emoji</div>` : ''}${N.EMO_ALL.map(e => b(e)).join('')}</div>${isGM(v) ? `<button type="button" class="opt" data-a="sheet" data-v="emoji">${IC('plus')}<span>${cus.length ? 'Manage custom emoji' : 'Add custom emoji'}</span></button>` : ''}`;
+}
 function popHtml(v){
   const p = v.ui.pop, g = G();
   const pos = `left:${p.x}px;${p.up ? `bottom:${p.y}px` : `top:${p.y}px`}`;
@@ -366,7 +409,15 @@ function popHtml(v){
   }
   if (p.type === 'msg') {
     const m = g.msgs.find(x => x.id === p.mid); if (!m) return '';
-    return `<div class="pop" style="${pos};min-width:190px" role="menu" aria-label="Message">${N.msgEditable(m) ? `<button type="button" class="opt" role="menuitem" data-a="msgEdit" data-v="${m.id}">${IC('pen')}<span>Edit message</span></button>` : ''}<button type="button" class="opt danger" role="menuitem" data-a="sheet" data-v="msgDel" data-c="${m.id}">${IC('trash')}<span>Delete message</span></button></div>`;
+    const social = N.msgSocial(m), mine = (m.rx || {})[v.role] || [];
+    const quick = social ? `<div class="emo-quick">${N.EMO_QUICK.map(e => `<button type="button" class="emo${mine.includes(e)?' me':''}" data-a="react" data-id="${m.id}" data-v="${e}" aria-label="React ${e}">${e}</button>`).join('')}<button type="button" class="emo more" data-a="emoMore" aria-label="More emoji" aria-expanded="${!!p.all}">${IC(p.all ? 'minus' : 'plus')}</button></div>${p.all ? emoGrid(v, e => `data-a="react" data-id="${m.id}" data-v="${esc(e)}"`, mine) : ''}` : '';
+    return `<div class="pop msgpop${p.all?' wide':''}" style="${pos}" role="menu" aria-label="Message">${quick}${social ? `<button type="button" class="opt" role="menuitem" data-a="reply" data-v="${m.id}">${IC('reply')}<span>Reply</span></button>` : ''}${isGM(v) ? `${social ? '<div class="sep"></div>' : ''}${N.msgEditable(m) ? `<button type="button" class="opt" role="menuitem" data-a="msgEdit" data-v="${m.id}">${IC('pen')}<span>Edit message</span></button>` : ''}<button type="button" class="opt danger" role="menuitem" data-a="sheet" data-v="msgDel" data-c="${m.id}">${IC('trash')}<span>Delete message</span></button>` : ''}</div>`;
+  }
+  /* the composer's emoji button: puts the emoji into what you're typing */
+  if (p.type === 'emo') {
+    const gif = v.ui.emoTab === 'gif';
+    const tabs = `<div class="seg emo-tabs" role="tablist"><button type="button" role="tab" data-a="emoTab" data-v="emo" aria-pressed="${!gif}">${IC('smile')}Emoji</button><button type="button" role="tab" data-a="emoTab" data-v="gif" aria-pressed="${gif}"><b class="gifw">GIF</b>GIFs</button></div>`;
+    return `<div class="pop msgpop wide${gif ? ' gifpop' : ''}" style="${pos}" role="dialog" aria-label="${gif ? 'GIFs' : 'Emoji'}">${tabs}${gif ? gifPane(v) : emoGrid(v, e => `data-a="emoIns" data-v="${esc(e)}"`, [])}</div>`;
   }
   if (p.type === 'wnew') {
     const row = (a, ic, l, sub, x='') => `<button type="button" class="opt" data-a="${a}" ${x}><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${l}<small>${sub}</small></span></button>`;

@@ -97,6 +97,7 @@ function line(m){
   if (m.kind === 'combat') return `A fight has begun: ${m.text}`;
   if (m.kind === 'scene') return m.scene?.title ? `New scene: ${m.scene.title}` : '';
   if (m.kind === 'sys') return m.text || '';
+  if (m.kind === 'gif') return `${N.personObj(m.by).name} sent a GIF`;
   return m.text ? `${who}: ${m.text}` : '';
 }
 const pings = ms => ms.length > 1 ? `${ms[ms.length - 1]} (+${ms.length - 1} more)` : ms[0];
