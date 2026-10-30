@@ -3,7 +3,8 @@
    stored as JSON strings, so a change rewrites only the units that changed. The GM's device keeps the full
    copy in gm/* and writes a player-safe copy (no secrets, hidden maps, hidden entries or a fight being set up)
    to game/*. Players can only read game/*, their own chats and the pictures the GM has shared (firestore.rules).
-   A fight started in a player's private chat goes to fights/<seat> instead of game/combat, so only that player sees it. */
+   A fight started in a player's private chat goes to fights/<seat> instead of game/combat, so only that player sees it.
+   Each chat can have its own fight at the same time: gm/combat keeps one unit per chat (table, dm-p1…). */
 (function(){
 const N = window.N, {esc, uid} = N;
 const G = () => N.G;
@@ -192,17 +193,21 @@ function syncNow(){
   const g = G();
   if (isGM()) {
     writeUnits('game/chars', g.chars);
-    const cb = g.combat, setup = cb.state === 'setup', live = cb.state === 'live', priv = N.chSeat(cb.ch);
-    writeUnits('gm/combat', {c:setup || (live && priv) ? combatOut(cb) : null});
+    /* fights being set up and fights in private chats stay in gm/combat, one unit per chat */
+    const all = N.allFights(), mine = Object.fromEntries(Object.entries(all).filter(([ch, cb]) => cb.state === 'setup' || (cb.state === 'live' && N.chSeat(ch))));
+    writeUnits('gm/combat', Object.fromEntries(Object.entries(mine).map(([ch, cb]) => [ch, combatOut(cb)])));
     /* what this device just wrote is the newest copy (its own writes don't come back as changes) */
-    SC = setup || (live && priv) ? cb : null;
-    writeUnits('game/combat', {c:combatOut(setup || priv ? N.freshCombat() : cb)});
+    SC = mine;
+    const tbl = all.table?.state === 'live' ? all.table : null;
+    writeUnits('game/combat', {c:combatOut(tbl || N.freshCombat())}); GC = tbl;
     /* a fight in a private chat is written only to that player's own fights/<seat> document */
     for (const st of N.seats()) {
-      const path = 'fights/' + st;
+      const path = 'fights/' + st, f = all['dm-' + st]?.state === 'live' ? all['dm-' + st] : null;
       if (!LOADED.has(path)) { listenFight(st); continue; }
-      writeUnits(path, {c:live && priv === st ? combatOut(cb) : null}); PF[st] = live && priv === st ? cb : null;
+      writeUnits(path, {c:f ? combatOut(f) : null}); PF[st] = f;
     }
+    for (const [ch, cb] of Object.entries(mine)) SRC[ch] = cb;
+    if (tbl) SRC.table = tbl;
     /* things shared with only some players go to each of those players' own only/<seat> document */
     const only = Object.fromEntries(N.seats().map(st => [st, {}]));
     const share = (x, kind, key, pub) => { const a = N.audOf(x, kind); if (a === '*') return pub; if (a !== 'gm') for (const st of a) if (only[st]) only[st][key] = pub; return null; };
@@ -234,7 +239,7 @@ function syncNow(){
   } else {
     const mine = g.P[g.role]?.char;
     if (mine && g.chars[mine]) writeUnits('game/chars', {[mine]:g.chars[mine]}, true);
-    if (g.combat.state === 'live') { const s = N.chSeat(g.combat.ch); writeUnits(s ? 'fights/' + s : 'game/combat', {c:combatOut(g.combat)}); }
+    for (const [ch, cb] of Object.entries(N.allFights())) if (cb.state === 'live') { const s = N.chSeat(ch); writeUnits(s ? 'fights/' + s : 'game/combat', {c:combatOut(cb)}); }
   }
   syncMsgs();
 }
@@ -260,7 +265,7 @@ const queueSync = () => { clearTimeout(_sq); _sq = setTimeout(syncNow, 250); };
 N.syncNow = syncNow;
 
 /* ---------- applying what arrives ---------- */
-let GC = null, SC = null; const PF = {};
+let GC = null, SC = {}; const PF = {}, SRC = {};
 const OLDBG = {forest:'dark-forest', tavern:'town-alley', street:'town-alley', cave:'cave-temple-deep', castle:'castle-ramparts', swamp:'dark-forest', snow:'mountain-pass-raid', ship:'harbor-ship'};
 /* Fights are also written in the old app's shape (bg key, scene, zone color), so rolling the site back keeps them working. */
 const oldBg = src => ({'dark-forest':'forest', 'town-alley':'tavern', 'cave-temple-deep':'cave', 'castle-ramparts':'castle', 'mountain-pass-raid':'snow', 'harbor-ship':'ship'})[(String(src).match(/^art\/bg\/([\w-]+)\.jpg$/) || [])[1]] || 'forest';
@@ -287,18 +292,29 @@ function normCombat(c){
   c.tokens.forEach(t => { if (t.kind === 'npc') { if (t.label && t.name && !/\d$/.test(t.name) && same[t.name] > 1) t.name = `${t.name} ${t.label.replace(/^\D+/, '')}`; if (!t.side) t.side = 'foe'; } });
   return c;
 }
-/* which fight this screen shows: the one at the table (game/combat) or one in a private chat (fights/<seat>).
-   The GM keeps a fight being set up or one in a private chat in gm/combat too, and takes the player's copy
-   of a private fight when it is the same fight (it has their moves). */
+/* the fights this screen knows, one per chat: the one at the table (game/combat) and those in private chats
+   (fights/<seat>). The GM keeps fights being set up and fights in private chats in gm/combat too, and takes the
+   player's copy of a private fight when it is the same fight (it has their moves). A copy that hasn't changed
+   since it last arrived keeps the fight on screen as it is. */
 function setCombat(){
-  const g = G(); let c = GC;
+  const g = G(), src = {}, cur = N.allFights(), out = {};
   if (isGM()) {
-    const own = x => x && x.id && (x.state === 'setup' || (x.state === 'live' && N.chSeat(x.ch))) ? x : null;
-    const mine = own(g.combat) || own(SC);
-    if (mine?.state === 'setup') c = mine;
-    else if (mine) { const p = PF[N.chSeat(mine.ch)]; c = p && p.id === mine.id && p.state === 'live' ? p : mine; }
-  } else if (PF[g.role]?.state === 'live') c = PF[g.role];
-  if (c !== g.combat) g.combat = normCombat(c);
+    for (const [ch, x] of Object.entries(SC)) {
+      if (!x?.id || !(x.state === 'setup' || (x.state === 'live' && N.chSeat(ch)))) continue;
+      const p = PF[N.chSeat(ch)]; src[ch] = x.state === 'live' && p && p.id === x.id && p.state === 'live' ? p : x;
+    }
+    if (!src.table && GC?.state === 'live') src.table = GC;
+    /* the GM's own fights stay until the GM ends them, even before they are saved */
+    Object.assign(out, cur);
+  } else {
+    if (GC?.state === 'live') src.table = GC;
+    if (PF[g.role]?.state === 'live') src['dm-' + g.role] = PF[g.role];
+  }
+  for (const [ch, c] of Object.entries(src)) out[ch] = SRC[ch] === c && cur[ch] ? cur[ch] : normCombat(c);
+  for (const k of Object.keys(SRC)) delete SRC[k];
+  Object.assign(SRC, src);
+  g.fights = out;
+  g.combat = out[g.fch] || Object.assign(N.freshCombat(), {ch:g.fch});
 }
 function normMap(m){
   m.pins = (m.pins || []).map(p => {
@@ -407,7 +423,8 @@ async function start(role){
   const APPLY = {
     'game/chars': u => { g.chars = Object.fromEntries(Object.entries(u).map(([k,j]) => [k, N.decorate(JSON.parse(j))])); ensureChars(); },
     'game/combat': u => { GC = u.c ? JSON.parse(u.c) : null; setCombat(); },
-    'gm/combat': u => { SC = u.c ? JSON.parse(u.c) : null; setCombat(); },
+    /* one unit per chat; c is where the one fight lived before there could be several */
+    'gm/combat': u => { SC = {}; for (const j of Object.values(u)) { const x = JSON.parse(j); if (x) SC[x.ch || 'table'] = x; } setCombat(); },
     'gm/maps': setMaps,
     'gm/wiki': u => { g.wiki = vals(u).sort(byO); },
     'gm/npcs': u => { g.npcs = vals(u).map(normNpc).sort((a,b) => a.name.localeCompare(b.name)); },
