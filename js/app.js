@@ -380,7 +380,7 @@ function cbDefend(v){
   const g = G(), cb = g.combat, p = cb.pending; if (!p || p.stage !== 'defend') return;
   const d = N.tokById(p.def), a = N.tokById(p.att); if (!d || !a) { cb.pending = null; renderAll(); return; }
   N.boostTick(d);
-  const [skill, x] = N.defSkill(d, p.skill);
+  const [skill, x] = N.defSkill(d);
   const key = d.kind === 'pc' ? 'pc:' + d.ref : 'tok:' + d.id;
   const roll = {who:N.tokName(d), whoKey:key, skill, bonus:x, action:'Defend', target:N.tokName(a), opp:p.total, dice:N.rollDice(), invokes:[]};
   const m = push({ch:N.fightCh(), kind:'roll', by:v.role, roll});
@@ -938,7 +938,7 @@ function act(v, a, el, e){
   }
   /* roll sheet */
   case 'rollWho': { ui.roll.who = val; const r = N.rollerOf(v, val); ui.roll.skill = Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'Notice'; ui.roll.target = null; break; }
-  case 'rollAct': ui.roll.action = val; if (val === 'defend') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Athletics||0) >= (r.skills.Fighting||0) ? 'Athletics' : 'Fighting'; } if (val === 'attack') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Shooting||0) > (r.skills.Fighting||0) ? 'Shooting' : 'Fighting'; } break;
+  case 'rollAct': ui.roll.action = val; if (val === 'defend') { ui.roll.skill = 'Athletics'; } if (val === 'attack') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Shooting||0) > (r.skills.Fighting||0) ? 'Shooting' : 'Fighting'; } break;
   case 'rollTgt': ui.roll.target = val; ui.roll.ctx = 'cb'; break;
   case 'rollSkill': ui.roll.skill = val; break;
   case 'rollAll': ui.roll.all = true; break;

@@ -147,7 +147,7 @@ function chatView(v, side){
   /* an attack waiting on this screen's defense shows above the chat too, so it isn't missed with the board closed */
   const owed = N.owedTok(v), pend = cb.pending;
   const owedBar = owed ? (pend.stage === 'defend'
-    ? `<div class="fightbar owed">${IC('attack','sw')}<div class="t">${esc(N.tokName(N.tokById(pend.att)))} attacks ${gm ? esc(N.tokName(owed)) : 'you'}!<span>${esc(pend.skill)} for ${sgn(pend.total)} ${ladderWord(pend.total)}. Roll the defense.</span></div>${N.defBtn(owed, pend.skill)}</div>`
+    ? `<div class="fightbar owed">${IC('attack','sw')}<div class="t">${esc(N.tokName(N.tokById(pend.att)))} attacks ${gm ? esc(N.tokName(owed)) : 'you'}!<span>${esc(pend.skill)} for ${sgn(pend.total)} ${ladderWord(pend.total)}. Roll the defense.</span></div>${N.defBtn(owed)}</div>`
     : `<div class="fightbar owed">${IC('warn','sw')}<div class="t">${gm ? esc(N.tokName(owed)) + ' takes' : 'You take'} ${pend.shifts} shift${pend.shifts>1?'s':''}<span>Pick a stress box or a consequence on the board.</span></div><button type="button" class="btn sm gold" data-a="openFight">Soak the hit</button></div>`) : '';
   const chipRow = (!side && fa) ? `<div class="chname-row only-ph"><button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b></span>${IC('caret')}</button></div>` : '';
   return `<section class="chat" aria-label="${esc(N.chName(ch, v.role))}">
