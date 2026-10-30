@@ -349,8 +349,9 @@ N.foeList = place => {
   return list.length ? `<div class="zlist">${list.join('')}</div>` : '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No NPC cards yet.</p>';
 };
 N.cbBegin = function(ch){
+  ch = ch && ch !== 'gm' ? ch : 'table'; N.focusFight(ch);
   const g = G(), cb = g.combat = N.freshCombat();
-  cb.state = 'setup'; cb.id = N.uid('f'); cb.ch = ch && ch !== 'gm' ? ch : 'table';
+  cb.state = 'setup'; cb.id = N.uid('f'); cb.ch = ch;
   const built = N.pcsIn(cb.ch).filter(c => c.built);
   cb.invited = built.map(c => c.id);
   built.forEach(c => cb.tokens.push(N.tokFromPc(c)));

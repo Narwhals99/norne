@@ -44,6 +44,7 @@ function render(v){
   const ae = document.activeElement; let focus = null;
   if (ae && root.contains(ae) && ae.id) focus = {id:ae.id, s:ae.selectionStart, e:ae.selectionEnd};
   markSeen(v);
+  focusFight(v);
   /* a sheet that was already open stays put instead of sliding in again on every redraw */
   const still = v.ui.sheet && v._sheet === v.ui.sheet + ':' + v.ui.sheetArg;
   root.innerHTML = N.appHtml(v);
@@ -188,6 +189,7 @@ function input(v, el){
   const g = G(), i = el.dataset.i, k = el.dataset.k, val = el.value;
   switch (i) {
     case 'draft': v.ui.draft = val; grow(el); return;
+    case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
     case 'mapQ': v.ui.mapQ = val; render(v); return;
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
     case 'npcQ': v.ui.npcQ = val; render(v); return;
@@ -573,7 +575,13 @@ function uploadFace(v, cb){ N.pickImage(img => { cb(N.storeImg(N.shrinkFace(img)
 function uploadPicture(v, cb){ N.pickImage(img => { cb(N.storeImg(N.shrink(img, 1600, 700000), true)); render(v); }); }
 
 /* ---------------- actions ---------------- */
+/* the fight on screen is the one in the open chat; picks made in another chat's fight don't carry over */
+function focusFight(v){
+  const was = G().fch; N.focusFight(v.ui.ch);
+  if (G().fch !== was) Object.assign(v.ui, {tokSel:null, targeting:null, placing:null, zoneSel:null});
+}
 function act(v, a, el, e){
+  focusFight(v);
   const g = G(), ui = v.ui, d = el.dataset, val = d.v, cb = g.combat, gm = isGM(v);
   const close = () => { ui.sheet = null; ui.pop = null; };
   /* anything tapped in the phone's chat drawer closes it */
@@ -584,7 +592,7 @@ function act(v, a, el, e){
   case 'signOut': N.signOut(); return;
   /* navigation */
   case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') ui.charSel = null; if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.herald = false; } break;
-  case 'ch': close(); ui.tab = 'chat'; ui.ch = val; ui.stick = true; if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
+  case 'ch': close(); ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; openSheet(v, val, d); break;
@@ -767,7 +775,21 @@ function act(v, a, el, e){
     toast(v, `Added to ${c.short}’s inventory. They got a note.`); renderAll(); return;
   }
   case 'invQty': { const c = invOwner(d, v), it = c?.inv?.[+d.i]; if (!it) break; it[1] += +d.d; if (it[1] <= 0) { c.inv.splice(+d.i, 1); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); } renderAll(); return; }
-  case 'invDel': { const c = invOwner(d, v), it = c?.inv?.splice(+d.i, 1)[0]; if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
+  case 'invEdit': ui.invEdit = {key:d.nd ? 'nd' : invOwner(d, v)?.id, i:+d.i}; break;
+  case 'invEditCancel': ui.invEdit = null; break;
+  case 'invIc': if (ui.invEdit) ui.invEdit.ic = val; break;
+  case 'invSave': {
+    const c = invOwner(d, v), it = c?.inv?.[+d.i], key = d.nd ? 'nd' : c?.id; if (!it) { ui.invEdit = null; break; }
+    const get = k => (v.root.querySelector(`#ie${k}-${key}-${v.id}`)?.value || '').trim();
+    const n = get('n'), q = parseInt(get('q'), 10), note = get('d'), ic = ui.invEdit?.ic ?? it[3];
+    if (!n) { toast(v, 'An item needs a name.'); break; }
+    ui.invEdit = null;
+    if (q === 0) { c.inv.splice(+d.i, 1); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
+    const was = it[0]; c.inv[+d.i] = [n, q > 0 ? q : it[1], note, ...(ic && ic !== 'bag' ? [ic] : [])];
+    if (d.c) sys(`${N.gmName()} changed ${was === n ? n : `${was} to ${n}`} in ${c.short}’s inventory.`, 'dm-' + c.player);
+    renderAll(); return;
+  }
+  case 'invDel': { ui.invEdit = null; const c = invOwner(d, v), it = c?.inv?.splice(+d.i, 1)[0]; if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
   case 'npcNew': openSheet(v, 'npcNew', d); break;
   case 'npcEdit': openSheet(v, 'npcNew', {edit:val}); break;
   case 'ndPortrait': ui.nd.portrait = val; break;
@@ -842,7 +864,7 @@ function act(v, a, el, e){
   case 'sdClear': { const ch = ui.sd.ch, m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true}); ui.sheet = null; toast(v, 'Scene cleared.', () => N.delMsg(m.id)); renderAll(); return; }
   /* fight */
   case 'cbBegin': N.cbBegin(ui.ch); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
-  case 'openFight': close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; break;
+  case 'openFight': close(); ui.tab = 'chat'; ui.ch = val || N.fightCh(); focusFight(v); ui.fightOpen = true; ui.fightPane = 'fight'; break;
   case 'closeFight': ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; break;
   case 'pane': ui.fightPane = val; ui.targeting = null; break;
   case 'fightTools': ui.fightTools = !ui.fightTools; break;
