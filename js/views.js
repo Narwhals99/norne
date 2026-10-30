@@ -241,7 +241,7 @@ function rxPill(v, m){
   if (!order.length) return '';
   const n = order.reduce((s, e) => s + by[e].length, 0), me = order.some(e => by[e].includes(v.role));
   const who = order.map(e => `${e} ${by[e].map(x => N.personObj(x).name).join(', ')}`).join(' · ');
-  return `<button type="button" class="rxp${me ? ' me' : ''}${fresh ? ' pop' : ''}" data-a="msgMenu" data-v="${m.id}" title="${esc(who)}" aria-label="Reactions: ${esc(who)}">${order.slice(0, 3).map(e => `<span>${N.emj(e)}</span>`).join('')}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
+  return `<button type="button" class="rxp${me ? ' me' : ''}${fresh ? ' rxnew' : ''}" data-a="msgMenu" data-v="${m.id}" title="${esc(who)}" aria-label="Reactions: ${esc(who)}">${order.slice(0, 3).map(e => `<span>${N.emj(e)}</span>`).join('')}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
 }
 function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
@@ -263,7 +263,8 @@ function rMsg(v, m, prev, firstNarr){
   }
   if (m.kind === 'ooc' || m.kind === 'meta') {
     const p = N.personObj(m.by);
-    return `<div class="m ooc${mine?' mine':''}${cont?' cont':''}">${N.av(p,32)}<div class="body">${cont?'':`<div class="who" style="--who:var(--ink-3)">${esc(p.name)} ${time}</div>`}<div class="bub">${txt}</div></div></div>`;
+    const big = N.emojiOnly(m.text);
+    return `<div class="m ${big ? 'emom' : 'ooc'}${mine?' mine':''}${cont?' cont':''}">${N.av(p,32)}<div class="body">${cont?'':`<div class="who" style="--who:var(--ink-3)">${esc(p.name)} ${time}</div>`}<div class="${big ? 'bigemo' : 'bub'}">${txt}</div></div></div>`;
   }
   const s = N.speakerObj(m);
   if (s.narr) return `<div class="narr${firstNarr?' first':''}"><div class="who">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}Narrator ${time}</div><p>${txt}</p></div>`;
