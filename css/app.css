@@ -1123,6 +1123,12 @@
 /* GM adds items to a character's pack */
 .app .invadd{display:grid;grid-template-columns:minmax(0,1fr) 72px auto;gap:6px;align-items:center;margin-top:8px}
 .app .invadd .inp{min-height:38px;padding:6px 12px}
+.app .inv .it.ied{display:grid;grid-template-columns:1fr;gap:8px;box-shadow:inset 0 0 0 1.5px var(--gold)}
+.app .ied-ics{display:flex;flex-wrap:wrap;gap:4px}
+.app .ied-ics button{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--line)}
+.app .ied-ics button[aria-pressed="true"]{background:var(--gold-soft);color:var(--gold);box-shadow:inset 0 0 0 1.5px var(--gold)}
+.app .ied-ics button svg{width:18px;height:18px}
+.app .ied-act{display:flex;justify-content:flex-end;gap:6px}
 
 /* paper: sub-headline, lead, stories, notices */
 .app .paper .psub{margin:0 0 12px;text-align:center;font:italic 400 16px/1.35 var(--f-paper);color:#4a3f2a;text-wrap:balance}
@@ -1488,3 +1494,9 @@
   .app .gm-page .gs>.gs-sec.gs-pics{grid-column:1/-1}
   .app .gs-pics .thumbs{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}
 }
+.app .resm .rs-calc{display:flex;align-items:center;gap:6px;font:600 12px/1.3 var(--f-ui);color:var(--ink-2)}
+.app .resm .rs-calc svg{width:14px;height:14px;flex:none;color:var(--gold)}
+.app .icard.boost{box-shadow:0 0 0 1.5px var(--gold),0 6px 14px -8px rgba(0,0,0,.7)}
+.app .gearln{display:flex;align-items:center;gap:8px;margin:0 0 6px;font:600 14px/1.3 var(--f-ui);color:var(--ink)}
+.app .gearln svg{width:16px;height:16px;flex:none;color:var(--gold)}
+.app .gearln .muted{font-size:12px}
