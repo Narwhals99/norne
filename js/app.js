@@ -201,6 +201,7 @@ function input(v, el){
     case 'rollOther': v.ui.roll.otherName = val; return;
     case 'sd': v.ui.sd[k] = val; if (k === 'title' || k === 'where') { v.ui.sd.autoTitle = false; v.ui.sd.touched = true; } if (k === 'title') render(v); return;
     case 'cbAsp': v.ui.cbAsp = val; return;
+    case 'boostName': v.ui.boostName = val; return;
     case 'med': if (v.ui.med) v.ui.med.text = val; { const b = v.root.querySelector('[data-a="msgSave"]'); if (b) b.disabled = !val.trim(); } return;
     case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .pl`); if (lab) lab.textContent = val; return; }
     case 'pinNote': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (pin) pin.note = val; return; }
@@ -296,6 +297,7 @@ function afterFightRoll(v, r, m){
   if (!a || cb.state !== 'live') return;
   if (r.action === 'attack' && r.target) {
     const d = N.tokById(r.target);
+    N.boostTick(a);
     cb.pending = {att:a.id, def:r.target, total:tot, skill:m.roll.skill, msgId:m.id, stage:'defend'}; cb.acted = true;
     fsys(`${N.tokName(a)} attacks ${d ? N.tokName(d) : 'someone'} with ${m.roll.skill}: ${sgn(tot)} ${ladderWord(tot)}. ${d ? N.tokName(d) : 'They'} rolls to defend next.`);
     return;
@@ -304,7 +306,7 @@ function afterFightRoll(v, r, m){
     const opp = r.opp ?? 2; m.roll.opp = opp;
     const sh = tot - opp, name = (r.aspect || '').trim() || 'An Opening';
     if (sh === 0) {
-      N.addBoost(N.tokName(a), name);
+      N.addBoost(a, null, name);
       fsys(`${N.tokName(a)} ties: not a lasting aspect, but they get a boost, “${name}”, good for one free invoke.`);
     } else if (sh > 0) {
       const z = N.zoneOf(a), free = sh >= 3 ? 2 : 1;
@@ -318,6 +320,7 @@ function afterFightRoll(v, r, m){
 function cbDefend(v){
   const g = G(), cb = g.combat, p = cb.pending; if (!p || p.stage !== 'defend') return;
   const d = N.tokById(p.def), a = N.tokById(p.att); if (!d || !a) { cb.pending = null; renderAll(); return; }
+  N.boostTick(d);
   const [skill, x] = N.defSkill(d);
   const key = d.kind === 'pc' ? 'pc:' + d.ref : 'tok:' + d.id;
   const roll = {who:N.tokName(d), whoKey:key, skill, bonus:x, action:'Defend', target:N.tokName(a), opp:p.total, dice:N.rollDice(), invokes:[]};
@@ -870,6 +873,8 @@ function act(v, a, el, e){
     break;
   }
   case 'cbDefend': cbDefend(v); return;
+  case 'cbStyle': N.cbStyle(val); renderAll(); return;
+  case 'cbBoostName': { const b = cb.aspects.find(x => x.boost && !x.t), t = (ui.boostName || '').trim(); if (!b) break; if (!t) { toast(v, 'Give the boost a short name first.'); break; } b.t = t; ui.boostName = ''; fsys(`${b.by}’s boost${b.on ? ` on ${b.on}` : ''}: “${t}”.`); renderAll(); return; }
   case 'cbDrop': if (cb.pending) { const t = N.tokById(cb.pending.def); cb.pending = null; fsys(`${N.gmName()} settles the hit on ${t ? N.tokName(t) : 'them'} by hand.`); } renderAll(); return;
   case 'cbAbsorb': cbAbsorb(v, d.k, +d.i); return;
   case 'tokClose': ui.tokSel = null; break;
