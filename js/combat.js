@@ -53,7 +53,7 @@ function boardHtml(v){
   else if (v.ui.placing) hint = `<div class="hint-chip">${IC('pinL')}Tap a zone to place ${esc(N.tokName(N.tokById(v.ui.placing)))}<button type="button" class="btn sm ghost" data-a="cbCancel" style="--h:26px">Cancel</button></div>`;
   else if (edit && !cb.zones.length) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag on the map to draw a zone</div>`;
   else if (edit) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag to draw · drag a name to move · corner to resize</div>`;
-  const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard" style="--rot:${i%2?.8:-.8}deg">${esc(a.t)}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
+  const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.left!=null?` · ${a.left>0?a.left+' left':'last action'}`:''}</span>`:''}${esc(a.t || 'Unnamed boost')}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
   return `<div class="boardwrap"><div class="board${edit?' edit drawing':''}" data-board="1" aria-label="Battlefield: ${esc(cb.title)}">
     <div class="bg" style="background-image:url(${esc(N.imgUrl(cb.bg) || N.FIGHTBG)})"></div>
     ${zones}${sasp}${hint}${diceFx(v)}
@@ -123,6 +123,15 @@ function nowState(v){
     if (cb.phase === 'pick') return {tone:'turn', eye:'Notice roll', title:'Who goes first?', sub:'Highest roll goes first. Tap someone else to start with them.', acts:noticeChips(), cls:'pick', end:`<button type="button" class="btn primary" data-a="cbGo">Start${IC('next')}</button>`};
     if (p && p.stage === 'defend' && pa && pd)
       return {tok:pd, tone:'alert', eye:'Defend', title:`${N.tokName(pa)} attacks ${N.tokName(pd)}`, sub:`${p.skill} for ${sgn(p.total)} ${ladderWord(p.total)}. Roll ${N.tokName(pd)}’s defense.`, acts:defBtn(pd)};
+    if (p && p.stage === 'style' && pa && pd) {
+      const less = Math.max(0, p.dmg - 2);
+      return {tok:pa, tone:'alert', eye:'Succeeded with style', title:`${N.tokName(pa)} hits ${N.tokName(pd)} with style`, sub:`Do the full ${p.dmg} shift${pl(p.dmg)}, or ${less} and put a boost on ${N.tokName(pd)}.`,
+        acts:`<button type="button" class="btn gold" data-a="cbStyle" data-v="full">${IC('attack')}Full damage · ${p.dmg}</button><button type="button" class="btn" data-a="cbStyle" data-v="boost">${IC('sparkle')}${less} shift${less===1?'':'s'} + boost</button>`};
+    }
+    const nb = cb.aspects.find(a => a.boost && !a.t);
+    if (nb && !(p && p.stage === 'defend'))
+      return {tone:'turn', eye:'Name the boost', title:`${nb.by}’s boost${nb.on ? ` on ${nb.on}` : ''}`, sub:'A boost is gone once it’s invoked, or after its owner’s next two attacks or defenses.',
+        acts:`<input class="inp" id="bname-${v.id}" data-i="boostName" value="${esc(v.ui.boostName||'')}" placeholder="e.g. Off Balance" style="flex:1;min-width:160px"><button type="button" class="btn gold" data-a="cbBoostName">${IC('check')}Name it</button>`};
     if (p && p.stage === 'absorb' && pd && g.chars[pd.ref])
       return {tok:pd, tone:'alert', eye:'Soak the hit', title:`${N.tokName(pd)} takes ${p.shifts} shift${pl(p.shifts)}`, sub:`Pick how ${N.tokName(pd)} soaks it. An invoke on the defense roll can still lower it.`,
         acts:soakBtns(g.chars[pd.ref], p) + `<button type="button" class="btn sm ghost" data-a="cbDrop">Settle it by hand</button>`};
@@ -136,12 +145,12 @@ function nowState(v){
   if (p && me && p.def === me.id && p.stage === 'absorb')
     return {tok:me, tone:'alert', eye:'You’re hit', title:`You take ${p.shifts} shift${pl(p.shifts)}`, sub:`${gmN} picks how ${c ? c.short : 'you'} soak${c ? 's' : ''} it.`};
   if (cur && N.isMine(cur, v.role)) return {tok:cur, tone:'turn', eye:'Your turn', title:N.tokName(cur), sub:`${gmN} rolls for you. Say what ${c ? c.short : 'you'} do${c ? 'es' : ''} in the chat.`};
-  const pw = p && p.stage === 'defend' && pa && pd ? `${N.tokName(pa)} attacks ${N.tokName(pd)}, ${gmN} rolls the defense.` : p && p.stage === 'absorb' && pd ? `${N.tokName(pd)} is soaking ${p.shifts} shift${pl(p.shifts)}.` : null;
+  const pw = p && p.stage === 'defend' && pa && pd ? `${N.tokName(pa)} attacks ${N.tokName(pd)}, ${gmN} rolls the defense.` : p && p.stage === 'style' && pa && pd ? `${N.tokName(pa)} hit ${N.tokName(pd)} with style. ${gmN} picks full damage or a boost.` : p && p.stage === 'absorb' && pd ? `${N.tokName(pd)} is soaking ${p.shifts} shift${pl(p.shifts)}.` : null;
   return {tok:cur, tone:'wait', eye:'Watching', title:cur ? `${N.tokName(cur)}’s turn` : 'Waiting', sub:pw || `${gmN} rolls for everyone. Watch the board.`};
 }
 const smallStress = t => { const st = N.tokStress(t); return `<span class="nb-st">${st.v.map((x,i) => `<i class="${st.s[i]?'on':''}"></i>`).join('')}</span>`; };
 const zoneTag = t => { const z = N.zoneOf(t); return z ? `<span class="nb-zt" style="--zc:${z.col}">${esc(z.name)}</span>` : ''; };
-const gearTag = t => t.kind === 'npc' && (t.gearAtk || t.gearDef) ? `<span class="nb-gear" title="Gear">${IC('sword')}${sgn(t.gearAtk||0)} ${IC('shieldU')}${sgn(t.gearDef||0)}</span>` : '';
+const gearTag = t => (N.tokGear(t, 'gearAtk') || N.tokGear(t, 'gearDef')) ? `<span class="nb-gear" title="Weapon and armor">${IC('sword')}${sgn(N.tokGear(t, 'gearAtk'))} ${IC('shieldU')}${sgn(N.tokGear(t, 'gearDef'))}</span>` : '';
 function myStress(v){
   const c = N.charOf(v.role); if (!c || !c.built) return '';
   return `<div class="mine"><span class="lab">Phys</span>${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}<span class="lab">Fate</span><span class="coins">${N.coinsHtml(c,false)}</span></div>`;
@@ -220,28 +229,20 @@ function gmRow(v){
     ${cb.state==='live'?`<button type="button" class="end" data-a="sheet" data-v="cbEnd">${IC('stop')}End fight</button>`:''}
   </div>`;
 }
-/* the better of Athletics and Fighting, plus any gear defense bonus: [skill, skill value, gear] */
+/* the better of Athletics and Fighting: [skill, skill value]. Armor doesn't change the roll. */
 function defSkill(t){
   const s = N.tokSkills(t);
   const opts = [['Athletics', s.Athletics||0], ['Fighting', s.Fighting||0]];
-  return [...opts.sort((a,b) => b[1]-a[1])[0], N.tokGear(t, 'gearDef')];
+  return opts.sort((a,b) => b[1]-a[1])[0];
 }
 N.defSkill = defSkill;
-const defBtn = t => { const [sk, x, gear] = defSkill(t); return `<button type="button" class="btn gold" data-a="cbDefend">${N.fateDie}Defend: ${esc(sk)} ${sgn(x + gear)}${gear?`<small style="font-weight:600;opacity:.8">&nbsp;incl. gear</small>`:''}</button>`; };
+const defBtn = t => { const [sk, x] = defSkill(t); return `<button type="button" class="btn gold" data-a="cbDefend">${N.fateDie}Defend: ${esc(sk)} ${sgn(x)}</button>`; };
 N.defBtn = defBtn;
 /* the token the GM has to defend or soak for right now (players never roll in a fight) */
 N.owedTok = v => {
   const cb = G().combat, p = cb.pending; if (cb.state !== 'live' || !p) return null;
   const d = N.tokById(p.def); if (!d) return null;
   return isGM(v) ? d : null;
-};
-/* gear bonus a roll gets: attack rolls use gearAtk, defend rolls gearDef (NPC tokens and NPC cards only) */
-N.rollGear = (key, action) => {
-  const k = action === 'attack' ? 'gearAtk' : action === 'defend' ? 'gearDef' : null;
-  if (!k || !key) return 0;
-  if (key.startsWith('tok:')) return N.tokGear(N.tokById(key.slice(4)), k);
-  if (key.startsWith('npc:')) { const n = G().npcs.find(x => x.id === key.slice(4)); return +(n && n[k]) || 0; }
-  return 0;
 };
 N.GEAR = [0,1,2,3,4,5,6,7,8,9];
 N.gearSelect = (id, attrs, val) => `<select class="inp" id="${id}" ${attrs}>${N.GEAR.map(x => `<option value="${x}" ${(+val||0)===x?'selected':''}>${x?'+'+x:'None'}</option>`).join('')}</select>`;
@@ -258,7 +259,7 @@ N.tokCard = function(v, t){
     <div class="kv"><span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
       ${gm || t.kind==='pc' ? `<span>Skills</span><span>${sk.map(([n,x])=>`${esc(n)} ${sgn(x)}`).join(' · ')}</span>` : ''}
       ${t.init != null ? `<span>Turn roll</span><span>Notice ${sgn(N.tokNotice(t))}, rolled ${sgn(t.init)} ${ladderWord(t.init)}</span>` : ''}
-      ${t.kind==='npc' && gm ? `<span>Gear</span><span style="display:flex;gap:8px;flex-wrap:wrap"><label class="field" style="flex:1;min-width:110px"><span>Attack</span>${N.gearSelect(`tga-${t.id}-${v.id}`, `data-i="tokGear" data-k="gearAtk" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, t.gearAtk)}</label><label class="field" style="flex:1;min-width:110px"><span>Defense</span>${N.gearSelect(`tgd-${t.id}-${v.id}`, `data-i="tokGear" data-k="gearDef" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, t.gearDef)}</label></span>` : t.kind==='npc' && (t.gearAtk || t.gearDef) ? `<span>Gear</span><span>Attack ${sgn(t.gearAtk||0)} · Defense ${sgn(t.gearDef||0)}</span>` : ''}
+      ${gm ? `<span>Gear</span><span style="display:flex;gap:8px;flex-wrap:wrap"><label class="field" style="flex:1;min-width:110px"><span>Weapon</span>${N.gearSelect(`tga-${t.id}-${v.id}`, `data-i="tokGear" data-k="gearAtk" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, N.tokGear(t, 'gearAtk'))}</label><label class="field" style="flex:1;min-width:110px"><span>Armor</span>${N.gearSelect(`tgd-${t.id}-${v.id}`, `data-i="tokGear" data-k="gearDef" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, N.tokGear(t, 'gearDef'))}</label></span>` : (N.tokGear(t, 'gearAtk') || N.tokGear(t, 'gearDef')) ? `<span>Gear</span><span>Weapon ${sgn(N.tokGear(t, 'gearAtk'))} · Armor ${sgn(N.tokGear(t, 'gearDef'))}</span>` : ''}
       ${t.kind==='npc' && gm ? `<span>Mild</span><span><input class="inp" id="tmild-${t.id}-${v.id}" data-i="tokMild" data-t="${t.id}" value="${esc(t.mild||'')}" placeholder="Empty" style="min-height:32px;padding:4px 10px"></span>` : t.kind==='npc' && t.mild ? `<span>Mild</span><span>${esc(t.mild)}</span>` : ''}
     </div>
     ${gm ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -431,7 +432,25 @@ N.applyHit = function(t, shifts){
   return '';
 };
 
+/* A boost: a very short-lived fight aspect. Its owner (tok) can invoke it once for free; then it is gone.
+   The GM names it (t is '' until then). It lasts for its owner's next two attacks or defenses (left counts
+   down at the start of each one) and fades if it isn't invoked by then. on = who it was put on. */
+N.addBoost = (owner, on, t) => { G().combat.aspects.push({t:t || '', free:1, boost:true, by:N.tokName(owner), tok:owner.id, on:on ? N.tokName(on) : '', left:2}); };
+N.boostTick = t => {
+  const cb = G().combat; if (!t) return;
+  cb.aspects = cb.aspects.filter(a => {
+    if (!a.boost || a.tok !== t.id) return true;
+    if ((a.left ?? 2) <= 0) { sys(`${a.by}’s boost${a.t ? ` “${a.t}”` : ''} fades unused.`); return false; }
+    a.left = (a.left ?? 2) - 1; return true;
+  });
+};
+
 /* After both rolls: compare them, post one clear result line, and hit the defender.
+   The rolls decide hit, tie or miss. On a hit the attacker's weapon adds its rating to the shifts and the
+   defender's armor takes its rating off (never below 0). A tie does no harm (gear doesn't count) and gives the
+   attacker a boost on the defender; defending with style (3+) gives the defender one.
+   Attacking with style (3+ on the rolls, with damage left after armor) lets the GM pick full damage or 2 less
+   plus a boost on the defender (pending.stage 'style', then N.cbStyle).
    An NPC soaks automatically; a player character picks a stress box or consequence (pending.stage 'absorb'). */
 const rollLine = (name, r) => ({n:name, sk:r.skill, b:r.bonus, g:r.gear || 0, tot:N.rollTotal(r)});
 N.cbResolve = function(again){
@@ -439,18 +458,37 @@ N.cbResolve = function(again){
   const a = N.tokById(p.att), d = N.tokById(p.def), am = g.msgs.find(m => m.id === p.msgId), dm = g.msgs.find(m => m.id === p.defMsg);
   if (!a || !d || !dm) { cb.pending = null; return; }
   const an = N.tokName(a), dn = N.tokName(d), dt = N.rollTotal(dm.roll), sh = p.total - dt;
-  if (again && sh > 0 && sh === p.shifts) return;
-  let out, after;
+  const wpn = sh > 0 ? N.tokGear(a, 'gearAtk') : 0, arm = sh > 0 ? N.tokGear(d, 'gearDef') : 0;
+  const dmg = Math.max(0, sh + wpn - arm - (p.boosted ? 2 : 0));
+  if (again && sh > 0 && dmg === p.shifts) return;
+  let out, after, calc = null;
   if (sh > 0) {
-    out = {k:'hit', t:`Hit · ${sh} shift${sh>1?'s':''}`};
-    if (d.kind === 'npc') { after = N.applyHit(d, sh); cb.pending = null; }
-    else { p.stage = 'absorb'; p.shifts = sh; after = `${dn} must soak ${sh} shift${sh>1?'s':''}: check a stress box or take a consequence.`; }
-  } else if (sh === 0) { out = {k:'tie', t:'Tie'}; after = `${dn} is grazed: no harm done, but ${an} gets a boost.`; cb.pending = null; }
-  else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ' and gets a boost' : ''}. No harm done.`; cb.pending = null; }
+    if (wpn || arm || p.boosted) calc = `Hit by ${sh}${wpn ? ` · weapon +${wpn}` : ''}${arm ? ` · armor −${arm}` : ''}${p.boosted ? ' · traded −2 for a boost' : ''} = ${dmg} shift${dmg===1?'':'s'}`;
+    const style = sh >= 3 && dmg > 0 && !again && !p.boosted;
+    out = {k:'hit', t:dmg ? `Hit${style ? ' with style' : ''} · ${dmg} shift${dmg>1?'s':''}` : 'Hit · armor holds'};
+    if (!dmg) { after = `${dn}’s armor takes the whole blow. No harm done.`; cb.pending = null; }
+    else if (style) { p.stage = 'style'; p.dmg = dmg; after = `${N.gmName()} picks: the full ${dmg} shift${dmg>1?'s':''}, or ${Math.max(0, dmg - 2)} and a boost on ${dn}.`; }
+    else if (d.kind === 'npc') { after = N.applyHit(d, dmg); cb.pending = null; }
+    else { p.stage = 'absorb'; p.shifts = dmg; after = `${dn} must soak ${dmg} shift${dmg>1?'s':''}: check a stress box or take a consequence.`; }
+  } else if (sh === 0) { out = {k:'tie', t:'Tie'}; after = `No harm done. ${an} gets a boost on ${dn}.`; cb.pending = null; N.addBoost(a, d); }
+  else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ` and gets a boost on ${an}` : ''}. No harm done.`; cb.pending = null; if (sh <= -3) N.addBoost(d, a); }
   const att = am ? rollLine(an, am.roll) : {n:an, sk:p.skill, b:0, g:0, tot:p.total}; att.tot = p.total;
   const title = `${an} attacks ${dn}${again ? ', after invokes' : ''}`;
-  N.push({ch:N.fightCh(), kind:'sys', by:g.role, text:`${title}: ${sgn(p.total)} against ${sgn(dt)}. ${out.t}. ${after}`,
-    res:{k:'clash', title, rows:[att, rollLine(dn, dm.roll)], out, after}});
+  const res = {k:'clash', title, rows:[att, rollLine(dn, dm.roll)], out, after};
+  if (calc) res.calc = calc;
+  N.push({ch:N.fightCh(), kind:'sys', by:g.role, text:`${title}: ${sgn(p.total)} against ${sgn(dt)}. ${calc ? calc + '. ' : ''}${out.t}. ${after}`, res});
+};
+/* the GM's pick after an attack with style: the full damage, or 2 less and a boost on the defender */
+N.cbStyle = function(choice){
+  const cb = G().combat, p = cb.pending; if (!p || p.stage !== 'style') return;
+  const a = N.tokById(p.att), d = N.tokById(p.def); if (!a || !d) { cb.pending = null; return; }
+  const an = N.tokName(a), dn = N.tokName(d);
+  let dmg = p.dmg;
+  if (choice === 'boost') { dmg = Math.max(0, dmg - 2); p.boosted = true; N.addBoost(a, d); }
+  const how = choice === 'boost' ? `${an} takes 2 off the damage and puts a boost on ${dn}.` : `${an} goes for the full damage.`;
+  if (!dmg) { cb.pending = null; sys(`${how} No harm done.`); return; }
+  if (d.kind === 'npc') { cb.pending = null; sys(`${how} ${dmg} shift${dmg>1?'s':''}: ${N.applyHit(d, dmg)}`); return; }
+  p.stage = 'absorb'; p.shifts = dmg; sys(`${how} ${dn} must soak ${dmg} shift${dmg>1?'s':''}.`);
 };
 /* an invoke on either roll while the defender is still soaking changes the result: post it again */
 N.cbReresolve = function(m){
