@@ -246,6 +246,7 @@ function resCard(res){
   const [a, d] = res.rows || [];
   return `<div class="resm ${res.out?.k||''}"><div class="rs-h">${IC('swords')}<b>${esc(res.title)}</b></div>
     <ul class="rs-rows">${a ? row(a, 'Attack') : ''}${d ? row(d, 'Defense') : ''}</ul>
+    ${res.calc ? `<div class="rs-calc">${IC('sword')}${esc(res.calc)}</div>` : ''}
     <div class="rs-out"><span class="out ${res.out?.k === 'hit' ? 'fail' : res.out?.k === 'tie' ? 'tie' : 'succ'}">${esc(res.out?.t || '')}</span><span>${esc(res.after || '')}</span></div></div>`;
 }
 function fightCard(v, m){
@@ -552,6 +553,7 @@ N.sheetBody = function(v, c){
     <section class="sec"><h3>Skills${canRoll?' · tap one to roll':''}</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(n => canRoll ? `<button type="button" data-a="roll" data-skill="${esc(n)}" data-c="${c.id}">${esc(n)}${N.discOf(c, n).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(c, n).join(', '))}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>` : `<button type="button" disabled>${esc(n)}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div></section>
     <section class="sec"><h3>Stress</h3><div class="stress2">${[['phys','Physical','Strength'],['ment','Mental','Will']].map(([k,l,s]) => `<div class="trk"><span class="eyebrow">${l} <span style="letter-spacing:0;text-transform:none;font-weight:600">· from ${s}</span></span><div class="boxes">${c.stressV[k].map((x,i)=>`<button type="button" class="sbox${c.stress[k][i]?' on':''}" ${gm?`data-a="stress" data-c="${c.id}" data-k="${k}" data-i="${i}"`:'disabled'} aria-pressed="${!!c.stress[k][i]}" aria-label="${l} ${x}">${x}</button>`).join('')}</div></div>`).join('')}</div></section>
     <section class="sec"><h3>Consequences</h3><div class="cons">${N.consSlots(c.skills).map(sl => `<div class="con">${conLv(sl)}${gm?`<input class="inp" id="con-${sl.k}-${c.id}-${v.id}" data-i="con" data-c="${c.id}" data-k="${sl.k}" value="${esc(c.cons[sl.k]||'')}" placeholder="Empty">`:`<span class="slot${c.cons[sl.k]?' full':''}">${esc(c.cons[sl.k])||'Empty'}</span>`}</div>`).join('')}</div></section>
+    <section class="sec"><h3>Weapon and armor</h3><p class="gearln">${IC('sword')}Weapon <b>${sgn(+c.gearAtk||0)}</b><span class="muted">shifts added to a hit</span></p><p class="gearln">${IC('shieldU')}Armor <b>${sgn(+c.gearDef||0)}</b><span class="muted">shifts taken off a hit</span></p></section>
     <section class="sec"><h3>Stunts</h3>${c.stunts.map(([n,d]) => `<div class="stunt"><b>${esc(n)}</b><p>${esc(d)}</p></div>`).join('') || '<p class="muted">None yet.</p>'}</section>
     <section class="sec full"><h3>Bio</h3>${noteBox(v, c, 'bio', edit, 'Who they are, where they come from, what they look like…')}</section>
     <section class="sec"><h3>Important people</h3>${noteBox(v, c, 'people', edit, 'Family, friends, rivals, debts… one per line')}</section>
@@ -620,6 +622,7 @@ function npcBody(v, n){
       ${n.magic ? `<p style="margin:10px 0 0"><b>Disciplines.</b> ${esc(n.magic)}</p>` : ''}<button type="button" class="btn sm ghost" data-a="npcEdit" data-v="${n.id}" style="justify-self:start">${IC('pen')}Change skills</button></section>
     <section class="sec"><h3>Stress</h3><div class="stress2">${trk('phys','Physical')}${trk('ment','Mental')}</div></section>
     <section class="sec"><h3>Consequences</h3><div class="cons">${N.consSlots(n.skills).map(sl => `<div class="con">${conLv(sl)}<input class="inp" id="ncon-${sl.k}-${n.id}-${v.id}" data-i="npcCon" data-n="${n.id}" data-k="${sl.k}" value="${esc(n.cons[sl.k]||'')}" placeholder="Empty"></div>`).join('')}</div></section>
+    <section class="sec"><h3>Weapon and armor</h3><p class="gearln">${IC('sword')}Weapon <b>${sgn(+n.gearAtk||0)}</b><span class="muted">shifts added to a hit</span></p><p class="gearln">${IC('shieldU')}Armor <b>${sgn(+n.gearDef||0)}</b><span class="muted">shifts taken off a hit</span></p></section>
     <section class="sec"><h3>Stunts</h3>${n.stunts.map(([a,b]) => `<div class="stunt"><b>${esc(a)}</b><p>${esc(b)}</p></div>`).join('') || '<p class="muted">None yet.</p>'}</section>
     <section class="sec"><h3>Inventory</h3>${invList(v, n, true)}</section>
     <section class="sec full"><h3>Bio</h3><textarea class="inp" id="npcbio-${n.id}-${v.id}" data-i="npcNotes" data-n="${n.id}" data-k="bio" rows="4" placeholder="Who they are, what they look like, how they talk…">${esc(n.bio)}</textarea></section>

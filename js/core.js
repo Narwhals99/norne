@@ -252,8 +252,10 @@ N.order = () => {
   if (i > 0) o.unshift(o.splice(i, 1)[0]);
   return o;
 };
-/* gear bonuses only NPC tokens carry (0 to 9): added to attack rolls and to defense rolls */
-N.tokGear = (t, k) => t && t.kind === 'npc' ? (+t[k] || 0) : 0;
+/* gear ratings (0 to 9): gearAtk is the weapon, gearDef the armor. They never change a roll:
+   the weapon adds shifts to a hit and the armor takes shifts off it (see N.cbResolve).
+   NPC tokens carry their own; a player's character card holds theirs. */
+N.tokGear = (t, k) => !t ? 0 : t.kind === 'npc' ? (+t[k] || 0) : (+(N.G.chars[t.ref] || {})[k] || 0);
 N.curTok = () => { if (N.G.combat.phase === 'notice') return null; const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
 N.tokObj = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref] || {}; const p = N.G.P[c.player]; return {name:c.short || '?', portrait:c.built ? c.portrait : null, color:p?.color || 'var(--accent)'}; }
   return {name:t.name, portrait:t.portrait, color:t.side === 'ally' ? 'var(--c-npc)' : 'var(--c-foe)'}; };
