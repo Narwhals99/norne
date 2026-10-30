@@ -272,7 +272,8 @@ function send(v){
   const ch = v.ui.ch, gm = isGM(v), g = G(), c = N.charOf(v.role);
   let m;
   if (ch === 'gm') m = {kind:'note'};
-  else if (v.ui.mode === 'ooc') m = {kind:'meta'};
+  /* emoji on their own are table talk, never part of the story */
+  else if (v.ui.mode === 'ooc' || N.emojiOnly(text)) m = {kind:'meta'};
   else if (gm) { const n = N.npcByName(v.ui.voice); m = {kind:'rp', as:v.ui.voice}; if (n?.portrait) m.pt = n.portrait; }
   else m = {kind:'rp', as:c && c.built ? c.short : g.P[v.role].name};
   if (v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;

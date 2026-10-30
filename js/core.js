@@ -145,6 +145,16 @@ N.emoById = n => (N.G.emoji || []).find(e => e.n === n);
 N.emj = (e, cls='cemo') => { const c = /^:([\w-]+):$/.exec(e || ''); if (!c) return esc(e); const x = N.emoById(c[1]); return x ? `<img class="${cls}" src="${esc(x.d)}" alt=":${esc(x.n)}:" title=":${esc(x.n)}:" draggable="false">` : esc(e); };
 /* custom emoji typed into a message, after fmt() */
 N.emoText = h => (N.G.emoji || []).length ? h.replace(/:([\w-]{1,32}):/g, (all, n) => N.emoById(n) ? N.emj(all) : all) : h;
+/* a message that is nothing but emoji (up to 12, custom :name: ones included) shows big, without a bubble */
+N.emojiOnly = t => {
+  t = String(t || '').trim(); if (!t || t.length > 200) return false;
+  let n = 0;
+  const rest = t.replace(/:([\w-]{1,32}):/g, (all, id) => N.emoById(id) ? (n++, ' ') : all).replace(/\s+/g, '');
+  if (rest && !/^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|[‍️⃣#*0-9])+$/u.test(rest)) return false;
+  if (rest && !/\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(rest)) return false;
+  n += rest ? (typeof Intl !== 'undefined' && Intl.Segmenter ? [...new Intl.Segmenter().segment(rest)].length : [...rest.matchAll(/\p{Extended_Pictographic}/gu)].length) : 0;
+  return n > 0 && n <= 12;
+};
 N.seatColor = seat => `var(--c-p${((+seat.slice(1) - 1) % SEATCOL) + 1})`;
 
 function blankChar(id, player){
