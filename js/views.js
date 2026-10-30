@@ -558,7 +558,7 @@ function articleHtml(v, e){
     <h1>${esc(e.title)}</h1>
     ${e.summary ? `<p class="sum">${links(e.summary)}</p>` : ''}
     <div class="rule"><span class="star4"></span></div>
-    ${e.img ? `<figure class="wfig"><img src="${esc(N.imgUrl(e.img.src))}" alt="${esc(e.img.alt||'')}" loading="lazy">${e.img.cap?`<figcaption>${esc(e.img.cap)}</figcaption>`:''}</figure>` : ''}
+    ${(() => { const ps = N.wikiPics(e); return ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(p => `<figure class="wfig"><img src="${esc(N.imgUrl(p.src))}" alt="${esc(p.alt || p.cap || e.title)}" loading="lazy">${p.cap?`<figcaption>${esc(p.cap)}</figcaption>`:''}</figure>`).join('')}</div>` : ''; })()}
     ${e.info?.length ? `<dl class="facts">${e.info.map(([k,x]) => `<dt>${esc(k)}</dt><dd>${links(x)}</dd>`).join('')}</dl>` : ''}
     ${(e.body||[]).map(block).join('')}
     ${e.soon || !(e.body||[]).length ? '<p class="muted" style="font-weight:700;font-size:13px">More coming soon.</p>' : ''}

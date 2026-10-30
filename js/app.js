@@ -245,7 +245,7 @@ function input(v, el){
       if (k === 'asp') d.aspects[n] = val; else if (k === 'stn') d.stunts[n][0] = val; else if (k === 'std') d.stunts[n][1] = val; else d[k] = val;
       if (k === 'name') render(v); return;
     }
-    case 'wd': v.ui.wd[k] = val; if (k === 'title') render(v); return;
+    case 'wd': if (k === 'cap') { v.ui.wd.imgs[+el.dataset.n].cap = val; return; } v.ui.wd[k] = val; if (k === 'title') render(v); return;
     case 'cd': v.ui.cd[+el.dataset.n].name = val; return;
     case 'mapName': { const m = G().maps.find(x => x.id === el.dataset.v); if (m) m.name = val; return; }
     case 'npcNotes': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n[k || 'notes'] = val; return; }
@@ -258,7 +258,7 @@ function change(v, el){
   const i = el.dataset.i, val = el.value;
   if (i === 'pdSkill' && val) { v.ui.pd.skills[val] = +el.dataset.x; render(v); }
   if (i === 'ndSkill' && val) { v.ui.nd.skills[val] = +el.dataset.x; render(v); }
-  if (i === 'wd') v.ui.wd[el.dataset.k] = val;
+  if (i === 'wd' && el.dataset.k !== 'cap') v.ui.wd[el.dataset.k] = val;
   if (i === 'cd') render(v);
   if (i === 'cdTo') v.ui.cd[+el.dataset.n].to = val;
   if (i === 'mapName') renderAll();
@@ -797,6 +797,14 @@ function act(v, a, el, e){
   case 'wNew': openSheet(v, 'wEdit', {}); break;
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
   case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;
+  /* pictures start as GM only; saving the entry shares them with whoever can read it */
+  case 'wdImgAdd': N.pickImage(img => { if (!ui.wd) return; ui.wd.imgs.push({src:N.storeImg(N.shrink(img, 1400, 600000), false), cap:''}); render(v); }); return;
+  case 'wdImgDel': {
+    /* a picture added in this edit and removed again is deleted now; saved ones go when the entry is saved */
+    const [p] = ui.wd.imgs.splice(+val, 1), old = ui.wd.id && g.wiki.find(x => x.id === ui.wd.id);
+    if (p && !(old && N.wikiPics(old).some(x => x.src === p.src))) N.dropImg(p.src);
+    break;
+  }
   case 'wDelGo': {
     const at = g.wiki.findIndex(x => x.id === val), en = g.wiki[at]; if (!en) break;
     g.wiki.splice(at, 1); ui.sheet = null; if (ui.wikiSel === val) ui.wikiSel = null;
@@ -825,7 +833,10 @@ function act(v, a, el, e){
       body:w.body.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean), secret:w.secret.trim()};
     if (w.gm) en.gm = true;
     if (!w.gm && w.see?.length) en.see = [...w.see];
-    if (old) for (const k of ['img','src','soon']) if (old[k]) en[k] = old[k];
+    if (old) for (const k of ['src','soon']) if (old[k]) en[k] = old[k];
+    /* the lore's own picture joins the list, so it can be captioned or removed like the others */
+    en.imgs = w.imgs.map(p => { const o = {src:p.src}; if (p.alt) o.alt = p.alt; if (p.cap?.trim()) o.cap = p.cap.trim(); return o; });
+    if (old) for (const p of N.wikiPics(old)) if (!en.imgs.some(x => x.src === p.src)) N.dropImg(p.src);
     const i = g.wiki.findIndex(x => x.id === en.id); if (i >= 0) g.wiki[i] = en; else g.wiki.push(en);
     ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.herald = false; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
   }
@@ -1057,8 +1068,8 @@ function openSheet(v, s, d={}){
   }
   if (s === 'wEdit') {
     const e = d.v && g.wiki.find(x => x.id === d.v);
-    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), secret:e.secret || '', gm:!!e.gm, see:[...(e.see || [])]}
-              : {id:null, title:'', cat:ui.wikiCat || (N.cats().find(c => c.name === 'People') || N.cats()[0] || {name:'People'}).name, summary:'', info:'', body:'', secret:'', gm:false};
+    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), secret:e.secret || '', gm:!!e.gm, see:[...(e.see || [])], imgs:N.wikiPics(e).map(p => ({...p}))}
+              : {id:null, title:'', cat:ui.wikiCat || (N.cats().find(c => c.name === 'People') || N.cats()[0] || {name:'People'}).name, summary:'', info:'', body:'', secret:'', gm:false, imgs:[]};
   }
   if (s === 'wCats') { ui.cd = N.catNames(g.wiki).map(name => ({from:name, name, ic:N.catIcon(name)})); ui.cdIc = null; }
   if (s === 'export') ui.exp = {ch:new Set(N.channelsFor('gm').filter(c => c !== 'gm')), rp:true, roll:true, meta:false};

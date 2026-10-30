@@ -161,7 +161,9 @@ N.shrink = (img, max, limit=900000) => {
   let w = img.naturalWidth, h = img.naturalHeight, k = Math.min(1, max / Math.max(w, h)), q = .85, out = '';
   for (let i = 0; i < 12; i++) {
     const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
-    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', q);
+    /* JPEG has no see-through parts, so they become white instead of black (flags, logos) */
+    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    x.drawImage(img, 0, 0, c.width, c.height); out = c.toDataURL('image/jpeg', q);
     if (out.length < limit) break;
     if (q > .6) q -= .1; else k *= .8;
   }
@@ -237,6 +239,12 @@ function syncNow(){
       writeUnits('game/maps', asUnits(g.maps, (m,i) => share(m, 'map', 'm:' + m.id, {...m, pins:m.pins.filter(p => p.vis || p.type === 'party').map(p => pinOut(m, p)), o:i})));
     }
     if (LOADED.has('gm/wiki')) {
+      /* pictures in a wiki entry can be read by the same people as the entry */
+      for (const e of g.wiki) for (const p of N.wikiPics(e)) {
+        if (!p.src?.startsWith('fs:')) continue;
+        const id = p.src.slice(3), a = N.audOf(e, 'wiki'), vis = a === '*', aud = Array.isArray(a) ? a : [], k = visKey(vis, aud);
+        if (MVIS.get(id) !== k) { MVIS.set(id, k); track(F.setDoc(dref('mapimgs/' + id), {vis, aud}, {merge:true})); }
+      }
       writeUnits('gm/wiki', asUnits(g.wiki));
       writeUnits('game/wiki', asUnits(g.wiki, (e,i) => { const {secret, ...pub} = e; return share(e, 'wiki', 'w:' + e.id, {...pub, o:i}); }));
     }
@@ -492,7 +500,8 @@ N.importLore = file => file.text().then(txt => {
   const d = JSON.parse(txt);
   if (d.kind !== 'norne-lore' || !Array.isArray(d.wiki) || !Array.isArray(d.maps)) throw new Error('not lore');
   const g = G();
-  for (const e of d.wiki) { const i = g.wiki.findIndex(x => x.id === e.id); if (i >= 0) g.wiki[i] = e; else g.wiki.push(e); }
+  /* pictures the GM added to an entry stay when the lore file replaces its text */
+  for (const e of d.wiki) { const i = g.wiki.findIndex(x => x.id === e.id); if (i >= 0) { const was = g.wiki[i]; if (was.imgs && !e.imgs) { e.imgs = was.imgs; delete e.img; } g.wiki[i] = e; } else g.wiki.push(e); }
   for (const m0 of d.maps) { const m = normMap(m0), i = g.maps.findIndex(x => x.id === m.id); if (i >= 0) g.maps[i] = m; else g.maps.push(m); }
   return Promise.all(Object.entries(d.mapimgs || {}).map(([id, data]) => { const v = g.maps.find(m => m.src === 'fs:' + id)?.vis !== false; MIMG.set(id, {url:data, p:null}); MVIS.set(id, v); return F.setDoc(dref('mapimgs/' + id), {data, vis:v}); }))
     .then(() => { syncNow(); return d; });
