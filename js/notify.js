@@ -107,7 +107,7 @@ N.toggleNotify = v => {
 function line(m){
   const who = N.personObj(m.by).name;
   if (m.kind === 'roll') { const r = m.roll || {}; return `${r.who || who} rolled ${N.sgn(N.rollTotal(r))}${r.skill ? ' on ' + r.skill : ''}`; }
-  if (m.kind === 'news') return `${who} put out a new paper!`;
+  if (m.kind === 'news') { const no = G().news?.issues?.find(i => i.id === m.nid)?.no; return no ? `Issue #${no} has been delivered!` : 'A new issue has been delivered!'; }
   if (m.kind === 'combat') return `${who} just started a combat!`;
   if (m.kind === 'scene') return m.scene?.title ? `New scene: ${m.scene.title}` : '';
   if (m.kind === 'sys') return m.text || '';
