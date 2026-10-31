@@ -407,7 +407,8 @@ function composer(v){
   return `<form class="composer${ooc?' ooc':''}" data-f="send" onsubmit="return false">
     ${re ? `<div class="replying">${IC('reply')}<span>Replying to <b>${esc(N.msgWho(re))}</b><small>${N.emoText(esc(N.msgSnip(re)))}</small></span><button type="button" class="ibtn sm" data-a="replyOff" aria-label="Stop replying">${IC('x')}</button></div>` : ''}
     <div class="box">
-      ${v.ui.ch === 'gm' ? `<span class="voice">${chip}</span>` : `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`}
+      ${v.ui.ch === 'gm' ? `<span class="voice">${chip}</span>` : gm ? `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`
+        : `<button type="button" class="voice flip" data-a="voice" data-v="__flip" aria-label="${ooc ? 'Speaking out of character. Tap to speak in character' : 'Speaking in character. Tap to speak out of character'}" title="Tap to switch">${chip}${IC('swap','car')}</button>`}
       <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="${N.enterSends() ? 'send' : 'enter'}">${esc(v.ui.draft)}</textarea>
       <button type="button" class="emob" data-a="pop" data-v="emo" aria-label="Emoji" title="Emoji">${IC('smile')}</button>
       ${isGM(v) ? `<button type="button" class="diceb" data-a="roll" aria-label="Roll the dice" title="Roll">${fateDie}</button>` : ''}

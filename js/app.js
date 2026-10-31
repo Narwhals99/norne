@@ -40,7 +40,7 @@ const fsys = text => Object.assign(sys(text, N.fightCh()), {fight:true});
 /* tell the players who can see something: in Everyone when it's for all, otherwise in each one's chat with the GM */
 const tell = (x, kind, text, only) => { const a = N.audOf(x, kind); if (a === 'gm') return; if (a === '*' && !only) { sys(text); return; } for (const s of only || a) if (G().P[s]) sys(text, 'dm-' + s); };
 
-const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:null, pop:null, toast:null, mode:'rp', voice:'Narrator', draft:'', sceneMin:false, folded:new Map(), fresh:null,
+const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:null, pop:null, toast:null, mode:'ooc', voice:'Narrator', draft:'', sceneMin:false, folded:new Map(), fresh:null,
   fightPane:'fight', fightOpen:true, watching:false, cbTool:'move', tokSel:null, targeting:null, placing:null, zoneSel:null,
   mapId:null, mapType:'all', mapQ:'', pinSel:null, mapEdit:false, addPin:false, mapT:null,
   wikiQ:'', wikiCat:null, wikiSel:null, paper:null, newsEdit:null, newsSel:null, charSel:null, castSeg:'players', castSel:null, npcQ:'',
@@ -134,6 +134,8 @@ function markSeen(v){
   if (t > (seen[v.ui.ch] || 0)) seen[v.ui.ch] = t;
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAll(); });
+/* a page the browser brings back from its back/forward memory counts as a fresh load: talk starts out of character again */
+window.addEventListener('pageshow', e => { if (!e.persisted) return; for (const v of views) v.ui.mode = 'ooc'; renderAll(); });
 
 /* ---------------- toasts ---------------- */
 function toast(v, text, undo){
@@ -750,6 +752,7 @@ function act(v, a, el, e){
   case 'voice': { ui.voiceQ = '';
     if (val === '__ooc') ui.mode = 'ooc';
     else if (val === '__me') ui.mode = 'rp';
+    else if (val === '__flip') ui.mode = ui.mode === 'ooc' ? 'rp' : 'ooc';
     else { ui.mode = 'rp'; ui.voice = val; }
     ui.pop = null;
     if (d.go) { ui.sheet = null; ui.tab = 'chat'; if (ui.ch === 'gm') ui.ch = 'table'; if (d.go === 'side') { ui.tokSel = null; if (v.dev === 'phone') ui.fightPane = 'chat'; } toast(v, `Speaking as ${val}`); setTimeout(() => { const t = v.root.querySelector('.composer textarea'); t && t.focus(); }, 20); }
