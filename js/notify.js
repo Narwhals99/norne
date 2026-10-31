@@ -103,15 +103,15 @@ N.toggleNotify = v => {
   });
 };
 
-/* what a new message says in a notification */
+/* what a new message says in a notification: short, with the name of whoever sent it */
 function line(m){
-  const who = N.speakerObj(m).name;
-  if (m.kind === 'roll') { const r = m.roll || {}; return `${r.who || who} rolled ${r.skill || 'the dice'}: ${N.sgn(N.rollTotal(r))} ${N.ladderWord(N.rollTotal(r))}`; }
-  if (m.kind === 'news') return `New edition of the paper: ${m.text}`;
-  if (m.kind === 'combat') return `A fight has begun: ${m.text}`;
+  const who = N.personObj(m.by).name;
+  if (m.kind === 'roll') { const r = m.roll || {}; return `${r.who || who} rolled ${N.sgn(N.rollTotal(r))}${r.skill ? ' on ' + r.skill : ''}`; }
+  if (m.kind === 'news') return `${who} put out a new paper!`;
+  if (m.kind === 'combat') return `${who} just started a combat!`;
   if (m.kind === 'scene') return m.scene?.title ? `New scene: ${m.scene.title}` : '';
   if (m.kind === 'sys') return m.text || '';
-  if (m.kind === 'gif') return `${N.personObj(m.by).name} sent a GIF`;
+  if (m.kind === 'gif') return `${who} sent a GIF`;
   return m.text ? `${who}: ${m.text}` : '';
 }
 const pings = ms => ms.length > 1 ? `${ms[ms.length - 1]} (+${ms.length - 1} more)` : ms[0];
@@ -123,7 +123,7 @@ N.notifyMsgs = list => {
   const mine = list.filter(m => m.by !== role && worth(m) && N.channelsFor(role).includes(m.ch));
   const byCh = {};
   for (const m of mine) { const t = line(m); if (t) (byCh[m.ch] = byCh[m.ch] || []).push(t); }
-  for (const [ch, ts] of Object.entries(byCh)) show(`Norne · ${N.chName(ch, role)}`, pings(ts), ch);
+  for (const [ch, ts] of Object.entries(byCh)) show('Norne', pings(ts), ch);
 };
 
 /* with push: messages written on this device ping every other person who can read them.
@@ -143,7 +143,7 @@ function flush(){
     if (d.seen && now - d.seen < SEEN_FOR) continue;
     const byCh = {};
     for (const m of list) { if (!N.channelsFor(d.role).includes(m.ch)) continue; const t = line(m); if (t) (byCh[m.ch] = byCh[m.ch] || []).push(t); }
-    for (const [ch, ts] of Object.entries(byCh)) pushes.push({sub:d.sub, title:`Norne · ${N.chName(ch, d.role)}`, body:pings(ts), ch});
+    for (const [ch, ts] of Object.entries(byCh)) pushes.push({sub:d.sub, title:'Norne', body:pings(ts), ch});
   }
   if (!pushes.length) return;
   fetch(PUSH_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pushes})})
