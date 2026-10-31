@@ -48,18 +48,46 @@ const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:n
 
 /* ---------------- mount + render ---------------- */
 N.mount = function(root, o){
-  const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), ui:newUi(o.role)};
+  const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), fz:N.fzOk(o.fz), ui:newUi(o.role)};
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
   views.push(v); bind(v); render(v);
   return v;
 };
+
+/* ---------------- text size ----------------
+   The stylesheets and the inline styles give font sizes in px. The first time a device picks a size other than Normal,
+   every px font size and line height in the app's own stylesheets is rewritten once to calc(<px> * var(--fz,1)),
+   so changing the size afterwards only changes --fz on the app. On Normal nothing is touched. */
+const FZ_PX = /(\d*\.?\d+)px/g, fzCalc = s => s.replace(FZ_PX, 'calc($1px * var(--fz,1))');
+function fzDecl(st){
+  for (const k of ['font', 'font-size', 'line-height']) {
+    const val = st.getPropertyValue(k);
+    if (!val || !val.includes('px') || val.includes('--fz')) continue;
+    st.setProperty(k, fzCalc(val), st.getPropertyPriority(k));
+    if (k === 'font') break;
+  }
+}
+let fzSheets = false;
+function fzSet(v){
+  const k = N.fzK(v.fz);
+  if (k !== 1 && !fzSheets) {
+    fzSheets = true;
+    const walk = rules => { for (const r of rules) { if (r.cssRules) walk(r.cssRules); if (r.style) fzDecl(r.style); } };
+    for (const sh of document.styleSheets) { let rs; try { rs = sh.cssRules; } catch(e) { continue; } walk(rs); }
+  }
+  v.root.dataset.fz = v.fz;
+  v.root.style.setProperty('--fz', k);
+}
+/* inline style="font:…px" in the markup gets the same treatment after each draw */
+const fzInline = v => { if (fzSheets) v.root.querySelectorAll('[style*="px"]').forEach(e => fzDecl(e.style)); };
 
 const HS = '.hscroll,.who-row,.fight-order,.chips,.ladder-chips,.party-row,.thumbs';
 function render(v){
   const root = v.root;
   if (!root.isConnected) return;
   root.dataset.theme = v.theme; root.dataset.style = v.style; root.dataset.dev = v.dev; root.dataset.role = v.role || '';
-  if (N.gated || !v.role) { root.innerHTML = N.gateHtml(N.gated || '<p>Opening the campaign…</p>'); return; }
+  fzSet(v);
+  if (N.gated || !v.role) { root.innerHTML = N.gateHtml(N.gated || '<p>Opening the campaign…</p>'); fzInline(v); return; }
   const sk = {};
   root.querySelectorAll('[data-sk]').forEach(e => { sk[e.dataset.sk] = {t:e.scrollTop, l:e.scrollLeft, bottom:e.scrollHeight - e.scrollTop - e.clientHeight < 60}; });
   const hs = [...root.querySelectorAll(HS)].map(e => e.scrollLeft);
@@ -70,6 +98,7 @@ function render(v){
   /* a sheet that was already open stays put instead of sliding in again on every redraw */
   const still = v.ui.sheet && v._sheet === v.ui.sheet + ':' + v.ui.sheetArg;
   root.innerHTML = N.appHtml(v);
+  fzInline(v);
   if (still) root.querySelectorAll('.sheet,.scrim').forEach(e => e.classList.add('still'));
   v._sheet = v.ui.sheet ? v.ui.sheet + ':' + v.ui.sheetArg : null;
   /* the same goes for a fighter's card on the desktop board: new chat lines must not make it slide in again */
@@ -668,6 +697,7 @@ function act(v, a, el, e){
   case 'undo': if (ui.toast && ui.toast.undo) { ui.toast.undo(); ui.toast = null; renderAll(); return; } break;
   case 'notify': N.toggleNotify(v); return;
   case 'theme': v.theme = val; try { localStorage.setItem('norne-theme', val); } catch(e) {} if (N.onTheme) N.onTheme(v); break;
+  case 'fz': v.fz = N.fzOk(val); try { localStorage.setItem('norne-fz', v.fz); } catch(e) {} break;
   case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {} break;
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;

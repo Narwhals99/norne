@@ -51,9 +51,9 @@ noscript{position:fixed;inset:0;display:grid;place-items:center;padding:24px;col
 <script>
 (function(){
   const N = window.N, root = document.getElementById('app');
-  let theme = 'night', style = 'storybook'; try { theme = localStorage.getItem('norne-theme') || 'night'; style = localStorage.getItem('norne-style') || 'storybook'; } catch(e) {}
+  let theme = 'night', style = 'storybook', fz = 'm'; try { theme = localStorage.getItem('norne-theme') || 'night'; style = localStorage.getItem('norne-style') || 'storybook'; fz = localStorage.getItem('norne-fz') || 'm'; } catch(e) {}
   const wide = matchMedia('(min-width: 760px)');
-  const v = N.mount(root, {role:null, dev:wide.matches ? 'desktop' : 'phone', theme, style});
+  const v = N.mount(root, {role:null, dev:wide.matches ? 'desktop' : 'phone', theme, style, fz});
   const onWide = () => { v.dev = wide.matches ? 'desktop' : 'phone'; N.render(v); };
   wide.addEventListener ? wide.addEventListener('change', onWide) : wide.addListener(onWide);
   N.kbInit();
