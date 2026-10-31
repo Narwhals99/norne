@@ -266,8 +266,24 @@
 .app .m.mine .bub em{color:rgba(255,255,255,.94)}
 .app .m.mine .av{display:none}
 .app .m.mine.gmv .av{display:grid}
-.app .m.ooc .bub{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2);border-style:dashed;font-size:14px;color:var(--ink-2);padding:7px 12px}
-.app .m.ooc.mine .bub{color:var(--ink-2);background:var(--accent-soft)}
+/* out of character: liquid glass. The blur and saturation pick up whatever is behind the bubble,
+   a top sheen and a bright-to-dim rim (::after) make it read as a glossy pane. Tuned per style and theme by tokens. */
+.app{--glass-tint:rgba(190,180,255,.13); --glass-tint-2:rgba(255,255,255,.02); --glass-mine:rgba(150,120,255,.22);
+  --glass-sheen:rgba(255,255,255,.2); --glass-rim:rgba(255,255,255,.6); --glass-rim-2:rgba(255,255,255,.06); --glass-rim-3:rgba(190,170,255,.4);
+  --glass-shadow:0 8px 22px -12px rgba(0,0,0,.65); --glass-filter:blur(5px) saturate(180%) brightness(1.15)}
+.app[data-theme="day"]{--glass-tint:rgba(255,255,255,.55); --glass-tint-2:rgba(255,255,255,.16); --glass-mine:rgba(150,200,90,.22);
+  --glass-sheen:rgba(255,255,255,.7); --glass-rim:rgba(255,255,255,.95); --glass-rim-2:rgba(255,255,255,.25); --glass-rim-3:rgba(120,110,60,.28);
+  --glass-shadow:0 8px 20px -12px rgba(90,70,20,.45); --glass-filter:blur(6px) saturate(180%) brightness(1.04)}
+.app .m.ooc .bub{position:relative;font-size:14px;color:var(--ink-2);padding:7px 12px;
+  background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-tint),var(--glass-tint-2));
+  box-shadow:inset 0 1px 0 var(--glass-rim),inset 0 -1px 2px var(--glass-rim-2),var(--glass-shadow);
+  backdrop-filter:var(--glass-filter);-webkit-backdrop-filter:var(--glass-filter)}
+.app .m.ooc .bub::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:linear-gradient(140deg,var(--glass-rim),var(--glass-rim-2) 38%,var(--glass-rim-2) 62%,var(--glass-rim-3));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.app .m.ooc.mine .bub{color:var(--ink-2);background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-mine),var(--glass-tint-2))}
+.app .m.ooc.mine .bub em{color:var(--ink-2)}
+.app .m.ooc.mine .bub .ed{color:var(--ink-4)}
 .app .m.ooc .bub::before{content:"OOC";font:800 9px/1 var(--f-ui);letter-spacing:.14em;color:var(--ink-3);margin-right:8px;vertical-align:1px}
 
 /* narration: story text, not a bubble */
