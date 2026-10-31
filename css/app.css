@@ -781,6 +781,19 @@
 .app .ent b{font:600 16px/1.2 var(--f-display)}
 .app .ent small{font:500 12.5px/1.35 var(--f-ui);color:var(--ink-3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .app .ent[aria-current="true"]{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--gold)}
+/* wiki categories and entries: the same liquid glass as OOC bubbles (--glass-* tokens) */
+.app .cat,.app .ent{position:relative;border:0;
+  background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-tint),var(--glass-tint-2));
+  box-shadow:inset 0 1px 0 var(--glass-rim),inset 0 -1px 2px var(--glass-rim-2),var(--glass-shadow);
+  backdrop-filter:var(--glass-filter);-webkit-backdrop-filter:var(--glass-filter)}
+.app .cat::after,.app .ent::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
+  background:linear-gradient(140deg,var(--glass-rim),var(--glass-rim-2) 38%,var(--glass-rim-2) 62%,var(--glass-rim-3));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}
+.app .ents{gap:6px}
+.app .ent[aria-current="true"]::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:0 3px 3px 0;background:var(--gold)}
+.app .cat[aria-current="true"],.app .ent[aria-current="true"],.app .ent:hover{
+  background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-mine),var(--glass-tint-2));
+  box-shadow:inset 0 1px 0 var(--glass-rim),inset 0 -1px 2px var(--glass-rim-2),var(--glass-shadow),0 0 22px -10px var(--accent-glow)}
 .app .wback{display:flex;align-items:center;gap:8px}
 .app .article{padding:8px 16px 40px;max-width:720px;width:100%;margin:0 auto;display:grid;gap:14px;align-content:start}
 .app .article h1{margin:0;font:600 32px/1.08 var(--f-display);letter-spacing:-.015em;text-wrap:balance}

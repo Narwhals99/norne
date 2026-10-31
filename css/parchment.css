@@ -424,6 +424,13 @@
 .app:where([data-style="parchment"]) .cat[aria-current="true"]{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 18%,transparent),transparent),var(--paper-bg);border-color:color-mix(in srgb,var(--accent) 60%,transparent);box-shadow:none}
 .app:where([data-style="parchment"]) .ent{border-radius:4px}
 .app:where([data-style="parchment"]) .ent[aria-current="true"]{box-shadow:inset 3px 0 0 var(--accent)}
+.app:where([data-style="parchment"]) .cat,.app:where([data-style="parchment"]) .cat[aria-current="true"]{border:0;border-radius:8px}
+.app:where([data-style="parchment"]) .cat{background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-tint),var(--glass-tint-2))}
+.app:where([data-style="parchment"]) .ent{border-radius:8px}
+.app:where([data-style="parchment"]) .ent[aria-current="true"]::before{background:var(--wax)}
+.app:where([data-style="parchment"])[data-theme] .cat[aria-current="true"],.app:where([data-style="parchment"])[data-theme] .ent[aria-current="true"]{
+  background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-mine),var(--glass-tint-2));
+  box-shadow:inset 3px 0 0 color-mix(in srgb,var(--wax) 75%,transparent),inset 0 1px 0 var(--glass-rim),var(--glass-shadow)}
 .app:where([data-style="parchment"]) .article h1{font-weight:400;letter-spacing:0}
 .app:where([data-style="parchment"]) .article .sum{font-family:var(--f-body);color:var(--ink-2)}
 .app:where([data-style="parchment"]) .article .rule{color:var(--accent-tx)}
