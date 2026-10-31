@@ -349,7 +349,7 @@ N.ZCOL = ['#f4c46e','#6fd6c0','#ff9a7e','#a99bff','#9cd36b','#f39ad0'];
 N.tokFromNpc = (n, side, label) => {
   const nameless = n.type === 'nameless', v = nameless ? [1] : stressVals((n.skills||{}).Strength||0);
   return {id:uid('t'), kind:'npc', ref:n.id, name:label || n.name, portrait:n.portrait || null, side, type:n.type || 'supporting', skills:{...(n.skills||{})},
-    aspects:[n.hc, ...(n.aspects||[])].filter(Boolean), stressV:v, stress:v.map(()=>false), mild:'', zone:null, out:false, gearAtk:+n.gearAtk || 0, gearDef:+n.gearDef || 0};
+    aspects:[n.hc, ...(n.aspects||[])].filter(Boolean), stressV:v, stress:v.map(()=>false), cons:{...(n.cons||{})}, zone:null, out:false, gearAtk:+n.gearAtk || 0, gearDef:+n.gearDef || 0};
 };
 N.tokFromPc = c => ({id:uid('t'), kind:'pc', ref:c.id, zone:null, out:false});
 })();

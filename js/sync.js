@@ -298,7 +298,9 @@ let GC = null, SC = {}; const PF = {}, SRC = {};
 const OLDBG = {forest:'dark-forest', tavern:'town-alley', street:'town-alley', cave:'cave-temple-deep', castle:'castle-ramparts', swamp:'dark-forest', snow:'mountain-pass-raid', ship:'harbor-ship'};
 /* Fights are also written in the old app's shape (bg key, scene, zone color), so rolling the site back keeps them working. */
 const oldBg = src => ({'dark-forest':'forest', 'town-alley':'tavern', 'cave-temple-deep':'cave', 'castle-ramparts':'castle', 'mountain-pass-raid':'snow', 'harbor-ship':'ship'})[(String(src).match(/^art\/bg\/([\w-]+)\.jpg$/) || [])[1]] || 'forest';
-const combatOut = c => ({...c, art:c.bg, bg:oldBg(c.bg), scene:c.aspects, zones:c.zones.map(z => ({...z, color:z.col})), tokens:c.tokens.map(t => t.kind === 'npc' && t.label == null ? {...t, label:''} : t)});
+const combatOut = c => ({...c, art:c.bg, bg:oldBg(c.bg), scene:c.aspects, zones:c.zones.map(z => ({...z, color:z.col})), tokens:c.tokens.map(npcTokOut)});
+/* a named NPC's token carries a copy of its card's consequences, so players (who can't read NPC cards) see them in the fight */
+const npcTokOut = t => { if (t.kind !== 'npc') return t; const n = t.type !== 'nameless' && G().npcs.find(x => x.id === t.ref); return {...t, ...(t.label == null ? {label:''} : {}), ...(n ? {cons:{...(n.cons || {})}} : {})}; };
 function normCombat(c){
   if (!c) return N.freshCombat();
   const f = N.freshCombat(), legacy = !c.joined;
