@@ -1325,6 +1325,10 @@ function act(v, a, el, e){
   case 'cbDrop': if (cb.pending) { const t = N.tokById(cb.pending.def); cb.pending = null; fsys(`${N.gmName()} settles the hit on ${t ? N.tokName(t) : 'them'} by hand.`); } renderAll(); return;
   case 'cbAbsorb': cbAbsorb(v, d.k, +d.i); return;
   case 'tokClose': ui.tokSel = null; break;
+  case 'tokFp': { const t = N.tokById(d.t), pool = t && N.tokFpPool(t); if (!pool) return; const o = pool.o, before = o.fp || 0; o.fp = clamp(before + (+d.d), 0, 10);
+    /* a PC's change goes in the fight chat; an NPC's pool stays the GM's secret */
+    if (o.fp !== before && pool.pc) Object.assign(N.sys(+d.d > 0 ? `${N.gmName()} gave ${pool.name} a fate point.` : `${N.gmName()} took a fate point from ${pool.name}.`, N.fightCh()), {fight:true});
+    renderAll(); return; }
   case 'tokStress': { const t = N.tokById(d.t), s = N.tokStress(t); s.s[+d.i] = !s.s[+d.i]; renderAll(); return; }
   case 'tokTurn': { const o = N.order(), i = o.findIndex(t => t.id === d.t); if (i >= 0) { cb.turn = i; cb.acted = false; cb.moved = false; cb.pending = null; } ui.tokSel = null; ui.sheet = null; renderAll(); return; }
   case 'tokOut': { const t = N.tokById(d.t); t.out = !t.out; if (t.out && cb.state === 'live') fsys(`${N.tokName(t)} is taken out.`); ui.sheet = null; renderAll(); return; }

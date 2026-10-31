@@ -2000,3 +2000,8 @@
 .app .invwho button[aria-pressed="true"] .ifp{color:var(--gold-tx)}
 .app .invwho button:disabled{opacity:.5}
 .app .invwhere{margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)}
+/* fate points on a fighter's card (GM gets − / +) */
+.app .tokcard .tok-fp{flex-wrap:wrap}
+.app .tokcard .tok-fp .fp-n{font:700 14px/1 var(--f-display);color:var(--gold-tx);margin-left:4px;min-width:1ch}
+.app .tokcard .tok-fp .mini button{width:30px;height:30px;font-size:16px}
+.app .tokcard .tok-fp .mini button:disabled{opacity:.4}
