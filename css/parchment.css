@@ -210,6 +210,8 @@
 .app:where([data-style="parchment"]){--say-top:18%; --say-bot:10%}
 .app:where([data-style="parchment"])[data-theme="day"]{--say-top:14%; --say-bot:8%}
 .app:where([data-style="parchment"]) .m .bub em{font-family:var(--f-body);font-size:1.04em}
+.app:where([data-style="parchment"]) .m .bub .rpd{font-family:var(--f-body);font-size:1.04em}
+.app:where([data-style="parchment"]) .m .bub .rpd em{font-size:1em}
 .app:where([data-style="parchment"]) .m.mine .bub,.app:where([data-style="parchment"]) .m.mine.cont .bub{border-radius:10px 3px 3px 10px;color:#2a1c0f;
   background:linear-gradient(rgba(250,240,214,.6),rgba(240,226,192,.6)),url("../art/ui/parchment.jpg") 0 0/420px auto,#efe0bb;
   box-shadow:inset -3px 0 0 var(--wax),0 0 0 1px rgba(255,230,180,.25),0 6px 14px -8px rgba(0,0,0,.8)}
@@ -217,7 +219,9 @@
   background:linear-gradient(rgba(84,52,24,.86),rgba(64,38,16,.9)),url("../art/ui/parchment.jpg") 0 0/420px auto,#4a2e14;
   box-shadow:inset -3px 0 0 var(--wax),0 0 0 1px rgba(40,20,5,.35),0 6px 14px -8px rgba(60,30,5,.7)}
 .app:where([data-style="parchment"]) .m.mine .bub em{color:#5c4128}
+.app:where([data-style="parchment"]) .m.mine .bub .rpd{color:#5c4128}
 .app:where([data-style="parchment"])[data-theme="day"] .m.mine .bub em{color:#ead7b3}
+.app:where([data-style="parchment"])[data-theme="day"] .m.mine .bub .rpd{color:#ead7b3}
 .app:where([data-style="parchment"]) .m.mine .bub .ed{color:rgba(60,40,20,.6)}
 .app:where([data-style="parchment"])[data-theme="day"] .m.mine .bub .ed{color:rgba(251,239,216,.7)}
 /* out of character: liquid glass in candle amber (night) and sunlit mica (day); the glass rules live in app.css */
