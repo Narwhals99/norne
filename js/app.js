@@ -450,6 +450,9 @@ function gifSearch(v){
     .finally(() => { if (n !== v._gn) return; ui.gifBusy = false; if (ui.pop?.type === 'emo') render(v); });
 }
 
+/* the skill the GM last rolled each skill against, so Provoke comes back already set against Will (say) */
+const vsSkillMem = (() => { try { return JSON.parse(localStorage.getItem('norne-vsskill')) || {}; } catch(e) { return {}; } })();
+const vsSkillSave = () => { try { localStorage.setItem('norne-vsskill', JSON.stringify(vsSkillMem)); } catch(e) {} };
 function openRoll(v, o={}){
   if (!isGM(v)) return; /* the GM rolls everything, in a fight and out of one */
   const g = G();
@@ -460,7 +463,8 @@ function openRoll(v, o={}){
   }
   const r = N.rollerOf(v, who);
   const best = r ? Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] : 'Notice';
-  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2};
+  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true};
+  { const r = v.ui.roll; if (r.skill in vsSkillMem) r.vsSkill = vsSkillMem[r.skill]; }
   v.ui.sheet = 'roll'; v.ui.pop = null;
 }
 N.openRoll = openRoll;
@@ -476,6 +480,9 @@ function doRoll(v){
   const fight = isGM(v) && g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
   const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : r.opp, dice:N.rollDice(), invokes:[]};
   if (fight) roll.fight = true;
+  else if (isGM(v) && r.ctx !== 'cb' && (r.vsSkill || r.vsNpc)) { const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); roll.vs = {name:n ? n.name : null, skill:r.vsSkill || null}; }
+  /* not passive: the other side rolls 4dF on top of the difficulty / the NPC's skill, and that total is what you beat */
+  if (isGM(v) && !fight && r.ctx !== 'cb' && r.passive === false && r.opp != null) { roll.oppBase = r.opp; roll.oppDice = N.rollDice(); roll.opp = r.opp + roll.oppDice.reduce((a, b) => a + b, 0); }
   const secret = isGM(v) && !fight && (r.secret || v.ui.ch === 'gm');
   const ch = secret ? 'gm' : fight ? N.fightCh() : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
   const m = push({ch, kind:'roll', by:v.role, roll});
@@ -1109,12 +1116,15 @@ function act(v, a, el, e){
     setTimeout(() => URL.revokeObjectURL(url), 2000); return;
   }
   /* roll sheet */
-  case 'rollWho': { ui.roll.who = val; const r = N.rollerOf(v, val); ui.roll.skill = Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'Notice'; ui.roll.target = null; break; }
+  case 'rollWho': { ui.roll.who = val; if (ui.roll.vsNpc && 'npc:' + ui.roll.vsNpc === val) ui.roll.vsNpc = null; const r = N.rollerOf(v, val); ui.roll.skill = Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'Notice'; ui.roll.target = null; break; }
   case 'rollAct': ui.roll.action = val; if (val === 'defend') { ui.roll.skill = 'Athletics'; } if (val === 'attack') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Shooting||0) > (r.skills.Fighting||0) ? 'Shooting' : 'Fighting'; } break;
   case 'rollTgt': ui.roll.target = val; ui.roll.ctx = 'cb'; break;
-  case 'rollSkill': ui.roll.skill = val; break;
+  case 'rollSkill': { const r = ui.roll; r.skill = val; if (val in vsSkillMem) { r.vsSkill = vsSkillMem[val]; const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; } break; }
   case 'rollAll': ui.roll.all = true; break;
   case 'rollOpp': ui.roll.opp = val === 'null' ? null : +val; break;
+  case 'rollVsSkill': { const r = ui.roll; r.vsSkill = r.vsSkill === val ? null : val; vsSkillMem[r.skill] = r.vsSkill; vsSkillSave(); const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
+  case 'rollVsNpc': { const r = ui.roll; r.vsNpc = val || null; const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
+  case 'rollPassive': ui.roll.passive = ui.roll.passive === false; break;
   case 'rollSecret': ui.roll.secret = !ui.roll.secret; break;
   case 'rollBonus': ui.roll.otherBonus = clamp((+ui.roll.otherBonus || 0) + (+d.d), -4, 10); break;
   case 'doRoll': doRoll(v); return;

@@ -344,10 +344,12 @@ function sayFmt(t){
   return out + act(s.slice(at));
 }
 /* phones: a roll in the roleplay chat is one small line; tapping it opens the full card */
+/* a roleplay roll the GM made against an NPC card and/or a skill: "against Brannoc (Will)" */
+const vsLabel = r => r.vs ? ` against ${r.vs.name ? `<b>${esc(r.vs.name)}</b>${r.vs.skill ? ` (${esc(r.vs.skill)})` : ''}` : `<b>${esc(r.vs.skill)}</b>`}` : '';
 function rollLine(v, m){
   const r = m.roll, tot = rollTotal(r), o = outcome(r), fx = v._rfx && v._rfx.id === m.id && Date.now() - v._rfx.at < RFX_MS;
   return `<button type="button" class="rl${fx ? ' fx' : ''}" ${fx ? `style="--el:-${Date.now() - v._rfx.at}ms"` : ''} data-a="sheet" data-v="rollCard" data-c="${m.id}" aria-label="${esc(r.who)} rolled ${sgn(tot)}. Open the roll">
-    <span class="rld">${r.dice.map(d => `<i class="${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':''}</i>`).join('')}</span><span class="rlt"><b>${esc(r.who)}</b> ${esc(r.skill)} · ${esc(r.action.toLowerCase())}${m.ch==='gm'?' · secret':''}</span><b class="rlv">${sgn(tot)}${r.opp!=null?`<small>vs</small>${sgn(r.opp)}`:''}</b>${o ? `<span class="out ${o.k}">${o.t}</span>` : ''}</button>`;
+    <span class="rld">${r.dice.map(d => `<i class="${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':''}</i>`).join('')}</span><span class="rlt"><b>${esc(r.who)}</b> ${esc(r.skill)} · ${esc(r.action.toLowerCase())}${r.vs?.name?` vs ${esc(r.vs.name)}`:''}${m.ch==='gm'?' · secret':''}</span><b class="rlv">${sgn(tot)}${r.opp!=null?`<small>vs</small>${sgn(r.opp)}`:''}</b>${o ? `<span class="out ${o.k}">${o.t}</span>` : ''}</button>`;
 }
 /* phones: right after you roll, the dice tumble across the screen, show the total, then shrink into the line in the chat.
    Like the board's dice it keeps its place across redraws (a negative delay), so a new message doesn't restart it. */
@@ -372,8 +374,9 @@ function rRoll(v, m){
   const dice = r.dice.map(d => `<span class="die ${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':'·'}</span>`).join('');
   const canInv = isGM(v) || (r.whoKey === 'pc:' + (G().P[v.role]||{}).char && m.by === v.role);
   return `<div class="roll${fold?' folded':''}${m.ch==='gm'?' secret':''}">
-    <div class="rh"><span class="grow"><b>${esc(r.skill)} ${sgn(r.bonus - (r.gear||0))}</b>${r.gear?` + gear ${sgn(r.gear)}`:''} · ${esc(r.action)}${r.target?` ${r.action==='Defend'?'against':'on'} <b>${esc(r.target)}</b>`:''}</span>${fold?`<span class="mini-tot">${sgn(tot)}${r.opp!=null?` <small>vs</small> ${sgn(r.opp)}`:''}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" data-f="${fold?1:''}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
+    <div class="rh"><span class="grow"><b>${esc(r.skill)} ${sgn(r.bonus - (r.gear||0))}</b>${r.gear?` + gear ${sgn(r.gear)}`:''} · ${esc(r.action)}${r.target?` ${r.action==='Defend'?'against':'on'} <b>${esc(r.target)}</b>`:''}${vsLabel(r)}</span>${fold?`<span class="mini-tot">${sgn(tot)}${r.opp!=null?` <small>vs</small> ${sgn(r.opp)}`:''}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" data-f="${fold?1:''}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
     <div class="rb"><div class="dice${v.ui.fresh===m.id?' fresh':''}">${dice}</div>${r.opp!=null ? `<div class="tot vs"><span class="n"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></span><i>vs</i><span class="n opp"><b>${sgn(r.opp)}</b><span>${ladderWord(r.opp)}</span></span></div>` : `<div class="tot"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></div>`}</div>
+    ${r.oppDice ? `<div class="oppd">${esc(r.vs?.name || 'The other side')} rolled <span class="od">${r.oppDice.map(d => `<span class="${d>0?'op':d<0?'om':'oz'}">${d>0?'+':d<0?'−':''}</span>`).join('')}</span> ${sgn(diceSum({dice:r.oppDice}))} on ${r.vs?.skill ? esc(r.vs.skill) + ' ' : ''}${sgn(r.oppBase)} = <b>${sgn(r.opp)}</b></div>` : ''}
     ${r.invokes.length ? `<div class="inv">${r.invokes.map(i => i.reroll ? `Rerolled with “${esc(i.aspect)}” (was ${sgn(i.was ? i.was.reduce((a,b)=>a+b,0) : 0)})` : `+2 from “${esc(i.aspect)}”`).join(' · ')}</div>` : ''}
     <div class="rf"><span class="math">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${sgn(r.bonus - (r.gear||0))}${r.gear?` · gear ${sgn(r.gear)}`:''}${N.plusInvokes(r)?` · invokes +${2*N.plusInvokes(r)}`:''}</span>${o?`<span class="out ${o.k}">${o.t}${o.sh?` · ${o.sh>0?'+':'−'}${Math.abs(o.sh)}`:''}</span>`:''}${canInv && m.ch!=='gm' ? `<button type="button" class="btn sm" data-a="invoke" data-id="${m.id}" style="--h:28px">${IC('cards')}Invoke</button>` : ''}</div>
   </div>`;
