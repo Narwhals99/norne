@@ -346,6 +346,12 @@
 .app .roll .tot{margin-left:auto;text-align:right}
 .app .roll .tot b{display:block;font:700 30px/1 var(--f-display);color:var(--gold-tx);text-shadow:0 0 18px color-mix(in srgb,var(--gold) 40%,transparent)}
 .app .roll .tot span{font:800 10px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.app .roll .tot.vs{display:flex;align-items:flex-end;gap:8px}
+.app .roll .tot.vs .n{display:grid;justify-items:center;gap:4px}
+.app .roll .tot.vs i{font:italic 600 13px/1 var(--f-ui);color:var(--ink-3);padding-bottom:16px}
+.app .roll .tot.vs .opp b{color:var(--ink);text-shadow:none}
+.app .roll .tot.vs .n>span{font-size:9px;letter-spacing:.1em;color:var(--ink-3)}
+.app .roll .mini-tot small{font:italic 600 11px/1 var(--f-ui);color:var(--ink-3)}
 .app .roll .rf{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 10px 10px 14px;border-top:1px solid var(--line)}
 .app .roll .math{font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3);flex:1;min-width:0}
 .app .roll .out{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font:800 10.5px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase}
@@ -1782,6 +1788,7 @@
 .app .rl .rlt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .app .rl .rlt b{color:var(--ink);font-weight:800}
 .app .rl .rlv{flex:none;font:600 17px/1 var(--f-display);color:var(--gold)}
+.app .rl .rlv small{font:italic 600 11px/1 var(--f-ui);color:var(--ink-3);margin:0 4px}
 .app .rl .out{flex:none;display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;font:800 9.5px/1 var(--f-ui);letter-spacing:.06em;text-transform:uppercase}
 .app .rl.fx{animation:rlin .45s cubic-bezier(.3,1.5,.5,1) both;animation-delay:calc(var(--el,0s) + 2.25s)}
 @keyframes rlin{0%{opacity:0;transform:scale(.6)}100%{opacity:1;transform:none}}
