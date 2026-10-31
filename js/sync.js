@@ -265,6 +265,12 @@ function syncNow(){
     writeUnits('gm/npcs', asUnits(g.npcs.map(n => ({...n, occ:n.job || ''}))));
     writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics});
     if (LOADED.has('gm/news')) {
+      /* pictures in an issue can be read by the same people as the issue */
+      for (const i of g.news.issues) for (const src of N.newsPics(i)) {
+        if (!src.startsWith('fs:')) continue;
+        const id = N.picBase(src).slice(3), a = N.audOf(i, 'news'), vis = a === '*', aud = Array.isArray(a) ? a : [], k = visKey(vis, aud);
+        if (MVIS.get(id) !== k) { MVIS.set(id, k); track(F.setDoc(dref('mapimgs/' + id), {vis, aud}, {merge:true})); }
+      }
       writeUnits('gm/news', Object.fromEntries(g.news.issues.map(i => [i.id, i])));
       writeUnits('game/news', Object.fromEntries(g.news.issues.map(i => [i.id, share(i, 'news', 'n:' + i.id, i)]).filter(e => e[1])));
     }

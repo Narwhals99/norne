@@ -262,6 +262,14 @@
 .app .m .bub{padding:9px 14px 10px;border-radius:20px 20px 20px 6px;background:var(--raise);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 0 1px var(--line);font:500 15.5px/1.45 var(--f-ui);overflow-wrap:anywhere}
 .app .m.cont .bub{border-radius:6px 20px 20px 6px}
 .app .m .bub em{font-family:var(--f-display);font-style:italic;color:var(--ink-2)}
+/* **bold** and "- " / "1. " lists typed into a message */
+.app .m strong{font-weight:800}
+.app .m .fl{margin:4px 0;padding-left:1.35em}
+.app .m ul.fl{list-style:disc}
+.app .m ol.fl{list-style:decimal}
+.app .m .fl li{margin:2px 0}
+.app .m .fl li::marker{color:var(--gold-tx)}
+.app .m.mine .fl li::marker{color:inherit}
 .app .m .bub .rpd{font-family:var(--f-display);font-style:italic;color:var(--ink-2)}
 .app .m.mine{flex-direction:row-reverse}
 .app .m.mine .body{justify-items:end}
@@ -890,6 +898,8 @@
 .app .asps .icard .k{margin-bottom:9px}
 .app .lad{display:grid;gap:8px}
 .app .lad .rung{display:grid;grid-template-columns:92px 1fr;gap:10px;align-items:center}
+/* Poor (−1) skills sit under the +0 "everything else" line */
+.app .lad .rung.neg{order:1}
 .app .lad .rung .lv{font:700 12px/1.2 var(--f-ui);color:var(--ink-3)}
 .app .lad .rung .lv b{display:block;font:700 18px/1 var(--f-display);color:var(--gold-tx)}
 .app .lad .rung .sks{display:flex;flex-wrap:wrap;gap:6px}
@@ -1234,6 +1244,14 @@
 .app .paper .pnotices{margin-top:14px;padding:10px 12px;border:1px solid #2b2416;outline:3px double #2b2416;outline-offset:-7px}
 .app .paper .pnotices ul{margin:0;padding:0 0 0 18px;font-size:14px}
 .app .paper .pnotices li+li{margin-top:4px}
+/* pictures in the paper (over the lead and in stories), printed in ink tones, and the story boxes in the GM's form */
+.app .paper .pfig{margin:0 0 12px;display:grid;justify-items:center;gap:4px}
+.app .paper .pfig img{display:block;max-width:100%;max-height:340px;width:auto;height:auto;filter:sepia(.35) contrast(1.05);box-shadow:0 0 0 1px #2b2416}
+.app .paper .pstories .pfig img{max-height:200px}
+.app .paper .pfig .wfr{display:block;max-width:100%;width:min(100%,420px);aspect-ratio:var(--r);overflow:hidden;box-shadow:0 0 0 1px #2b2416}
+.app .paper .pfig .wfr img{width:100%;height:100%;max-height:none;object-fit:cover;box-shadow:none}
+.app .paper .pfig figcaption{font:italic 400 13px/1.3 var(--f-paper);color:#4a3f2a;text-align:center}
+.app .ndst{display:grid;gap:8px;padding:10px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
 
 /* scene picker: free-invoke dots and remove on aspect cards */
 .app .icard .fib{display:inline-flex;align-items:center;gap:2px;min-width:22px;height:22px;padding:0 3px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}

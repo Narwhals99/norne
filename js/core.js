@@ -6,14 +6,34 @@ const N = window.N = {};
 
 /* ---------- helpers ---------- */
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fmt = s => esc(s).replace(/\*([^*\n]+)\*/g,'<em>$1</em>').replace(/\n/g,'<br>');
+/* chat text: **bold**, *italics*, and lines starting with "- " or "1. " become lists */
+const inl = s => esc(s).replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/\*([^*\n]+)\*/g,'<em>$1</em>').replace(/\n/g,'<br>');
+const LI = /^\s*(?:[-•]|(\d{1,3})[.)])\s+(.*)$/;
+/* splits text into plain runs and lists; each plain run and each list item goes through inline() */
+const blocks = (s, inline = inl) => {
+  const ls = String(s ?? '').split('\n'), out = [];
+  let run = [], list = null;
+  const flushRun = () => { if (run.length) { out.push(inline(run.join('\n'))); run = []; } };
+  const flushList = () => { if (list) { out.push(`<${list.tag} class="fl"${list.tag === 'ol' && list.start !== 1 ? ` start="${list.start}"` : ''}>${list.items.map(t => `<li>${inline(t)}</li>`).join('')}</${list.tag}>`); list = null; } };
+  for (const l of ls) {
+    const m = l.match(LI);
+    if (!m) { flushList(); run.push(l); continue; }
+    const tag = m[1] ? 'ol' : 'ul';
+    flushRun(); if (list && list.tag !== tag) flushList();
+    if (!list) list = {tag, start:m[1] ? +m[1] : 1, items:[]};
+    list.items.push(m[2]);
+  }
+  flushList(); flushRun();
+  return out.join('');
+};
+const fmt = s => blocks(s);
 let _n = 0; const uid = p => p + Date.now().toString(36) + (++_n).toString(36) + Math.random().toString(36).slice(2,6);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
 const sgn = n => (n < 0 ? '−' : '+') + Math.abs(n);
 const IC = (k, cls='') => { const i = (window.ICONS||{})[k]; return i ? `<svg viewBox="${i[0]}" class="${cls}" aria-hidden="true" fill="currentColor">${i[1]}</svg>` : ''; };
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 0c.9 6.6 4.6 10.6 12 12-7.4 1.4-11.1 5.4-12 12-.9-6.6-4.6-10.6-12-12 7.4-1.4 11.1-5.4 12-12z"/></svg>';
 const MARK = '<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="mk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9b0"/><stop offset="1" stop-color="#d9973f"/></linearGradient></defs><path fill="url(#mk)" d="M24 2c1.6 11 7.6 18 20 22-12.4 4-18.4 11-20 22-1.6-11-7.6-18-20-22C16.4 20 22.4 13 24 2z"/><path fill="none" stroke="url(#mk)" stroke-width="1.2" opacity=".7" d="M24 12c.8 5.4 3.8 9 10 12-6.2 3-9.2 6.6-10 12-.8-5.4-3.8-9-10-12 6.2-3 9.2-6.6 10-12z"/></svg>';
-Object.assign(N, {esc, fmt, uid, clamp, sgn, IC, STAR, MARK});
+Object.assign(N, {esc, fmt, blocks, inl, uid, clamp, sgn, IC, STAR, MARK});
 
 /* ---------- styles: whole looks picked under Profile > Style, each with a Night and a Day ----------
    A new style is one entry here plus its own stylesheet scoped to .app[data-style="<id>"] (see css/parchment.css).
@@ -42,6 +62,8 @@ N.fzK = id => (FONT_SIZES.find(f => f.id === id) || FONT_SIZES[1]).k;
 const LADDER = {9:'Beyond Mythic',8:'Mythic',7:'Legendary',6:'Renowned',5:'Expert',4:'Great',3:'Good',2:'Fair',1:'Average',0:'Mediocre','-1':'Poor','-2':'Terrible'};
 /* past Mythic the ladder has no more words: +9 to +12 all read Beyond Mythic */
 const ladderWord = v => LADDER[clamp(v,-2,9)];
+/* one step up or down a card's skill: +0 means "not on the card", so a skill goes from Average (+1) straight to Poor (−1) */
+N.skillStep = (x, d) => { let y = (+x || 0) + d; if (y === 0) y += d; return clamp(y, -1, 8); };
 const MUNDANE = ['Athletics','Riding','Stealth','Fighting','Shooting','Strength','Will','Crafting','Crime','Resources','Contact','Search','Empathy','Notice','Deception','Provoke','Rapport','Lore'];
 /* skills that need a discipline (Skills.docx). A magic gives exactly one; the others can gather more. */
 const DISC = {
@@ -135,6 +157,8 @@ N.frameCss = src => { const f = N.picFrame(src); return f ? `object-position:${f
 N.bgPic = src => { const u = N.imgUrl(src); if (!u) return ''; const f = N.picFrame(src);
   return `<i class="pic" style="background-image:url(${esc(u)})${f ? `;background-position:${f.x}% ${f.y}%` + frameRule(f) : ''}"></i>`; };
 /* a wiki picture: shown whole, or through its frame in the shape picked for it */
+/* every picture in a news issue: the one over the lead, then one per story */
+N.newsPics = i => [i.limg, ...(i.stories || []).map(st => st.img)].filter(Boolean);
 N.wikiImg = (src, alt='') => { const u = esc(N.imgUrl(src)), f = N.picFrame(src);
   return f && f.r ? `<span class="wfr" style="--r:${f.r}"><img src="${u}" alt="${esc(alt)}" loading="lazy" style="${N.frameCss(src)}"></span>` : `<img src="${u}" alt="${esc(alt)}" loading="lazy">`; };
 /* a portrait is a built-in key (art/pt/<key>-face.png), an "fs:" upload or nothing */

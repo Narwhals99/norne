@@ -455,7 +455,7 @@ function input(v, el){
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
-    case 'news': v.ui.newsEdit[k] = val; render(v); return;
+    case 'news': { const d = v.ui.newsEdit, n = +el.dataset.n; if (k === 'stt' || k === 'stb') d.stories[n][k === 'stt' ? 'title' : 'body'] = val; else if (k === 'cap') { if (n < 0) d.lcap = val; else d.stories[n].cap = val; } else d[k] = val; render(v); return; }
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
     case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || (c.player === v.role && k !== 'invText'))) c[k] = val; return; }
     case 'cbTitle': g.combat.title = val; return;
@@ -975,13 +975,34 @@ function act(v, a, el, e){
   case 'writeNews': {
     close(); ui.tab = 'news';
     const ps = N.papers(), p = ps.find(x => x.name === (d.v || ui.paper)) || ps[0];
-    ui.newsEdit = Object.assign({paper:'', no:'1', date:'', price:'', headline:'', sub:'', lead:'', s1t:'', s1b:'', s2t:'', s2b:'', notices:''}, p ? nextIssue(p) : {});
+    dropDraftPics(ui.newsEdit);
+    ui.newsEdit = Object.assign(blankIssue(), p ? nextIssue(p) : {});
     break;
   }
+  /* a published issue opens in the same form; saving changes it in place */
+  case 'newsEditIssue': { const i = g.news.issues.find(x => x.id === val); if (!gm || !i) break; close(); ui.tab = 'news';
+    ui.newsEdit = Object.assign(blankIssue(), JSON.parse(JSON.stringify({paper:i.paper || '', no:String(i.no || ''), date:i.date || '', price:i.price || '', headline:i.headline || '', sub:i.sub || '', lead:i.lead || '', limg:i.limg || '', lcap:i.lcap || '',
+      stories:(i.stories || []).map(st => ({title:st.title || '', body:st.body || '', img:st.img || '', cap:st.cap || ''})), notices:(i.notices || []).join('\n')})), {edit:i.id});
+    const r = v.root.querySelector('[data-sk="nr"]'); if (r) r.scrollTop = 0; break; }
+  case 'ndStoryAdd': ui.newsEdit.stories.push({title:'', body:'', img:'', cap:''}); break;
+  case 'ndStoryDel': { const [st] = ui.newsEdit.stories.splice(+d.n, 1); if (st?.img) dropDraftPic(ui.newsEdit, st.img); break; }
+  /* pictures start as GM only; publishing shares them with whoever can read the issue */
+  case 'ndImgAdd': { const n = +d.n; pickFramed(v, 'wiki', (img, f) => { const ne = ui.newsEdit; if (!ne) return; const src = N.withFrame(N.storeImg(N.shrink(img, 1400, 600000), false), f);
+    if (n < 0) ne.limg = src; else if (ne.stories[n]) ne.stories[n].img = src; render(v); }); return; }
+  case 'ndImgFrame': { const ne = ui.newsEdit, n = +d.n, src = n < 0 ? ne.limg : ne.stories[n]?.img; if (src) reframe(v, 'wiki', src, nu => { if (n < 0) ne.limg = nu; else ne.stories[n].img = nu; render(v); }); return; }
+  case 'ndImgDel': { const ne = ui.newsEdit, n = +d.n; if (n < 0) { dropDraftPic(ne, ne.limg); ne.limg = ''; ne.lcap = ''; } else if (ne.stories[n]) { dropDraftPic(ne, ne.stories[n].img); ne.stories[n].img = ''; ne.stories[n].cap = ''; } break; }
   case 'ndPaper': { const p = N.papers().find(x => x.name === val); if (p) Object.assign(ui.newsEdit, nextIssue(p)); break; }
-  case 'newsCancel': ui.newsEdit = null; break;
+  case 'newsCancel': dropDraftPics(ui.newsEdit); ui.newsEdit = null; break;
   case 'newsPub': {
     const n = ui.newsEdit; if (!n.headline.trim()) { toast(v, 'Add a headline first.'); break; }
+    if (n.edit) {
+      const i = g.news.issues.find(x => x.id === n.edit); if (!i) { ui.newsEdit = null; break; }
+      const nu = N.draftIssue(n), gone = N.newsPics(i).filter(a => !N.newsPics(nu).some(b => samePic(a, b)));
+      for (const k of ['limg', 'lcap']) delete i[k];
+      Object.assign(i, nu, {ed:N.now()}); gone.forEach(N.dropImg);
+      g.news.issues.sort((a, b) => (+a.no || 0) - (+b.no || 0));
+      ui.newsEdit = null; ui.paper = N.paperName(i); ui.newsSel = i.id; toast(v, 'Saved. Readers see the new version.'); renderAll(); return;
+    }
     const issue = Object.assign({id:uid('ed'), t:N.now()}, N.draftIssue(n));
     if (n.see?.length) issue.see = [...n.see];
     g.news.issues.push(issue); (g.news.seen.gm = g.news.seen.gm || []).push(issue.id);
@@ -1162,7 +1183,7 @@ function act(v, a, el, e){
   case 'pdUpload': uploadFace(v, src => { ui.pd.portrait = src; }); return;
   case 'pdFrame': if (ui.pd?.portrait) reframe(v, 'face', ui.pd.portrait, nu => { ui.pd.portrait = nu; render(v); }); return;
   case 'pdSkillDel': delete ui.pd.skills[val]; break;
-  case 'pdSkillMv': ui.pd.skills[val] = clamp(ui.pd.skills[val] + (+d.d), 1, 8); break;
+  case 'pdSkillMv': ui.pd.skills[val] = N.skillStep(ui.pd.skills[val], +d.d); break;
   case 'pdStuntAdd': ui.pd.stunts.push(['','']); break;
   case 'pdStuntDel': ui.pd.stunts.splice(+d.i, 1); break;
   case 'pdDisc': pickDisc(ui.pd, d.s, val); break;
@@ -1214,7 +1235,7 @@ function act(v, a, el, e){
   case 'ndFrame': if (ui.nd?.portrait) reframe(v, 'face', ui.nd.portrait, nu => { ui.nd.portrait = nu; render(v); }); return;
   case 'ndType': ui.nd.type = val; break;
   case 'ndSkillDel': delete ui.nd.skills[val]; break;
-  case 'ndSkillMv': ui.nd.skills[val] = clamp(ui.nd.skills[val] + (+d.d), 1, 8); break;
+  case 'ndSkillMv': ui.nd.skills[val] = N.skillStep(ui.nd.skills[val], +d.d); break;
   case 'ndDisc': pickDisc(ui.nd, d.s, val); break;
   case 'ndStuntAdd': ui.nd.stunts.push(['','']); break;
   case 'ndStuntDel': ui.nd.stunts.splice(+d.i, 1); break;
@@ -1222,6 +1243,8 @@ function act(v, a, el, e){
   case 'npcSave': saveNpc(v); return;
   case 'npcDup': { const n = g.npcs.find(x => x.id === val); if (!n) break; const c = JSON.parse(JSON.stringify(n)); c.id = uid('n'); c.name = n.name + ' (copy)'; g.npcs.push(c); ui.castSel = c.id; toast(v, 'Duplicated.'); renderAll(); return; }
   case 'npcDelGo': { const i = g.npcs.findIndex(x => x.id === val), n = g.npcs[i]; if (!n) break; g.npcs.splice(i, 1); ui.sheet = null; ui.castSel = null; toast(v, `${n.name} deleted.`, () => g.npcs.splice(i, 0, n)); renderAll(); return; }
+  /* an NPC's fate points change right on its card, without opening Edit. Secret, so nothing is posted */
+  case 'npcFp': { const n = g.npcs.find(x => x.id === d.n); if (!n || !gm) break; n.fp = clamp((+n.fp || 0) + (+d.d), 0, 10); renderAll(); return; }
   case 'npcStress': { const n = g.npcs.find(x => x.id === d.n); n.stress[d.k][+d.i] = !n.stress[d.k][+d.i]; renderAll(); return; }
   case 'npcToFight': { if (cb.state === 'off') { toast(v, 'Begin a fight first.'); break; } const t = N.cbAddNpc(val, 'foe', cb.zones[0]?.id); toast(v, `${t.name} joins the fight${cb.zones[0] ? ' in ' + cb.zones[0].name : ''}.`); renderAll(); return; }
   /* players and sign-ins */
@@ -1493,8 +1516,16 @@ function newsTab(v){
 }
 /* the next issue of a paper: its name, number and price carried over */
 const nextIssue = p => { const last = p.issues[p.issues.length - 1]; return {paper:p.name, no:String(Math.max(0, ...p.issues.map(i => +i.no || 0)) + 1), price:last.price || ''}; };
-N.draftIssue = d => ({paper:d.paper.trim(), no:parseInt(d.no, 10) || 0, date:d.date.trim(), price:d.price.trim(), headline:d.headline.trim(), sub:d.sub.trim(), lead:d.lead,
-  stories:[{title:d.s1t.trim(), body:d.s1b}, {title:d.s2t.trim(), body:d.s2b}].filter(s => s.title || s.body.trim()), notices:d.notices.split('\n').map(s => s.trim()).filter(Boolean)});
+const blankIssue = () => ({paper:'', no:'1', date:'', price:'', headline:'', sub:'', lead:'', limg:'', lcap:'', stories:[{title:'', body:'', img:'', cap:''}], notices:''});
+/* the form as an issue: as many stories as the GM wrote, each with an optional picture, and an optional picture over the lead */
+N.draftIssue = d => { const o = {paper:d.paper.trim(), no:parseInt(d.no, 10) || 0, date:d.date.trim(), price:d.price.trim(), headline:d.headline.trim(), sub:d.sub.trim(), lead:d.lead,
+  stories:d.stories.map(st => { const x = {title:st.title.trim(), body:st.body}; if (st.img) { x.img = st.img; if (st.cap?.trim()) x.cap = st.cap.trim(); } return x; }).filter(st => st.title || st.body.trim() || st.img),
+  notices:d.notices.split('\n').map(s => s.trim()).filter(Boolean)};
+  if (d.limg) { o.limg = d.limg; if (d.lcap?.trim()) o.lcap = d.lcap.trim(); }
+  return o; };
+/* uploads in a draft that never got saved are deleted; pictures the saved issue still uses stay */
+function dropDraftPic(d, src){ if (!d || !src) return; const old = d.edit && G().news.issues.find(x => x.id === d.edit); if (!(old && N.newsPics(old).some(x => samePic(x, src)))) N.dropImg(src); }
+function dropDraftPics(d){ if (d) N.newsPics(N.draftIssue(d)).forEach(src => dropDraftPic(d, src)); }
 
 /* ---------------- phones: keep the composer on top of the keyboard ----------------
    The app is sized to the part of the screen above the keyboard (visualViewport). When that size changes, the height glides

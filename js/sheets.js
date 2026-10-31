@@ -404,10 +404,11 @@ const stunts = (v, d, pre) => `<div style="display:grid;gap:8px">${d.stunts.map(
   <button type="button" class="btn sm ghost" data-a="${pre}StuntAdd" style="justify-self:start">${IC('plus')}Add a stunt</button></div>`;
 const steppers = (d, pre) => `<div style="display:flex;gap:12px;flex-wrap:wrap">${[['refresh','Refresh'],['fp','Fate points now']].map(([k,l]) => `<div class="field" style="flex:1;min-width:150px"><span>${l}</span><div class="seg" style="justify-content:space-between;width:100%"><button type="button" data-a="${pre}Step" data-k="${k}" data-d="-1" aria-label="Less">${IC('minus')}</button><b style="align-self:center;font:700 18px/1 var(--f-display)">${d[k]}</b><button type="button" data-a="${pre}Step" data-k="${k}" data-d="1" aria-label="More">${IC('plus')}</button></div></div>`).join('')}</div>`;
 /* any spread is allowed, up to Mythic, so the GM can build unusual characters */
-const RUNGS = [8,7,6,5,4,3,2,1].map(x => [x, ladderWord(x), 0]);
+/* +0 is any skill left off the card, so the ladder skips it: lowering an Average skill makes it Poor (−1) */
+const RUNGS = [8,7,6,5,4,3,2,1,-1].map(x => [x, ladderWord(x), 0]);
 function pcEditor(v){
   const d = v.ui.pd;
-  const extra = Object.entries(d.skills).filter(([,x]) => x > 8 || x < 1);
+  const extra = Object.entries(d.skills).filter(([,x]) => x > 8 || x < -1 || x === 0);
   return `${raceList(v)}<div><h4>Portrait</h4>${portraitPick(d.portrait, 'pdPortrait', 'pdUpload')}</div>
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label class="field"><span>Character name</span><input class="inp" id="pdn-${v.id}" data-i="pd" data-k="name" value="${esc(d.name)}" placeholder="Full name"></label>

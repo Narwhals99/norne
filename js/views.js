@@ -75,7 +75,7 @@ function chanLast(v, c){
     if (m.kind === 'news') return 'New edition of the paper';
     if (m.kind === 'sys') return m.text || '';
     const who = m.by === v.role ? 'You' : m.kind === 'ooc' || m.kind === 'meta' ? N.personObj(m.by).name : N.speakerObj(m).name;
-    return `${who}: ${m.text || ''}`;
+    return `${who}: ${(m.text || '').replace(/\*\*/g, '')}`;
   }
   return N.chSub(c, v.role);
 }
@@ -340,10 +340,17 @@ function rMsg(v, m, prev, firstNarr){
 /* roleplay lines: words "in quotes" are spoken and read normally, everything else is description in the story font */
 const QUOTE = /"[^"]*(?:"|$)|“[^”]*(?:”|$)/g;
 function sayFmt(t){
-  const s = String(t ?? ''), act = x => x.trim() ? `<span class="rpd">${fmt(x)}</span>` : fmt(x);
-  let out = '', at = 0;
-  for (const q of s.matchAll(QUOTE)) { out += act(s.slice(at, q.index)) + fmt(q[0]); at = q.index + q[0].length; }
-  return out + act(s.slice(at));
+  /* lists first, then inside each part: words in quotes are speech, the rest is action */
+  /* **bold** can wrap speech ("**"Now."**"), so it is marked before the split and reopened in each piece it spans */
+  return N.blocks(t, s => {
+    let bold = false;
+    const piece = x => { const pre = bold ? '<strong>' : ''; const h = N.inl(x).replace(/\u0001/g, () => (bold = !bold) ? '<strong>' : '</strong>'); return pre + h + (bold ? '</strong>' : ''); };
+    const act = x => x.trim() ? `<span class="rpd">${piece(x)}</span>` : piece(x);
+    s = s.replace(/\*\*([^*\n]+)\*\*/g, '\u0001$1\u0001');
+    let out = '', at = 0;
+    for (const q of s.matchAll(QUOTE)) { out += act(s.slice(at, q.index)) + piece(q[0]); at = q.index + q[0].length; }
+    return out + act(s.slice(at));
+  });
 }
 /* phones: a roll in the roleplay chat is one small line; tapping it opens the full card */
 /* a roleplay roll the GM made against an NPC card and/or a skill: "against Brannoc (Will)" */
@@ -645,7 +652,8 @@ const audTag = (x, kind) => { const a = N.audOf(x, kind); return a === '*' ? '' 
 function entBtn(v, e){ return `<button type="button" class="ent" data-a="wiki" data-v="${e.id}" aria-current="${v.ui.wikiSel===e.id}"><b>${esc(e.title)}${isGM(v)?audTag(e,'wiki'):''}</b><small>${esc(e.summary)}</small></button>`; }
 function links(s){
   const g = G(), gm = g.role === 'gm';
-  return esc(s).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, t, lab) => { const e = g.wiki.find(x => esc(x.title).toLowerCase() === t.toLowerCase() && (gm || !x.gm)); lab = lab || t; return e ? `<a class="wl" data-a="wiki" data-v="${e.id}">${lab}</a>` : lab; });
+  /* [[Entry]] links, and the GM's custom emoji (:name:) */
+  return N.emoText(esc(s).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, t, lab) => { const e = g.wiki.find(x => esc(x.title).toLowerCase() === t.toLowerCase() && (gm || !x.gm)); lab = lab || t; return e ? `<a class="wl" data-a="wiki" data-v="${e.id}">${lab}</a>` : lab; }));
 }
 function block(p){
   const ls = p.split('\n');
@@ -664,7 +672,7 @@ function articleHtml(v, e){
     <h1>${esc(e.title)}</h1>
     ${e.summary ? `<p class="sum">${links(e.summary)}</p>` : ''}
     <div class="rule"><span class="star4"></span></div>
-    ${(() => { const ps = N.wikiPics(e); return ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(p => `<figure class="wfig">${N.wikiImg(p.src, p.alt || p.cap || e.title)}${p.cap?`<figcaption>${esc(p.cap)}</figcaption>`:''}</figure>`).join('')}</div>` : ''; })()}
+    ${(() => { const ps = N.wikiPics(e); return ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(p => `<figure class="wfig">${N.wikiImg(p.src, p.alt || p.cap || e.title)}${p.cap?`<figcaption>${N.emoText(esc(p.cap))}</figcaption>`:''}</figure>`).join('')}</div>` : ''; })()}
     ${e.info?.length ? `<dl class="facts">${e.info.map(([k,x]) => `<dt>${esc(k)}</dt><dd>${links(x)}</dd>`).join('')}</dl>` : ''}
     ${(e.body||[]).map(block).join('')}
     ${e.soon || !(e.body||[]).length ? '<p class="muted" style="font-weight:700;font-size:13px">More coming soon.</p>' : ''}
@@ -679,9 +687,9 @@ function newsPage(v){
   const gm = isGM(v), ph = v.dev === 'phone', papers = N.papers();
   const seen = G().news.seen[v.role] || [], unseen = i => !gm && !seen.includes(i.id);
   const paper = papers.find(p => p.name === v.ui.paper);
-  const issueBtn = i => `<button type="button" class="ent" data-a="newsSel" data-v="${i.id}" aria-current="${v.ui.newsSel===i.id}"><b>No. ${esc(i.no || '—')}${i.date ? ` <span class="nd">· ${esc(i.date)}</span>` : ''}${unseen(i) ? ' <span class="tag gold">New</span>' : ''}${gm ? audTag(i, 'news') : ''}</b><small>${esc(i.headline)}</small></button>`;
+  const issueBtn = i => `<button type="button" class="ent" data-a="newsSel" data-v="${i.id}" aria-current="${v.ui.newsSel===i.id}"><b>No. ${esc(i.no || '—')}${i.date ? ` <span class="nd">· ${esc(i.date)}</span>` : ''}${unseen(i) ? ' <span class="tag gold">New</span>' : ''}${gm ? audTag(i, 'news') : ''}</b><small>${N.emoText(esc(i.headline))}</small></button>`;
   const paperBtn = p => { const last = p.issues[p.issues.length - 1], n = p.issues.filter(unseen).length, open = paper === p;
-    return `<button type="button" class="herald" data-a="newsPaper" data-v="${esc(p.name)}" aria-current="${open}">${npIcon(p.name)}<span><span class="eyebrow" style="color:var(--gold-tx)">${p.issues.length} ${p.issues.length > 1 ? 'issues' : 'issue'} ${n ? `<span class="tag gold">${n} new</span>` : ''}</span><h3>${esc(p.name)}</h3><small>Latest: No. ${esc(last.no || '—')} · ${esc(last.headline)}</small></span></button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${p.issues.map(issueBtn).join('')}</div>` : ''}`; };
+    return `<button type="button" class="herald" data-a="newsPaper" data-v="${esc(p.name)}" aria-current="${open}">${npIcon(p.name)}<span><span class="eyebrow" style="color:var(--gold-tx)">${p.issues.length} ${p.issues.length > 1 ? 'issues' : 'issue'} ${n ? `<span class="tag gold">${n} new</span>` : ''}</span><h3>${esc(p.name)}</h3><small>Latest: No. ${esc(last.no || '—')} · ${N.emoText(esc(last.headline))}</small></span></button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${p.issues.map(issueBtn).join('')}</div>` : ''}`; };
   const none = `<div class="quiet"><div class="art" style="width:220px;height:180px"></div><p>${gm ? 'No papers yet. Write the first edition and give the paper a name. Players get a ping.' : `No news yet. ${esc(N.gmName())} publishes papers here.`}</p></div>`;
   const newBtn = gm ? (ph ? `<button type="button" class="btn sm primary" data-a="writeNews">${IC('plus')}New edition</button>` : `<button type="button" class="btn sm primary spark" data-a="writeNews">${IC('pen')}New edition</button>`) : '';
   const index = `<div class="wi scroll" data-sk="ni">
@@ -692,7 +700,7 @@ function newsPage(v){
   const read = gm && v.ui.newsEdit ? newsForm(v, papers) : issue ? issuePane(v, paper, issue) : paper ? `<div class="quiet" style="align-self:center"><div class="art" style="width:240px;height:200px"></div><p>Pick an issue of ${esc(paper.name)}.</p></div>` : `<div class="quiet" style="align-self:center"><div class="art" style="width:260px;height:220px"></div><p>${papers.length ? 'Pick a paper to read its issues.' : gm ? 'Write the first edition with “New edition”.' : 'Nothing printed yet.'}</p></div>`;
   if (!ph) return `<div class="world">${index}<div class="scroll" data-sk="nr" style="min-height:0;display:grid">${read}</div></div>`;
   const back = t => `<div class="top ph"><button type="button" class="ibtn" data-a="nBack" aria-label="Back">${IC('left')}</button><h1 style="font-size:16px">${esc(t)}</h1></div>`;
-  if (gm && v.ui.newsEdit) return `<div class="world"><div class="scroll" data-sk="nr" style="min-height:0;padding-top:var(--safe-t,0px)">${back('New edition')}${read}</div></div>`;
+  if (gm && v.ui.newsEdit) return `<div class="world"><div class="scroll" data-sk="nr" style="min-height:0;padding-top:var(--safe-t,0px)">${back(v.ui.newsEdit.edit ? 'Edit issue' : 'New edition')}${read}</div></div>`;
   if (issue) return `<div class="world"><div class="scroll" data-sk="nr" style="min-height:0;padding-top:var(--safe-t,0px)">${back(paper.name)}${read}</div></div>`;
   if (paper) return `<div class="world"><div class="wi scroll" data-sk="np"><div class="top ph" style="padding-left:0;padding-right:0;padding-top:var(--safe-t,0px)"><button type="button" class="ibtn" data-a="nBack" aria-label="Back">${IC('left')}</button><h1>${esc(paper.name)}</h1><span class="tag">${paper.issues.length}</span></div>
     <p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Oldest first. Tap an issue to read it.</p><div class="ents">${paper.issues.map(issueBtn).join('')}</div>
@@ -703,42 +711,56 @@ function issuePane(v, paper, issue){
   const gm = isGM(v), at = paper.issues.indexOf(issue), prev = paper.issues[at - 1], next = paper.issues[at + 1];
   const step = (i, dir) => i ? `<button type="button" class="btn sm ghost" data-a="newsSel" data-v="${i.id}">${dir < 0 ? IC('left') : ''}No. ${esc(i.no || '—')}${dir > 0 ? IC('right') : ''}</button>` : '<span></span>';
   return `<div class="article" style="max-width:760px">
-    ${gm ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="eyebrow" style="flex:1 1 160px">Who can read No. ${esc(issue.no || '—')}</span><button type="button" class="btn ghost" data-a="sheet" data-v="newsSet" data-c="${esc(issue.id)}">${IC(issue.see?.length?'eyeoff':'users')}${esc(N.audLabel(issue,'news'))}</button><button type="button" class="btn primary" data-a="writeNews" data-v="${esc(paper.name)}">${IC('pen')}Next issue</button></div>` : ''}
+    ${gm ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="eyebrow" style="flex:1 1 160px">Who can read No. ${esc(issue.no || '—')}</span><button type="button" class="btn ghost" data-a="sheet" data-v="newsSet" data-c="${esc(issue.id)}">${IC(issue.see?.length?'eyeoff':'users')}${esc(N.audLabel(issue,'news'))}</button><button type="button" class="btn" data-a="newsEditIssue" data-v="${esc(issue.id)}">${IC('pen')}Edit</button><button type="button" class="btn primary" data-a="writeNews" data-v="${esc(paper.name)}">${IC('plus')}Next issue</button></div>` : ''}
     ${paperHtml(issue)}
     ${prev || next ? `<div style="display:flex;justify-content:space-between;gap:8px">${step(prev, -1)}${step(next, 1)}</div>` : ''}
   </div>`;
 }
 function newsForm(v, papers){
-  const d = v.ui.newsEdit;
+  const d = v.ui.newsEdit, ed = !!d.edit;
   const f = (k, l, ph, rows) => `<label class="field"><span>${l}</span>${rows ? `<textarea class="inp" id="nd-${k}-${v.id}" data-i="news" data-k="${k}" rows="${rows}" placeholder="${esc(ph)}">${esc(d[k])}</textarea>` : `<input class="inp" id="nd-${k}-${v.id}" data-i="news" data-k="${k}" value="${esc(d[k])}" placeholder="${esc(ph)}">`}</label>`;
+  /* one picture slot: the lead's (n = -1) or a story's */
+  const pic = (n, src, cap) => src
+    ? `<div class="wpic"><button type="button" class="wpth" data-a="ndImgFrame" data-n="${n}" aria-label="Adjust framing" title="Adjust framing">${N.wikiImg(src)}<span>${IC('fit')}</span></button><input class="inp" id="nd-cap${n}-${v.id}" data-i="news" data-k="cap" data-n="${n}" value="${esc(cap || '')}" placeholder="Caption (optional)" aria-label="Caption"><button type="button" class="ibtn" data-a="ndImgDel" data-n="${n}" aria-label="Remove this picture">${IC('trash')}</button></div>`
+    : `<button type="button" class="btn sm ghost" data-a="ndImgAdd" data-n="${n}" style="justify-self:start">${IC('image')}Add a picture</button>`;
+  const story = (st, i) => `<div class="ndst"><div style="display:flex;gap:6px;align-items:center"><span class="eyebrow" style="flex:1">Story ${i + 2}</span><button type="button" class="ibtn sm" data-a="ndStoryDel" data-n="${i}" aria-label="Remove story ${i + 2}" title="Remove this story">${IC('trash')}</button></div>
+    <input class="inp" id="nd-stt${i}-${v.id}" data-i="news" data-k="stt" data-n="${i}" value="${esc(st.title)}" placeholder="Title" aria-label="Story ${i + 2} title">
+    <textarea class="inp" id="nd-stb${i}-${v.id}" data-i="news" data-k="stb" data-n="${i}" rows="3" placeholder="Text. Leave a blank line between paragraphs." aria-label="Story ${i + 2} text">${esc(st.body)}</textarea>
+    ${pic(i, st.img, st.cap)}</div>`;
   return `<div class="article" style="max-width:none;grid-template-columns:1fr;gap:18px">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 style="font-size:28px;flex:1">New edition</h1><button type="button" class="btn ghost" data-a="newsCancel">Cancel</button><button type="button" class="btn gold" data-a="newsPub">${IC('send')}Publish</button></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 style="font-size:28px;flex:1">${ed ? `Edit No. ${esc(d.no || '—')}` : 'New edition'}</h1><button type="button" class="btn ghost" data-a="newsCancel">Cancel</button><button type="button" class="btn gold" data-a="newsPub">${ed ? IC('check') + 'Save changes' : IC('send') + 'Publish'}</button></div>
+    ${ed ? `<div class="note">${IC('info')}Readers see the changes straight away. Nobody gets a new note in chat.</div>` : ''}
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
       <div style="display:grid;gap:12px;align-content:start">
         ${f('paper','Paper name','Name of the paper')}
-        ${papers.length ? `<div><span class="eyebrow" style="display:block;margin-bottom:8px">Or pick one of your papers</span><div class="chips" style="padding:0;flex-wrap:wrap">${papers.map(pp => `<button type="button" class="cchip" data-a="ndPaper" data-v="${esc(pp.name)}" aria-current="${pp.name === N.paperName(d)}" style="padding:0 12px">${esc(pp.name)}</button>`).join('')}</div></div>` : ''}
+        ${papers.length && !ed ? `<div><span class="eyebrow" style="display:block;margin-bottom:8px">Or pick one of your papers</span><div class="chips" style="padding:0;flex-wrap:wrap">${papers.map(pp => `<button type="button" class="cchip" data-a="ndPaper" data-v="${esc(pp.name)}" aria-current="${pp.name === N.paperName(d)}" style="padding:0 12px">${esc(pp.name)}</button>`).join('')}</div></div>` : ''}
         <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr">${f('no','Issue number','1')}${f('price','Price','Optional')}</div>
         ${f('date','In-world date','e.g. Restday, the 3rd of High Shine')}
         ${f('headline','Headline','What everyone is talking about')}
         ${f('sub','Under the headline','One line of detail')}
         ${f('lead','Lead story','Leave a blank line between paragraphs.',6)}
-        ${f('s1t','Second story: title','Optional')}${f('s1b','Second story: text','',3)}
-        ${f('s2t','Third story: title','Optional')}${f('s2b','Third story: text','',3)}
+        ${pic(-1, d.limg, d.lcap)}
+        ${d.stories.map(story).join('')}
+        <button type="button" class="btn" data-a="ndStoryAdd" style="justify-self:start">${IC('plus')}Add a story</button>
         ${f('notices','Notices, one per line','Wanted posters, ads, announcements…',3)}
-        <div><span class="eyebrow" style="display:block;margin-bottom:8px">Who gets this edition</span>${N.audPick('ndAud', d, 'news')}</div>
+        ${ed ? '' : `<div><span class="eyebrow" style="display:block;margin-bottom:8px">Who gets this edition</span>${N.audPick('ndAud', d, 'news')}</div>`}
       </div>
       <div><span class="eyebrow" style="display:block;margin-bottom:8px">Preview</span>${paperHtml(N.draftIssue(d), true)}</div>
     </div></div>`;
 }
 function paperHtml(p, prev){
-  const ph = (x, f) => x ? esc(x) : prev ? `<span class="ph">${f}</span>` : '';
-  const paras = t => String(t||'').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).map(s => `<p style="margin:0 0 10px">${esc(s)}</p>`).join('');
-  const stories = (p.stories||[]).filter(s => s.title || s.body), notices = (p.notices||[]).filter(Boolean);
+  /* the GM's custom emoji (:name:) work in every part of the paper */
+  const tx = x => N.emoText(esc(x));
+  const ph = (x, f) => x ? tx(x) : prev ? `<span class="ph">${f}</span>` : '';
+  const paras = t => String(t||'').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).map(s => `<p style="margin:0 0 10px">${tx(s).replace(/\n/g, '<br>')}</p>`).join('');
+  const fig = (src, cap) => src ? `<figure class="pfig">${N.wikiImg(src, cap || '')}${cap ? `<figcaption>${tx(cap)}</figcaption>` : ''}</figure>` : '';
+  const stories = (p.stories||[]).filter(s => s.title || s.body || s.img), notices = (p.notices||[]).filter(Boolean);
   return `<div class="paper"><h1 class="mast">${ph(p.paper,'Paper name')}</h1><div class="strip"><span>No. ${esc(p.no||'—')}</span><span>${ph(p.date,'In-world date')}</span><span>${ph(p.price, prev ? 'Price' : '')}</span></div>
     <h2 class="hl">${ph(p.headline,'Your headline here')}</h2>${p.sub || prev ? `<p class="psub">${ph(p.sub,'A line under the headline')}</p>` : ''}
+    ${fig(p.limg, p.lcap)}
     <div class="plead">${paras(p.lead) || (prev?'<p class="ph">The lead story goes here.</p>':'')}</div>
-    ${stories.length ? `<div class="pstories">${stories.map(s => `<section><h3>${esc(s.title)}</h3>${paras(s.body)}</section>`).join('')}</div>` : ''}
-    ${notices.length ? `<aside class="pnotices"><h3>Notices</h3><ul>${notices.map(t => `<li>${esc(t)}</li>`).join('')}</ul></aside>` : ''}</div>`;
+    ${stories.length ? `<div class="pstories">${stories.map(s => `<section>${s.title ? `<h3>${tx(s.title)}</h3>` : ''}${fig(s.img, s.cap)}${paras(s.body)}</section>`).join('')}</div>` : ''}
+    ${notices.length ? `<aside class="pnotices"><h3>Notices</h3><ul>${notices.map(t => `<li>${tx(t)}</li>`).join('')}</ul></aside>` : ''}</div>`;
 }
 
 /* ================= character / cast ================= */
@@ -772,7 +794,7 @@ N.sheetBody = function(v, c){
   if (!c.built) return `<div class="pc-hero full" style="${who}">${N.av({name:pn(c),color:c.color},84)}<div><h2>${esc(pn(c))}’s character</h2><div class="by">${gm?'Not made yet.':mine?`${esc(N.gmName())} will make your character card.`:'Not made yet.'}</div></div></div>
     ${gm?`<div class="full" style="display:flex;justify-content:center"><button type="button" class="btn primary lg spark" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Make ${esc(pn(c))}’s card</button></div>`:''}
     <div class="quiet full"><div class="art"></div><p>${gm?'Name, age, aspects, skills, stunts and fate points. The player gets a note when it’s ready.':'It shows up here as soon as it’s ready.'}</p></div>`;
-  const rungs = [8,7,6,5,4,3,2,1].map(x => [x, Object.entries(c.skills).filter(([,y]) => y === x).map(([n]) => n)]).filter(r => r[1].length);
+  const rungs = [8,7,6,5,4,3,2,1,-1].map(x => [x, Object.entries(c.skills).filter(([,y]) => y === x).map(([n]) => n)]).filter(r => r[1].length);
   const canRoll = gm, edit = mine || gm;
   return `<section class="pc-hero full" style="${who}">
       ${mine && !gm ? `<button type="button" class="facebtn" data-a="sheet" data-v="myFace" aria-label="Change my picture">${N.av(c,84)}<span class="badge">${IC('image')}</span></button>` : N.av(c,84)}
@@ -780,7 +802,7 @@ N.sheetBody = function(v, c){
       <div class="fp"><div><span class="eyebrow">Fate points · refresh ${c.refresh}</span><div class="coins">${coinsHtml(c, gm)}</div></div>${gm?`<div class="gmbar"><button type="button" class="btn sm" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Edit card</button><button type="button" class="btn sm danger" data-a="sheet" data-v="pcDel" data-c="${c.id}">${IC('trash')}Delete</button></div>`:''}</div>
     </section>
     <section class="sec"><h3>Aspects</h3><div class="asps">${asps(N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a])) || '<p class="muted">None yet.</p>'}</div></section>
-    <section class="sec"><h3>Skills${canRoll?' · tap one to roll':''}</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(n => canRoll ? `<button type="button" data-a="roll" data-skill="${esc(n)}" data-c="${c.id}">${esc(n)}${N.discOf(c, n).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(c, n).join(', '))}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>` : `<button type="button" disabled>${esc(n)}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div></section>
+    <section class="sec"><h3>Skills${canRoll?' · tap one to roll':''}</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung${x < 0 ? ' neg' : ''}"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(n => canRoll ? `<button type="button" data-a="roll" data-skill="${esc(n)}" data-c="${c.id}">${esc(n)}${N.discOf(c, n).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(c, n).join(', '))}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>` : `<button type="button" disabled>${esc(n)}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div></section>
     <section class="sec"><h3>Stress</h3><div class="stress2">${[['phys','Physical','Strength'],['ment','Mental','Will']].map(([k,l,s]) => `<div class="trk"><span class="eyebrow">${l} <span style="letter-spacing:0;text-transform:none;font-weight:600">· from ${s}</span></span><div class="boxes">${c.stressV[k].map((x,i)=>`<button type="button" class="sbox${c.stress[k][i]?' on':''}" ${gm?`data-a="stress" data-c="${c.id}" data-k="${k}" data-i="${i}"`:'disabled'} aria-pressed="${!!c.stress[k][i]}" aria-label="${l} ${x}">${x}</button>`).join('')}</div></div>`).join('')}</div></section>
     <section class="sec"><h3>Consequences</h3><div class="cons">${N.consSlots(c.skills).map(sl => `<div class="con">${conLv(sl)}${gm?`<input class="inp" id="con-${sl.k}-${c.id}-${v.id}" data-i="con" data-c="${c.id}" data-k="${sl.k}" value="${esc(c.cons[sl.k]||'')}" placeholder="Empty">`:`<span class="slot${c.cons[sl.k]?' full':''}">${esc(c.cons[sl.k])||'Empty'}</span>`}</div>`).join('')}</div></section>
     <section class="sec"><h3>Weapon and armor</h3><p class="gearln">${IC('sword')}Weapon <b>${sgn(+c.gearAtk||0)}</b><span class="muted">shifts added to a hit</span></p><p class="gearln">${IC('shieldU')}Armor <b>${sgn(+c.gearDef||0)}</b><span class="muted">shifts taken off a hit</span></p></section>
@@ -851,12 +873,12 @@ function castPage(v){
   </div></div>`;
 }
 function npcBody(v, n){
-  const rungs = [8,7,6,5,4,3,2,1].map(x => [x, Object.entries(n.skills).filter(([,y]) => y === x).map(([k]) => k)]).filter(r => r[1].length);
+  const rungs = [8,7,6,5,4,3,2,1,-1].map(x => [x, Object.entries(n.skills).filter(([,y]) => y === x).map(([k]) => k)]).filter(r => r[1].length);
   const trk = (k, l) => `<div class="trk"><span class="eyebrow">${l}</span><div class="boxes">${n.stressV[k].map((x,i)=>`<button type="button" class="sbox${n.stress[k][i]?' on':''}" data-a="npcStress" data-n="${n.id}" data-k="${k}" data-i="${i}" aria-pressed="${!!n.stress[k][i]}" aria-label="${l} ${x}">${x}</button>`).join('')}</div></div>`;
   return `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},84)}<div style="min-width:0"><h2>${esc(n.name)}</h2><div class="by">${esc(N.npcSub(n) || 'NPC')}${n.age?` · Age ${esc(n.age)}`:''} · ${n.type==='nameless'?'Nameless NPC':'Supporting NPC'}</div>${N.pcTag(n)?`<div class="hc">${esc(N.pcTag(n))}</div>`:''}</div>
-    <div class="fp"><div><span class="eyebrow">Fate points · refresh ${n.refresh}</span><div class="coins">${Array.from({length:Math.max(n.fp, n.refresh)}, (_,i) => `<span class="coin${i<n.fp?'':' off'}"></span>`).join('')}</div></div><div class="gmbar"><button type="button" class="btn sm" data-a="npcEdit" data-v="${n.id}">${IC('pen')}Edit</button>${G().combat.state!=='off'?`<button type="button" class="btn sm" data-a="npcToFight" data-v="${n.id}">${IC('swords')}Add to fight</button>`:''}<button type="button" class="btn sm ghost" data-a="npcDup" data-v="${n.id}">${IC('copy')}Duplicate</button><button type="button" class="btn sm danger" data-a="sheet" data-v="npcDel" data-c="${n.id}">${IC('trash')}Delete</button></div></div></section>
+    <div class="fp"><div><span class="eyebrow">Fate points · refresh ${n.refresh}</span><div class="coins">${Array.from({length:Math.max(n.fp, n.refresh)}, (_,i) => `<span class="coin${i<n.fp?'':' off'}"></span>`).join('')}<span class="mini"><button type="button" data-a="npcFp" data-n="${n.id}" data-d="-1" aria-label="Take a fate point from ${esc(n.name)}">−</button><button type="button" data-a="npcFp" data-n="${n.id}" data-d="1" aria-label="Give ${esc(n.name)} a fate point">+</button></span></div></div><div class="gmbar"><button type="button" class="btn sm" data-a="npcEdit" data-v="${n.id}">${IC('pen')}Edit</button>${G().combat.state!=='off'?`<button type="button" class="btn sm" data-a="npcToFight" data-v="${n.id}">${IC('swords')}Add to fight</button>`:''}<button type="button" class="btn sm ghost" data-a="npcDup" data-v="${n.id}">${IC('copy')}Duplicate</button><button type="button" class="btn sm danger" data-a="sheet" data-v="npcDel" data-c="${n.id}">${IC('trash')}Delete</button></div></div></section>
     <section class="sec"><h3>Aspects</h3><div class="asps">${asps(N.pcAspects(n).map((a,i)=>[`Aspect ${i+1}`,a])) || '<p class="muted">None yet.</p>'}</div></section>
-    <section class="sec"><h3>Skills · tap one to roll</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(k => `<button type="button" data-a="roll" data-skill="${esc(k)}" data-npc="${n.id}">${esc(k)}${N.discOf(n, k).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(n, k).join(', '))}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div>
+    <section class="sec"><h3>Skills · tap one to roll</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung${x < 0 ? ' neg' : ''}"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(k => `<button type="button" data-a="roll" data-skill="${esc(k)}" data-npc="${n.id}">${esc(k)}${N.discOf(n, k).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(n, k).join(', '))}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div>
       ${n.magic ? `<p style="margin:10px 0 0"><b>Disciplines.</b> ${esc(n.magic)}</p>` : ''}<button type="button" class="btn sm ghost" data-a="npcEdit" data-v="${n.id}" style="justify-self:start">${IC('pen')}Change skills</button></section>
     <section class="sec"><h3>Stress</h3><div class="stress2">${trk('phys','Physical')}${trk('ment','Mental')}</div></section>
     <section class="sec"><h3>Consequences</h3><div class="cons">${N.consSlots(n.skills).map(sl => `<div class="con">${conLv(sl)}<input class="inp" id="ncon-${sl.k}-${n.id}-${v.id}" data-i="npcCon" data-n="${n.id}" data-k="${sl.k}" value="${esc(n.cons[sl.k]||'')}" placeholder="Empty"></div>`).join('')}</div></section>
