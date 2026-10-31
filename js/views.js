@@ -124,31 +124,43 @@ function chatPage(v){
     if (fa && v.ui.fightPane === 'fight') return `<main class="page${sl}">${N.fightView(v)}</main>`;
     return `<main class="page${sl}">${chatView(v)}</main>`;
   }
+  if (fa && v.ui.fightOpen && G().combat.state === 'live') return N.combatDesk(v);
   if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
-  if (!railShown(v)) return `<main class="page">${chatView(v)}</main>`;
-  /* desktop side panel: the card (or GM screen) on top, recent actions below; the line on its left edge drags to resize it */
-  const off = v.ui.recentOff;
-  return `<main class="page with-rail"${v.ui.railW ? ` style="--railw:${v.ui.railW}px"` : ''}>${chatView(v)}<aside class="rail${off ? ' rc-off' : ''}">
+  /* roleplay: the chat, the card (or GM screen) on the right, and the roleplay actions under it */
+  v.ui.rpSeen = (G().msgs.findLast(m => m.ch === v.ui.ch) || {}).t || 0;
+  return deskPage(v, chatView(v), `<div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>`, 'rp');
+}
+/* desktop: the big panel (C) on the left, and on the right the top panel (A) over the actions (B).
+   The line on the right side's left edge drags to share the width; roleplay and combat remember their own widths. */
+function deskPage(v, c, a, mode, cls){
+  const off = v.ui.recentOff, wk = mode === 'rp' ? 'railW' : 'railWc', w = v.ui[wk] || (mode !== 'rp' && isGM(v) ? 560 : 0);
+  return `<main class="page with-rail${cls ? ' ' + cls : ''}" data-wk="${wk}"${w ? ` style="--railw:${w}px"` : ''}>${c}<aside class="rail${off ? ' rc-off' : ''}">
     <div class="railgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the side panel" title="Drag to resize"></div>
-    <div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>
-    <section class="rcnt"><button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC('dice')}<b>Recent actions</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
-      ${off ? '' : N.recentHtml(v)}</section>
+    ${a}
+    <section class="rcnt"><button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC(mode === 'rp' ? 'dice' : 'swords')}<b>${mode === 'rp' ? 'Recent actions' : 'Fight results'}</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
+      ${off ? '' : N.recentHtml(v, mode)}</section>
   </aside></main>`;
 }
+/* desktop, when this chat has a fight: one switch between the roleplay screen and the combat screen.
+   In combat a count shows talk that came in since the roleplay screen was last open. */
+function modeSeg(v){
+  const cb = v.ui.fightOpen, g = G();
+  const n = cb ? g.msgs.filter(m => m.ch === v.ui.ch && m.by !== v.role && m.t > (v.ui.rpSeen || 0) && !isAction(m) && m.kind !== 'scene').length : 0;
+  return `<div class="seg modeseg" role="group" aria-label="Screen"><button type="button" data-a="mode" data-v="rp" aria-pressed="${!cb}">${IC('chatL')}Roleplay${n ? `<i class="nb">${n}</i>` : ''}</button><button type="button" data-a="mode" data-v="cb" aria-pressed="${!!cb}">${IC('swords')}Combat</button></div>`;
+}
+N.deskPage = deskPage; N.modeSeg = modeSeg;
 /* the GM screen / character panel beside the chat: on by default when there is room, the viewer can flip it */
 function railShown(v){
-  if (v.ui.rail != null) return v.ui.rail;
-  return (v.root.clientWidth || innerWidth) >= 1180;
+  return v.dev === 'desktop';
 }
 function chatView(v, side){
   const g = G(), gm = isGM(v), ch = v.ui.ch, sc = g.scenes[ch], cb = g.combat;
   const fa = fightAvail(v);
   const topPh = `<div class="top ph">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${sideBtn(v, 'chat')}</div>`;
   const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
-    ${fa && !v.ui.fightOpen ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}${cb.state==='setup'?'Back to fight setup':'Back to the fight'}</button>` : ''}
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
-    ${fa && v.ui.fightOpen ? '' : `${gm ? `<button type="button" class="btn sm" data-a="rail" aria-pressed="${railShown(v)}" style="--h:36px">${IC('crown')}${railShown(v)?'Hide GM screen':'GM screen'}</button>` : `<button type="button" class="ibtn" data-a="rail" aria-pressed="${railShown(v)}" aria-label="${railShown(v)?'Hide':'Show'} the side panel" title="${railShown(v)?'Hide':'Show'} the ${gm?'GM screen':'character panel'}">${IC('gmscreen')}</button>`}`}</header>`;
-  const fightbar = (cb.state === 'live' && ch === N.fightCh() && !N.owedTok(v) && (!fa || (v.dev==='desktop' && !v.ui.fightOpen))) ? (() => {
+    ${fa ? (cb.state === 'setup' ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}Back to fight setup</button>` : modeSeg(v)) : ''}</header>`;
+  const fightbar = (cb.state === 'live' && ch === N.fightCh() && !N.owedTok(v) && !fa) ? (() => {
     const cur = N.curTok();
     return `<div class="fightbar">${IC('swords','sw')}<div class="t">Fight on ${esc(cb.title)}<span>${cur ? `${esc(N.tokName(cur))}’s turn · exchange ${cb.exchange}` : ''}</span></div>${fa ? `<button type="button" class="btn sm gold" data-a="openFight">Back to the fight</button>` : `<button type="button" class="btn sm" data-a="watch">Watch</button>`}</div>`;
   })() : '';
@@ -168,7 +180,8 @@ function chatView(v, side){
 }
 function fightSeg(v){
   const n = N.unread(v.role, N.fightCh());
-  return `<div class="seg" role="group" aria-label="Fight or chat"><button type="button" data-a="pane" data-v="fight" aria-pressed="${v.ui.fightPane==='fight'}">${IC('swords')}Fight</button><button type="button" data-a="pane" data-v="chat" aria-pressed="${v.ui.fightPane==='chat'}">${IC('chatL')}Chat${n&&v.ui.fightPane!=='chat'?'<span class="dot"></span>':''}</button></div>`;
+  /* the same Roleplay | Combat switch as on a computer */
+  return `<div class="seg modeseg" role="group" aria-label="Screen"><button type="button" data-a="pane" data-v="chat" aria-pressed="${v.ui.fightPane==='chat'}">${IC('chatL')}Roleplay${n&&v.ui.fightPane!=='chat'?'<span class="dot"></span>':''}</button><button type="button" data-a="pane" data-v="fight" aria-pressed="${v.ui.fightPane==='fight'}">${IC('swords')}Combat</button></div>`;
 }
 N.sceneArt = (sc) => {
   if (!sc) return '';
@@ -197,11 +210,15 @@ function sceneBanner(v, sc, ch){
 }
 /* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */
 function isAction(m){
-  return m.kind === 'sys' || m.kind === 'fight' || m.kind === 'combat' || (m.kind === 'roll' && !!(m.roll.fight || m.roll.target || m.roll.action === 'Attack' || m.roll.action === 'Defend'));
+  return m.kind === 'sys' || m.kind === 'fight' || m.kind === 'combat' || m.kind === 'roll';
+}
+/* the part of the actions that belongs to a fight: fight rolls, results, and the fight's own notices */
+function isFightAct(m){
+  return (m.kind === 'roll' && !!(m.roll.fight || m.roll.target || m.roll.action === 'Attack' || m.roll.action === 'Defend')) || (m.kind === 'sys' && !!(m.res || m.fight));
 }
 /* the actions leave the chat only while Recent actions is there to show them */
 const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'chat' && railShown(v) && !v.ui.recentOff;
-N.isAction = isAction; N.hhmm = hhmm;
+N.isAction = isAction; N.isFightAct = isFightAct; N.hhmm = hhmm;
 function renderMsgs(v, side){
   const g = G(), out1 = actionsOut(v, side), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)) && !(out1 && isAction(m)));
   if (!ms.length) return `<div class="quiet"><div class="art"></div><p>${v.ui.ch.startsWith('dm-') ? 'Nothing here yet. Anything said here stays between you two.' : 'Nothing here yet.'}</p></div>`;

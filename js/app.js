@@ -36,7 +36,7 @@ const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as
 /* a small grey line in the chat; players write their own (the rules only let them post as themselves) */
 const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, text});
 /* a line about the fight goes to the chat the fight lives in */
-const fsys = text => sys(text, N.fightCh());
+const fsys = text => Object.assign(sys(text, N.fightCh()), {fight:true});
 /* tell the players who can see something: in Everyone when it's for all, otherwise in each one's chat with the GM */
 const tell = (x, kind, text, only) => { const a = N.audOf(x, kind); if (a === 'gm') return; if (a === '*' && !only) { sys(text); return; } for (const s of only || a) if (G().P[s]) sys(text, 'dm-' + s); };
 
@@ -50,7 +50,7 @@ const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:n
 N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', ui:newUi(o.role)};
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
-  try { const w = +localStorage.getItem('norne-railw'); if (w) v.ui.railW = w; v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; } catch(e) {}
+  try { const w = +localStorage.getItem('norne-railw'), wc = +localStorage.getItem('norne-railwc'); if (w) v.ui.railW = w; if (wc) v.ui.railWc = wc; v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; } catch(e) {}
   views.push(v); bind(v); render(v);
   return v;
 };
@@ -138,11 +138,12 @@ function bind(v){
     if (!page || e.button !== 0) return;
     e.preventDefault(); grip.setPointerCapture(e.pointerId); page.classList.add('resizing');
     const box = page.getBoundingClientRect();
-    const move = ev => { v.ui.railW = Math.round(Math.min(box.width - 380, Math.max(260, box.right - ev.clientX))); page.style.setProperty('--railw', v.ui.railW + 'px'); };
-    const up = () => { grip.removeEventListener('pointermove', move); page.classList.remove('resizing'); try { localStorage.setItem('norne-railw', v.ui.railW); } catch(err) {} };
+    const wk = page.dataset.wk || 'railW';
+    const move = ev => { v.ui[wk] = Math.round(Math.min(box.width - 380, Math.max(260, box.right - ev.clientX))); page.style.setProperty('--railw', v.ui[wk] + 'px'); };
+    const up = () => { grip.removeEventListener('pointermove', move); page.classList.remove('resizing'); try { localStorage.setItem('norne-' + wk.toLowerCase(), v.ui[wk]); } catch(err) {} };
     grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up, {once:true}); grip.addEventListener('pointercancel', up, {once:true});
   });
-  root.addEventListener('dblclick', e => { const page = e.target.closest('.railgrip') && e.target.closest('.page'); if (!page) return; v.ui.railW = null; page.style.removeProperty('--railw'); try { localStorage.removeItem('norne-railw'); } catch(err) {} });
+  root.addEventListener('dblclick', e => { const page = e.target.closest('.railgrip') && e.target.closest('.page'); if (!page) return; const wk = page.dataset.wk || 'railW'; v.ui[wk] = null; try { localStorage.removeItem('norne-' + wk.toLowerCase()); } catch(err) {} render(v); });
   /* long-press a message on a phone to react, reply or (GM) edit it; a right-click does the same on a computer */
   let lp = null;
   root.addEventListener('pointerdown', () => { if (!lp) v.lpHold = false; }, true);
@@ -190,7 +191,7 @@ function bind(v){
   root.addEventListener('gesturestart', e => { if (e.target.closest('[data-mapcv]')) e.preventDefault(); });
   root.addEventListener('wheel', e => { const cv = e.target.closest('[data-mapcv]'); if (cv) { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(v, Math.exp(-clamp(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY, -120, 120) * (e.ctrlKey ? .01 : .0018)), e.clientX - r.left, e.clientY - r.top); } }, {passive:false});
   /* phones: swipe in from the left edge for the chat list, swipe it back to close.
-     With a fight in this chat, swipe right for the fight and left for the chat, like the Fight | Chat switch. */
+     With a fight in this chat, swipe left for combat and right for roleplay, like the Roleplay | Combat switch. */
   const NOSWIPE = HS + ',input,textarea,select,.tok,[data-rs],[data-zl],[data-mapcv],.pop,.sheet';
   let sw = null;
   root.addEventListener('touchstart', e => {
@@ -215,7 +216,7 @@ function bind(v){
       else if (ui.shelf && dx < 0) { ui.shelf = false; render(v); }
       return;
     }
-    const to = dx > 0 ? 'fight' : 'chat';
+    const to = dx < 0 ? 'fight' : 'chat';
     if (!N.fightAvail(v) || ui.fightPane === to) return;
     ui.fightPane = to; ui.targeting = null; ui.slide = dx < 0 ? 'l' : 'r'; ui.stick = to === 'chat';
     render(v); ui.slide = null;
@@ -670,6 +671,7 @@ function act(v, a, el, e){
   case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') ui.charSel = null; if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.herald = false; } break;
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
+  case 'mode': if (val === 'cb') { ui.fightOpen = true; ui.fightPane = 'fight'; } else { ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; ui.stick = true; } break;
   case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; openSheet(v, val, d); break;
@@ -771,7 +773,10 @@ function act(v, a, el, e){
   }
   /* GM screen */
   case 'applyScene': { const r = g.recent.find(x => x.id === val); if (!r) break; setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:r.title, where:r.where, art:r.art, place:r.place, aspects:[]}, true); if (ui.sheet === 'gm') ui.sheet = null; renderAll(); return; }
-  case 'stress': { const c = g.chars[d.c]; c.stress[d.k][+d.i] = !c.stress[d.k][+d.i]; renderAll(); return; }
+  case 'stress': { const c = g.chars[d.c], on = c.stress[d.k][+d.i] = !c.stress[d.k][+d.i];
+    /* a box the GM ticks by hand goes in the open chat's actions, so the table can see what happened */
+    sys(`${N.gmName()} ${on ? 'checked' : 'cleared'} ${c.short}’s ${c.stressV[d.k][+d.i]}-point ${d.k === 'phys' ? 'physical' : 'mental'} stress box.`, ui.ch === 'gm' ? 'table' : ui.ch).act = 'stress';
+    renderAll(); return; }
   case 'fp': { const c = g.chars[d.c], before = c.fp; c.fp = clamp(c.fp + (+d.d), 0, 10); if (c.fp !== before) sys(+d.d > 0 ? `${N.gmName()} gave ${c.short} a fate point.` : `${c.short} spent a fate point.`); renderAll(); return; }
   case 'gmFor': ui.ch = val; break;
   case 'mapEditGo': close(); ui.tab = 'map'; ui.mapEdit = true; ui.addPin = false; break;

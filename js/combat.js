@@ -187,16 +187,19 @@ function feedHtml(v){
   return `<div class="ffeed"><span class="eyebrow">Fight log<button type="button" class="lnk" data-a="pane" data-v="chat">Whole chat${IC('right')}</button></span>
     <div class="ff-list scroll" data-sk="ffeed" data-bottom="1">${rows || '<p class="muted">Rolls and results show up here.</p>'}</div></div>`;
 }
-/* desktop side panel: the fight rolls, fight results and notices of the open chat, newest at the bottom.
-   They are left out of the chat itself, so they show here as full cards (the newest roll open, with Invoke) */
-function recentHtml(v){
-  const g = G(), ms = g.msgs.filter(m => m.ch === v.ui.ch && N.isAction(m)).slice(-40);
+/* desktop: the actions panel (B). Roleplay shows the chat's rolls and notices outside fights; combat shows this fight's
+   rolls, results and notices. They are left out of the chat, so they show here as full cards (the newest roll open, with Invoke) */
+function recentHtml(v, mode){
+  const g = G(), cb = g.combat, start = mode === 'cb' && g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cb.id);
+  const ms = g.msgs.filter(m => m.ch === v.ui.ch && N.isAction(m) && (mode === 'cb' ? N.isFightAct(m) && (!start || m.t >= start.t) : !N.isFightAct(m))).slice(-40);
   const keep = v._lastRoll; v._lastRoll = (ms.findLast(m => m.kind === 'roll') || {}).id;
+  const live = m => (m.kind === 'fight' || m.kind === 'combat') && cb.state !== 'off' && m.cid === cb.id;
   const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll" data-mid="${m.id}"><div class="who">${esc(m.roll.who)}${m.ch === 'gm' ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time></div>${N.rRoll(v, m)}</div>`
     : m.kind === 'sys' && m.res ? N.resCard(m.res).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
+    : live(m) ? feedRow(m, false).replace('<div class="ff', `<div data-a="mode" data-v="cb" title="Open the fight" class="go ff`)
     : feedRow(m, false)).join('');
   v._lastRoll = keep;
-  return `<div class="ff-list scroll" data-sk="recent" data-bottom="1">${rows || '<p class="muted">Fight rolls, fight results and table notices from this chat show up here.</p>'}</div>`;
+  return `<div class="ff-list scroll" data-sk="recent-${mode}" data-bottom="1">${rows || `<p class="muted">${mode === 'cb' ? 'Rolls and results in this fight show up here.' : 'Rolls, stress, inventory and other notes from this chat show up here.'}</p>`}</div>`;
 }
 N.recentHtml = recentHtml;
 function feedRow(m, live){
@@ -308,6 +311,30 @@ N.fightView = function(v){
     ${nowBar(v, false)}
     ${sel ? `<div class="tokpanel glass" data-sk="tokpanel">${N.tokCard(v, sel)}</div>` : ''}
   </section>`;
+};
+
+/* ---------- desktop combat screen ----------
+   players: the battlefield big (C), their card (A), the fight results (B).
+   GM: the fight controls big (C), the battlefield (A), the fight results (B). */
+N.combatDesk = function(v){
+  const g = G(), cb = g.combat, gm = isGM(v), sel = v.ui.tokSel && N.tokById(v.ui.tokSel);
+  const head = `<header class="fight-h"><div class="tt"><span class="eyebrow">${IC('swords')}Fight · Exchange ${cb.exchange}</span><h1 class="ttl">${esc(cb.title)}</h1></div>${gm ? '<span style="flex:1"></span>' : orderStrip(v, false)}${N.modeSeg(v)}</header>`;
+  const board = `<div class="fight-mid">${boardHtml(v)}</div>`;
+  if (!gm) return N.deskPage(v, `<section class="fight cmd dt" aria-label="Fight on ${esc(cb.title)}">${head}${board}${nowBar(v, false)}${sel ? `<div class="tokpanel glass" data-sk="tokpanel">${N.tokCard(v, sel)}</div>` : ''}</section>`,
+    `<div class="rail-a scroll" data-sk="rail">${N.heroQuick(v)}</div>`, 'cb');
+  const toks = cb.tokens.filter(t => t.zone).sort((a, b) => (a.kind === 'pc' ? 0 : a.side === 'ally' ? 1 : 2) - (b.kind === 'pc' ? 0 : b.side === 'ally' ? 1 : 2));
+  const fighters = toks.map(t => `<button type="button" class="cm-f${t.out ? ' out' : ''}${sel === t ? ' on' : ''}" data-tok="${t.id}">${N.av(N.tokObj(t), 34)}<span class="nm"><b>${esc(N.tokName(t))}</b><small>${t.kind === 'pc' ? 'Player' : t.side === 'ally' ? 'Ally' : 'Foe'}${t.out ? ' · taken out' : ''}</small></span>${zoneTag(t)}${smallStress(t)}</button>`).join('');
+  const ctl = `<section class="fight cmd dt cm-gm" aria-label="Fight controls">${head}
+    <div class="cm-ctl scroll" data-sk="cmctl">
+      ${orderStrip(v, false)}
+      ${nowBar(v, false)}
+      <div class="cm-cols">
+        <section class="gs-sec"><div class="gs-h"><h3>GM tools</h3></div><div class="fight-tools cm-tools">${toolList(v)}</div>
+          ${sel ? `<div class="cm-tok">${N.tokCard(v, sel)}</div>` : '<p class="muted cm-hint">Click someone on the battlefield or in the list to see their card here.</p>'}</section>
+        <section class="gs-sec"><div class="gs-h"><h3>Fighters</h3></div><div class="cm-fl">${fighters}</div></section>
+      </div>
+    </div></section>`;
+  return N.deskPage(v, ctl, `<div class="rail-a"><section class="fight cmd dt cm-bf" aria-label="Battlefield">${board}</section></div>`, 'cb', 'cm-gmpage');
 };
 
 /* ---------- GM setup panel ---------- */

@@ -1643,3 +1643,34 @@
 .app .rcnt .resm{flex:none;width:100%;margin:0}
 .app .rcnt .ff{flex:none}
 .app .rcnt .ff:last-child{background:none}
+
+/* ---------- desktop: Roleplay | Combat switch and the combat screen ---------- */
+.app .modeseg .nb{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--ember);color:#fff;font:800 10.5px/1 var(--f-ui);font-style:normal}
+.app .top.dt .modeseg{flex:none}
+.app .fight-h .modeseg{flex:none;margin-left:auto}
+@container dev (min-width: 760px){ .app .page.with-rail:has(>.fight.cmd){grid-template-columns:minmax(0,1fr) var(--railw,330px)} }
+.app .rcnt .ff.go{cursor:pointer}
+.app .rcnt .ff.go .fft b{color:var(--ember)}
+/* GM: the battlefield sits in the top of the right side */
+.app .cm-gmpage .rail-a{min-height:0;display:flex}
+.app .cm-gmpage .rail-a>.fight.cmd.dt{padding:10px}
+/* GM: the controls fill the big panel */
+.app .fight.cmd>.cm-ctl{flex:1 1 0;min-height:0;overflow:auto;display:grid;gap:14px;align-content:start;padding:2px 2px 8px}
+.app .cm-ctl .fight-order{padding:2px 0}
+.app .cm-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;align-items:start}
+.app .cm-tools{display:flex;flex-wrap:wrap;gap:4px}
+.app .cm-tools .sep{display:none}
+.app .cm-tools button{width:auto;min-width:76px;padding:10px 10px 8px}
+.app .cm-hint{margin:10px 2px 0;font:600 12.5px/1.4 var(--f-ui)}
+.app .cm-tok{margin-top:10px;padding:12px;border-radius:16px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .cm-fl{display:grid;gap:4px}
+.app .cm-f{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);text-align:left}
+.app .cm-f>.nm{flex:1;min-width:0;display:grid;gap:2px}
+.app .cm-f .nb-zt{flex:none}
+.app .cm-ctl .nowbar{grid-template-columns:minmax(0,1fr) auto}
+.app .cm-ctl .nowbar .acts{grid-column:1/-1;grid-row:2}
+.app .cm-f b{font:700 13.5px/1.15 var(--f-ui);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .cm-f small{font:600 11px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .cm-f.on{box-shadow:inset 0 0 0 1.5px var(--gold)}
+.app .cm-f.out{opacity:.5}
+@media (hover:hover){ .app .cm-f:hover{background:var(--raise-2)} }
