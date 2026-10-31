@@ -50,7 +50,7 @@ const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:n
 N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), fz:N.fzOk(o.fz), ui:newUi(o.role)};
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
-  try { const w = +localStorage.getItem('norne-railw'), wc = +localStorage.getItem('norne-railwc'); if (w) v.ui.railW = w; if (wc) v.ui.railWc = wc; v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; } catch(e) {}
+  try { for (const k of ['railW','railWc','rcH','rcHc','shelfW']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1'; } catch(e) {}
   views.push(v); bind(v); render(v);
   return v;
 };
@@ -161,18 +161,28 @@ function bind(v){
     if (!k || !el || !typing() || !e.cancelable || Math.hypot(t.clientX - k.x, t.clientY - k.y) > 10) return;
     e.preventDefault(); v.kb = true; el.click();
   });
-  /* desktop: drag the line between the chat and the side panel to share the width; double-click puts it back */
+  /* desktop: drag a line between panels to share the room (chat list | page, main panel | side panel, top | bottom of the side panel);
+     double-click a line puts it back */
+  const GRIPS = {
+    railgrip:{box:g => g.closest('.page'), key:b => b.dataset.wk || 'railW', css:'--railw', size:(r, ev) => Math.min(r.width - 380, Math.max(260, r.right - ev.clientX))},
+    rowgrip:{box:g => g.closest('.rail'), key:b => b.closest('.page').dataset.hk || 'rcH', css:'--rch', size:(r, ev) => Math.min(r.height - 140, Math.max(120, r.bottom - ev.clientY))},
+    shelfgrip:{box:g => g.closest('.shelf'), key:() => 'shelfW', css:'--shelfw', host:b => b.closest('.shell'), size:(r, ev) => Math.min(420, Math.max(190, ev.clientX - r.left))}
+  };
+  const gripOf = t => { for (const c in GRIPS) { const g = t.closest('.' + c); if (g) return [g, GRIPS[c]]; } return []; };
   root.addEventListener('pointerdown', e => {
-    const grip = e.target.closest('.railgrip'), page = grip && grip.closest('.page');
-    if (!page || e.button !== 0) return;
-    e.preventDefault(); grip.setPointerCapture(e.pointerId); page.classList.add('resizing');
-    const box = page.getBoundingClientRect();
-    const wk = page.dataset.wk || 'railW';
-    const move = ev => { v.ui[wk] = Math.round(Math.min(box.width - 380, Math.max(260, box.right - ev.clientX))); page.style.setProperty('--railw', v.ui[wk] + 'px'); };
-    const up = () => { grip.removeEventListener('pointermove', move); page.classList.remove('resizing'); try { localStorage.setItem('norne-' + wk.toLowerCase(), v.ui[wk]); } catch(err) {} };
+    const [grip, G2] = gripOf(e.target), box = grip && G2.box(grip);
+    if (!box || e.button !== 0) return;
+    e.preventDefault(); grip.setPointerCapture(e.pointerId);
+    const page = grip.closest('.page') || grip.closest('.shell'); page.classList.add('resizing'); grip.classList.add('on');
+    const r = box.getBoundingClientRect(), k = G2.key(box), host = G2.host ? G2.host(box) : box;
+    const move = ev => { v.ui[k] = Math.round(G2.size(r, ev)); host.style.setProperty(G2.css, v.ui[k] + 'px'); };
+    const up = () => { grip.removeEventListener('pointermove', move); page.classList.remove('resizing'); grip.classList.remove('on'); try { localStorage.setItem('norne-' + k.toLowerCase(), v.ui[k]); } catch(err) {} };
     grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up, {once:true}); grip.addEventListener('pointercancel', up, {once:true});
   });
-  root.addEventListener('dblclick', e => { const page = e.target.closest('.railgrip') && e.target.closest('.page'); if (!page) return; const wk = page.dataset.wk || 'railW'; v.ui[wk] = null; try { localStorage.removeItem('norne-' + wk.toLowerCase()); } catch(err) {} render(v); });
+  root.addEventListener('dblclick', e => {
+    const [grip, G2] = gripOf(e.target), box = grip && G2.box(grip); if (!box) return;
+    const k = G2.key(box); v.ui[k] = null; try { localStorage.removeItem('norne-' + k.toLowerCase()); } catch(err) {} render(v);
+  });
   /* long-press a message on a phone to react, reply or (GM) edit it; a right-click does the same on a computer */
   let lp = null;
   root.addEventListener('pointerdown', () => { if (!lp) v.lpHold = false; }, true);
@@ -717,6 +727,8 @@ function act(v, a, el, e){
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
   case 'mode': if (val === 'cb') { ui.fightOpen = true; ui.fightPane = 'fight'; } else { ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; ui.stick = true; } break;
+  case 'railFold': ui[d.v] = !ui[d.v]; try { localStorage.setItem('norne-' + d.v.toLowerCase(), ui[d.v] ? '1' : '0'); } catch(e) {} break;
+  case 'shelfDt': ui.shelfOff = !ui.shelfOff; try { localStorage.setItem('norne-shelfoff', ui.shelfOff ? '1' : '0'); } catch(e) {} break;
   case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; openSheet(v, val, d); break;

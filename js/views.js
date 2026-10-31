@@ -21,6 +21,7 @@ N.appHtml = function(v){
   const nav = `<nav class="nav" aria-label="Sections">
     <div class="mark">${MARK}<b>N<small>ORNE</small></b></div>
     <div class="navl scroll">
+      ${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? `<button type="button" class="ni shopen" data-a="shelfDt" title="Show the chat list" aria-label="Show the chat list">${IC('list')}<span>Chats</span></button>` : ''}
       ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&otherUnread?'<span class="dot"></span>':''}${id==='world'&&newsNew?'<span class="badge gold">1</span>':''}</span></button>
         ${id==='chat' && !shelfOn && !gm ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
     </div>
@@ -40,7 +41,7 @@ N.appHtml = function(v){
   else if (v.ui.tab === 'gm') page = `<main class="page">${gmPage(v)}</main>`;
 
   return `<div class="stars" aria-hidden="true"></div>
-    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}">${nav}${shelfOn && v.dev === 'desktop' ? shelfHtml(v) : ''}${page}${tabbar}</div>
+    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? ' shelf-off' : ''}"${v.ui.shelfW ? ` style="--shelfw:${v.ui.shelfW}px"` : ''}>${nav}${shelfOn && v.dev === 'desktop' && !v.ui.shelfOff ? shelfHtml(v) : ''}${page}${tabbar}</div>
     ${shelfOn && v.dev === 'phone' && v.ui.shelf ? `<div class="scrim shelf-scrim" data-a="shelf"></div>${shelfHtml(v)}` : ''}
     ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
     ${v.ui.pop ? `<div class="scrim" style="background:transparent;backdrop-filter:none" data-a="closePop"></div>${popHtml(v)}` : ''}
@@ -85,13 +86,13 @@ function shelfHtml(v){
   /* beside an open fight on desktop the list shrinks to just the chat pictures, so the board keeps its room */
   const mini = !ph && fightAvail(v) && v.ui.fightOpen;
   return `<aside class="shelf${ph?' drawer':''}${mini?' mini':''}" aria-label="Chats">
-    <header class="shh">${STAR.replace('<svg','<svg class="st"')}<h2>Chats</h2>${ph ? `<button type="button" class="ibtn" data-a="shelf" aria-label="Close the chat list">${IC('x')}</button>` : ''}</header>
+    <header class="shh">${STAR.replace('<svg','<svg class="st"')}<h2>Chats</h2>${ph ? `<button type="button" class="ibtn" data-a="shelf" aria-label="Close the chat list">${IC('x')}</button>` : `<button type="button" class="ibtn sm shx" data-a="shelfDt" aria-label="Hide the chat list" title="Hide the chat list">${IC('left')}</button>`}</header>
     <div class="shl scroll" data-sk="shelf">
       ${group('The table', chs.filter(c => c === 'table'))}
       ${group(gm ? 'Private chats' : 'Just you and the GM', chs.filter(c => c.startsWith('dm-')))}
       ${group('Only you', chs.filter(c => c === 'gm'))}
     </div>
-    ${ph ? `<button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>` : ''}
+    ${ph ? `<button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>` : mini ? '' : '<div class="shelfgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the chat list" title="Drag to resize"></div>'}
   </aside>`;
 }
 function shelfBtn(v){
@@ -133,11 +134,15 @@ function chatPage(v){
 /* desktop: the big panel (C) on the left, and on the right the top panel (A) over the actions (B).
    The line on the right side's left edge drags to share the width; roleplay and combat remember their own widths. */
 function deskPage(v, c, a, mode, cls){
-  const off = v.ui.recentOff, wk = mode === 'rp' ? 'railW' : 'railWc', w = v.ui[wk] || (mode !== 'rp' && isGM(v) ? 560 : 0);
-  return `<main class="page with-rail${cls ? ' ' + cls : ''}" data-wk="${wk}"${w ? ` style="--railw:${w}px"` : ''}>${c}<aside class="rail${off ? ' rc-off' : ''}">
+  /* every line between panels drags and every panel beside the main one folds; roleplay and combat remember their own sizes */
+  const rp = mode === 'rp', off = v.ui.recentOff, wk = rp ? 'railW' : 'railWc', hk = rp ? 'rcH' : 'rcHc', ok = rp ? 'railOff' : 'railOffc';
+  const w = v.ui[wk] || (!rp && isGM(v) ? 560 : 0), h = v.ui[hk];
+  if (v.ui[ok]) return `<main class="page with-rail rail-off${cls ? ' ' + cls : ''}">${c}<aside class="rail"><button type="button" class="railopen" data-a="railFold" data-v="${ok}" aria-label="Show the side panel" title="Show the side panel">${IC('left')}<span>${rp ? 'Card and actions' : 'Fight panel'}</span></button></aside></main>`;
+  return `<main class="page with-rail${cls ? ' ' + cls : ''}" data-wk="${wk}" data-hk="${hk}"${w ? ` style="--railw:${w}px"` : ''}>${c}<aside class="rail${off ? ' rc-off' : ''}"${h && !off ? ` style="--rch:${h}px"` : ''}>
     <div class="railgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the side panel" title="Drag to resize"></div>
+    <button type="button" class="railx" data-a="railFold" data-v="${ok}" aria-label="Hide the side panel" title="Hide the side panel">${IC('right')}</button>
     ${a}
-    <section class="rcnt"><button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC(mode === 'rp' ? 'dice' : 'swords')}<b>${mode === 'rp' ? 'Recent actions' : 'Fight results and chat'}</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
+    <section class="rcnt">${off ? '' : '<div class="rowgrip" role="separator" aria-orientation="horizontal" aria-label="Drag to resize" title="Drag to resize"></div>'}<button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC(rp ? 'dice' : 'swords')}<b>${rp ? 'Recent actions' : 'Fight results and chat'}</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
       ${off ? '' : N.recentHtml(v, mode) + (mode === 'cb' ? fightComposer(v) : '')}</section>
   </aside></main>`;
 }

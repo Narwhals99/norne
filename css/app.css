@@ -1795,3 +1795,42 @@
 .app .fzpick .fzs b{color:var(--ink)}
 /* iPhones zoom into any box with text under 16px, so Small keeps typing boxes at 16px (1rem, which the resize leaves alone) */
 .app[data-dev="phone"][data-fz="s"] :is(input,textarea,select){font-size:1rem!important}
+
+/* ---------- desktop: every panel line drags, every side panel folds ---------- */
+.app .page.resizing .railgrip:not(.on)::after{background:transparent}
+.app .page.resizing .railgrip.on::after{background:var(--accent)}
+.app :is(.shell,.page).resizing{cursor:col-resize;user-select:none}
+.app :is(.shell,.page).resizing *{pointer-events:none}
+.app :is(.shell,.page).resizing :is(.railgrip,.rowgrip,.shelfgrip).on{pointer-events:auto}
+.app .page.resizing:has(.rowgrip.on){cursor:row-resize}
+/* the line between the card and the actions below it */
+.app .rail{grid-template-rows:minmax(0,1fr) var(--rch,52%)}
+.app .rail.rc-off{grid-template-rows:minmax(0,1fr) auto}
+.app .rcnt{position:relative}
+.app .rowgrip{position:absolute;z-index:5;left:0;right:0;top:-6px;height:12px;cursor:row-resize;touch-action:none}
+.app .rowgrip::after{content:"";position:absolute;left:0;right:0;top:5px;height:2px;border-radius:2px;background:transparent;transition:background .12s}
+.app .rowgrip:hover::after,.app .rowgrip.on::after{background:var(--accent)}
+/* fold the whole side panel to a thin strip, and open it again */
+.app .railx{position:absolute;z-index:6;left:-13px;top:50%;translate:0 -50%;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--page-solid);color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--line-2),0 4px 10px -4px rgba(0,0,0,.6);opacity:.75;transition:opacity .12s,color .12s}
+.app .railx svg{width:14px;height:14px}
+@media (hover:hover){ .app .railx:hover{opacity:1;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--accent)} }
+@container dev (min-width: 760px){
+  .app .page.with-rail.rail-off,.app .page.with-rail.rail-off:has(>.fight.cmd){grid-template-columns:minmax(0,1fr) 44px}
+}
+.app .rail-off>.rail{display:flex!important;justify-content:center;padding-top:14px}
+.app .railopen{display:flex;flex-direction:column;align-items:center;gap:10px;width:34px;padding:10px 0;border-radius:12px;color:var(--ink-3);font:800 10.5px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase}
+.app .railopen svg{width:16px;height:16px}
+.app .railopen span{writing-mode:vertical-rl}
+@media (hover:hover){ .app .railopen:hover{background:var(--raise);color:var(--ink)} }
+/* the chat list: hide it to leave only the slim menu bar, drag its edge to resize it */
+@container dev (min-width: 760px){
+  .app .shell.shelved.shelf-off{grid-template-columns:auto 1fr}
+  .app .shelf:not(.drawer):not(.mini){width:var(--shelfw,256px);position:relative}
+}
+.app .shelf .shx{flex:none;width:30px;height:30px;color:var(--ink-3)}
+.app .shelf .shx svg{width:15px;height:15px}
+.app .shelf.mini .shh .st{display:none}
+.app .shelfgrip{position:absolute;z-index:5;top:0;bottom:0;right:-5px;width:10px;cursor:col-resize;touch-action:none}
+.app .shelfgrip::after{content:"";position:absolute;top:0;bottom:0;left:4px;width:2px;border-radius:2px;background:transparent;transition:background .12s}
+.app .shelfgrip:hover::after,.app .shelfgrip.on::after{background:var(--accent)}
+.app .nav .ni.shopen{color:var(--gold-tx)}
