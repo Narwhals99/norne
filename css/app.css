@@ -1905,3 +1905,8 @@
 .app .vssk button b{font:700 13px/1 var(--f-display);color:var(--gold-tx)}
 .app .vssk button[aria-pressed="true"]{color:var(--ink);background:var(--gold-soft);box-shadow:inset 0 0 0 1.5px var(--gold)}
 .app .vsnote{margin:0;font:600 12.5px/1.4 var(--f-ui);color:var(--ink-3)}
+.app .roll .oppd{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:0 14px 8px;font:600 12px/1.35 var(--f-ui);color:var(--ink-2)}
+.app .roll .oppd b{color:var(--ink)}
+.app .oppd .od{display:inline-flex;gap:3px}
+.app .roll .oppd .od span{translate:none;rotate:none;margin:0;width:16px;height:16px;border-radius:4px;display:grid;place-items:center;background:#e9e0c6;color:#2a2418;font:800 11px/1 var(--f-ui)}
+.app .oppd .od span.op{color:#1f7a4c}.app .oppd .od span.om{color:#b23b2a}
