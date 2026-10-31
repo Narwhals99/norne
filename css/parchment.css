@@ -339,8 +339,8 @@
 .app:where([data-style="parchment"]) .tools button{border-radius:6px;background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
 .app:where([data-style="parchment"]) .tools button svg{color:var(--accent-tx)}
 .app:where([data-style="parchment"])[data-theme="night"] .tools button svg{color:var(--gold-tx)}
-.app:where([data-style="parchment"]) .quick-sk button,.app:where([data-style="parchment"]) .lad .rung .sks button,.app:where([data-style="parchment"]) .lad .rung .sks .skc,.app:where([data-style="parchment"]) .gmrow button,.app:where([data-style="parchment"]) .pchip{border-radius:6px;background:var(--paper-bg)}
-.app:where([data-style="parchment"]) .quick-sk button i{border-radius:3px;font-weight:400}
+.app:where([data-style="parchment"]) .quick-sk :is(button,span),.app:where([data-style="parchment"]) .lad .rung .sks button,.app:where([data-style="parchment"]) .lad .rung .sks .skc,.app:where([data-style="parchment"]) .gmrow button,.app:where([data-style="parchment"]) .pchip{border-radius:6px;background:var(--paper-bg)}
+.app:where([data-style="parchment"]) .quick-sk :is(button,span) i{border-radius:3px;font-weight:400}
 .app:where([data-style="parchment"]) .hero-top b,.app:where([data-style="parchment"]) .tokcard .hd b,.app:where([data-style="parchment"]) .ccard b,.app:where([data-style="parchment"]) .prof b,.app:where([data-style="parchment"]) .stunt b,.app:where([data-style="parchment"]) .ent b{font-weight:400}
 
 /* ---------- combat ---------- */

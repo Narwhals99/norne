@@ -369,6 +369,7 @@ function gifSearch(v){
 }
 
 function openRoll(v, o={}){
+  if (!isGM(v)) return; /* the GM rolls everything, in a fight and out of one */
   const g = G();
   let who = o.who;
   if (!who) {
@@ -397,7 +398,7 @@ function doRoll(v){
   const ch = secret ? 'gm' : fight ? N.fightCh() : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
   const m = push({ch, kind:'roll', by:v.role, roll});
   if (isGM(v) && who.portrait) m.pt = who.portrait;
-  if (v.dev === 'phone' && !fight) { v._rfx = {id:m.id, at:Date.now()}; setTimeout(() => render(v), N.RFX_MS + 60); }
+  if (v.dev === 'phone' && !fight) { v._rfx = {id:m.id, at:Date.now(), own:true}; setTimeout(() => render(v), N.RFX_MS + 60); }
   v.ui.fresh = m.id; v.ui.sheet = null; v.ui.targeting = null; v.ui.stick = true;
   if (fight) afterFightRoll(v, r, m);
   if (secret && v.ui.ch !== 'gm') toast(v, 'Secret roll saved in GM notes.');

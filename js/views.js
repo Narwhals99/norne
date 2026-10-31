@@ -318,8 +318,15 @@ function rollLine(v, m){
    Like the board's dice it keeps its place across redraws (a negative delay), so a new message doesn't restart it. */
 const RFX_MS = 2700;
 function rollFx(v){
+  /* a roll someone else makes in this chat plays here too, once, as it arrives (the newest roll per chat is remembered;
+     the first look at a chat only notes it). GM secret rolls never reach players, so only the GM sees those. */
+  const ch = v.ui.ch, last = G().msgs.findLast(x => x.ch === ch && x.kind === 'roll' && !isFightAct(x)), seen = v._rl || (v._rl = {});
+  if (last && seen[ch] !== last.id) {
+    if (ch in seen && (!v._rfx || v._rfx.id !== last.id) && Date.now() - (last.t || 0) < 20000) { v._rfx = {id:last.id, at:Date.now()}; setTimeout(() => N.render(v), RFX_MS + 60); }
+    seen[ch] = last.id;
+  }
   const f = v._rfx; if (!f || Date.now() - f.at > RFX_MS) return '';
-  const m = G().msgs.find(x => x.id === f.id); if (!m || m.ch !== v.ui.ch) return '';
+  const m = G().msgs.find(x => x.id === f.id); if (!m || (m.ch !== ch && !f.own)) return '';
   const r = m.roll, tot = rollTotal(r), face = d => d > 0 ? '+' : d < 0 ? '−' : '';
   const cube = (d, i) => `<span class="cube" style="--i:${i}"><i class="f fr ${d>0?'p':d<0?'m':'z'}">${face(d)}</i><i class="f bk">−</i><i class="f rt p">+</i><i class="f lf"></i><i class="f tp m">−</i><i class="f bt p">+</i></span>`;
   return `<div class="rfx" style="--el:-${Date.now() - f.at}ms" aria-hidden="true"><div class="grp"><div class="rtray">${r.dice.map(cube).join('')}</div><div class="rfx-t"><small>${esc(r.who)} · ${esc(r.skill)}</small><b>${sgn(tot)} <span>${ladderWord(tot)}</span></b></div></div></div>`;
@@ -379,7 +386,7 @@ function composer(v){
       ${v.ui.ch === 'gm' ? `<span class="voice">${chip}</span>` : `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`}
       <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="${N.enterSends() ? 'send' : 'enter'}">${esc(v.ui.draft)}</textarea>
       <button type="button" class="emob" data-a="pop" data-v="emo" aria-label="Emoji" title="Emoji">${IC('smile')}</button>
-      <button type="button" class="diceb" data-a="roll" aria-label="Roll the dice" title="Roll">${fateDie}</button>
+      ${isGM(v) ? `<button type="button" class="diceb" data-a="roll" aria-label="Roll the dice" title="Roll">${fateDie}</button>` : ''}
       <button type="button" class="sendb" data-a="send" aria-label="Send">${IC('send')}</button>
     </div>
     ${N.enterSends() ? '<div class="nlhint"><b>Enter</b> sends · <b>Shift + Enter</b> for a new line</div>' : ''}
@@ -449,7 +456,7 @@ function heroQuick(v){
     <div class="hero-top">${N.av(c,58)}<span><b>${esc(c.name)}</b><small>${esc(N.pcTag(c))}</small></span></div>
     <section class="gs-sec"><div class="gs-h"><h3>Fate points</h3><span class="muted" style="font-weight:700;font-size:12px">Refresh ${c.refresh}</span></div><div class="coins">${coinsHtml(c,false)}</div></section>
     <section class="gs-sec"><div class="gs-h"><h3>Aspects</h3></div><div class="icards">${N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.8,.7,-.4][i%3]}deg"><span class="k">${k}</span>${esc(a)}</span>`).join('')}</div></section>
-    <section class="gs-sec"><div class="gs-h"><h3>Roll a skill</h3></div><div class="quick-sk">${top.map(([n,x])=>`<button type="button" data-a="roll" data-skill="${n}">${esc(n)}<i>${sgn(x)}</i></button>`).join('')}</div></section>
+    <section class="gs-sec"><div class="gs-h"><h3>Top skills</h3></div><div class="quick-sk">${top.map(([n,x])=>`<span>${esc(n)}<i>${sgn(x)}</i></span>`).join('')}</div></section>
     <section class="gs-sec"><div class="gs-h"><h3>Stress</h3></div>
       <div class="pcrow" style="grid-template-columns:auto 1fr"><div class="tracks" style="grid-column:1/-1"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}</div><span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<span class="sbox${c.stress.ment[i]?' on':''}">${x}</span>`).join('')}</div></div></div>
     </section>
@@ -682,7 +689,7 @@ N.sheetBody = function(v, c){
     ${gm?`<div class="full" style="display:flex;justify-content:center"><button type="button" class="btn primary lg spark" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Make ${esc(pn(c))}’s card</button></div>`:''}
     <div class="quiet full"><div class="art"></div><p>${gm?'Name, age, aspects, skills, stunts and fate points. The player gets a note when it’s ready.':'It shows up here as soon as it’s ready.'}</p></div>`;
   const rungs = [8,7,6,5,4,3,2,1].map(x => [x, Object.entries(c.skills).filter(([,y]) => y === x).map(([n]) => n)]).filter(r => r[1].length);
-  const canRoll = mine || gm, edit = mine || gm;
+  const canRoll = gm, edit = mine || gm;
   return `<section class="pc-hero full" style="${who}">
       ${mine && !gm ? `<button type="button" class="facebtn" data-a="sheet" data-v="myFace" aria-label="Change my picture">${N.av(c,84)}<span class="badge">${IC('image')}</span></button>` : N.av(c,84)}
       <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${esc(N.pcTag(c))}</div>`:''}</div>
