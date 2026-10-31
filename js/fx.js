@@ -154,19 +154,28 @@ function build(board, s){
   cam.appendChild(tx);
   fx.tx = tx; fx.tw = tx.offsetWidth; fx.th = tx.offsetHeight;
   const rise = R * .9;
-  /* camera: push in on the two fighters (up to 1.7x on small boards, 1.25x on big ones), but only as far as keeps both
-     of them, the swing and the words over the target in view, and never past the board's edges. Fighters far apart
-     across a wide zone get little or no zoom. */
-  const x0 = Math.min(A.x, D.x) - 3.4 * R, x1 = Math.max(A.x, D.x) + 3.4 * R;
-  const y0 = Math.min(A.y - 1.4 * R, D.y - Rd - 6 - fx.th - rise), y1 = Math.max(A.y, D.y) + 1.9 * R;
-  const fit = Math.min(W / Math.max(x1 - x0, fx.tw + 12), H / (y1 - y0)), Zmax = RM ? 1 : W < 600 ? 1.7 : 1.25;
-  const Z = fit > 1.05 ? Math.min(Zmax, fit) : 1, cx = (A.x + D.x) / 2, cy = (A.y + D.y) / 2 - .5 * R;
-  fx.Z = Z; fx.TX = fx.TY = 0;
-  if (Z > 1) {
-    fx.TX = clamp(clamp(W / 2 - Z * cx, -Z * x0, W - Z * x1), W - Z * W, 0);
-    fx.TY = clamp(clamp(H / 2 - Z * cy, -Z * y0, H - Z * y1), H - Z * H, 0);
+  /* camera: push in close (1.7x on small boards, 1.25x on big ones), never past the board's edges.
+     Two fighters close together: one shot of both, as in the preview. Further apart: it starts on the attacker
+     winding up, follows the rush, the arrow or the bolt across the board, and settles on the target and the words. */
+  const Zmax = RM ? 1 : W < 600 ? 1.7 : 1.25, top = D.y - Rd - 6 - fx.th - rise;
+  const fit = b => Math.min(W / Math.max(b.x1 - b.x0, b.tw || 0), H / (b.y1 - b.y0));
+  const shot = (b, cx, cy) => ({TX:clamp(clamp(W / 2 - Z * cx, -Z * b.x0, W - Z * b.x1), W - Z * W, 0), TY:clamp(clamp(H / 2 - Z * cy, -Z * b.y0, H - Z * b.y1), H - Z * H, 0)});
+  const both = {x0:Math.min(A.x, D.x) - 3.4 * R, x1:Math.max(A.x, D.x) + 3.4 * R, y0:Math.min(A.y - 1.4 * R, top), y1:Math.max(A.y, D.y) + 1.9 * R, tw:fx.tw + 12};
+  const atk = {x0:A.x - 3.4 * R, x1:A.x + 3.4 * R, y0:A.y - 3.2 * R, y1:A.y + 1.9 * R};
+  const tgt = {x0:D.x - 3.4 * R, x1:D.x + 3.4 * R, y0:top, y1:D.y + 1.9 * R, tw:fx.tw + 12};
+  /* one shot when both fit at the zoom the travelling camera would use anyway */
+  const fb = fit(both), Zp = Math.min(Zmax, fit(atk), fit(tgt)), close = fb >= Zp, Z = close ? Math.min(Zmax, fb) : Zp;
+  fx.Z = Z > 1.05 ? Z : 1;
+  if (fx.Z === 1) fx.cA = fx.cD = {TX:0, TY:0};
+  else if (close) fx.cA = fx.cD = shot(both, (A.x + D.x) / 2, (A.y + D.y) / 2 - .5 * R);
+  else {
+    fx.cA = shot(atk, (atk.x0 + atk.x1) / 2, (atk.y0 + atk.y1) / 2);
+    fx.cD = shot(tgt, (tgt.x0 + tgt.x1) / 2, (tgt.y0 + tgt.y1) / 2);
+    /* when the camera travels: with the rush, the arrow or the bolt */
+    fx.pan = wpn === 'sword' ? {a:200, b:430, c:200, d:480, ease:eIn} : wpn === 'bow' ? {a:fx.TR, b:fx.TI, c:fx.TR - 100, d:fx.TI + 60, ease:u => u}
+      : {a:fx.TF, b:fx.TI, c:fx.TF - 100, d:fx.TI + 60, ease:u => Math.pow(u, 1.15)};
   }
-  const vx0 = -fx.TX / Z, vx1 = (W - fx.TX) / Z, vy0 = -fx.TY / Z;
+  const vx0 = -fx.cD.TX / fx.Z, vx1 = (W - fx.cD.TX) / fx.Z, vy0 = -fx.cD.TY / fx.Z;
   fx.txX = clamp(D.x, vx0 + fx.tw * .64 + 4, vx1 - fx.tw * .64 - 4);
   fx.txY = Math.max(D.y - Rd - 6, vy0 + fx.th + rise + 6);
   A.el.classList.add('fxa'); D.el.classList.add('fxd');
@@ -369,8 +378,10 @@ function impactAt(fx, t){
 function camAt(fx, t){
   let z = 0;
   if (fx.Z > 1) z = eIO(seg(t, 0, 320)) * (1 - eIO(seg(t, fx.total - 450, fx.total)));
-  const Z = 1 + (fx.Z - 1) * z;
-  let X = fx.TX * z, Y = fx.TY * z;
+  const Z = 1 + (fx.Z - 1) * z, p = fx.pan;
+  /* following: halfway between where the attacker, arrow or bolt is and a smooth glide, so it keeps up without jerking */
+  const u = p ? (p.ease(seg(t, p.a, p.b)) + eIO(seg(t, p.c, p.d))) / 2 : 1;
+  let X = lerp(fx.cA.TX, fx.cD.TX, u) * z, Y = lerp(fx.cA.TY, fx.cD.TY, u) * z;
   if (fx.o.cam && !RM && Z > 1.01 && t >= fx.TI && t < fx.TI + 280) {
     const u = seg(t, fx.TI, fx.TI + 280);
     X = clamp(X + Math.sin(t * .21) * fx.R * .14 * Z * (1 - u), fx.W - Z * fx.W, 0);
