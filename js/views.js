@@ -223,7 +223,25 @@ function isAction(m){
 }
 /* the part of the actions that belongs to a fight: fight rolls, results, and the fight's own notices */
 function isFightAct(m){
-  return !!m.fc || (m.kind === 'roll' && !!(m.roll.fight || m.roll.target || m.roll.action === 'Attack' || m.roll.action === 'Defend')) || (m.kind === 'sys' && !!(m.res || m.fight));
+  return !!m.fc || (m.kind === 'roll' && !!(m.roll.fight || m.roll.target || m.roll.action === 'Attack' || m.roll.action === 'Defend')) || (m.kind === 'sys' && !!(m.res || m.fight))
+    || (m.t < FLAGS_T && (m.kind === 'roll' || (m.kind === 'sys' && !m.fightEnd && !m.act && !TABLE_NOTE.test(m.text || ''))) && inOldFight(m));
+}
+/* rolls and notices saved before fights marked their own messages (31 Oct 2026) carry no mark: one that falls between a fight's
+   start card and its end note belongs to that fight, except the table notes the GM makes anyway (stress, fate points, inventory) */
+const FLAGS_T = Date.UTC(2026, 9, 31, 3, 0), TABLE_NOTE = /stress box\.$|fate point|inventory|The party heads|character card/;
+let OLDW = {key:'', w:{}};
+function inOldFight(m){
+  const ms = G().msgs, key = ms.length + ':' + (ms[ms.length - 1] || {}).id;
+  if (OLDW.key !== key) {
+    const w = {}, open = {};
+    for (const x of ms) {
+      if (x.t >= FLAGS_T) break;
+      if (x.kind === 'combat' || x.kind === 'fight') { if (open[x.ch]) open[x.ch][1] = x.t; open[x.ch] = [x.t, Infinity]; (w[x.ch] = w[x.ch] || []).push(open[x.ch]); }
+      else if (open[x.ch] && x.kind === 'sys' && (x.fightEnd || /^The fight on .* is over/.test(x.text || ''))) { open[x.ch][1] = x.t; open[x.ch] = null; }
+    }
+    OLDW = {key, w};
+  }
+  return (OLDW.w[m.ch] || []).some(([a, b]) => m.t > a && m.t < b);
 }
 /* the actions leave the chat only while Recent actions is there to show them */
 const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'chat' && railShown(v) && !v.ui.recentOff;
