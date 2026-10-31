@@ -1309,6 +1309,10 @@
 .app .shh h2{flex:1;margin:0;font:600 13px/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
 .app .shl{display:grid;gap:14px;align-content:start;min-height:0;padding:2px 0 8px}
 .app .shg{display:grid;gap:2px}
+/* the GM's "New group chat" row at the end of the chat list */
+.app .shr.shnew{opacity:.85;margin-top:2px}
+.app .shr.shnew .cic{background:transparent;border:1.5px dashed var(--line-3);box-sizing:border-box}
+.app .shr.shnew:hover{opacity:1}
 .app .shg h3{margin:0;padding:0 10px 4px;font:800 10.5px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4)}
 .app .shr{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:7px 10px 7px 8px;border-radius:14px;text-align:left;color:var(--ink-3);transition:background .15s,color .15s}
 .app .shr .av{--s:34px;box-shadow:none;font-size:14px;flex:none}

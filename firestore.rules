@@ -21,6 +21,9 @@ service cloud.firestore {
     }
     function isPlayer() { return seat().matches('p[0-9]+'); }
     function canReadMsg(d) { return isGM() || (isPlayer() && ('*' in d.aud || seat() in d.aud)); }
+    function groupPath(id) { return /databases/$(database)/documents/groups/$(id); }
+    // A player is in group chat id when the GM listed their seat in groups/<id>.
+    function inGroup(id) { return exists(groupPath(id)) && seat() in get(groupPath(id)).data.seats; }
 
     // Accounts. A new account may only create itself as pending (or as GM, for the GM's own account).
     // Only the GM can give someone a seat or take it away.
@@ -55,17 +58,25 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['c']);
     }
 
-    // A fight started in a player's private chat with the GM. fights/p1 is the fight in p1's chat:
-    // only that player (and the GM) can read it, and the player may update only the fight itself.
+    // A fight started in a player's private chat with the GM, or in a group chat. fights/p1 is the fight in p1's chat,
+    // fights/<group id> the fight in that group's chat: only those players (and the GM) can read it, and they may
+    // update only the fight itself.
     match /fights/{s} {
-      allow read: if isGM() || (isPlayer() && seat() == s);
+      allow read: if isGM() || (isPlayer() && (seat() == s || inGroup(s)));
       allow write: if isGM();
-      allow update: if isPlayer() && seat() == s
+      allow update: if isPlayer() && (seat() == s || inGroup(s))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['c']);
     }
 
+    // Group chats the GM makes: a name and the seats in it. Players read only the groups they are in.
+    match /groups/{id} {
+      allow read: if isGM() || (isPlayer() && seat() in resource.data.seats);
+      allow write: if isGM();
+    }
+
     // Chat messages. aud says who may read one: '*' is everyone at the table,
-    // 'p1' is that player's private chat with the GM, 'gm' is the GM's own notes.
+    // 'p1' is that player's private chat with the GM, 'gm' is the GM's own notes,
+    // and a group chat (ch 'grp-<id>') lists the seats of its members.
     // re (optional) is the id of the message it replies to.
     match /msgs/{id} {
       allow read: if canReadMsg(resource.data);
@@ -73,7 +84,10 @@ service cloud.firestore {
         || (isPlayer()
             && request.resource.data.by == seat()
             && ((request.resource.data.ch == 'table' && request.resource.data.aud == ['*'])
-                || (request.resource.data.ch == 'dm-' + seat() && request.resource.data.aud == [seat()])));
+                || (request.resource.data.ch == 'dm-' + seat() && request.resource.data.aud == [seat()])
+                || (request.resource.data.ch.matches('grp-[a-z0-9]+')
+                    && inGroup(request.resource.data.ch.split('-')[1])
+                    && request.resource.data.aud == get(groupPath(request.resource.data.ch.split('-')[1])).data.seats)));
       // Players may change a roll (invokes), the words of their own messages, and their own reactions
       // (rx.p1 is p1's list of emoji on this message).
       allow update: if isGM()

@@ -55,6 +55,7 @@ function chanIcon(v, c){
   const g = G();
   if (c === 'table') return `<span class="cic">${IC('users')}</span>`;
   if (c === 'gm') return `<span class="cic">${IC('lock')}</span>`;
+  if (c.startsWith('grp-')) return `<span class="cic grp">${IC('whisper')}</span>`;
   if (isGM(v)) return N.av(g.P[c.slice(3)] ? N.personObj(c.slice(3)) : {name:'?'}, 24);
   return N.av(N.personObj('gm'), 24);
 }
@@ -96,6 +97,8 @@ function shelfHtml(v){
     <div class="shl scroll" data-sk="shelf">
       ${group('The table', chs.filter(c => c === 'table'))}
       ${group(gm ? 'Private chats' : 'Just you and the GM', chs.filter(c => c.startsWith('dm-')))}
+      ${group('Group chats', chs.filter(c => c.startsWith('grp-')))}
+      ${gm ? `<button type="button" class="shr shnew" data-a="grpNew" title="New group chat"><span class="cic">${IC('plus')}</span><span class="t"><b>New group chat</b><small>Put a few players in one chat</small></span></button>` : ''}
       ${group('Only you', chs.filter(c => c === 'gm'))}
     </div>
     ${ph ? `<button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>` : mini ? '' : '<div class="shelfgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the chat list" title="Drag to resize"></div>'}
@@ -169,9 +172,10 @@ function railShown(v){
 }
 function chatView(v, side){
   const g = G(), gm = isGM(v), ch = v.ui.ch, sc = g.scenes[ch], cb = g.combat;
-  const fa = fightAvail(v);
-  const topPh = `<div class="top ph">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${sideBtn(v, 'chat')}</div>`;
+  const fa = fightAvail(v), grpBtn = gm && !!N.grpOf(ch);
+  const topPh = `<div class="top ph">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${grpBtn && !fa ? `<button type="button" class="ibtn" data-a="grpEdit" data-v="${ch.slice(4)}" aria-label="Edit this group chat" title="Edit this group chat">${IC('gear')}</button>` : ''}${sideBtn(v, 'chat')}</div>`;
   const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
+    ${grpBtn ? `<button type="button" class="btn sm" data-a="grpEdit" data-v="${ch.slice(4)}" style="--h:36px">${IC('gear')}Edit group</button>` : ''}
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
     ${fa ? (cb.state === 'setup' ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}Back to fight setup</button>` : modeSeg(v)) : ''}</header>`;
   const fightbar = (cb.state === 'live' && ch === N.fightCh() && !N.owedTok(v) && !fa) ? (() => {
@@ -205,13 +209,13 @@ N.sceneArt = (sc) => {
 /* a scene's own picture (not a map place) sits inside its box as a framed layer */
 N.scenePic = sc => sc && !sc.place ? N.bgPic(sc.art) : '';
 function sceneBanner(v, sc, ch){
-  const gm = isGM(v), priv = ch.startsWith('dm-');
+  const gm = isGM(v), priv = ch.startsWith('dm-') || ch.startsWith('grp-');
   if (!sc) {
     if (!gm || ch === 'gm') return '';
     return `<section class="scene empty"><div class="in" style="grid-template-columns:auto 1fr auto;display:grid;align-items:center;gap:12px"><span class="cic" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);color:var(--gold-tx)">${IC('image')}</span><h2>No scene in this chat yet</h2><button type="button" class="btn sm primary" data-a="sheet" data-v="scene">Set the scene</button></div></section>`;
   }
   const min = v.ui.sceneMin;
-  const onlyWho = priv ? (gm ? `Only ${esc(G().P[ch.slice(3)]?.name || 'them')} sees this scene` : 'Your private scene') : '';
+  const onlyWho = !priv ? '' : ch.startsWith('grp-') ? `${esc(N.chName(ch, v.role))} scene` : gm ? `Only ${esc(G().P[ch.slice(3)]?.name || 'them')} sees this scene` : 'Your private scene';
   return `<section class="scene${min?' min':''}" aria-label="Scene">
     <div class="art${sc.place?' map':''}" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</div>
     <div class="in">
@@ -255,7 +259,7 @@ const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'ch
 N.isAction = isAction; N.isFightAct = isFightAct; N.hhmm = hhmm;
 function renderMsgs(v, side){
   const g = G(), out1 = actionsOut(v, side), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)) && !m.fc && !(out1 && isAction(m)) && !(v.dev === 'phone' && isFightAct(m)));
-  if (!ms.length) return `<div class="quiet"><div class="art"></div><p>${v.ui.ch.startsWith('dm-') ? 'Nothing here yet. Anything said here stays between you two.' : 'Nothing here yet.'}</p></div>`;
+  if (!ms.length) return `<div class="quiet"><div class="art"></div><p>${v.ui.ch.startsWith('dm-') ? 'Nothing here yet. Anything said here stays between you two.' : v.ui.ch.startsWith('grp-') ? 'Nothing here yet. Only the people in this group see what’s said here.' : 'Nothing here yet.'}</p></div>`;
   let out = '', prev = null, firstNarr = true;
   /* only the newest roll in a chat starts open; a roll someone opened or closed by hand stays that way */
   v._lastRoll = (ms.findLast(m => m.kind === 'roll') || {}).id;
@@ -456,7 +460,7 @@ function composer(v){
 function gmScreen(v){
   const g = G(), ch = v.ui.ch, here = ch === 'gm' ? 'table' : ch, fights = N.allFights();
   /* one fight per chat: every running fight gets a button, and the open chat can start one if it has none */
-  const where = c => c === 'table' ? 'Everyone' : `your chat with ${esc(N.chName(c,'gm'))}`;
+  const where = c => c === 'table' ? 'Everyone' : c.startsWith('grp-') ? `the group chat ${esc(N.chName(c,'gm'))}` : `your chat with ${esc(N.chName(c,'gm'))}`;
   const fight = Object.entries(fights).sort(([a],[b]) => (a !== 'table') - (b !== 'table') || a.localeCompare(b)).map(([c, cb]) => {
     const o = N.order(cb), cur = cb.state === 'live' && cb.phase !== 'notice' && o.length ? o[cb.turn % o.length] : null;
     return `<button type="button" class="bigcta" data-a="openFight" data-v="${c}"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>In ${where(c)} · ${cb.state==='setup'?'Not started yet. Players can’t see it.':`Exchange ${cb.exchange}${cur ? ` · ${esc(N.tokName(cur))}’s turn` : ''}`}</small></span></button>`;
@@ -465,7 +469,7 @@ function gmScreen(v){
   const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
     ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
     ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export the log', 'data-v="export"'], ['sheet', 'smile', 'Emoji and GIFs', 'data-v="emoji"'], ['sheet', 'upload', 'Import lore', 'data-v="import"'], ['sheet', 'trash', 'Wipe a chat', 'data-v="wipe"']];
-  const scenes = ['table', ...N.seats().map(x => 'dm-' + x)].filter(c => g.scenes[c]).length;
+  const scenes = N.channelsFor('gm').filter(c => c !== 'gm' && g.scenes[c]).length;
   return `<div class="gs">
     ${fight}
     <button type="button" class="bigcta scn" data-a="sheet" data-v="scene"><span class="ic">${IC('image')}</span><span><b>Scene changer</b><small>Pick who it’s for, Everyone or one player, then set the picture, name and aspects.${scenes ? ` ${scenes} chat${scenes > 1 ? 's have' : ' has'} a scene now.` : ''}</small></span></button>

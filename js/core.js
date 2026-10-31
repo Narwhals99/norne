@@ -221,7 +221,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], gifKey:'', gmPic:null,
+  chars:{}, npcs:[], quick:[], foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null,
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -285,14 +285,23 @@ N.sceneFreeLeft = (sc, i) => {
 /* ---------- people and chats ---------- */
 N.seats = () => Object.keys(N.G.P).filter(k => k !== 'gm').sort((a,b) => a.slice(1) - b.slice(1));
 N.gmName = () => N.G.P.gm.name;
+/* ---------- group chats: the GM puts several players in one chat (groups/<id>, chat id "grp-<id>") ---------- */
+N.grpOf = ch => /^grp-/.test(ch || '') ? (N.G.groups || []).find(x => x.id === ch.slice(4)) || null : null;
+N.grpsFor = role => (N.G.groups || []).filter(x => role === 'gm' || (x.seats || []).includes(role)).sort((a, b) => (a.t || 0) - (b.t || 0));
+/* "Mia and Theo", "Jack, Mia and Theo" */
+N.namesOf = (seats, skip) => { const ns = seats.filter(s => s !== skip).map(s => N.G.P[s]?.name || 'a former player'); return ns.length > 1 ? ns.slice(0, -1).join(', ') + ' and ' + ns[ns.length - 1] : ns[0] || 'nobody yet'; };
+const andList = a => a.length > 1 ? a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1] : a[0];
+const grpSub = (ss, role) => { const nm = x => N.G.P[x]?.name || 'a former player';
+  return role === 'gm' ? `Only ${andList(['you', ...ss.map(nm)])} see this` : `Only ${andList(['you', ...ss.filter(x => x !== role).map(nm), 'the GM'])} see this`; };
 N.chName = (id, role) => {
   if (id === 'table') return 'Everyone';
   if (id === 'gm') return 'GM notes';
+  if (id.startsWith('grp-')) return N.grpOf(id)?.name || 'Group chat';
   const pr = id.slice(3);
   return role === 'gm' ? (N.G.P[pr]?.name || 'A former player') : `${N.gmName()} · GM`;
 };
-N.chSub = (id, role) => id === 'table' ? 'The whole table sees this chat' : id === 'gm' ? 'Only you see this. Secret rolls land here.' : role === 'gm' ? `Only you and ${N.G.P[id.slice(3)]?.name || 'them'} see this` : 'Only you and the GM see this';
-N.channelsFor = role => role === 'gm' ? ['table', ...N.seats().map(s => 'dm-' + s), 'gm'] : ['table', 'dm-' + role];
+N.chSub = (id, role) => id.startsWith('grp-') ? grpSub(N.grpOf(id)?.seats || [], role) : id === 'table' ? 'The whole table sees this chat' : id === 'gm' ? 'Only you see this. Secret rolls land here.' : role === 'gm' ? `Only you and ${N.G.P[id.slice(3)]?.name || 'them'} see this` : 'Only you and the GM see this';
+N.channelsFor = role => { const gs = N.grpsFor(role).map(x => 'grp-' + x.id); return role === 'gm' ? ['table', ...N.seats().map(s => 'dm-' + s), ...gs, 'gm'] : ['table', 'dm-' + role, ...gs]; };
 N.unread = (role, ch) => { const s = (N.G.seen[role] || {})[ch] || 0; let n = 0; for (const m of N.G.msgs) if (m.ch === ch && m.by !== role && m.t > s && !(m.kind === 'scene' && m.quiet)) n++; return n; };
 
 /* the characters of the people seated now, in seat order */
@@ -350,8 +359,12 @@ N.focusFight = ch => {
   g.combat = g.fights[ch] || Object.assign(freshCombat(), {ch});
 };
 N.chSeat = ch => /^dm-p\d+$/.test(ch || '') ? ch.slice(3) : null;
+/* a fight outside the table chat has its own document fights/<key>: the seat for a private chat, the group's id for a group chat */
+N.chKey = ch => N.chSeat(ch) || (N.grpOf(ch) ? ch.slice(4) : null);
+/* the seats that can read a chat, or null for the whole table */
+N.chSeats = ch => { const s = N.chSeat(ch); if (s) return [s]; const gr = N.grpOf(ch); return gr ? (gr.seats || []) : null; };
 /* the characters whose players can see a chat */
-N.pcsIn = ch => { const s = N.chSeat(ch); return N.pcs().filter(c => !s || c.player === s); };
+N.pcsIn = ch => { const ss = N.chSeats(ch); return N.pcs().filter(c => !ss || ss.includes(c.player)); };
 N.tokById = id => N.G.combat.tokens.find(t => t.id === id);
 /* the fighter behind a roll's whoKey ('tok:<id>' or 'pc:<char id>'), if they are in this fight */
 N.tokOfKey = (key = '') => key.startsWith('tok:') ? N.tokById(key.slice(4)) : key.startsWith('pc:') ? N.G.combat.tokens.find(t => t.kind === 'pc' && t.ref === key.slice(3)) : null;

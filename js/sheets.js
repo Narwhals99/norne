@@ -119,9 +119,9 @@ N.sheetHtml = function(v){
       : tab === 'maps' ? pins.map(p => ({id:`pl:${p.map}:${p.id}`, title:p.label, sub:p.sub, place:{map:p.map, rx:p.rx, ry:p.ry}}))
       : [...g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your picture', up:true})), ...N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Picture'}))];
     const isOn = p => p.place ? (d.place && d.place.map === p.place.map && d.place.rx === p.place.rx && d.place.ry === p.place.ry) : (d.art && d.art === p.art);
-    const forwho = ['table', ...N.seats().map(x => 'dm-' + x)];
+    const forwho = N.channelsFor('gm').filter(c => c !== 'gm');
     const body = `
-      <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
+      <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:c.startsWith('grp-')?`<span class="cic">${IC('whisper')}</span>${esc(N.chName(c,'gm'))}`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
       <div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">Picture</h4><div class="seg"><button type="button" data-a="sdTab" data-v="recent" aria-pressed="${tab==='recent'}">Recent</button><button type="button" data-a="sdTab" data-v="pics" aria-pressed="${tab==='pics'}">Pictures</button><button type="button" data-a="sdTab" data-v="maps" aria-pressed="${tab==='maps'}">Map places</button></div></div>
         <div class="thumbs">${pics.map(p => `<button type="button" class="thumb${isOn(p)?' on':''}" ${p.up ? `data-a="sdPickUp" data-v="${esc(p.art)}"` : `data-a="sdPick" data-v="${esc(p.id)}"`} style="${N.sceneArt(p)};${p.place?'background-size:420% auto':''}">${N.scenePic(p)}<span>${esc(p.title)}<small>${esc(p.sub||'')}</small></span>${isOn(p)?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
           ${tab==='pics'?`<button type="button" class="thumb up" data-a="sdUpload"><span>${IC('upload')}Upload a picture</span></button>`:''}
@@ -309,6 +309,21 @@ N.sheetHtml = function(v){
       <textarea class="inp" id="med-${v.id}" data-i="med" rows="5" style="font:500 15.5px/1.45 var(--f-ui)">${esc(d.text)}</textarea>`,
       `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn primary" data-a="msgSave" ${d.text.trim()?'':'disabled'}>${IC('check')}Save</button>`);
   }
+  /* ---------------- group chats (GM) ---------------- */
+  case 'grpEdit': {
+    const d = v.ui.gd, seats = N.seats(), ready = N.groupsReady();
+    const body = `${ready ? '' : `<div class="note">${IC('warn')}Group chats need the new Firebase security rules. Paste firestore.rules into Firebase &gt; Firestore &gt; Rules, press Publish, then reload.</div>`}
+      <label class="field"><span>Name</span><input class="inp" id="gdn-${v.id}" data-i="gdName" value="${esc(d.name)}" placeholder="e.g. Jack and Rachel" autocomplete="off"></label>
+      <div><h4>Who’s in it</h4><div class="forwho">${seats.map(s => `<button type="button" data-a="gdSeat" data-v="${s}" aria-pressed="${d.seats.includes(s)}">${N.av(N.personObj(s), 28)}${esc(G().P[s]?.name || s)}</button>`).join('') || '<p class="muted" style="margin:0">No players yet.</p>'}</div>
+      <p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">Only these players and you can read it. Someone added later sees the whole chat so far; someone taken out loses it.</p></div>
+      ${d.id ? `<button type="button" class="btn sm danger" data-a="sheet" data-v="grpDel" data-c="${esc(d.id)}" style="justify-self:start">${IC('trash')}Delete this group chat</button>` : ''}`;
+    return sheet(d.id ? 'Edit group chat' : 'New group chat', body, `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="gdSave" ${d.name.trim() && d.seats.length && ready ? '' : 'disabled'}>${IC('check')}${d.id ? 'Save' : 'Make the chat'}</button>`);
+  }
+  case 'grpDel': {
+    const gr = (g.groups || []).find(x => x.id === arg); if (!gr) return '';
+    return sheet(`Delete ${esc(gr.name)}?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The chat and everything said in it are deleted for everyone. This can’t be undone.</p>`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="grpDelGo" data-v="${esc(gr.id)}">${IC('trash')}Delete</button>`);
+  }
   /* a picture sent in chat, as big as the screen allows */
   case 'picView': {
     const m = g.msgs.find(x => x.id === arg); if (!m || !m.pic) return '';
@@ -335,7 +350,7 @@ N.sheetHtml = function(v){
         <div class="wipe-list" role="group" aria-label="Chat to wipe">${rows}</div>`,
         `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn danger" data-a="wipeStep" data-v="2" ${w.ch ? '' : 'disabled'}>Next${IC('right')}</button>`);
     }
-    const name = esc(N.chName(w.ch, 'gm')), n = count(w.ch), who = w.ch === 'table' ? 'you and every player' : w.ch === 'gm' ? 'you' : `you and ${name}`;
+    const name = esc(N.chName(w.ch, 'gm')), n = count(w.ch), who = w.ch === 'table' ? 'you and every player' : w.ch === 'gm' ? 'you' : N.grpOf(w.ch) ? `you and ${esc(N.namesOf(N.grpOf(w.ch).seats))}` : `you and ${name}`;
     const banner = `<div class="wipe-who">${ic(w.ch)}<span><small>Chat to wipe</small><b>${name}</b><small>${n} message${n > 1 ? 's' : ''} · ${esc(N.chSub(w.ch, 'gm'))}</small></span></div>`;
     if (w.step === 2) {
       return sheet('This is permanent', `${banner}

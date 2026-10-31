@@ -456,6 +456,7 @@ function input(v, el){
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
+    case 'gdName': { v.ui.gd.name = val; const b = v.root.querySelector('[data-a="gdSave"]'); if (b) b.disabled = !val.trim() || !v.ui.gd.seats.length || !N.groupsReady(); return; }
     case 'news': { const d = v.ui.newsEdit, n = +el.dataset.n; if (k === 'stt' || k === 'stb') d.stories[n][k === 'stt' ? 'title' : 'body'] = val; else if (k === 'cap') { if (n < 0) d.lcap = val; else d.stories[n].cap = val; } else d[k] = val; render(v); return; }
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
     case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || (c.player === v.role && k !== 'invText'))) c[k] = val; return; }
@@ -1033,6 +1034,20 @@ function act(v, a, el, e){
   case 'msgMenu': { const w = v.root.querySelector(`[data-mid="${CSS.escape(val)}"]`); if (ui.pop?.mid === val) ui.pop = null; else if (w) { openPop(v, 'msg', d.lp ? (w.querySelector('.m,.narr,.resm,.roll') || w) : el); ui.pop.mid = val; } break; }
   case 'emoMore': if (ui.pop) ui.pop.all = !ui.pop.all; break;
   case 'emoTab': ui.emoTab = val; if (val === 'gif' && !ui.gifRes && g.gifKey) gifSearch(v); break;
+  /* group chats: the GM makes, renames, fills and deletes them */
+  case 'grpNew': if (!gm) break; openSheet(v, 'grpEdit'); break;
+  case 'grpEdit': if (!gm) break; openSheet(v, 'grpEdit', {v:val}); break;
+  case 'gdSeat': { const ss = ui.gd.seats, i = ss.indexOf(val); if (i < 0) ss.push(val); else ss.splice(i, 1); break; }
+  case 'gdSave': {
+    const d = ui.gd, name = d.name.trim(); if (!gm || !name || !d.seats.length) break;
+    const old = d.id && g.groups.find(x => x.id === d.id), seats = N.seats().filter(s => d.seats.includes(s));
+    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now()};
+    N.saveGroup(gr, old ? old.seats : null);
+    if (!old) sys(`${N.gmName()} made this group chat for ${N.namesOf(seats)}.`, 'grp-' + gr.id);
+    else { const added = seats.filter(s => !old.seats.includes(s)); if (added.length) sys(`${N.gmName()} added ${N.namesOf(added)} to the chat.`, 'grp-' + gr.id); }
+    close(); ui.tab = 'chat'; ui.ch = 'grp-' + gr.id; ui.shelf = false; toast(v, old ? 'Saved.' : `Made ${name}. Only ${N.namesOf(seats)} and you can read it.`); renderAll(); return;
+  }
+  case 'grpDelGo': { if (!gm) break; const gr = g.groups.find(x => x.id === val); if (!gr) break; N.dropGroup(gr.id); close(); if (ui.ch === 'grp-' + gr.id) ui.ch = 'table'; toast(v, `${gr.name} deleted.`); renderAll(); return; }
   case 'picSend': sendPic(v); return;
   case 'picView': openSheet(v, 'picView', {v:val}); break;
   case 'gifSend': { const r = (ui.gifRes || [])[+d.i]; if (r) sendGif(v, {u:r.u, w:r.w, h:r.h}); return; }
@@ -1410,6 +1425,7 @@ function act(v, a, el, e){
 function openSheet(v, s, d={}){
   const g = G(), ui = v.ui;
   ui.sheet = s; ui.sheetArg = d.c || d.v || null;
+  if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats]} : {id:null, name:'', seats:[]}; }
   if (s === 'scene') {
     const ch = ui.ch === 'gm' ? 'table' : ui.ch, cur = g.scenes[ch];
     ui.sd = cur ? {ch, title:cur.title, where:cur.where || '', date:cur.date || '', art:cur.art || null, place:cur.place || null, aspects:(cur.aspects||[]).map(a => ({...a})), post:true, tab:g.recent.length ? 'recent' : 'pics', newAsp:''}
