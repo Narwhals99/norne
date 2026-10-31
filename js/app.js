@@ -322,8 +322,11 @@ function goBack(v, home){
    history entry is kept for them to use up; when there is none it is dropped, so back leaves the app as usual */
 const phoneView = () => views.find(x => x.dev === 'phone' && x.root.isConnected);
 let backEntry = false, dropping = false;
+/* iPhones and iPads have no back button, and their own edge swipe treats a kept entry as a page to leave
+   (Jack's swipe in a wiki entry reloaded Norne into Everyone), so they get no history entries: the edge swipe above does it all */
+const APPLE = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 function syncBack(){
-  const v = phoneView(); if (!v || dropping || !v.role || N.gated) return;
+  const v = phoneView(); if (APPLE || !v || dropping || !v.role || N.gated) return;
   const need = !!backStep(v, true);
   if (need && !backEntry) { history.pushState({norne:'back'}, ''); backEntry = true; }
   else if (!need && backEntry && history.state?.norne === 'back') { backEntry = false; dropping = true; history.back(); }
