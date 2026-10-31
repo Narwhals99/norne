@@ -63,7 +63,7 @@ function chanLast(v, c){
   const ms = G().msgs;
   for (let i = ms.length - 1; i >= 0; i--) {
     const m = ms[i];
-    if (m.ch !== c || (m.kind === 'scene' && (m.quiet || !m.scene))) continue;
+    if (m.ch !== c || m.fc || (m.kind === 'scene' && (m.quiet || !m.scene))) continue;
     if (m.kind === 'scene') return 'New scene: ' + m.scene.title;
     if (m.kind === 'roll') return `${m.roll.who} rolled`;
     if (m.kind === 'fight' || m.kind === 'combat') return 'A fight';
@@ -137,8 +137,8 @@ function deskPage(v, c, a, mode, cls){
   return `<main class="page with-rail${cls ? ' ' + cls : ''}" data-wk="${wk}"${w ? ` style="--railw:${w}px"` : ''}>${c}<aside class="rail${off ? ' rc-off' : ''}">
     <div class="railgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the side panel" title="Drag to resize"></div>
     ${a}
-    <section class="rcnt"><button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC(mode === 'rp' ? 'dice' : 'swords')}<b>${mode === 'rp' ? 'Recent actions' : 'Fight results'}</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
-      ${off ? '' : N.recentHtml(v, mode)}</section>
+    <section class="rcnt"><button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC(mode === 'rp' ? 'dice' : 'swords')}<b>${mode === 'rp' ? 'Recent actions' : 'Fight results and chat'}</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
+      ${off ? '' : N.recentHtml(v, mode) + (mode === 'cb' ? fightComposer(v) : '')}</section>
   </aside></main>`;
 }
 /* desktop, when this chat has a fight: one switch between the roleplay screen and the combat screen.
@@ -148,7 +148,11 @@ function modeSeg(v){
   const n = cb ? g.msgs.filter(m => m.ch === v.ui.ch && m.by !== v.role && m.t > (v.ui.rpSeen || 0) && !isAction(m) && m.kind !== 'scene').length : 0;
   return `<div class="seg modeseg" role="group" aria-label="Screen"><button type="button" data-a="mode" data-v="rp" aria-pressed="${!cb}">${IC('chatL')}Roleplay${n ? `<i class="nb">${n}</i>` : ''}</button><button type="button" data-a="mode" data-v="cb" aria-pressed="${!!cb}">${IC('swords')}Combat</button></div>`;
 }
-N.deskPage = deskPage; N.modeSeg = modeSeg;
+/* the chat that belongs to one fight: questions, what you'd like to do next. It stays with the fight, never in the roleplay chat */
+function fightComposer(v){
+  return `<form class="fc-comp" onsubmit="return false"><input class="inp" id="fc-${v.id}" data-i="fcDraft" value="${esc(v.ui.fcDraft || '')}" placeholder="Talk about the fight…" autocomplete="off" enterkeyhint="send"><button type="button" class="ibtn" data-a="fcSend" aria-label="Send to the fight chat">${IC('send')}</button></form>`;
+}
+N.deskPage = deskPage; N.modeSeg = modeSeg; N.fightComposer = fightComposer; N.rMsg = rMsg;
 /* the GM screen / character panel beside the chat: on by default when there is room, the viewer can flip it */
 function railShown(v){
   return v.dev === 'desktop';
@@ -214,13 +218,13 @@ function isAction(m){
 }
 /* the part of the actions that belongs to a fight: fight rolls, results, and the fight's own notices */
 function isFightAct(m){
-  return (m.kind === 'roll' && !!(m.roll.fight || m.roll.target || m.roll.action === 'Attack' || m.roll.action === 'Defend')) || (m.kind === 'sys' && !!(m.res || m.fight));
+  return !!m.fc || (m.kind === 'roll' && !!(m.roll.fight || m.roll.target || m.roll.action === 'Attack' || m.roll.action === 'Defend')) || (m.kind === 'sys' && !!(m.res || m.fight));
 }
 /* the actions leave the chat only while Recent actions is there to show them */
 const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'chat' && railShown(v) && !v.ui.recentOff;
 N.isAction = isAction; N.isFightAct = isFightAct; N.hhmm = hhmm;
 function renderMsgs(v, side){
-  const g = G(), out1 = actionsOut(v, side), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)) && !(out1 && isAction(m)));
+  const g = G(), out1 = actionsOut(v, side), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)) && !m.fc && !(out1 && isAction(m)));
   if (!ms.length) return `<div class="quiet"><div class="art"></div><p>${v.ui.ch.startsWith('dm-') ? 'Nothing here yet. Anything said here stays between you two.' : 'Nothing here yet.'}</p></div>`;
   let out = '', prev = null, firstNarr = true;
   /* only the newest roll in a chat starts open; a roll someone opened or closed by hand stays that way */
@@ -277,7 +281,7 @@ function rxPill(v, m){
 }
 function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
-  if (m.kind === 'sys') return m.res ? resCard(m.res) : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
+  if (m.kind === 'sys') return m.res ? resCard(m.res) : m.fightEnd ? `<button type="button" class="sysm fend" data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}">${IC('swords')}<span>${esc(m.text)}</span><b>See what happened</b></button>` : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
   if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}"></span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
   if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);

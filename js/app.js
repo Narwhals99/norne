@@ -184,6 +184,7 @@ function bind(v){
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
+    if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'fcDraft') { e.preventDefault(); fcSend(v); }
     if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
   root.addEventListener('pointerdown', e => down(v, e));
@@ -228,6 +229,7 @@ function input(v, el){
   const g = G(), i = el.dataset.i, k = el.dataset.k, val = el.value;
   switch (i) {
     case 'draft': v.ui.draft = val; grow(el); return;
+    case 'fcDraft': v.ui.fcDraft = val; return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
     case 'mapQ': v.ui.mapQ = val; render(v); return;
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
@@ -299,6 +301,13 @@ function send(v){
   const ta = v.root.querySelector('.composer textarea'); if (ta) ta.focus({preventScroll:true});
 }
 N.send = send;
+/* the fight's own chat: table talk that stays with the fight (fc = the fight's id) and out of the roleplay chat and exports */
+function fcSend(v){
+  const text = (v.ui.fcDraft || '').trim(), cb = G().combat; if (!text || cb.state !== 'live') return;
+  push({ch:N.fightCh(), kind:'meta', by:v.role, text, fc:cb.id});
+  v.ui.fcDraft = ''; v.ui.stick = true; renderAll();
+  const el = v.root.querySelector(`#fc-${v.id}`); if (el) el.focus({preventScroll:true});
+}
 function sendGif(v, gif){
   const ch = v.ui.ch, m = {kind:'gif', ch, by:v.role, text:'', gif};
   if (v.ui.reply && G().msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
@@ -689,6 +698,7 @@ function act(v, a, el, e){
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;
   case 'fold': ui.folded.set(d.id, !d.f); break;
   case 'send': send(v); return;
+  case 'fcSend': fcSend(v); return;
   case 'roll': openRoll(v, {skill:d.skill, who: d.who || (d.c ? 'pc:' + d.c : d.npc ? 'npc:' + d.npc : null), secret:!!d.secret}); break;
   case 'voice': { ui.voiceQ = '';
     if (val === '__ooc') ui.mode = 'ooc';
@@ -960,8 +970,8 @@ function act(v, a, el, e){
   case 'expDl': {
     const t = v.root.querySelector('#exOut'); if (!t) return;
     const dt = new Date(), p = n => String(n).padStart(2, '0');
-    const url = URL.createObjectURL(new Blob([t.value], {type:'text/markdown'})), aEl = document.createElement('a');
-    aEl.href = url; aEl.download = `norne-log-${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}.md`; document.body.appendChild(aEl); aEl.click(); aEl.remove();
+    const js = !!ui.exp.json, url = URL.createObjectURL(new Blob([t.value], {type:js ? 'application/json' : 'text/markdown'})), aEl = document.createElement('a');
+    aEl.href = url; aEl.download = `norne-log-${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}.${js ? 'json' : 'md'}`; document.body.appendChild(aEl); aEl.click(); aEl.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000); return;
   }
   /* roll sheet */

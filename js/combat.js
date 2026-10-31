@@ -182,25 +182,39 @@ function feedHtml(v){
   const g = G(), ch = N.fightCh(), cb = g.combat, start = g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cb.id);
   const ms = g.msgs.filter(m => m.ch === ch && (!start || m.t >= start.t));
   const last = ms.findLast(m => m.kind === 'roll'), p = cb.pending;
-  const live = m => m === last || (p && (m.id === p.msgId || m.id === p.defMsg));
-  const rows = ms.map(m => feedRow(m, live(m))).filter(Boolean).join('');
-  return `<div class="ffeed"><span class="eyebrow">Fight log<button type="button" class="lnk" data-a="pane" data-v="chat">Whole chat${IC('right')}</button></span>
-    <div class="ff-list scroll" data-sk="ffeed" data-bottom="1">${rows || '<p class="muted">Rolls and results show up here.</p>'}</div></div>`;
+  const live = m => isGM(v) && (m === last || (p && (m.id === p.msgId || m.id === p.defMsg)));
+  const rows = ms.filter(m => !m.fc || m.fc === cb.id).map(m => feedRow(m, live(m))).filter(Boolean).join('');
+  return `<div class="ffeed"><span class="eyebrow">Fight log and chat<button type="button" class="lnk" data-a="pane" data-v="chat">Roleplay${IC('right')}</button></span>
+    <div class="ff-list scroll" data-sk="ffeed" data-bottom="1">${rows || '<p class="muted">Rolls, results and fight chat show up here.</p>'}</div>${N.fightComposer(v)}</div>`;
 }
 /* desktop: the actions panel (B). Roleplay shows the chat's rolls and notices outside fights; combat shows this fight's
    rolls, results and notices. They are left out of the chat, so they show here as full cards (the newest roll open, with Invoke) */
 function recentHtml(v, mode){
   const g = G(), cb = g.combat, start = mode === 'cb' && g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cb.id);
-  const ms = g.msgs.filter(m => m.ch === v.ui.ch && N.isAction(m) && (mode === 'cb' ? N.isFightAct(m) && (!start || m.t >= start.t) : !N.isFightAct(m))).slice(-40);
-  const keep = v._lastRoll; v._lastRoll = (ms.findLast(m => m.kind === 'roll') || {}).id;
+  const ms = g.msgs.filter(m => m.ch === v.ui.ch && (mode === 'cb' ? N.isFightAct(m) && (!m.fc || m.fc === cb.id) && (!start || m.t >= start.t) : N.isAction(m) && !N.isFightAct(m))).slice(-60);
+  const rows = actRows(v, ms);
+  return `<div class="ff-list scroll" data-sk="recent-${mode}" data-bottom="1">${rows || `<p class="muted">${mode === 'cb' ? 'Rolls and results in this fight show up here.' : 'Rolls, stress, inventory and other notes from this chat show up here.'}</p>`}</div>`;
+}
+/* one action as it shows in the side panel or a fight's record: rolls and results as cards, fight chat as small bubbles, the rest as lines */
+function actRows(v, ms, past){
+  const g = G(), cb = g.combat, keep = v._lastRoll; v._lastRoll = past ? null : (ms.findLast(m => m.kind === 'roll') || {}).id;
   const live = m => (m.kind === 'fight' || m.kind === 'combat') && cb.state !== 'off' && m.cid === cb.id;
-  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll" data-mid="${m.id}"><div class="who">${esc(m.roll.who)}${m.ch === 'gm' ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time></div>${N.rRoll(v, m)}</div>`
+  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll" data-mid="${m.id}"><div class="who">${esc(m.roll.who)}${m.ch === 'gm' ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time></div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
     : m.kind === 'sys' && m.res ? N.resCard(m.res).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
+    : m.fc ? `<div class="fcm${m.by === v.role ? ' mine' : ''}"><b>${esc(N.personObj(m.by).name)}</b><span>${N.emoText(esc(m.text))}</span><time>${N.hhmm(m.t)}</time></div>`
+    : m.fightEnd ? `<div data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}" title="See what happened" class="go ff end"><span class="ffi">${IC('swords')}</span><span class="fft">${esc(m.text)} <b>See what happened</b></span></div>`
     : live(m) ? feedRow(m, false).replace('<div class="ff', `<div data-a="mode" data-v="cb" title="Open the fight" class="go ff`)
     : feedRow(m, false)).join('');
   v._lastRoll = keep;
-  return `<div class="ff-list scroll" data-sk="recent-${mode}" data-bottom="1">${rows || `<p class="muted">${mode === 'cb' ? 'Rolls and results in this fight show up here.' : 'Rolls, stress, inventory and other notes from this chat show up here.'}</p>`}</div>`;
+  return rows;
 }
+/* everything that belonged to one fight, from its start card to the note that it ended: rolls, results, notices and its chat */
+N.fightMsgs = cid => {
+  const g = G(), st = g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cid); if (!st) return [];
+  const end = g.msgs.find(m => m.fightEnd === cid);
+  return g.msgs.filter(m => m.ch === st.ch && m.t >= st.t && (!end || m.t <= end.t) && (m === st || (N.isFightAct(m) && (!m.fc || m.fc === cid))));
+};
+N.fightRecHtml = (v, cid) => `<div class="ff-list fight-rec">${actRows(v, N.fightMsgs(cid), true) || '<p class="muted">Nothing was rolled in this fight.</p>'}</div>`;
 N.recentHtml = recentHtml;
 function feedRow(m, live){
   const line = (ic, body, cls='', end='') => `<div class="ff${cls}"><span class="ffi">${ic}</span><span class="fft">${body}</span>${end}</div>`;
@@ -296,7 +310,7 @@ N.fightView = function(v){
     return `<section class="fight cmd ph" aria-label="Fight on ${esc(cb.title)}">
       <div class="top ph">${N.meBtn(v)}<div style="flex:1;display:flex;justify-content:center">${N.fightSeg(v)}</div>${N.sideBtn(v)}</div>
       ${orderStrip(v, true)}
-      <div class="fight-scroll scroll" data-sk="fightph">${board}${isGM(v) ? feedHtml(v) : latestHtml(v)}</div>
+      <div class="fight-scroll scroll" data-sk="fightph">${board}${feedHtml(v)}</div>
       ${nowBar(v, true)}
     </section>`;
   }
@@ -376,7 +390,7 @@ function zoneForm(v, z){
 N.zoneForm = zoneForm;
 
 /* ---------- state changes ---------- */
-const sys = text => N.sys(text, N.fightCh());
+const sys = text => Object.assign(N.sys(text, N.fightCh()), {fight:true});
 /* NPC cards and the enemies built in the old "Add enemies" form, ready to drop into a fight */
 N.foeList = place => {
   const g = G(), row = (av, name, sub, a, id) => `<div class="zi" style="padding:5px 5px 5px 6px">${av}<span>${esc(name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span><button type="button" class="btn sm" data-a="${a}" data-v="${id}" data-side="foe"${place?' data-place="1"':''} style="--h:30px">${IC('plus')}Foe</button><button type="button" class="btn sm ghost" data-a="${a}" data-v="${id}" data-side="ally"${place?' data-place="1"':''} style="--h:30px">Ally</button></div>`;
@@ -448,7 +462,8 @@ N.cbNext = function(){
 };
 N.cbEnd = function(){
   const g = G();
-  sys('The fight is over. Stress stays on your cards until the scene ends.');
+  /* the end note stays in the roleplay actions; tapping it opens everything that happened in the fight */
+  const cb = g.combat; Object.assign(N.sys(`The fight on ${cb.title || 'the field'} is over. Stress stays on your cards until the scene ends.`, N.fightCh()), {fightEnd:cb.id});
   g.combat = N.freshCombat();
 };
 N.cbMove = function(t, zid){
