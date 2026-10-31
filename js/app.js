@@ -457,7 +457,7 @@ function input(v, el){
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
     case 'news': v.ui.newsEdit[k] = val; render(v); return;
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
-    case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || c.player === v.role)) c[k] = val; return; }
+    case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || (c.player === v.role && k !== 'invText'))) c[k] = val; return; }
     case 'cbTitle': g.combat.title = val; return;
     case 'zone': { const z = g.combat.zones.find(x => x.id === el.dataset.z); if (!z) return; z[k] = val; if (k === 'name') { const l = v.root.querySelector(`[data-zl="${z.id}"]`); if (l && l.firstChild) l.firstChild.textContent = val; } return; }
     case 'rollAsp': v.ui.roll.aspect = val; return;

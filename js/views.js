@@ -761,7 +761,7 @@ function heroInv(v, c, mine){
   return `<div class="scroll" data-sk="heroinv" style="min-height:0"><div class="top ph" style="display:flex"><button type="button" class="ibtn" data-a="heroInv" data-v="" aria-label="Back to the character sheet">${IC('left')}</button><h1>${own ? 'My inventory' : `${esc(c.built ? c.short : pn(c))}’s inventory`}</h1><button type="button" class="btn sm" data-a="heroInv" data-v="">${IC('x')}Close</button></div>
     <div class="sheetv">${c.built
       ? `<section class="sec"><h3>Items</h3>${invList(v, c, false)}</section>
-        <section class="sec"><h3>${own ? 'Your notes' : 'Notes'}</h3>${noteBox(v, c, 'invText', own, 'What you carry, in your own words')}</section>`
+        ${c.invText ? `<section class="sec"><h3>Notes</h3>${noteBox(v, c, 'invText', false, '')}</section>` : ''}`
       : `<section class="sec"><p class="muted">${own ? `${esc(N.gmName())} hasn’t made your character card yet.` : 'No card yet.'}</p></section>`}</div></div>`;
 }
 const asps = list => list.filter(x => x[1]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.6,.5,-.3][i%3]}deg"><span class="k">${k}</span>${esc(a)}</span>`).join('');
@@ -786,11 +786,11 @@ N.sheetBody = function(v, c){
     <section class="sec"><h3>Stunts</h3>${c.stunts.map(([n,d]) => `<div class="stunt"><b>${esc(n)}</b><p>${esc(d)}</p></div>`).join('') || '<p class="muted">None yet.</p>'}</section>
     <section class="sec full"><h3>Bio</h3>${noteBox(v, c, 'bio', edit, 'Who they are, where they come from, what they look like…')}</section>
     <section class="sec"><h3>Important people</h3>${noteBox(v, c, 'people', edit, 'Family, friends, rivals, debts… one per line')}</section>
-    ${N.heroBag(v) ? '' : `<section class="sec"><h3>Inventory</h3>${noteBox(v, c, 'invText', edit, 'What you carry, in your own words')}${invList(v, c, gm)}</section>`}`;
+    ${N.heroBag(v) ? '' : `<section class="sec"><h3>Inventory</h3>${gm || c.invText ? noteBox(v, c, 'invText', gm, 'What they carry. The player can read this.') : ''}${invList(v, c, gm)}</section>`}`;
 };
 const conLv = sl => `<span class="lv"><b>${sl.l}</b>${sl.lo}–${sl.hi} shifts${sl.only?`<small style="display:block;color:var(--gold-tx);margin-top:2px">${sl.only} only</small>`:''}</span>`;
 N.conLv = conLv;
-/* a free-text box on a card the player and GM can both write in */
+/* a free-text box on a card the player and GM can both write in (inventory notes: GM only) */
 const noteBox = (v, c, k, edit, ph) => edit ? `<textarea class="inp" id="cn-${k}-${c.id}-${v.id}" data-i="cnote" data-c="${c.id}" data-k="${k}" rows="3" placeholder="${ph}">${esc(c[k]||'')}</textarea>`
   : c[k] ? `<p style="margin:0;white-space:pre-line">${esc(c[k])}</p>` : '<p class="muted">Nothing yet.</p>';
 /* the items the GM hands out; only the GM changes them */
@@ -815,7 +815,7 @@ function invBody(v){
   const body = list.length ? list.map(c => !c.built
       ? `<section class="sec"><h3>${esc(pn(c))}</h3><p class="muted">${gm?'No card yet. Make it in Cast first.':`${esc(N.gmName())} hasn’t made your character card yet.`}</p></section>`
       : `<section class="sec"><h3>${gm?esc(c.short):'Items'}</h3>${gm?`<div style="display:flex;gap:10px;align-items:center">${N.av(c,36)}<span class="muted" style="font:600 13px/1.3 var(--f-ui)">Played by ${esc(pn(c))}</span></div>`:''}${invList(v, c, gm)}</section>
-        <section class="sec"><h3>${gm?`${esc(c.short)}’s notes`:'Your notes'}</h3>${noteBox(v, c, 'invText', gm || c.player === v.role, 'What you carry, in your own words')}</section>`).join('')
+        ${gm || c.invText ? `<section class="sec"><h3>${gm?`${esc(c.short)}’s notes`:'Notes'}</h3>${noteBox(v, c, 'invText', gm, 'What they carry. The player can read this.')}</section>` : ''}`).join('')
     : `<div class="quiet full"><div class="art"></div><p>${gm?'No one has a seat yet.':'Nothing here yet.'}</p></div>`;
   return `<div class="sheetv">${body}</div>`;
 }
