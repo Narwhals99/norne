@@ -218,16 +218,16 @@
 .app:where([data-style="parchment"]) .m.mine .bub .ed{color:rgba(60,40,20,.6)}
 .app:where([data-style="parchment"])[data-theme="day"] .m.mine .bub .ed{color:rgba(251,239,216,.7)}
 /* out of character: liquid glass in candle amber (night) and sunlit mica (day); the glass rules live in app.css */
-.app:where([data-style="parchment"]){--glass-tint:rgba(255,214,150,.12); --glass-tint-2:rgba(255,240,210,.02); --glass-mine:rgba(190,60,40,.2);
+.app:where([data-style="parchment"]){--glass-tint:rgba(255,214,150,.12); --glass-tint-2:rgba(255,240,210,.02); --glass-mine:rgba(200,60,40,.4); --glass-mine-2:rgba(150,35,25,.22); --glass-mine-rim:rgba(240,120,95,.8);
   --glass-sheen:rgba(255,236,200,.15); --glass-rim:rgba(255,226,170,.6); --glass-rim-2:rgba(255,226,170,.06); --glass-rim-3:rgba(214,150,70,.45);
   --glass-shadow:0 8px 20px -12px rgba(0,0,0,.75); --glass-filter:blur(5px) saturate(160%) brightness(1.18)}
-.app:where([data-style="parchment"])[data-theme="day"]{--glass-tint:rgba(255,251,238,.5); --glass-tint-2:rgba(255,246,222,.14); --glass-mine:rgba(170,50,35,.12);
+.app:where([data-style="parchment"])[data-theme="day"]{--glass-tint:rgba(255,251,238,.5); --glass-tint-2:rgba(255,246,222,.14); --glass-mine:rgba(150,88,36,.5); --glass-mine-2:rgba(120,66,24,.32); --glass-mine-rim:rgba(165,34,28,.65);
   --glass-sheen:rgba(255,255,250,.65); --glass-rim:rgba(255,255,248,.95); --glass-rim-2:rgba(255,250,235,.2); --glass-rim-3:rgba(120,80,30,.35);
   --glass-shadow:0 8px 18px -12px rgba(80,50,15,.5); --glass-filter:blur(6px) saturate(170%) brightness(1.05)}
 .app:where([data-style="parchment"]) .m.ooc .bub{color:var(--ink-2);border:0;border-radius:8px;padding:6px 11px}
 /* [data-theme] so these beat the own-message parchment and ink-wash rules above, night and day */
 .app:where([data-style="parchment"])[data-theme] .m.ooc.mine .bub{color:var(--ink-2);border-radius:8px;
-  background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-mine),var(--glass-tint-2));
+  background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-mine),var(--glass-mine-2));
   box-shadow:inset -2px 0 0 color-mix(in srgb,var(--wax) 70%,transparent),inset 0 1px 0 var(--glass-rim),inset 0 -1px 2px var(--glass-rim-2),var(--glass-shadow)}
 .app:where([data-style="parchment"])[data-theme] .m.ooc.mine .bub em{color:var(--ink-2)}
 .app:where([data-style="parchment"])[data-theme] .m.ooc.mine .bub .ed{color:var(--ink-4)}
@@ -429,7 +429,7 @@
 .app:where([data-style="parchment"]) .ent{border-radius:8px}
 .app:where([data-style="parchment"]) .ent[aria-current="true"]::before{background:var(--wax)}
 .app:where([data-style="parchment"])[data-theme] .cat[aria-current="true"],.app:where([data-style="parchment"])[data-theme] .ent[aria-current="true"]{
-  background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-mine),var(--glass-tint-2));
+  background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-mine),var(--glass-mine-2));
   box-shadow:inset 3px 0 0 color-mix(in srgb,var(--wax) 75%,transparent),inset 0 1px 0 var(--glass-rim),var(--glass-shadow)}
 .app:where([data-style="parchment"]) .article h1{font-weight:400;letter-spacing:0}
 .app:where([data-style="parchment"]) .article .sum{font-family:var(--f-body);color:var(--ink-2)}
