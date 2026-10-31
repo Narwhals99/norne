@@ -461,6 +461,7 @@ function input(v, el){
     case 'cbTitle': g.combat.title = val; return;
     case 'zone': { const z = g.combat.zones.find(x => x.id === el.dataset.z); if (!z) return; z[k] = val; if (k === 'name') { const l = v.root.querySelector(`[data-zl="${z.id}"]`); if (l && l.firstChild) l.firstChild.textContent = val; } return; }
     case 'rollAsp': v.ui.roll.aspect = val; return;
+    case 'rollEv': v.ui.roll.evText = val; return;
     case 'rollOther': v.ui.roll.otherName = val; return;
     case 'sd': v.ui.sd[k] = val; if (k === 'title' || k === 'where') { v.ui.sd.autoTitle = false; v.ui.sd.touched = true; } if (k === 'title') render(v); return;
     case 'cbAsp': v.ui.cbAsp = val; return;
@@ -569,7 +570,7 @@ function openRoll(v, o={}){
   }
   const r = N.rollerOf(v, who);
   const best = r ? Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] : 'Notice';
-  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true};
+  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:''};
   { const r = v.ui.roll; if (r.skill in vsSkillMem) r.vsSkill = vsSkillMem[r.skill]; }
   v.ui.sheet = 'roll'; v.ui.pop = null;
 }
@@ -586,17 +587,24 @@ function doRoll(v){
   const fight = isGM(v) && g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
   const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : r.opp, dice:N.rollDice(), invokes:[]};
   if (fight) roll.fight = true;
-  else if (isGM(v) && r.ctx !== 'cb' && (r.vsSkill || r.vsNpc)) { const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); roll.vs = {name:n ? n.name : null, skill:r.vsSkill || null}; }
+  /* a custom event (mind magic, a spell, anything the four actions don't cover) is a fight roll built like a roleplay roll:
+     a skill against a skill and/or someone, a difficulty, passive or not, and it can be secret */
+  const ev = fight && r.event, rp = isGM(v) && (ev || (!fight && r.ctx !== 'cb'));
+  if (ev) roll.event = (r.evText || '').trim() || true;
+  if (rp && (r.vsSkill || r.vsNpc)) { const n = N.vsFind(v, r, r.vsNpc); roll.vs = {name:n ? n.name : null, skill:r.vsSkill || null}; }
   /* not passive: the other side rolls 4dF on top of the difficulty / the NPC's skill, and that total is what you beat */
-  if (isGM(v) && !fight && r.ctx !== 'cb' && r.passive === false && r.opp != null) { roll.oppBase = r.opp; roll.oppDice = N.rollDice(); roll.opp = r.opp + roll.oppDice.reduce((a, b) => a + b, 0); }
-  const secret = isGM(v) && !fight && (r.secret || v.ui.ch === 'gm');
+  if (rp && r.passive === false && r.opp != null) { roll.oppBase = r.opp; roll.oppDice = N.rollDice(); roll.opp = r.opp + roll.oppDice.reduce((a, b) => a + b, 0); }
+  /* a secret event stays in GM notes, marked with the fight so the GM's fight log and its record still show it */
+  const secret = isGM(v) && (ev ? !!r.secret : !fight && (r.secret || v.ui.ch === 'gm'));
+  if (ev && secret) roll.cid = g.combat.id;
   const ch = secret ? 'gm' : fight ? N.fightCh() : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
   const m = push({ch, kind:'roll', by:v.role, roll});
   if (isGM(v) && who.portrait) m.pt = who.portrait;
   if (v.dev === 'phone' && !fight) { v._rfx = {id:m.id, at:Date.now(), own:true}; setTimeout(() => render(v), N.RFX_MS + 60); }
   v.ui.fresh = m.id; v.ui.sheet = null; v.ui.targeting = null; v.ui.stick = true;
-  if (fight) afterFightRoll(v, r, m);
-  if (secret && v.ui.ch !== 'gm') toast(v, 'Secret roll saved in GM notes.');
+  if (fight) { if (secret) g.combat.acted = true; else afterFightRoll(v, r, m); }
+  if (ev && secret) toast(v, 'Secret roll saved in your fight log. Players don’t see it.');
+  else if (secret && v.ui.ch !== 'gm') toast(v, 'Secret roll saved in GM notes.');
   else if (ch !== v.ui.ch || v.ui.tab !== 'chat') toast(v, `${name} rolled ${sgn(N.rollTotal(roll))} ${ladderWord(N.rollTotal(roll))}.`);
   renderAll();
 }
@@ -628,7 +636,7 @@ function afterFightRoll(v, r, m){
       fsys(`${N.tokName(a)} creates “${name}” with ${free} free invoke${free>1?'s':''}.`);
     } else fsys(`${N.tokName(a)} tries to create “${name}”, but it doesn’t come together.`);
   }
-  if (r.action === 'overcome') { const opp = r.opp ?? 2; m.roll.opp = opp; }
+  if (r.action === 'overcome' && !r.event) { const opp = r.opp ?? 2; m.roll.opp = opp; }
   cb.acted = true;
 }
 function cbDefend(v){
@@ -1254,8 +1262,8 @@ function act(v, a, el, e){
   case 'rollSkill': { const r = ui.roll; r.skill = val; if (val in vsSkillMem) { r.vsSkill = vsSkillMem[val]; const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; } break; }
   case 'rollAll': ui.roll.all = true; break;
   case 'rollOpp': ui.roll.opp = val === 'null' ? null : +val; break;
-  case 'rollVsSkill': { const r = ui.roll; r.vsSkill = r.vsSkill === val ? null : val; vsSkillMem[r.skill] = r.vsSkill; vsSkillSave(); const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
-  case 'rollVsNpc': { const r = ui.roll; r.vsNpc = val || null; const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
+  case 'rollVsSkill': { const r = ui.roll; r.vsSkill = r.vsSkill === val ? null : val; vsSkillMem[r.skill] = r.vsSkill; vsSkillSave(); const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
+  case 'rollVsNpc': { const r = ui.roll; r.vsNpc = val || null; const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
   case 'rollPassive': ui.roll.passive = ui.roll.passive === false; break;
   case 'rollSecret': ui.roll.secret = !ui.roll.secret; break;
   case 'rollBonus': ui.roll.otherBonus = clamp((+ui.roll.otherBonus || 0) + (+d.d), -4, 10); break;
@@ -1309,6 +1317,7 @@ function act(v, a, el, e){
     const a2 = N.actorTok(v) || (gm ? N.curTok() : null); if (!a2) break;
     const key = a2.kind === 'pc' ? 'pc:' + a2.ref : 'tok:' + a2.id;
     if (val === 'attack' || val === 'move') { ui.targeting = ui.targeting === val ? null : val; ui.tokSel = null; break; }
+    if (val === 'event') { openRoll(v, {who:key, action:'overcome', ctx:'cb', event:true}); break; }
     const sk = N.tokSkills(a2), pick = list => list.map(s => [s, sk[s]||0]).sort((x,y) => y[1]-x[1])[0][0];
     openRoll(v, {who:key, action:val, ctx:'cb', opp:2, skill: val === 'advantage' ? pick(['Notice','Provoke','Athletics','Deception','Fighting']) : pick(['Athletics','Strength','Will','Notice'])});
     break;
