@@ -72,6 +72,7 @@ function chanLast(v, c){
     if (m.kind === 'scene') return 'New scene: ' + m.scene.title;
     if (m.kind === 'roll') return `${m.roll.who} rolled`;
     if (m.kind === 'fight' || m.kind === 'combat') return 'A fight';
+    if (m.kind === 'pic') return `${m.by === v.role ? 'You' : N.personObj(m.by).name} sent a picture`;
     if (m.kind === 'news') return 'New edition of the paper';
     if (m.kind === 'sys') return m.text || '';
     const who = m.by === v.role ? 'You' : m.kind === 'ooc' || m.kind === 'meta' ? N.personObj(m.by).name : N.speakerObj(m).name;
@@ -327,6 +328,11 @@ function rMsg(v, m, prev, firstNarr){
     /* GIFs are always table talk: posted as the person, never as a character */
     return `<div class="m ooc gifm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><div class="gifbox"><img class="gif" src="${esc(gf.u)}" alt="GIF" loading="lazy" ${gf.w && gf.h ? `style="aspect-ratio:${+gf.w}/${+gf.h}"` : ''}></div></div></div>`;
   }
+  if (m.kind === 'pic') {
+    const p = N.personObj(m.by), pc = m.pic || {};
+    /* a picture someone sent: tap it to see it big */
+    return `<div class="m ooc gifm picm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><button type="button" class="gifbox" data-a="picView" data-v="${m.id}" aria-label="Open the picture"><img class="gif" src="${esc(pc.u)}" alt="${esc(m.text || 'Picture')}" loading="lazy" ${pc.w && pc.h ? `style="aspect-ratio:${+pc.w}/${+pc.h}"` : ''}></button>${m.text ? `<div class="bub">${N.emoText(fmt(m.text))}${m.ed ? ' <span class="ed">edited</span>' : ''}</div>` : ''}</div></div>`;
+  }
   if (m.kind === 'ooc' || m.kind === 'meta') {
     const p = N.personObj(m.by);
     const big = N.emojiOnly(m.text);
@@ -437,6 +443,7 @@ function composer(v){
       ${v.ui.ch === 'gm' ? `<span class="voice">${chip}</span>` : gm ? `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`
         : `<button type="button" class="voice flip" data-a="voice" data-v="__flip" aria-label="${ooc ? 'Speaking Meta (out of character). Tap to speak in character' : 'Speaking in character. Tap to switch to Meta'}" title="Tap to switch">${chip}${IC('swap','car')}</button>`}
       <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="${N.enterSends() ? 'send' : 'enter'}">${esc(v.ui.draft)}</textarea>
+      <button type="button" class="emob picb" data-a="picSend" aria-label="Send a picture" title="Send a picture">${IC('image')}</button>
       <button type="button" class="emob" data-a="pop" data-v="emo" aria-label="Emoji" title="Emoji">${IC('smile')}</button>
       ${isGM(v) ? `<button type="button" class="diceb" data-a="roll" aria-label="Roll the dice" title="Roll">${fateDie}</button>` : ''}
       <button type="button" class="sendb" data-a="send" aria-label="Send">${IC('send')}</button>

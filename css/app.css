@@ -1700,6 +1700,15 @@
 .app .gif-link .inp{flex:1;min-width:0;height:38px;min-height:38px}
 .app .m.gifm .gifbox{width:fit-content;max-width:100%;padding:5px;border-radius:20px;border:1.5px dashed var(--line-3)}
 .app .m.gifm .gif{display:block;width:260px;max-width:100%;max-height:320px;object-fit:cover;border-radius:14px;background:var(--sunk)}
+/* pictures sent in chat: solid frame (GIFs keep the dashed one), a caption bubble under it, and the big view */
+.app .m.picm .gifbox{display:block;border-style:solid;cursor:zoom-in;margin-left:auto}
+.app .m.picm:not(.mine) .gifbox{margin-left:0}
+.app .m.picm .gif{width:280px}
+.app .m.picm .bub{margin-top:6px;width:fit-content;max-width:100%}
+.app .m.picm .bub::before{content:none}
+.app .m.picm.mine .bub{margin-left:auto}
+.app a.btn{text-decoration:none}
+.app .picbig{display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:12px;object-fit:contain}
 /* GM screen: the picture shelf at the bottom */
 .app .gs-pics .gs-h small{font:700 12px/1 var(--f-ui)}
 .app .gs-pics .gs-note{margin:0;font:600 12.5px/1.4 var(--f-ui)}

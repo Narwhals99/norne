@@ -24,11 +24,12 @@ N.msgSnip = m => {
   if (m.kind === 'sys' && m.res) return m.res.title || 'Turn order';
   if (m.kind === 'news') return 'News: ' + m.text;
   if (m.kind === 'gif') return 'GIF';
+  if (m.kind === 'pic') return m.text ? 'Picture: ' + m.text : 'Picture';
   const x = String(m.text || '').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
   return x.length > 90 ? x.slice(0, 90) + '…' : x;
 };
 /* what Copy puts on the clipboard: typed text as written, a GIF's link, otherwise the one-line summary */
-N.msgCopyText = m => m.kind === 'gif' ? (m.gif?.u || '') : (m.text && m.kind !== 'roll' && m.kind !== 'sys' ? String(m.text) : N.msgSnip(m));
+N.msgCopyText = m => m.kind === 'gif' ? (m.gif?.u || '') : m.kind === 'pic' ? (m.text || '') : (m.text && m.kind !== 'roll' && m.kind !== 'sys' ? String(m.text) : N.msgSnip(m));
 /* on a computer Enter sends and Shift+Enter starts a new line; on a phone Return starts a new line and the arrow sends */
 const TOUCH = matchMedia('(hover: none) and (pointer: coarse)');
 N.enterSends = () => !TOUCH.matches;
@@ -530,6 +531,16 @@ function fcSend(v){
   v.ui.fcDraft = ''; v.ui.stick = true; renderAll();
   const el = v.root.querySelector(`#fc-${v.id}`); if (el) el.focus({preventScroll:true});
 }
+/* a picture from the device, kept in the message itself (players can't write the picture store), so it is scaled to
+   at most 1280px and about 260 KB. Whatever is typed in the box goes with it as a caption. Posted as the person, like a GIF. */
+function sendPic(v){
+  N.pickImage(img => {
+    const ch = v.ui.ch, u = N.shrink(img, 1280, 260000), k = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
+    const m = {kind:'pic', ch, by:v.role, text:(v.ui.draft || '').trim(), pic:{u, w:Math.round(img.naturalWidth * k), h:Math.round(img.naturalHeight * k)}};
+    if (v.ui.reply && G().msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
+    push(m); v.ui.draft = ''; v.ui.reply = null; v.ui.pop = null; v.ui.stick = true; renderAll();
+  });
+}
 function sendGif(v, gif){
   const ch = v.ui.ch, m = {kind:'gif', ch, by:v.role, text:'', gif};
   if (v.ui.reply && G().msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
@@ -1022,6 +1033,8 @@ function act(v, a, el, e){
   case 'msgMenu': { const w = v.root.querySelector(`[data-mid="${CSS.escape(val)}"]`); if (ui.pop?.mid === val) ui.pop = null; else if (w) { openPop(v, 'msg', d.lp ? (w.querySelector('.m,.narr,.resm,.roll') || w) : el); ui.pop.mid = val; } break; }
   case 'emoMore': if (ui.pop) ui.pop.all = !ui.pop.all; break;
   case 'emoTab': ui.emoTab = val; if (val === 'gif' && !ui.gifRes && g.gifKey) gifSearch(v); break;
+  case 'picSend': sendPic(v); return;
+  case 'picView': openSheet(v, 'picView', {v:val}); break;
   case 'gifSend': { const r = (ui.gifRes || [])[+d.i]; if (r) sendGif(v, {u:r.u, w:r.w, h:r.h}); return; }
   case 'gifLink': { const u = (ui.gifUrl || '').trim(); if (!N.gifLinkOk(u)) break; ui.gifUrl = ''; sendGif(v, {u}); return; }
   case 'gifKeySave': if (!gm) break; g.gifKey = (ui.gifKeyD ?? g.gifKey ?? '').trim(); ui.gifKeyD = undefined; ui.gifRes = null; toast(v, g.gifKey ? 'GIF search is on.' : 'GIF search is off.'); renderAll(); return;
