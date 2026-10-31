@@ -183,7 +183,8 @@ function feedHtml(v){
   const ms = g.msgs.filter(m => m.ch === ch && (!start || m.t >= start.t));
   const last = ms.findLast(m => m.kind === 'roll'), p = cb.pending;
   const live = m => isGM(v) && (m === last || (p && (m.id === p.msgId || m.id === p.defMsg)));
-  const rows = ms.filter(m => !m.fc || m.fc === cb.id).map(m => feedRow(m, live(m))).filter(Boolean).join('');
+  /* only the fight: its rolls, results, notices and fight chat. Roleplay talk stays in the roleplay chat */
+  const rows = ms.filter(m => (m === start || N.isFightAct(m)) && (!m.fc || m.fc === cb.id)).map(m => feedRow(m, live(m))).filter(Boolean).join('');
   return `<div class="ffeed"><span class="eyebrow">Fight log and chat<button type="button" class="lnk" data-a="pane" data-v="chat">Roleplay${IC('right')}</button></span>
     <div class="ff-list scroll" data-sk="ffeed" data-bottom="1">${rows || '<p class="muted">Rolls, results and fight chat show up here.</p>'}</div>${N.fightComposer(v)}</div>`;
 }
