@@ -124,10 +124,14 @@ N.sheetHtml = function(v){
   case 'zone': { const z = g.combat.zones.find(x => x.id === arg); return z ? sheet('Edit zone', N.zoneForm(v, z), `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`) : ''; }
   /* ---------------- profile ---------------- */
   case 'profile': {
-    const me = gm ? {name:N.gmName(), color:'var(--c-gm)'} : N.personObj(v.role);
+    const me = N.personObj(v.role), mp = N.metaPic(v.role);
     const c = !gm && N.charOf(v.role);
     const pending = N.MEMBERS.filter(m => m.role === 'pending').length, my = N.me();
-    const body = `<div class="prof">${N.av(me,56)}<span><b>${esc(my?.name || me.name)}</b><small>${gm?'Game master':'Player'} · ${esc(my?.email || 'signed in with Google')}</small></span></div>
+    const meta = `<div><h4>Meta picture<small>${mp ? 'Shown when you talk as yourself' : gm ? 'None yet. Your Meta messages show your initial' : 'None yet. Your Meta messages use your character’s picture'}</small></h4><div class="row" style="flex-wrap:wrap;gap:8px">
+        <button type="button" class="btn sm ${mp ? 'ghost' : 'primary'}" data-a="metaUp">${IC('upload')}${mp ? 'Change' : 'Upload a picture'}</button>
+        ${mp ? `<button type="button" class="btn sm ghost" data-a="metaFrame">${IC('fit')}Adjust</button><button type="button" class="btn sm ghost" data-a="metaNone">${IC('trash')}Remove</button>` : ''}</div></div>`;
+    const body = `<div class="prof"><button type="button" class="facebtn" data-a="metaUp" aria-label="Change my Meta picture">${N.av(me,56)}<span class="badge">${IC('image')}</span></button><span><b>${esc(my?.name || me.name)}</b><small>${gm?'Game master':'Player'} · ${esc(my?.email || 'signed in with Google')}</small></span></div>
+      ${meta}
       <div><h4>Appearance</h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="night" aria-pressed="${v.theme==='night'}">${IC('moon')}Night</button><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="day" aria-pressed="${v.theme==='day'}">${IC('sun')}Day</button></div></div>
       <div><h4>Style</h4>${stylePick(v)}</div>
       <div><h4>Text size<small>On this device only</small></h4>${fzPick(v)}</div>

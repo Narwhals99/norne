@@ -187,7 +187,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], gifKey:'',
+  chars:{}, npcs:[], quick:[], foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], gifKey:'', gmPic:null,
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -287,12 +287,15 @@ N.speakerObj = (m) => {
   const p = G.P[m.by], c = p && G.chars[p.char];
   return {name:m.as || p?.name || 'A former player', portrait:c?.built ? c.portrait : null, color:p?.color || 'var(--ink-3)'};
 };
+/* a person out of character: their own Meta picture, else their character's portrait.
+   A player's Meta picture rides on their card (mpic), the GM's on game/meta (gmPic), so no new security rules are needed */
 N.personObj = by => {
   const G = N.G, p = G.P[by];
-  if (by === 'gm') return {name:N.gmName(), color:'var(--c-gm)'};
+  if (by === 'gm') return {name:N.gmName(), portrait:G.gmPic || null, color:'var(--c-gm)'};
   if (!p) return {name:'A former player', color:'var(--ink-3)'};
-  const c = G.chars[p.char]; return {name:p.name, portrait:c?.built ? c.portrait : null, color:p.color};
+  const c = G.chars[p.char]; return {name:p.name, portrait:c?.mpic || (c?.built ? c.portrait : null), color:p.color};
 };
+N.metaPic = role => role === 'gm' ? N.G.gmPic || null : N.charOf(role)?.mpic || null;
 
 /* a player card's aspects: older cards kept a high concept and trouble, newer ones just Aspect 1, 2, 3 */
 N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
