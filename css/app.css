@@ -1513,6 +1513,23 @@
 @keyframes dfx{0%{opacity:0;scale:.85}8%{opacity:1;scale:1}86%{opacity:1}100%{opacity:0;scale:.96}}
 @keyframes dfxroll{0%{transform:translate(var(--x,0),-70px) rotate(-560deg) scale(.4);opacity:0}55%{transform:translateY(5px) rotate(20deg) scale(1.1);opacity:1}78%{transform:translateY(-3px) rotate(-7deg)}100%{transform:none}}
 @media (prefers-reduced-motion: reduce){ .app .dicefx .die,.app .zone .tok.now .av{animation:none} }
+
+/* attack animations (js/fx.js): the camera that pushes in on the attack, the effects layer, the words over the target,
+   and the sides: in a zone with both sides, players and allies line up on the left edge and foes on the right */
+.app .board .cam{position:absolute;inset:0;transform-origin:0 0}
+.app .board .bg{transform-origin:0 0}
+.app .zone .ztoks.sides{width:100%;flex-wrap:nowrap;justify-content:space-between;align-items:center}
+.app .zone .ztoks.sides .zs{display:grid;grid-template-columns:repeat(var(--cols,1),auto);gap:8px 6px;justify-items:center;align-content:center}
+.app .tok.fxa,.app .tok.fxa .av,.app .tok.fxd,.app .tok.fxd .av{transition:none}
+.app .tok.fxa{z-index:5}
+.app .tok.fxd{z-index:4}
+.app .tok .st i.fxn{box-shadow:0 0 0 1px rgba(0,0,0,.4),0 0 8px 1px var(--ember)}
+.app .fxsvg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;z-index:6}
+.app .fxt{position:absolute;left:0;top:0;z-index:7;pointer-events:none;display:grid;justify-items:center;gap:2px;white-space:nowrap;opacity:0;transform-origin:50% 100%;will-change:transform,opacity;
+  --o:#170c05;text-shadow:0 2px 0 var(--o),2px 0 0 var(--o),-2px 0 0 var(--o),0 -2px 0 var(--o),1.5px 1.5px 0 var(--o),-1.5px 1.5px 0 var(--o),1.5px -1.5px 0 var(--o),-1.5px -1.5px 0 var(--o),0 4px 0 var(--o),0 7px 14px rgba(0,0,0,.6)}
+.app .fxt b{font:700 var(--fs,22px)/1 var(--f-display);font-variation-settings:"SOFT" 100;letter-spacing:.02em;color:var(--k)}
+.app .fxt small{font:900 calc(var(--fs,22px) * .44)/1.1 var(--f-ui);letter-spacing:.07em;text-transform:uppercase;color:#fff8ea}
+.app:where([data-style="parchment"]) .fxt b{font-family:"Alegreya",Georgia,serif;font-weight:900;font-variation-settings:normal}
 /* the GM's fight log on phones: fills the space between his tools and the turn bar, and scrolls on its own */
 .app .fight.cmd>.fight-scroll>.ffeed{flex:1 1 0;min-height:150px;display:flex;flex-direction:column;gap:6px;padding:0 12px}
 .app .ffeed>.eyebrow{display:flex;justify-content:space-between;align-items:center}
