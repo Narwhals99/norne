@@ -248,7 +248,7 @@
 .app .scene.empty h2{font:700 14px/1.2 var(--f-ui);color:var(--ink-2);text-shadow:none}
 
 /* messages */
-.app .msgs{min-height:0;padding:14px 12px 10px;display:flex;flex-direction:column;gap:2px;scroll-behavior:auto}
+.app .msgs{overflow-x:hidden;min-height:0;padding:14px 12px 10px;display:flex;flex-direction:column;gap:2px;scroll-behavior:auto}
 .app .msgs>:first-child{margin-top:auto}
 .app .day-div{display:flex;align-items:center;gap:12px;margin:10px 0 12px;color:var(--ink-3);font:700 11px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase}
 .app .day-div::before,.app .day-div::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line-2),transparent)}
@@ -294,7 +294,7 @@
 .app .narr::before{content:"";position:absolute;left:4px;top:4px;bottom:4px;width:2px;border-radius:2px;background:linear-gradient(180deg,var(--gold),color-mix(in srgb,var(--gold) 0%,transparent))}
 .app .narr .who{display:flex;align-items:center;gap:7px;margin-bottom:5px;font:800 10.5px/1 var(--f-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--gold-tx)}
 .app .narr .who time{letter-spacing:0;text-transform:none;font-weight:600;color:var(--ink-4)}
-.app .narr p{margin:0;font:400 17.5px/1.55 var(--f-display);font-variation-settings:"opsz" 14,"SOFT" 50;color:var(--ink)}
+.app .narr p{margin:0;overflow-wrap:anywhere;font:400 17.5px/1.55 var(--f-display);font-variation-settings:"opsz" 14,"SOFT" 50;color:var(--ink)}
 .app .narr p+p{margin-top:8px}
 .app .narr.first p::first-letter{float:left;font:600 46px/0.86 var(--f-display);color:var(--gold-tx);margin:4px 8px 0 0}
 
@@ -312,9 +312,9 @@
 .app .m.mine .bub .ed{color:rgba(255,255,255,.7)}
 .app .pop .opt.danger{color:var(--ember)}
 .app .pop .opt>svg{width:18px;height:18px;flex:0 0 auto}
-.app .sysm{display:flex;align-items:center;justify-content:center;gap:8px;margin:14px 0 6px;font:600 12px/1.3 var(--f-ui);color:var(--ink-3);text-align:center}
+.app .sysm{overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center;gap:8px;margin:14px 0 6px;font:600 12px/1.3 var(--f-ui);color:var(--ink-3);text-align:center}
 .app .sysm svg{width:14px;height:14px;color:var(--gold-tx)}
-.app .scenem{align-self:center;margin:16px 0 6px;display:flex;align-items:center;gap:10px;padding:5px 14px 5px 5px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .scenem{max-width:100%;overflow-wrap:anywhere;align-self:center;margin:16px 0 6px;display:flex;align-items:center;gap:10px;padding:5px 14px 5px 5px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
 .app .scenem .th{width:34px;height:34px;border-radius:50%;background:center/cover;box-shadow:0 0 0 2px var(--gold-soft)}
 .app .scenem b{font:600 14px/1.1 var(--f-display)}
 .app .scenem span{display:block;font:700 10px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold-tx)}
@@ -1752,7 +1752,7 @@
 
 /* ---------- phones: a roll in the roleplay chat is a small line ---------- */
 .app .rl{align-self:center;display:flex;align-items:center;gap:8px;max-width:100%;margin:10px auto 4px;padding:6px 10px 6px 8px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2);font:600 12.5px/1.25 var(--f-ui);color:var(--ink-2);text-align:left}
-.app .mwb:has(>.rl){align-self:center;display:flex;justify-content:center}
+.app .mwb:has(>.rl){align-self:center;display:flex;justify-content:center;max-width:100%}
 .app .rl .rld{flex:none;display:inline-flex;align-items:center;gap:2px}
 .app .rl .rld i{width:15px;height:15px;border-radius:4px;display:grid;place-items:center;background:#e9e0c6;color:#2a2418;font:800 11px/1 var(--f-ui);font-style:normal}
 .app .rl .rld i.p{color:#1f7a4c}.app .rl .rld i.m{color:#b23b2a}
