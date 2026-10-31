@@ -296,6 +296,13 @@ N.owedTok = v => {
 N.GEAR = [0,1,2,3,4,5,6,7,8,9];
 N.gearSelect = (id, attrs, val) => `<select class="inp" id="${id}" ${attrs}>${N.GEAR.map(x => `<option value="${x}" ${(+val||0)===x?'selected':''}>${x?'+'+x:'None'}</option>`).join('')}</select>`;
 
+/* whose fate points a fighter has: the PC's character card or a named NPC's card; nameless foes keep none */
+N.tokFpPool = t => {
+  const g = G();
+  if (t.kind === 'pc') { const c = g.chars[t.ref]; return c ? {o:c, name:c.short, pc:true} : null; }
+  if (t.type === 'nameless') return null;
+  const n = g.npcs.find(x => x.id === t.ref); return n ? {o:n, name:n.name} : null;
+};
 /* token detail: side panel on desktop, sheet on phone */
 N.tokCard = function(v, t){
   const g = G(), gm = isGM(v), o = N.tokObj(t), z = N.zoneOf(t), st = N.tokStress(t);
@@ -306,6 +313,12 @@ N.tokCard = function(v, t){
     <div class="hd">${N.av(o,54)}<span style="flex:1;min-width:0"><b>${esc(N.tokName(t))}</b><small>${role} · ${z?esc(z.name):'Not placed'}${t.out?' · taken out':''}</small></span>${gm?`<button type="button" class="btn sm ghost tok-rm" data-a="sheet" data-v="tokRm" data-c="${t.id}" title="Take ${esc(N.tokName(t))} out of this fight">${IC('trash')}Remove</button>`:''}${v.dev==='desktop'?`<button type="button" class="ibtn sm" data-a="tokClose" aria-label="Close">${IC('x')}</button>`:''}</div>
     ${asp.filter(Boolean).length ? `<div class="icards">${asp.filter(Boolean).map((a,i)=>`<span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(a)}</span>`).join('')}</div>` : ''}
     <div class="kv"><span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
+      ${(() => {
+        /* the same pool an invoke spends (N.invokePayer): the PC's character card or the named NPC's card */
+        const pool = N.tokFpPool(t); if (!pool || (!gm && t.kind !== 'pc')) return '';
+        const o = pool.o, fp = o.fp || 0, n = Math.max(fp, o.refresh || 0);
+        return `<span>Fate points</span><span class="coins tok-fp">${Array.from({length:n}, (_,i) => `<span class="coin${i<fp?'':' off'}"></span>`).join('')}<b class="fp-n">${fp}</b>${gm ? `<span class="mini"><button type="button" data-a="tokFp" data-t="${t.id}" data-d="-1" aria-label="Take a fate point from ${esc(pool.name)}" ${fp<1?'disabled':''}>−</button><button type="button" data-a="tokFp" data-t="${t.id}" data-d="1" aria-label="Give ${esc(pool.name)} a fate point" ${fp>=10?'disabled':''}>+</button></span>` : ''}</span>`;
+      })()}
       ${(() => {
         const cs = N.tokCons(t); if (!gm && t.kind !== 'pc' && !cs.some(x => x.v)) return '';
         const ed = sl => `<label class="cq-ed"><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${N.tokConsSrc(t).i} data-k="${sl.k}" value="${esc(sl.v)}" placeholder="Empty"></label>`;
