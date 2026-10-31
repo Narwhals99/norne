@@ -145,6 +145,18 @@ N.audLabel = (x, kind) => {
   const names = a.map(s => N.G.P[s]?.name || 'a former player');
   return 'Only ' + (names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0]);
 };
+/* ---------- the GM's papers: issues grouped by paper name, each paper's issues oldest first ---------- */
+N.paperName = i => String(i.paper || '').trim() || 'The paper';
+N.papers = () => {
+  const by = {};
+  for (const i of N.G.news.issues) (by[N.paperName(i)] = by[N.paperName(i)] || {name:N.paperName(i), issues:[]}).issues.push(i);
+  const ps = Object.values(by);
+  for (const p of ps) p.issues.sort((a, b) => ((+a.no || 0) - (+b.no || 0)) || ((a.t || 0) - (b.t || 0)));
+  /* the paper with the newest issue first */
+  const newest = p => Math.max(...p.issues.map(i => i.t || 0));
+  return ps.sort((a, b) => (newest(b) - newest(a)) || a.name.localeCompare(b.name));
+};
+N.newsUnseen = role => { const s = N.G.news.seen[role] || []; return N.G.news.issues.filter(i => !s.includes(i.id)); };
 N.PINT = {
   town:{name:'Towns',col:'#efd9a0',ic:'castle'}, nation:{name:'Nations',col:'#f4c46e',ic:'flag'}, landmark:{name:'Landmarks',col:'#c9bdff',ic:'star'},
   tavern:{name:'Taverns',col:'#f2b25c',ic:'tavern'}, shop:{name:'Shops',col:'#a3d6b4',ic:'bag'}, temple:{name:'Temples',col:'#f4e38d',ic:'religion'},
