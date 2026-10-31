@@ -242,6 +242,8 @@ function inOldFight(m){
       if (x.t >= FLAGS_T) break;
       if (x.kind === 'combat' || x.kind === 'fight') { if (open[x.ch]) open[x.ch][1] = x.t; open[x.ch] = [x.t, Infinity]; (w[x.ch] = w[x.ch] || []).push(open[x.ch]); }
       else if (open[x.ch] && x.kind === 'sys' && (x.fightEnd || /^The fight on .* is over/.test(x.text || ''))) { open[x.ch][1] = x.t; open[x.ch] = null; }
+      /* before 31 Oct a fight ended with "The fight is over." in the Everyone chat, wherever it was fought: it closes them all */
+      else if (x.kind === 'sys' && /^The fight is over/.test(x.text || '')) for (const c in open) if (open[c]) { open[c][1] = x.t; open[c] = null; }
     }
     OLDW = {key, w};
   }
