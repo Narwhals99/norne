@@ -230,8 +230,9 @@ function isFightAct(m){
     || (m.t < FLAGS_T && (m.kind === 'roll' || (m.kind === 'sys' && !m.fightEnd && !m.act && !TABLE_NOTE.test(m.text || ''))) && inOldFight(m));
 }
 /* rolls and notices saved before fights marked their own messages (31 Oct 2026) carry no mark: one that falls between a fight's
-   start card and its end note belongs to that fight, except the table notes the GM makes anyway (stress, fate points, inventory) */
-const FLAGS_T = Date.UTC(2026, 9, 31, 3, 0), TABLE_NOTE = /stress box\.$|fate point|inventory|The party heads|character card/;
+   start card and its end note belongs to that fight, except the table notes the GM makes anyway (stress, fate points, inventory).
+   FLAGS_T is when that marking went live (PR #37 merged 01:27 UTC); anything newer is judged by its own marks only */
+const FLAGS_T = Date.UTC(2026, 9, 31, 1, 28), TABLE_NOTE = /stress box\.$|fate point|inventory|The party heads|character card/;
 let OLDW = {key:'', w:{}};
 function inOldFight(m){
   const ms = G().msgs, key = ms.length + ':' + (ms[ms.length - 1] || {}).id;
