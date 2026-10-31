@@ -306,12 +306,12 @@ N.fightView = function(v){
   }
   const sel = v.ui.tokSel && N.tokById(v.ui.tokSel);
   if (ph) {
-    const board = boardHtml(v) + (isGM(v) ? gmRow(v) : '');
+    const board = boardHtml(v);
     return `<section class="fight cmd ph" aria-label="Fight on ${esc(cb.title)}">
       <div class="top ph">${N.meBtn(v)}<div style="flex:1;display:flex;justify-content:center">${N.fightSeg(v)}</div>${N.sideBtn(v)}</div>
       ${orderStrip(v, true)}
       <div class="fight-scroll scroll" data-sk="fightph">${board}${feedHtml(v)}</div>
-      ${nowBar(v, true)}
+      ${isGM(v) ? gmBanner(v) : pcMini(v)}
     </section>`;
   }
   return `<section class="fight cmd dt" aria-label="Fight on ${esc(cb.title)}">
@@ -323,6 +323,20 @@ N.fightView = function(v){
     ${sel ? `<div class="tokpanel glass" data-sk="tokpanel">${N.tokCard(v, sel)}</div>` : ''}
   </section>`;
 };
+
+/* phones, players: just what matters in a fight, your picture and name, stress and fate points */
+function pcMini(v){
+  const c = N.charOf(v.role); if (!c || !c.built) return '';
+  const boxes = (k, l) => `<span class="pm-st"><small>${l}</small>${c.stressV[k].map((x,i) => `<span class="sbox${c.stress[k][i]?' on':''}">${x}</span>`).join('')}</span>`;
+  return `<div class="pcmini">${N.av(c, 38)}<b>${esc(c.short)}</b>${boxes('phys', 'Phys')}${boxes('ment', 'Mind')}<span class="coins">${N.coinsHtml(c, false)}</span></div>`;
+}
+/* phones, GM: a slim banner says what is up now; tapping it pulls up the fight controls */
+function gmBanner(v){
+  const n = nowState(v), t = n.tok;
+  return `<button type="button" class="gmban ${n.tone}" data-a="sheet" data-v="gmFight">${t ? N.av(N.tokObj(t), 32) : `<span class="av" style="--s:32px;--c:var(--ink-3)">${IC('crown')}</span>`}<span class="t"><small>${esc(n.eye)}</small><b>${esc(n.title)}</b></span><span class="go">Controls${IC('caret').replace('<svg', '<svg style="rotate:180deg"')}</span></button>`;
+}
+/* the controls the banner pulls up: the turn's actions, then the GM tools. Any of them closes the sheet again */
+N.gmFightBody = v => `<div class="gmfs">${nowBar(v, true)}${gmRow(v)}</div>`;
 
 /* ---------- desktop combat screen ----------
    players: the battlefield big (C), their card (A), the fight results (B).

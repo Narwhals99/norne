@@ -170,7 +170,10 @@ function bind(v){
     if (v.lpHold) { v.lpHold = false; e.preventDefault(); return; }
     const a = e.target.closest('[data-a]');
     if (a && root.contains(a)) {
-      if (a.disabled) return; e.preventDefault(); act(v, a.dataset.a, a, e);
+      if (a.disabled) return; e.preventDefault();
+      /* phones, GM: picking anything in the pulled-up fight controls drops them back down to the board and results */
+      if (v.ui.sheet === 'gmFight' && a.closest('.gmfs')) v.ui.sheet = null;
+      act(v, a.dataset.a, a, e);
       if (v.kb) { v.kb = false; const ta = root.querySelector('.composer textarea'); if (ta && !typing()) ta.focus({preventScroll:true}); }
       return;
     }
@@ -365,6 +368,7 @@ function doRoll(v){
   const ch = secret ? 'gm' : fight ? N.fightCh() : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
   const m = push({ch, kind:'roll', by:v.role, roll});
   if (isGM(v) && who.portrait) m.pt = who.portrait;
+  if (v.dev === 'phone' && !fight) { v._rfx = {id:m.id, at:Date.now()}; setTimeout(() => render(v), N.RFX_MS + 60); }
   v.ui.fresh = m.id; v.ui.sheet = null; v.ui.targeting = null; v.ui.stick = true;
   if (fight) afterFightRoll(v, r, m);
   if (secret && v.ui.ch !== 'gm') toast(v, 'Secret roll saved in GM notes.');

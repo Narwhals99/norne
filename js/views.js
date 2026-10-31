@@ -122,7 +122,7 @@ function chatPage(v){
   if (v.dev === 'phone') {
     const sl = v.ui.slide ? ` slide-${v.ui.slide}` : '';
     if (fa && v.ui.fightPane === 'fight') return `<main class="page${sl}">${N.fightView(v)}</main>`;
-    return `<main class="page${sl}">${chatView(v)}</main>`;
+    return `<main class="page${sl}">${chatView(v)}${rollFx(v)}</main>`;
   }
   if (fa && v.ui.fightOpen && G().combat.state === 'live') return N.combatDesk(v);
   if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
@@ -224,7 +224,7 @@ function isFightAct(m){
 const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'chat' && railShown(v) && !v.ui.recentOff;
 N.isAction = isAction; N.isFightAct = isFightAct; N.hhmm = hhmm;
 function renderMsgs(v, side){
-  const g = G(), out1 = actionsOut(v, side), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)) && !m.fc && !(out1 && isAction(m)));
+  const g = G(), out1 = actionsOut(v, side), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)) && !m.fc && !(out1 && isAction(m)) && !(v.dev === 'phone' && isFightAct(m)));
   if (!ms.length) return `<div class="quiet"><div class="art"></div><p>${v.ui.ch.startsWith('dm-') ? 'Nothing here yet. Anything said here stays between you two.' : 'Nothing here yet.'}</p></div>`;
   let out = '', prev = null, firstNarr = true;
   /* only the newest roll in a chat starts open; a roll someone opened or closed by hand stays that way */
@@ -286,6 +286,7 @@ function rMsg(v, m, prev, firstNarr){
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
   if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);
   if (m.kind === 'news') return `<div class="fightcard" style="box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 18px 40px -18px rgba(0,0,0,.9)"><div class="in" style="padding-top:18px;grid-template-columns:auto 1fr;align-items:center"><div class="herald" style="all:unset;display:contents"><span class="np" style="width:54px;height:66px;border-radius:4px;background:#efe6cc;rotate:-4deg;display:grid;place-items:center;font:400 12px/1 var(--f-mast);color:#2a2418;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)">News</span></div><div style="display:grid;gap:6px"><span class="eyebrow" style="color:var(--gold)">${IC('newsL')}New edition</span><h3 style="font-size:18px">${esc(m.text)}</h3><div class="row"><button type="button" class="btn sm gold" data-a="readNews" data-id="${esc(m.nid||'')}">Read it</button></div></div></div></div>`;
+  if (m.kind === 'roll' && v.dev === 'phone') return rollLine(v, m);
   if (m.kind === 'roll') {
     const pc = (m.roll.whoKey || '').startsWith('pc:') && g.chars[m.roll.whoKey.slice(3)];
     const s = pc ? {name:pc.short, portrait:pc.built ? pc.portrait : null, color:pc.color} : m.by === 'gm' ? {name:m.roll.who, color:'var(--c-npc)', portrait:m.pt || N.npcByName(m.roll.who.replace(/ \d+$/,''))?.portrait} : N.speakerObj({by:m.by, as:''});
@@ -307,6 +308,23 @@ function rMsg(v, m, prev, firstNarr){
   const gmv = mine && isGM(v) ? ' gmv' : '';
   return `<div class="m${mine?' mine':''}${gmv}${cont?' cont':''}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${txt}</div></div></div>`;
 }
+/* phones: a roll in the roleplay chat is one small line; tapping it opens the full card */
+function rollLine(v, m){
+  const r = m.roll, tot = rollTotal(r), o = outcome(r), fx = v._rfx && v._rfx.id === m.id && Date.now() - v._rfx.at < RFX_MS;
+  return `<button type="button" class="rl${fx ? ' fx' : ''}" ${fx ? `style="--el:-${Date.now() - v._rfx.at}ms"` : ''} data-a="sheet" data-v="rollCard" data-c="${m.id}" aria-label="${esc(r.who)} rolled ${sgn(tot)}. Open the roll">
+    <span class="rld">${r.dice.map(d => `<i class="${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':''}</i>`).join('')}</span><span class="rlt"><b>${esc(r.who)}</b> ${esc(r.skill)} · ${esc(r.action.toLowerCase())}${m.ch==='gm'?' · secret':''}</span><b class="rlv">${sgn(tot)}</b>${o ? `<span class="out ${o.k}">${o.t}</span>` : ''}</button>`;
+}
+/* phones: right after you roll, the dice tumble across the screen, show the total, then shrink into the line in the chat.
+   Like the board's dice it keeps its place across redraws (a negative delay), so a new message doesn't restart it. */
+const RFX_MS = 2700;
+function rollFx(v){
+  const f = v._rfx; if (!f || Date.now() - f.at > RFX_MS) return '';
+  const m = G().msgs.find(x => x.id === f.id); if (!m || m.ch !== v.ui.ch) return '';
+  const r = m.roll, tot = rollTotal(r), face = d => d > 0 ? '+' : d < 0 ? '−' : '';
+  const cube = (d, i) => `<span class="cube" style="--i:${i}"><i class="f fr ${d>0?'p':d<0?'m':'z'}">${face(d)}</i><i class="f bk">−</i><i class="f rt p">+</i><i class="f lf"></i><i class="f tp m">−</i><i class="f bt p">+</i></span>`;
+  return `<div class="rfx" style="--el:-${Date.now() - f.at}ms" aria-hidden="true"><div class="grp"><div class="rtray">${r.dice.map(cube).join('')}</div><div class="rfx-t"><small>${esc(r.who)} · ${esc(r.skill)}</small><b>${sgn(tot)} <span>${ladderWord(tot)}</span></b></div></div></div>`;
+}
+N.RFX_MS = RFX_MS;
 function rRoll(v, m){
   const r = m.roll, tot = rollTotal(r), o = outcome(r), fold = v.ui.folded.has(m.id) ? v.ui.folded.get(m.id) : m.id !== v._lastRoll;
   const dice = r.dice.map(d => `<span class="die ${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':'·'}</span>`).join('');

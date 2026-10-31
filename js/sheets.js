@@ -151,6 +151,14 @@ N.sheetHtml = function(v){
       <div><h4>Preview · for your notes, or to paste into an AI for a session summary</h4><textarea id="exOut" class="inp" readonly rows="10" style="font:500 12.5px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2)">${esc(out)}</textarea></div>`;
     return sheet('Export the log', body, `<button type="button" class="btn ghost" data-a="expCopy">${IC('copy')}Copy</button><button type="button" class="btn primary lg" data-a="expDl">${IC('download')}Download ${ex.json ? '.json' : '.md'}</button>`, {wide:true});
   }
+  case 'rollCard': {
+    const m = G().msgs.find(x => x.id === arg); if (!m || m.kind !== 'roll') return '';
+    const keep = v._lastRoll; v._lastRoll = m.id; const had = v.ui.folded.has(m.id), was = v.ui.folded.get(m.id); v.ui.folded.delete(m.id);
+    const card = N.rRoll(v, m).replace(/<button type="button" class="ibtn sm" data-a="fold"[\s\S]*?<\/button>/, '');
+    v._lastRoll = keep; if (had) v.ui.folded.set(m.id, was);
+    return sheet(`${esc(m.roll.who)}’s roll`, `<div class="rollcard">${card}</div>`, `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+  }
+  case 'gmFight': return sheet('Fight controls', N.gmFightBody(v), '');
   case 'fightRec': {
     const st = G().msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === arg);
     return sheet(st ? `The fight: ${esc(st.text || '')}` : 'The fight', N.fightRecHtml(v, arg), `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true});
