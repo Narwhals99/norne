@@ -477,6 +477,7 @@
 .app .tgt{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 14px 0 5px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 13.5px/1 var(--f-ui)}
 .app .tgt .av{--s:32px;box-shadow:none}
 .app .tgt[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--ember);background:var(--ember-soft)}
+.app .tgt .ff{font:600 10.5px/1 var(--f-ui);color:var(--ink-3);padding:3px 6px;border-radius:999px;background:var(--sunk);letter-spacing:.02em}
 .app .note{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line);font:600 13px/1.4 var(--f-ui);color:var(--ink-2)}
 .app .note svg{width:18px;height:18px;flex:none;color:var(--gold-tx);margin-top:1px}
 .app .toggle{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 14px/1.25 var(--f-ui);text-align:left;width:100%}

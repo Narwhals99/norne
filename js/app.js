@@ -667,7 +667,7 @@ function tokClick(v, id){
     const a = N.actorTok(v) || (isGM(v) ? N.curTok() : null);
     if (!a || t === a) return;
     if (t.zone !== a.zone) { toast(v, `Too far. You can only attack someone in ${N.zoneOf(a)?.name || 'your zone'}.`); render(v); return; }
-    if (t.out || N.sideOf(t) === N.sideOf(a)) return;
+    if (t.out) return;
     const best = ['Fighting','Shooting'].map(s => [s, N.tokSkills(a)[s]||0]).sort((x,y)=>y[1]-x[1])[0][0];
     openRoll(v, {who: a.kind === 'pc' ? 'pc:' + a.ref : 'tok:' + a.id, action:'attack', target:t.id, skill:best, ctx:'cb'});
     render(v); return;

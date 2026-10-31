@@ -157,12 +157,16 @@ function build(board, s){
   /* camera: push in close (1.7x on small boards, 1.25x on big ones), never past the board's edges.
      Two fighters close together: one shot of both, as in the preview. Further apart: it starts on the attacker
      winding up, follows the rush, the arrow or the bolt across the board, and settles on the target and the words. */
-  const Zmax = RM ? 1 : W < 600 ? 1.7 : 1.25, top = D.y - Rd - 6 - fx.th - rise;
+  /* friendly fire: two fighters on one side stand in one column, so the attacker can be right above the target.
+     Then the words go under the target's feet instead of on top of the attacker. */
+  const below = uy > .5;
+  const Zmax = RM ? 1 : W < 600 ? 1.7 : 1.25, top = below ? D.y - Rd - 6 : D.y - Rd - 6 - fx.th - rise;
   const fit = b => Math.min(W / Math.max(b.x1 - b.x0, b.tw || 0), H / (b.y1 - b.y0));
   const shot = (b, cx, cy) => ({TX:clamp(clamp(W / 2 - Z * cx, -Z * b.x0, W - Z * b.x1), W - Z * W, 0), TY:clamp(clamp(H / 2 - Z * cy, -Z * b.y0, H - Z * b.y1), H - Z * H, 0)});
-  const both = {x0:Math.min(A.x, D.x) - 3.4 * R, x1:Math.max(A.x, D.x) + 3.4 * R, y0:Math.min(A.y - 1.4 * R, top), y1:Math.max(A.y, D.y) + 1.9 * R, tw:fx.tw + 12};
+  const foot = below ? D.y + Rd + 10 + fx.th * 1.15 : 0;
+  const both = {x0:Math.min(A.x, D.x) - 3.4 * R, x1:Math.max(A.x, D.x) + 3.4 * R, y0:Math.min(A.y - 1.4 * R, top), y1:Math.max(A.y + 1.9 * R, D.y + 1.9 * R, foot), tw:fx.tw + 12};
   const atk = {x0:A.x - 3.4 * R, x1:A.x + 3.4 * R, y0:A.y - 3.2 * R, y1:A.y + 1.9 * R};
-  const tgt = {x0:D.x - 3.4 * R, x1:D.x + 3.4 * R, y0:top, y1:D.y + 1.9 * R, tw:fx.tw + 12};
+  const tgt = {x0:D.x - 3.4 * R, x1:D.x + 3.4 * R, y0:top, y1:Math.max(D.y + 1.9 * R, foot), tw:fx.tw + 12};
   /* one shot when both fit at the zoom the travelling camera would use anyway */
   const fb = fit(both), Zp = Math.min(Zmax, fit(atk), fit(tgt)), close = fb >= Zp, Z = close ? Math.min(Zmax, fb) : Zp;
   fx.Z = Z > 1.05 ? Z : 1;
@@ -177,7 +181,8 @@ function build(board, s){
   }
   const vx0 = -fx.cD.TX / fx.Z, vx1 = (W - fx.cD.TX) / fx.Z, vy0 = -fx.cD.TY / fx.Z;
   fx.txX = clamp(D.x, vx0 + fx.tw * .64 + 4, vx1 - fx.tw * .64 - 4);
-  fx.txY = Math.max(D.y - Rd - 6, vy0 + fx.th + rise + 6);
+  /* txY is the words' bottom edge before they rise by `rise` */
+  fx.txY = below ? Math.min(D.y + Rd + 8 + fx.th, (H - fx.cD.TY) / fx.Z - 4) + rise : Math.max(D.y - Rd - 6, vy0 + fx.th + rise + 6);
   A.el.classList.add('fxa'); D.el.classList.add('fxd');
   board.classList.add('playing');
   fx.board = board;

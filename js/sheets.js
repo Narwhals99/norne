@@ -57,7 +57,7 @@ N.sheetHtml = function(v){
     const rest = N.MUNDANE.filter(k => !(k in who.skills));
     const cb = g.combat, tokOfWho = r.who.startsWith('tok:') ? N.tokById(r.who.slice(4)) : r.who.startsWith('pc:') ? cb.tokens.find(t => t.kind==='pc' && t.ref === r.who.slice(3)) : null;
     const inFight = isGM(v) && cb.state === 'live' && tokOfWho && tokOfWho.zone && !tokOfWho.out;
-    const targets = inFight ? N.foesOf(tokOfWho) : [];
+    const targets = inFight ? N.targetsOf(tokOfWho) : [];
     const bonus = other ? (+r.otherBonus || 0) : (who.skills[r.skill] ?? 0);
     const fightAtk = r.action === 'attack' && inFight;
     /* out of a fight the GM can roll against one of their NPC cards: pick the skill it's rolled against, then the NPC,
@@ -81,7 +81,7 @@ N.sheetHtml = function(v){
         <div class="field"><span>Bonus</span><div class="seg" style="justify-content:space-between;width:100%"><button type="button" data-a="rollBonus" data-d="-1" aria-label="Less">${IC('minus')}</button><b style="align-self:center;font:700 18px/1 var(--f-display)">${sgn(bonus)}</b><button type="button" data-a="rollBonus" data-d="1" aria-label="More">${IC('plus')}</button></div></div></div>` : ''}
       ${ev ? `<label class="field"><span>What’s happening</span><input class="inp" id="rev-${v.id}" data-i="rollEv" value="${esc(r.evText||'')}" placeholder="e.g. Mind magic: reaches into the guard’s thoughts"></label>` : ''}
       <div><h4>What are you doing?</h4><div class="acts">${N.ACTIONS.filter(a => !ev || a[1] !== 'attack').map(([l,k]) => `<button type="button" class="act" data-a="rollAct" data-v="${k}" aria-pressed="${r.action===k}">${IC(k)}${l.replace('Create an advantage','Advantage')}</button>`).join('')}</div></div>
-      ${r.action === 'attack' && inFight ? `<div><h4>Target · same zone only</h4>${targets.length ? `<div class="tgts">${targets.map(t => `<button type="button" class="tgt" data-a="rollTgt" data-v="${t.id}" aria-pressed="${r.target===t.id}">${N.av(N.tokObj(t),32)}${esc(N.tokName(t))}</button>`).join('')}</div>` : `<div class="note">${IC('info')}Nobody to attack in ${esc(N.zoneOf(tokOfWho)?.name||'this zone')}. Move first.</div>`}</div>` : ''}
+      ${r.action === 'attack' && inFight ? `<div><h4>Target · same zone only</h4>${targets.length ? `<div class="tgts">${targets.map(t => `<button type="button" class="tgt" data-a="rollTgt" data-v="${t.id}" aria-pressed="${r.target===t.id}">${N.av(N.tokObj(t),32)}${esc(N.tokName(t))}${N.sideOf(t) === N.sideOf(tokOfWho) ? '<small class="ff">Own side</small>' : ''}</button>`).join('')}</div>` : `<div class="note">${IC('info')}Nobody to attack in ${esc(N.zoneOf(tokOfWho)?.name||'this zone')}. Move first.</div>`}</div>` : ''}
       ${r.action === 'advantage' ? `<label class="field"><span>Aspect you’re creating</span><input class="inp" id="rasp-${v.id}" data-i="rollAsp" value="${esc(r.aspect||'')}" placeholder="e.g. Blinded by Spilled Ale"></label>` : ''}
       ${other ? '' : `<div><h4>Skill</h4><div class="skills">${skills.map(([n,x]) => `<button type="button" class="sk" data-a="rollSkill" data-v="${esc(n)}" aria-pressed="${r.skill===n}"><span><b>${esc(n)}</b><small>${ladderWord(x)}</small></span><span class="v">${sgn(x)}</span></button>`).join('')}
         ${r.all || !skills.length ? rest.map(n => `<button type="button" class="sk" data-a="rollSkill" data-v="${n}" aria-pressed="${r.skill===n}"><span><b>${n}</b><small>Mediocre</small></span><span class="v">+0</span></button>`).join('') : ''}</div>

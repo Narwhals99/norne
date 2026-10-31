@@ -21,7 +21,7 @@ function tokHtml(v, t, size){
   if (v.ui.tokSel === t.id || v.ui.placing === t.id) cls.push('sel');
   if (out) cls.push('out');
   const actor = N.actorTok(v) || (isGM(v) && v.ui.targeting ? cur : null);
-  if (v.ui.targeting === 'attack' && actor && t !== actor && !t.out) cls.push(actor.zone === t.zone && N.sideOf(t) !== N.sideOf(actor) ? 'target' : 'nope');
+  if (v.ui.targeting === 'attack' && actor && t !== actor && !t.out) cls.push(actor.zone === t.zone ? (N.sideOf(t) === N.sideOf(actor) ? 'target ff' : 'target') : 'nope');
   const p = cb.pending;
   const hit = p && (p.def === t.id) ? ' style="--ring:var(--ember)"' : '';
   const mine = N.isMine(t, v.role);
@@ -261,7 +261,7 @@ function moveBtn(v){
 /* GM only: a roll the four actions don't cover, like mind magic. Built like a roleplay roll, it lands in the fight log */
 const evBtn = cls => `<button type="button" class="${cls} ev" data-a="cbAct" data-v="event" title="Custom event: a skill roll like mind magic">${IC('magic')}${cls === 'abtn' ? 'Event' : 'Custom event'}</button>`;
 function actBar(v, t){
-  const cb = G().combat, inZone = N.foesOf(t).length, owed = cb.pending;
+  const cb = G().combat, inZone = N.targetsOf(t).length, owed = cb.pending;
   const tg = v.ui.targeting;
   return `<div class="actbar">
     <button type="button" class="abtn atk" data-a="cbAct" data-v="attack" aria-pressed="${tg==='attack'}" ${owed?'disabled title="Finish the last attack first"':inZone?'':'disabled title="Nobody to attack in this zone"'}>${IC('attack')}Attack</button>
