@@ -198,9 +198,10 @@ function fightSeg(v){
 N.sceneArt = (sc) => {
   if (!sc) return '';
   if (sc.place) { const mp = G().maps.find(m => m.id === sc.place.map), u = mp ? N.imgUrl(mp.src) : ''; return `background-image:${u ? `url(${u})` : 'none'};background-size:420% auto;background-position:${(sc.place.rx*100).toFixed(1)}% ${(sc.place.ry*100).toFixed(1)}%`; }
-  const u = N.imgUrl(sc.art);
-  return `background-image:${u ? `url(${u})` : 'none'}`;
+  return '';
 };
+/* a scene's own picture (not a map place) sits inside its box as a framed layer */
+N.scenePic = sc => sc && !sc.place ? N.bgPic(sc.art) : '';
 function sceneBanner(v, sc, ch){
   const gm = isGM(v), priv = ch.startsWith('dm-');
   if (!sc) {
@@ -210,7 +211,7 @@ function sceneBanner(v, sc, ch){
   const min = v.ui.sceneMin;
   const onlyWho = priv ? (gm ? `Only ${esc(G().P[ch.slice(3)]?.name || 'them')} sees this scene` : 'Your private scene') : '';
   return `<section class="scene${min?' min':''}" aria-label="Scene">
-    <div class="art${sc.place?' map':''}" style="${N.sceneArt(sc)}"></div>
+    <div class="art${sc.place?' map':''}" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</div>
     <div class="in">
       ${min ? `<span class="star4"></span>` : `<span class="eyebrow">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}<span>${priv ? onlyWho : 'Scene'}</span>${sc.date?`<span style="color:var(--ink-3);letter-spacing:.1em">· ${esc(sc.date)}</span>`:''}</span>`}
       <h2>${esc(sc.title)}</h2>
@@ -309,7 +310,7 @@ function rxPill(v, m){
 function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
   if (m.kind === 'sys') return m.res ? resCard(m.res) : m.fightEnd ? `<button type="button" class="sysm fend" data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}">${IC('swords')}<span>${esc(m.text)}</span><b>See what happened</b></button>` : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
-  if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}"></span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
+  if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
   if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);
   if (m.kind === 'news') return `<div class="fightcard" style="box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 18px 40px -18px rgba(0,0,0,.9)"><div class="in" style="padding-top:18px;grid-template-columns:auto 1fr;align-items:center"><div class="herald" style="all:unset;display:contents"><span class="np" style="width:54px;height:66px;border-radius:4px;background:#efe6cc;rotate:-4deg;display:grid;place-items:center;font:400 12px/1 var(--f-mast);color:#2a2418;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)">News</span></div><div style="display:grid;gap:6px"><span class="eyebrow" style="color:var(--gold-tx)">${IC('newsL')}New edition</span><h3 style="font-size:18px">${esc(m.text)}</h3><div class="row"><button type="button" class="btn sm gold" data-a="readNews" data-id="${esc(m.nid||'')}">Read it</button></div></div></div></div>`;
@@ -396,7 +397,7 @@ function fightCard(v, m){
   const g = G(), cb = g.combat, live = cb.state === 'live' && cb.id === m.cid, gm = isGM(v);
   const toks = cb.tokens.filter(t => t.zone);
   const mine = !gm && !!N.myTok(v);
-  return `<div class="fightcard"><div class="art" style="background-image:url(${esc(N.imgUrl(m.bg || (live ? cb.bg : '') || N.FIGHTBG))})"></div><div class="in">
+  return `<div class="fightcard"><div class="art">${(b => N.bgPic(N.imgUrl(b) ? b : N.FIGHTBG))(m.bg || (live ? cb.bg : ''))}</div><div class="in">
     <span class="eyebrow">${IC('swords')}${live?'A fight breaks out':'The fight is over'}</span>
     <h3>${esc(m.text)}</h3>
     ${live ? `<div class="who">${toks.slice(0,6).map(t => N.av(N.tokObj(t),28)).join('')}<span>${toks.length} in the fight · ${cb.zones.length} zones</span></div>
@@ -468,10 +469,10 @@ function gmScreen(v){
 /* backgrounds the GM uploaded, kept for scenes and fights until deleted */
 function picShelf(v){
   const g = G(), cb = g.combat, sel = g.pics.find(p => p.id === v.ui.picSel);
-  const acts = sel ? `<div class="pic-acts">${cb.state !== 'off' ? `<button type="button" class="btn sm primary" data-a="picFight" data-v="${sel.id}">${IC('swords')}Use for the fight</button>` : ''}<button type="button" class="btn sm" data-a="picScene" data-v="${sel.id}">${IC('image')}Use as scene</button><button type="button" class="btn sm danger" data-a="picDel" data-v="${sel.id}">${IC('trash')}Delete</button></div>` : '';
+  const acts = sel ? `<div class="pic-acts">${cb.state !== 'off' ? `<button type="button" class="btn sm primary" data-a="picFight" data-v="${sel.id}">${IC('swords')}Use for the fight</button>` : ''}<button type="button" class="btn sm" data-a="picScene" data-v="${sel.id}">${IC('image')}Use as scene</button><button type="button" class="btn sm" data-a="picFrame" data-v="${sel.id}">${IC('fit')}Adjust framing</button><button type="button" class="btn sm danger" data-a="picDel" data-v="${sel.id}">${IC('trash')}Delete</button></div>` : '';
   return `<section class="gs-sec gs-pics"><div class="gs-h"><h3>Your pictures</h3>${g.pics.length ? `<small class="muted">${g.pics.length}</small>` : ''}</div>
       <p class="muted gs-note">Backgrounds you upload for scenes and fights stay here. Tap one to use it or delete it.</p>
-      <div class="thumbs"><button type="button" class="thumb up" data-a="picUpload"><span>${IC('upload')}Upload a picture</span></button>${g.pics.map(p => `<button type="button" class="thumb${sel === p ? ' on' : ''}" data-a="picSel" data-v="${p.id}" aria-pressed="${sel === p}" aria-label="Your picture" style="background-image:url(${esc(N.imgUrl(p.src))})">${cb.bg === p.src && cb.state !== 'off' ? '<span><small>In the fight</small></span>' : ''}${sel === p ? `<span class="ck">${IC('check')}</span>` : ''}</button>`).join('')}</div>
+      <div class="thumbs"><button type="button" class="thumb up" data-a="picUpload"><span>${IC('upload')}Upload a picture</span></button>${g.pics.map(p => `<button type="button" class="thumb${sel === p ? ' on' : ''}" data-a="picSel" data-v="${p.id}" aria-pressed="${sel === p}" aria-label="Your picture">${N.bgPic(p.src)}${cb.bg === p.src && cb.state !== 'off' ? '<span><small>In the fight</small></span>' : ''}${sel === p ? `<span class="ck">${IC('check')}</span>` : ''}</button>`).join('')}</div>
       ${acts}
     </section>`;
 }
@@ -655,7 +656,7 @@ function articleHtml(v, e){
     <h1>${esc(e.title)}</h1>
     ${e.summary ? `<p class="sum">${links(e.summary)}</p>` : ''}
     <div class="rule"><span class="star4"></span></div>
-    ${(() => { const ps = N.wikiPics(e); return ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(p => `<figure class="wfig"><img src="${esc(N.imgUrl(p.src))}" alt="${esc(p.alt || p.cap || e.title)}" loading="lazy">${p.cap?`<figcaption>${esc(p.cap)}</figcaption>`:''}</figure>`).join('')}</div>` : ''; })()}
+    ${(() => { const ps = N.wikiPics(e); return ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(p => `<figure class="wfig">${N.wikiImg(p.src, p.alt || p.cap || e.title)}${p.cap?`<figcaption>${esc(p.cap)}</figcaption>`:''}</figure>`).join('')}</div>` : ''; })()}
     ${e.info?.length ? `<dl class="facts">${e.info.map(([k,x]) => `<dt>${esc(k)}</dt><dd>${links(x)}</dd>`).join('')}</dl>` : ''}
     ${(e.body||[]).map(block).join('')}
     ${e.soon || !(e.body||[]).length ? '<p class="muted" style="font-weight:700;font-size:13px">More coming soon.</p>' : ''}

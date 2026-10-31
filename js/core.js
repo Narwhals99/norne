@@ -106,11 +106,26 @@ N.FIGHTBG = 'art/bg/river-bridge.jpg';
 /* Images kept in Firestore (uploaded maps, scene pictures, portraits) are named "fs:<id>". sync.js loads them. */
 N.imgUrl = src => {
   if (!src) return '';
-  if (!String(src).startsWith('fs:')) return src;
+  src = N.picBase(src);
+  if (!src.startsWith('fs:')) return src;
   return N.loadImg ? N.loadImg(src.slice(3)) : '';
 };
+/* a picture's framing rides on its name: "<src>#f=x,y,zoom[,shape]". x and y (0-100) say which part stays in view
+   (like background-position), zoom is 1 or more, shape is width/height for wiki pictures. Unframed pictures show as before. */
+N.picBase = src => String(src || '').split('#f=')[0];
+N.picFrame = src => { const m = /#f=([\d.]+),([\d.]+),([\d.]+)(?:,([\d.]+))?$/.exec(src || ''); return m ? {x:+m[1], y:+m[2], z:+m[3], r:m[4] ? +m[4] : 0} : null; };
+N.withFrame = (src, f) => N.picBase(src) + (f ? `#f=${+f.x.toFixed(1)},${+f.y.toFixed(1)},${+f.z.toFixed(2)}${f.r ? ',' + (+f.r.toFixed(3)) : ''}` : '');
+const frameRule = f => f ? `;transform:scale(${f.z});transform-origin:${f.x}% ${f.y}%` : '';
+/* style for an <img> that fills its box (object-fit:cover) */
+N.frameCss = src => { const f = N.picFrame(src); return f ? `object-position:${f.x}% ${f.y}%` + frameRule(f) : ''; };
+/* a background picture as its own layer, so it can be zoomed without zooming what sits on it */
+N.bgPic = src => { const u = N.imgUrl(src); if (!u) return ''; const f = N.picFrame(src);
+  return `<i class="pic" style="background-image:url(${esc(u)})${f ? `;background-position:${f.x}% ${f.y}%` + frameRule(f) : ''}"></i>`; };
+/* a wiki picture: shown whole, or through its frame in the shape picked for it */
+N.wikiImg = (src, alt='') => { const u = esc(N.imgUrl(src)), f = N.picFrame(src);
+  return f && f.r ? `<span class="wfr" style="--r:${f.r}"><img src="${u}" alt="${esc(alt)}" loading="lazy" style="${N.frameCss(src)}"></span>` : `<img src="${u}" alt="${esc(alt)}" loading="lazy">`; };
 /* a portrait is a built-in key (art/pt/<key>-face.png), an "fs:" upload or nothing */
-N.faceUrl = p => !p ? null : /^(fs:|data:|https?:|art\/|img\/)/.test(p) ? (N.imgUrl(p) || null) : FACE(p);
+N.faceUrl = p => !p ? null : /^(fs:|data:|https?:|art\/|img\/)/.test(p) ? (N.imgUrl(p) || null) : FACE(N.picBase(p));
 
 /* ---------- wiki and map vocab ---------- */
 N.WCATS = ['World','Nations','Places','People','Races','Religions','Magic','Factions','History','Prophecies','Food & Drink','Items','Rules','Storylines'];
@@ -255,7 +270,7 @@ N.av = (o, s, extra='') => {
   /* o: {name, portrait|face, color} */
   const face = o.face || N.faceUrl(o.portrait);
   const style = `${s ? `--s:${s}px;` : ''}--c:${o.color || 'var(--accent)'}`;
-  return `<span class="av ${extra}" style="${style}">${face ? `<img src="${esc(face)}" alt="" loading="lazy" draggable="false">` : esc(((o.short||o.name||'?').trim()[0]||'?'))}</span>`;
+  return `<span class="av ${extra}" style="${style}">${face ? `<img src="${esc(face)}" alt="" loading="lazy" draggable="false" style="${N.frameCss(o.portrait)}">` : esc(((o.short||o.name||'?').trim()[0]||'?'))}</span>`;
 };
 N.narrAv = s => `<span class="av narrav" style="--s:${s||32}px">${STAR}</span>`;
 N.npcByName = name => N.G.npcs.find(x => x.name === name);
