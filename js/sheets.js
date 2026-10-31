@@ -150,6 +150,14 @@ N.sheetHtml = function(v){
     return sheet('Export the log', body, `<button type="button" class="btn ghost" data-a="expCopy">${IC('copy')}Copy</button><button type="button" class="btn primary lg" data-a="expDl">${IC('download')}Download .md</button>`, {wide:true});
   }
   case 'credits': return sheet('Art credits', N.creditsHtml(), '', {wide:true});
+  case 'myFace': {
+    const c = N.charOf(v.role); if (!c) return '';
+    const cur = c.portrait, own = cur && !PORTRAITS.includes(cur) ? N.faceUrl(cur) : null;
+    const face = (src, on, attrs, label) => `<button type="button" ${attrs} aria-pressed="${on}"${label ? ` aria-label="${label}"` : ''}><span class="av" style="--c:var(--gold)"><img src="${esc(src)}" alt="" loading="lazy"></span></button>`;
+    return sheet('Your picture', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Shown next to everything ${esc(c.short)} says and on your card. Pick one or upload your own.</p>
+      <div class="facegrid">${own ? face(own, true, 'data-a="closeSheet"', 'Your current picture') : ''}${PORTRAITS.map(p => face(N.FACE(p), cur === p, `data-a="myFace" data-v="${p}"`, '')).join('')}<button type="button" data-a="myFaceUp" class="up"><span class="av">${IC('upload')}</span><span>Upload</span></button></div>`,
+      `${cur ? `<button type="button" class="btn ghost" data-a="myFaceNone">${IC('trash')}No picture</button>` : ''}<button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+  }
   case 'pcDel': {
     const c = g.chars[arg];
     return sheet(`Delete ${esc(c.short)}’s card?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The card goes back to empty. ${esc(pName(c.player))} keeps their seat and you can make a new card any time.</p>`,
