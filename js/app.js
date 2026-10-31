@@ -24,11 +24,12 @@ N.msgSnip = m => {
   if (m.kind === 'sys' && m.res) return m.res.title || 'Turn order';
   if (m.kind === 'news') return 'News: ' + m.text;
   if (m.kind === 'gif') return 'GIF';
+  if (m.kind === 'pic') return m.text ? 'Picture: ' + m.text : 'Picture';
   const x = String(m.text || '').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
   return x.length > 90 ? x.slice(0, 90) + '…' : x;
 };
 /* what Copy puts on the clipboard: typed text as written, a GIF's link, otherwise the one-line summary */
-N.msgCopyText = m => m.kind === 'gif' ? (m.gif?.u || '') : (m.text && m.kind !== 'roll' && m.kind !== 'sys' ? String(m.text) : N.msgSnip(m));
+N.msgCopyText = m => m.kind === 'gif' ? (m.gif?.u || '') : m.kind === 'pic' ? (m.text || '') : (m.text && m.kind !== 'roll' && m.kind !== 'sys' ? String(m.text) : N.msgSnip(m));
 /* on a computer Enter sends and Shift+Enter starts a new line; on a phone Return starts a new line and the arrow sends */
 const TOUCH = matchMedia('(hover: none) and (pointer: coarse)');
 N.enterSends = () => !TOUCH.matches;
@@ -90,6 +91,8 @@ function render(v){
   root.dataset.theme = v.theme; root.dataset.style = v.style; root.dataset.dev = v.dev; root.dataset.role = v.role || '';
   fzSet(v);
   if (N.gated || !v.role) { root.innerHTML = N.gateHtml(N.gated || '<p>Opening the campaign…</p>'); fzInline(v); return; }
+  /* a chat this person can't see (a deleted group, Everyone for someone in a party) falls back to their first chat */
+  { const chs = N.channelsFor(v.role); if (v.ui.ch !== 'gm' && !chs.includes(v.ui.ch) && !(v.role === 'gm' && v.ui.ch === N.fightCh())) v.ui.ch = chs[0]; }
   const sk = {};
   root.querySelectorAll('[data-sk]').forEach(e => { sk[e.dataset.sk] = {t:e.scrollTop, l:e.scrollLeft, bottom:e.scrollHeight - e.scrollTop - e.clientHeight < 60}; });
   const hs = [...root.querySelectorAll(HS)].map(e => e.scrollLeft);
@@ -455,7 +458,8 @@ function input(v, el){
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
-    case 'news': v.ui.newsEdit[k] = val; render(v); return;
+    case 'gdName': { v.ui.gd.name = val; const b = v.root.querySelector('[data-a="gdSave"]'); if (b) b.disabled = !val.trim() || !v.ui.gd.seats.length || !N.groupsReady(); return; }
+    case 'news': { const d = v.ui.newsEdit, n = +el.dataset.n; if (k === 'stt' || k === 'stb') d.stories[n][k === 'stt' ? 'title' : 'body'] = val; else if (k === 'cap') { if (n < 0) d.lcap = val; else d.stories[n].cap = val; } else d[k] = val; render(v); return; }
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
     case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || (c.player === v.role && k !== 'invText'))) c[k] = val; return; }
     case 'cbTitle': g.combat.title = val; return;
@@ -529,6 +533,16 @@ function fcSend(v){
   push({ch:N.fightCh(), kind:'meta', by:v.role, text, fc:cb.id});
   v.ui.fcDraft = ''; v.ui.stick = true; renderAll();
   const el = v.root.querySelector(`#fc-${v.id}`); if (el) el.focus({preventScroll:true});
+}
+/* a picture from the device, kept in the message itself (players can't write the picture store), so it is scaled to
+   at most 1280px and about 260 KB. Whatever is typed in the box goes with it as a caption. Posted as the person, like a GIF. */
+function sendPic(v){
+  N.pickImage(img => {
+    const ch = v.ui.ch, u = N.shrink(img, 1280, 260000), k = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
+    const m = {kind:'pic', ch, by:v.role, text:(v.ui.draft || '').trim(), pic:{u, w:Math.round(img.naturalWidth * k), h:Math.round(img.naturalHeight * k)}};
+    if (v.ui.reply && G().msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
+    push(m); v.ui.draft = ''; v.ui.reply = null; v.ui.pop = null; v.ui.stick = true; renderAll();
+  });
 }
 function sendGif(v, gif){
   const ch = v.ui.ch, m = {kind:'gif', ch, by:v.role, text:'', gif};
@@ -975,18 +989,39 @@ function act(v, a, el, e){
   case 'writeNews': {
     close(); ui.tab = 'news';
     const ps = N.papers(), p = ps.find(x => x.name === (d.v || ui.paper)) || ps[0];
-    ui.newsEdit = Object.assign({paper:'', no:'1', date:'', price:'', headline:'', sub:'', lead:'', s1t:'', s1b:'', s2t:'', s2b:'', notices:''}, p ? nextIssue(p) : {});
+    dropDraftPics(ui.newsEdit);
+    ui.newsEdit = Object.assign(blankIssue(), p ? nextIssue(p) : {});
     break;
   }
+  /* a published issue opens in the same form; saving changes it in place */
+  case 'newsEditIssue': { const i = g.news.issues.find(x => x.id === val); if (!gm || !i) break; close(); ui.tab = 'news';
+    ui.newsEdit = Object.assign(blankIssue(), JSON.parse(JSON.stringify({paper:i.paper || '', no:String(i.no || ''), date:i.date || '', price:i.price || '', headline:i.headline || '', sub:i.sub || '', lead:i.lead || '', limg:i.limg || '', lcap:i.lcap || '',
+      stories:(i.stories || []).map(st => ({title:st.title || '', body:st.body || '', img:st.img || '', cap:st.cap || ''})), notices:(i.notices || []).join('\n')})), {edit:i.id});
+    const r = v.root.querySelector('[data-sk="nr"]'); if (r) r.scrollTop = 0; break; }
+  case 'ndStoryAdd': ui.newsEdit.stories.push({title:'', body:'', img:'', cap:''}); break;
+  case 'ndStoryDel': { const [st] = ui.newsEdit.stories.splice(+d.n, 1); if (st?.img) dropDraftPic(ui.newsEdit, st.img); break; }
+  /* pictures start as GM only; publishing shares them with whoever can read the issue */
+  case 'ndImgAdd': { const n = +d.n; pickFramed(v, 'wiki', (img, f) => { const ne = ui.newsEdit; if (!ne) return; const src = N.withFrame(N.storeImg(N.shrink(img, 1400, 600000), false), f);
+    if (n < 0) ne.limg = src; else if (ne.stories[n]) ne.stories[n].img = src; render(v); }); return; }
+  case 'ndImgFrame': { const ne = ui.newsEdit, n = +d.n, src = n < 0 ? ne.limg : ne.stories[n]?.img; if (src) reframe(v, 'wiki', src, nu => { if (n < 0) ne.limg = nu; else ne.stories[n].img = nu; render(v); }); return; }
+  case 'ndImgDel': { const ne = ui.newsEdit, n = +d.n; if (n < 0) { dropDraftPic(ne, ne.limg); ne.limg = ''; ne.lcap = ''; } else if (ne.stories[n]) { dropDraftPic(ne, ne.stories[n].img); ne.stories[n].img = ''; ne.stories[n].cap = ''; } break; }
   case 'ndPaper': { const p = N.papers().find(x => x.name === val); if (p) Object.assign(ui.newsEdit, nextIssue(p)); break; }
-  case 'newsCancel': ui.newsEdit = null; break;
+  case 'newsCancel': dropDraftPics(ui.newsEdit); ui.newsEdit = null; break;
   case 'newsPub': {
     const n = ui.newsEdit; if (!n.headline.trim()) { toast(v, 'Add a headline first.'); break; }
+    if (n.edit) {
+      const i = g.news.issues.find(x => x.id === n.edit); if (!i) { ui.newsEdit = null; break; }
+      const nu = N.draftIssue(n), gone = N.newsPics(i).filter(a => !N.newsPics(nu).some(b => samePic(a, b)));
+      for (const k of ['limg', 'lcap']) delete i[k];
+      Object.assign(i, nu, {ed:N.now()}); gone.forEach(N.dropImg);
+      g.news.issues.sort((a, b) => (+a.no || 0) - (+b.no || 0));
+      ui.newsEdit = null; ui.paper = N.paperName(i); ui.newsSel = i.id; toast(v, 'Saved. Readers see the new version.'); renderAll(); return;
+    }
     const issue = Object.assign({id:uid('ed'), t:N.now()}, N.draftIssue(n));
     if (n.see?.length) issue.see = [...n.see];
     g.news.issues.push(issue); (g.news.seen.gm = g.news.seen.gm || []).push(issue.id);
     const to = N.audOf(issue, 'news');
-    for (const ch of to === '*' ? ['table'] : to.map(s => 'dm-' + s)) push({ch, kind:'news', by:'gm', text:issue.headline, nid:issue.id});
+    for (const ch of to === '*' ? ['table', ...g.groups.filter(x => x.party).map(x => 'grp-' + x.id)] : to.map(s => 'dm-' + s)) push({ch, kind:'news', by:'gm', text:issue.headline, nid:issue.id});
     ui.newsEdit = null; ui.paper = N.paperName(issue); ui.newsSel = issue.id; toast(v, to === '*' ? 'Published. Everyone got a note in chat.' : `Published for ${N.audLabel(issue, 'news').replace(/^Only /, '')}. They got a note.`); renderAll(); return;
   }
   case 'ndAud': N.audSet(ui.newsEdit, 'news', val); break;
@@ -1001,6 +1036,29 @@ function act(v, a, el, e){
   case 'msgMenu': { const w = v.root.querySelector(`[data-mid="${CSS.escape(val)}"]`); if (ui.pop?.mid === val) ui.pop = null; else if (w) { openPop(v, 'msg', d.lp ? (w.querySelector('.m,.narr,.resm,.roll') || w) : el); ui.pop.mid = val; } break; }
   case 'emoMore': if (ui.pop) ui.pop.all = !ui.pop.all; break;
   case 'emoTab': ui.emoTab = val; if (val === 'gif' && !ui.gifRes && g.gifKey) gifSearch(v); break;
+  /* group chats: the GM makes, renames, fills and deletes them */
+  case 'grpNew': if (!gm) break; openSheet(v, 'grpEdit', {party:d.party === '1'}); break;
+  case 'grpEdit': if (!gm) break; openSheet(v, 'grpEdit', {v:val}); break;
+  case 'gdParty': ui.gd.party = val === '1'; break;
+  case 'gdSeat': { const ss = ui.gd.seats, i = ss.indexOf(val); if (i < 0) ss.push(val); else ss.splice(i, 1); break; }
+  case 'gdSave': {
+    const d = ui.gd, name = d.name.trim(); if (!gm || !name || !d.seats.length) break;
+    const old = d.id && g.groups.find(x => x.id === d.id), seats = N.seats().filter(s => d.seats.includes(s));
+    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {})};
+    /* a player is in one party at a time: putting them in this one takes them out of any other */
+    if (gr.party) for (const o of g.groups.filter(x => x.party && x.id !== gr.id && x.seats.some(s => seats.includes(s)))) { const was = [...o.seats]; N.saveGroup({...o, seats:o.seats.filter(s => !seats.includes(s))}, was); }
+    N.saveGroup(gr, old ? old.seats : null);
+    if (!old) sys(`${N.gmName()} made this group chat for ${N.namesOf(seats)}.`, 'grp-' + gr.id);
+    else { const added = seats.filter(s => !old.seats.includes(s)); if (added.length) sys(`${N.gmName()} added ${N.namesOf(added)} to the chat.`, 'grp-' + gr.id); }
+    close(); ui.tab = 'chat'; ui.ch = 'grp-' + gr.id; ui.shelf = false; toast(v, old ? 'Saved.' : `Made ${name}. Only ${N.namesOf(seats)} and you can read it.`); renderAll(); return;
+  }
+  case 'grpDelGo': { if (!gm) break; const gr = g.groups.find(x => x.id === val); if (!gr) break; N.dropGroup(gr.id); close(); if (ui.ch === 'grp-' + gr.id) ui.ch = 'table'; toast(v, `${gr.name} deleted.`); renderAll(); return; }
+  /* several characters per player: the GM adds or removes seats, the player switches (a reload, like signing in as someone else) */
+  case 'seatAdd': { if (!gm) break; const m = N.MEMBERS.find(x => x.uid === val), s = N.addSeat(val); if (s) toast(v, `${m?.name || 'They'} got another character (seat ${s.slice(1)}). Fill in its card in Cast.`); break; }
+  case 'seatDrop': if (gm) { N.dropSeat(val, d.s); toast(v, 'Character taken away. Its card stays in Cast.'); } break;
+  case 'seatGo': { const c = g.chars[g.P[val]?.char || 'pc' + String(val).slice(1)]; toast(v, `Switching to ${c?.built ? c.short : 'your other character'}…`); N.switchSeat(val); return; }
+  case 'picSend': sendPic(v); return;
+  case 'picView': openSheet(v, 'picView', {v:val}); break;
   case 'gifSend': { const r = (ui.gifRes || [])[+d.i]; if (r) sendGif(v, {u:r.u, w:r.w, h:r.h}); return; }
   case 'gifLink': { const u = (ui.gifUrl || '').trim(); if (!N.gifLinkOk(u)) break; ui.gifUrl = ''; sendGif(v, {u}); return; }
   case 'gifKeySave': if (!gm) break; g.gifKey = (ui.gifKeyD ?? g.gifKey ?? '').trim(); ui.gifKeyD = undefined; ui.gifRes = null; toast(v, g.gifKey ? 'GIF search is on.' : 'GIF search is off.'); renderAll(); return;
@@ -1061,7 +1119,7 @@ function act(v, a, el, e){
     /* a box the GM ticks by hand goes in the open chat's actions, so the table can see what happened */
     sys(`${N.gmName()} ${on ? 'checked' : 'cleared'} ${c.short}’s ${c.stressV[d.k][+d.i]}-point ${d.k === 'phys' ? 'physical' : 'mental'} stress box.`, ui.ch === 'gm' ? 'table' : ui.ch).act = 'stress';
     renderAll(); return; }
-  case 'fp': { const c = g.chars[d.c], before = c.fp; c.fp = clamp(c.fp + (+d.d), 0, 10); if (c.fp !== before) sys(+d.d > 0 ? `${N.gmName()} gave ${c.short} a fate point.` : `${c.short} spent a fate point.`); renderAll(); return; }
+  case 'fp': { const c = g.chars[d.c], before = c.fp; c.fp = clamp(c.fp + (+d.d), 0, 10); if (c.fp !== before) sys(+d.d > 0 ? `${N.gmName()} gave ${c.short} a fate point.` : `${c.short} spent a fate point.`, N.homeCh(c.player)); renderAll(); return; }
   case 'gmFor': ui.ch = val; break;
   case 'mapEditGo': close(); ui.tab = 'map'; ui.mapEdit = true; ui.addPin = false; break;
   case 'castNpcs': close(); ui.tab = 'cast'; ui.castSeg = 'npcs'; ui.castSel = null; break;
@@ -1162,7 +1220,7 @@ function act(v, a, el, e){
   case 'pdUpload': uploadFace(v, src => { ui.pd.portrait = src; }); return;
   case 'pdFrame': if (ui.pd?.portrait) reframe(v, 'face', ui.pd.portrait, nu => { ui.pd.portrait = nu; render(v); }); return;
   case 'pdSkillDel': delete ui.pd.skills[val]; break;
-  case 'pdSkillMv': ui.pd.skills[val] = clamp(ui.pd.skills[val] + (+d.d), 1, 8); break;
+  case 'pdSkillMv': ui.pd.skills[val] = N.skillStep(ui.pd.skills[val], +d.d); break;
   case 'pdStuntAdd': ui.pd.stunts.push(['','']); break;
   case 'pdStuntDel': ui.pd.stunts.splice(+d.i, 1); break;
   case 'pdDisc': pickDisc(ui.pd, d.s, val); break;
@@ -1214,7 +1272,7 @@ function act(v, a, el, e){
   case 'ndFrame': if (ui.nd?.portrait) reframe(v, 'face', ui.nd.portrait, nu => { ui.nd.portrait = nu; render(v); }); return;
   case 'ndType': ui.nd.type = val; break;
   case 'ndSkillDel': delete ui.nd.skills[val]; break;
-  case 'ndSkillMv': ui.nd.skills[val] = clamp(ui.nd.skills[val] + (+d.d), 1, 8); break;
+  case 'ndSkillMv': ui.nd.skills[val] = N.skillStep(ui.nd.skills[val], +d.d); break;
   case 'ndDisc': pickDisc(ui.nd, d.s, val); break;
   case 'ndStuntAdd': ui.nd.stunts.push(['','']); break;
   case 'ndStuntDel': ui.nd.stunts.splice(+d.i, 1); break;
@@ -1222,6 +1280,8 @@ function act(v, a, el, e){
   case 'npcSave': saveNpc(v); return;
   case 'npcDup': { const n = g.npcs.find(x => x.id === val); if (!n) break; const c = JSON.parse(JSON.stringify(n)); c.id = uid('n'); c.name = n.name + ' (copy)'; g.npcs.push(c); ui.castSel = c.id; toast(v, 'Duplicated.'); renderAll(); return; }
   case 'npcDelGo': { const i = g.npcs.findIndex(x => x.id === val), n = g.npcs[i]; if (!n) break; g.npcs.splice(i, 1); ui.sheet = null; ui.castSel = null; toast(v, `${n.name} deleted.`, () => g.npcs.splice(i, 0, n)); renderAll(); return; }
+  /* an NPC's fate points change right on its card, without opening Edit. Secret, so nothing is posted */
+  case 'npcFp': { const n = g.npcs.find(x => x.id === d.n); if (!n || !gm) break; n.fp = clamp((+n.fp || 0) + (+d.d), 0, 10); renderAll(); return; }
   case 'npcStress': { const n = g.npcs.find(x => x.id === d.n); n.stress[d.k][+d.i] = !n.stress[d.k][+d.i]; renderAll(); return; }
   case 'npcToFight': { if (cb.state === 'off') { toast(v, 'Begin a fight first.'); break; } const t = N.cbAddNpc(val, 'foe', cb.zones[0]?.id); toast(v, `${t.name} joins the fight${cb.zones[0] ? ' in ' + cb.zones[0].name : ''}.`); renderAll(); return; }
   /* players and sign-ins */
@@ -1374,6 +1434,7 @@ function act(v, a, el, e){
 function openSheet(v, s, d={}){
   const g = G(), ui = v.ui;
   ui.sheet = s; ui.sheetArg = d.c || d.v || null;
+  if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats], party:!!gr.party} : {id:null, name:'', seats:[], party:!!d.party}; }
   if (s === 'scene') {
     const ch = ui.ch === 'gm' ? 'table' : ui.ch, cur = g.scenes[ch];
     ui.sd = cur ? {ch, title:cur.title, where:cur.where || '', date:cur.date || '', art:cur.art || null, place:cur.place || null, aspects:(cur.aspects||[]).map(a => ({...a})), post:true, tab:g.recent.length ? 'recent' : 'pics', newAsp:''}
@@ -1493,8 +1554,16 @@ function newsTab(v){
 }
 /* the next issue of a paper: its name, number and price carried over */
 const nextIssue = p => { const last = p.issues[p.issues.length - 1]; return {paper:p.name, no:String(Math.max(0, ...p.issues.map(i => +i.no || 0)) + 1), price:last.price || ''}; };
-N.draftIssue = d => ({paper:d.paper.trim(), no:parseInt(d.no, 10) || 0, date:d.date.trim(), price:d.price.trim(), headline:d.headline.trim(), sub:d.sub.trim(), lead:d.lead,
-  stories:[{title:d.s1t.trim(), body:d.s1b}, {title:d.s2t.trim(), body:d.s2b}].filter(s => s.title || s.body.trim()), notices:d.notices.split('\n').map(s => s.trim()).filter(Boolean)});
+const blankIssue = () => ({paper:'', no:'1', date:'', price:'', headline:'', sub:'', lead:'', limg:'', lcap:'', stories:[{title:'', body:'', img:'', cap:''}], notices:''});
+/* the form as an issue: as many stories as the GM wrote, each with an optional picture, and an optional picture over the lead */
+N.draftIssue = d => { const o = {paper:d.paper.trim(), no:parseInt(d.no, 10) || 0, date:d.date.trim(), price:d.price.trim(), headline:d.headline.trim(), sub:d.sub.trim(), lead:d.lead,
+  stories:d.stories.map(st => { const x = {title:st.title.trim(), body:st.body}; if (st.img) { x.img = st.img; if (st.cap?.trim()) x.cap = st.cap.trim(); } return x; }).filter(st => st.title || st.body.trim() || st.img),
+  notices:d.notices.split('\n').map(s => s.trim()).filter(Boolean)};
+  if (d.limg) { o.limg = d.limg; if (d.lcap?.trim()) o.lcap = d.lcap.trim(); }
+  return o; };
+/* uploads in a draft that never got saved are deleted; pictures the saved issue still uses stay */
+function dropDraftPic(d, src){ if (!d || !src) return; const old = d.edit && G().news.issues.find(x => x.id === d.edit); if (!(old && N.newsPics(old).some(x => samePic(x, src)))) N.dropImg(src); }
+function dropDraftPics(d){ if (d) N.newsPics(N.draftIssue(d)).forEach(src => dropDraftPic(d, src)); }
 
 /* ---------------- phones: keep the composer on top of the keyboard ----------------
    The app is sized to the part of the screen above the keyboard (visualViewport). When that size changes, the height glides

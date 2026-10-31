@@ -262,6 +262,14 @@
 .app .m .bub{padding:9px 14px 10px;border-radius:20px 20px 20px 6px;background:var(--raise);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 0 0 1px var(--line);font:500 15.5px/1.45 var(--f-ui);overflow-wrap:anywhere}
 .app .m.cont .bub{border-radius:6px 20px 20px 6px}
 .app .m .bub em{font-family:var(--f-display);font-style:italic;color:var(--ink-2)}
+/* **bold** and "- " / "1. " lists typed into a message */
+.app .m strong{font-weight:800}
+.app .m .fl{margin:4px 0;padding-left:1.35em}
+.app .m ul.fl{list-style:disc}
+.app .m ol.fl{list-style:decimal}
+.app .m .fl li{margin:2px 0}
+.app .m .fl li::marker{color:var(--gold-tx)}
+.app .m.mine .fl li::marker{color:inherit}
 .app .m .bub .rpd{font-family:var(--f-display);font-style:italic;color:var(--ink-2)}
 .app .m.mine{flex-direction:row-reverse}
 .app .m.mine .body{justify-items:end}
@@ -890,6 +898,8 @@
 .app .asps .icard .k{margin-bottom:9px}
 .app .lad{display:grid;gap:8px}
 .app .lad .rung{display:grid;grid-template-columns:92px 1fr;gap:10px;align-items:center}
+/* Poor (−1) skills sit under the +0 "everything else" line */
+.app .lad .rung.neg{order:1}
 .app .lad .rung .lv{font:700 12px/1.2 var(--f-ui);color:var(--ink-3)}
 .app .lad .rung .lv b{display:block;font:700 18px/1 var(--f-display);color:var(--gold-tx)}
 .app .lad .rung .sks{display:flex;flex-wrap:wrap;gap:6px}
@@ -961,6 +971,21 @@
 .app .mem .av{--s:38px}
 .app .mem b{display:block;font:700 14px/1.2 var(--f-ui)}
 .app .mem small{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
+/* a player's characters (one seat each) under their row, and the player's own picker in the profile */
+.app .memseats{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-top:8px;border-top:1px solid var(--line)}
+.app .memseats .ms{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 4px 0 5px;border-radius:999px;background:var(--sunk)}
+.app .memseats .ms .av{--s:24px;box-shadow:none;font-size:10px}
+.app .memseats .ms b{display:inline;font:700 13px/1 var(--f-ui)}
+.app .memseats .ms small{margin-right:6px}
+.app .seatpick{display:grid;gap:8px}
+.app .seatb{display:flex;align-items:center;gap:12px;width:100%;padding:8px 14px 8px 8px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);text-align:left}
+.app .seatb>span:not(.av){flex:1;min-width:0;display:grid;gap:3px}
+.app .seatb .av{--s:40px;flex:none}
+.app .seatb b{font:700 15px/1.2 var(--f-ui)}
+.app .seatb small{font:600 12.5px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .seatb>svg{width:20px;height:20px;color:var(--ink-3)}
+.app .seatb[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--gold);opacity:1}
+.app .seatb[aria-pressed="true"]>svg{color:var(--gold-tx)}
 .app .mem .row{display:flex;gap:6px}
 
 /* combat setup panel */
@@ -1234,6 +1259,14 @@
 .app .paper .pnotices{margin-top:14px;padding:10px 12px;border:1px solid #2b2416;outline:3px double #2b2416;outline-offset:-7px}
 .app .paper .pnotices ul{margin:0;padding:0 0 0 18px;font-size:14px}
 .app .paper .pnotices li+li{margin-top:4px}
+/* pictures in the paper (over the lead and in stories), printed in ink tones, and the story boxes in the GM's form */
+.app .paper .pfig{margin:0 0 12px;display:grid;justify-items:center;gap:4px}
+.app .paper .pfig img{display:block;max-width:100%;max-height:340px;width:auto;height:auto;filter:sepia(.35) contrast(1.05);box-shadow:0 0 0 1px #2b2416}
+.app .paper .pstories .pfig img{max-height:200px}
+.app .paper .pfig .wfr{display:block;max-width:100%;width:min(100%,420px);aspect-ratio:var(--r);overflow:hidden;box-shadow:0 0 0 1px #2b2416}
+.app .paper .pfig .wfr img{width:100%;height:100%;max-height:none;object-fit:cover;box-shadow:none}
+.app .paper .pfig figcaption{font:italic 400 13px/1.3 var(--f-paper);color:#4a3f2a;text-align:center}
+.app .ndst{display:grid;gap:8px;padding:10px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
 
 /* scene picker: free-invoke dots and remove on aspect cards */
 .app .icard .fib{display:inline-flex;align-items:center;gap:2px;min-width:22px;height:22px;padding:0 3px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
@@ -1291,6 +1324,10 @@
 .app .shh h2{flex:1;margin:0;font:600 13px/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
 .app .shl{display:grid;gap:14px;align-content:start;min-height:0;padding:2px 0 8px}
 .app .shg{display:grid;gap:2px}
+/* the GM's "New group chat" row at the end of the chat list */
+.app .shr.shnew{opacity:.85;margin-top:2px}
+.app .shr.shnew .cic{background:transparent;border:1.5px dashed var(--line-3);box-sizing:border-box}
+.app .shr.shnew:hover{opacity:1}
 .app .shg h3{margin:0;padding:0 10px 4px;font:800 10.5px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4)}
 .app .shr{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:7px 10px 7px 8px;border-radius:14px;text-align:left;color:var(--ink-3);transition:background .15s,color .15s}
 .app .shr .av{--s:34px;box-shadow:none;font-size:14px;flex:none}
@@ -1682,6 +1719,15 @@
 .app .gif-link .inp{flex:1;min-width:0;height:38px;min-height:38px}
 .app .m.gifm .gifbox{width:fit-content;max-width:100%;padding:5px;border-radius:20px;border:1.5px dashed var(--line-3)}
 .app .m.gifm .gif{display:block;width:260px;max-width:100%;max-height:320px;object-fit:cover;border-radius:14px;background:var(--sunk)}
+/* pictures sent in chat: solid frame (GIFs keep the dashed one), a caption bubble under it, and the big view */
+.app .m.picm .gifbox{display:block;border-style:solid;cursor:zoom-in;margin-left:auto}
+.app .m.picm:not(.mine) .gifbox{margin-left:0}
+.app .m.picm .gif{width:280px}
+.app .m.picm .bub{margin-top:6px;width:fit-content;max-width:100%}
+.app .m.picm .bub::before{content:none}
+.app .m.picm.mine .bub{margin-left:auto}
+.app a.btn{text-decoration:none}
+.app .picbig{display:block;max-width:100%;max-height:70vh;margin:0 auto;border-radius:12px;object-fit:contain}
 /* GM screen: the picture shelf at the bottom */
 .app .gs-pics .gs-h small{font:700 12px/1 var(--f-ui)}
 .app .gs-pics .gs-note{margin:0;font:600 12.5px/1.4 var(--f-ui)}

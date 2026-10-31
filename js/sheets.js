@@ -119,9 +119,9 @@ N.sheetHtml = function(v){
       : tab === 'maps' ? pins.map(p => ({id:`pl:${p.map}:${p.id}`, title:p.label, sub:p.sub, place:{map:p.map, rx:p.rx, ry:p.ry}}))
       : [...g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your picture', up:true})), ...N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Picture'}))];
     const isOn = p => p.place ? (d.place && d.place.map === p.place.map && d.place.rx === p.place.rx && d.place.ry === p.place.ry) : (d.art && d.art === p.art);
-    const forwho = ['table', ...N.seats().map(x => 'dm-' + x)];
+    const forwho = N.channelsFor('gm').filter(c => c !== 'gm');
     const body = `
-      <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
+      <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:c.startsWith('grp-')?`<span class="cic">${IC('whisper')}</span>${esc(N.chName(c,'gm'))}`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
       <div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">Picture</h4><div class="seg"><button type="button" data-a="sdTab" data-v="recent" aria-pressed="${tab==='recent'}">Recent</button><button type="button" data-a="sdTab" data-v="pics" aria-pressed="${tab==='pics'}">Pictures</button><button type="button" data-a="sdTab" data-v="maps" aria-pressed="${tab==='maps'}">Map places</button></div></div>
         <div class="thumbs">${pics.map(p => `<button type="button" class="thumb${isOn(p)?' on':''}" ${p.up ? `data-a="sdPickUp" data-v="${esc(p.art)}"` : `data-a="sdPick" data-v="${esc(p.id)}"`} style="${N.sceneArt(p)};${p.place?'background-size:420% auto':''}">${N.scenePic(p)}<span>${esc(p.title)}<small>${esc(p.sub||'')}</small></span>${isOn(p)?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
           ${tab==='pics'?`<button type="button" class="thumb up" data-a="sdUpload"><span>${IC('upload')}Upload a picture</span></button>`:''}
@@ -157,6 +157,7 @@ N.sheetHtml = function(v){
         ${mp ? `<button type="button" class="btn sm ghost" data-a="metaFrame">${IC('fit')}Adjust</button><button type="button" class="btn sm ghost" data-a="metaNone">${IC('trash')}Remove</button>` : ''}</div></div>`;
     const body = `<div class="prof"><button type="button" class="facebtn" data-a="metaUp" aria-label="Change my Meta picture">${N.av(me,56)}<span class="badge">${IC('image')}</span></button><span><b>${esc(my?.name || me.name)}</b><small>${gm?'Game master':'Player'} · ${esc(my?.email || 'signed in with Google')}</small></span></div>
       ${meta}
+      ${mySeats(v)}
       <div><h4>Appearance</h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="night" aria-pressed="${v.theme==='night'}">${IC('moon')}Night</button><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="day" aria-pressed="${v.theme==='day'}">${IC('sun')}Day</button></div></div>
       <div><h4>Style</h4>${stylePick(v)}</div>
       <div><h4>Text size<small>On this device only</small></h4>${fzPick(v)}</div>
@@ -174,13 +175,17 @@ N.sheetHtml = function(v){
   case 'players': {
     const rank = m => m.role === 'pending' ? 0 : /^p\d+$/.test(m.role) ? 1 : 2;
     const list = N.MEMBERS.filter(m => m.role !== 'gm').sort((a,b) => rank(a) - rank(b) || (a.t||0) - (b.t||0));
-    const st = m => m.role === 'pending' ? 'Waiting to be let in' : m.role === 'removed' ? 'Removed' : `Seat ${m.role.slice(1)}`;
+    const st = m => m.role === 'pending' ? 'Waiting to be let in' : m.role === 'removed' ? 'Removed' : N.seatsOf(m).length > 1 ? `${N.seatsOf(m).length} characters` : `Seat ${m.role.slice(1)}`;
+    /* each of a player's characters is a seat of its own; the GM can add another or take an extra one away */
+    const memSeats = m => { const ss = N.seatsOf(m);
+      return `<div class="memseats">${ss.map(s => { const c = g.chars[g.P[s]?.char || 'pc' + s.slice(1)]; return `<span class="ms">${N.av({name:c?.built ? c.short : '?', portrait:c?.built ? c.portrait : null, color:g.P[s]?.color}, 24)}<b>${esc(c?.built ? c.short : 'No card yet')}</b><small>Seat ${s.slice(1)}${ss.length > 1 && s === m.role ? ' · playing now' : ''}</small>${ss.length > 1 && s !== m.role ? `<button type="button" class="ibtn sm" data-a="seatDrop" data-v="${m.uid}" data-s="${s}" aria-label="Take this character away" title="Take this character away">${IC('x')}</button>` : ''}</span>`; }).join('')}
+        <button type="button" class="btn sm ghost" data-a="seatAdd" data-v="${m.uid}">${IC('plus')}Add a character</button></div>`; };
     const body = `<div class="members">${list.map(m => {
       const seated = /^p\d+$/.test(m.role), p = g.P[m.role];
       return `<div class="mem">${N.av({name:m.name,color:p?p.color:'var(--line-3)'},38)}<span style="min-width:0">${seated ? `<input class="inp" id="mem-${m.uid}-${v.id}" data-i="memName" data-v="${m.uid}" value="${esc(m.name)}" aria-label="Name the table sees" style="min-height:34px;padding:4px 10px;font-weight:800">` : `<b>${esc(m.name)}</b>`}<small>${esc(m.email || '')} · ${st(m)}</small></span>
         <div class="row">${seated ? `<button type="button" class="btn sm danger" data-a="reject" data-v="${m.uid}">${IC('trash')}Remove</button>`
-          : `<button type="button" class="btn sm primary" data-a="admit" data-v="${m.uid}">${m.role==='removed'?'Let back in':'Let in'}</button>${m.role==='pending'?`<button type="button" class="btn sm ghost" data-a="reject" data-v="${m.uid}">Turn away</button>`:''}`}</div></div>`; }).join('') || '<p class="muted" style="margin:0;font:600 14px/1.5 var(--f-ui)">No one else has signed in yet. Send your players the link to this page.</p>'}</div>
-      <div class="note">${IC('info')}Anyone with the link can sign in with Google, but only people you let in can see the campaign. Each gets a seat, an empty character card for you to fill, and a private chat with you.</div>`;
+          : `<button type="button" class="btn sm primary" data-a="admit" data-v="${m.uid}">${m.role==='removed'?'Let back in':'Let in'}</button>${m.role==='pending'?`<button type="button" class="btn sm ghost" data-a="reject" data-v="${m.uid}">Turn away</button>`:''}`}</div>${seated ? memSeats(m) : ''}</div>`; }).join('') || '<p class="muted" style="margin:0;font:600 14px/1.5 var(--f-ui)">No one else has signed in yet. Send your players the link to this page.</p>'}</div>
+      <div class="note">${IC('info')}<span>Anyone with the link can sign in with Google, but only people you let in can see the campaign. Each gets a seat, an empty character card for you to fill, and a private chat with you. <b>Add a character</b> gives a player another one with its own card, chats and party; they switch between them from their profile.</span></div>`;
     return sheet('Players and sign-ins', body);
   }
   case 'import': return sheet('Import lore', `<div class="note">${IC('info')}Pick <b>norne-gm-lore.json</b>. It fills the World wiki and the maps, GM secrets included, and saves them for the whole table. Players only ever receive the parts they’re allowed to see.</div>
@@ -309,6 +314,29 @@ N.sheetHtml = function(v){
       <textarea class="inp" id="med-${v.id}" data-i="med" rows="5" style="font:500 15.5px/1.45 var(--f-ui)">${esc(d.text)}</textarea>`,
       `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn primary" data-a="msgSave" ${d.text.trim()?'':'disabled'}>${IC('check')}Save</button>`);
   }
+  /* ---------------- group chats (GM) ---------------- */
+  case 'grpEdit': {
+    const d = v.ui.gd, seats = N.seats(), ready = N.groupsReady();
+    const body = `${ready ? '' : `<div class="note">${IC('warn')}Group chats need the new Firebase security rules. Paste firestore.rules into Firebase &gt; Firestore &gt; Rules, press Publish, then reload.</div>`}
+      <div><h4>Kind</h4><div class="seg"><button type="button" data-a="gdParty" data-v="0" aria-pressed="${!d.party}">${IC('whisper')}Group chat</button><button type="button" data-a="gdParty" data-v="1" aria-pressed="${!!d.party}">${IC('banner')}Party</button></div>
+        <p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">${d.party ? 'A party’s players only see each other’s characters, and this chat replaces Everyone for them. A player can be in one party at a time.' : 'An extra chat for a few players, like two characters running into each other. Everything else stays the same.'}</p></div>
+      <label class="field"><span>Name</span><input class="inp" id="gdn-${v.id}" data-i="gdName" value="${esc(d.name)}" placeholder="${d.party ? 'e.g. The river company' : 'e.g. Jack and Rachel'}" autocomplete="off"></label>
+      <div><h4>Who’s in it</h4><div class="forwho">${seats.map(s => { const other = d.party && (g.groups || []).find(x => x.party && x.id !== d.id && x.seats.includes(s)); return `<button type="button" data-a="gdSeat" data-v="${s}" aria-pressed="${d.seats.includes(s)}">${N.av(N.personObj(s), 28)}${esc(G().P[s]?.name || s)}${other ? `<small style="color:var(--ink-3);font-weight:600">· in ${esc(other.name)}</small>` : ''}</button>`; }).join('') || '<p class="muted" style="margin:0">No players yet.</p>'}</div>
+      <p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">Only these players and you can read the chat. Someone added later sees the whole chat so far; someone taken out loses it.${d.party ? ' Picking someone who is in another party moves them here.' : ''}</p></div>
+      ${d.id ? `<button type="button" class="btn sm danger" data-a="sheet" data-v="grpDel" data-c="${esc(d.id)}" style="justify-self:start">${IC('trash')}Delete this group chat</button>` : ''}`;
+    return sheet(d.id ? (d.party ? 'Edit party' : 'Edit group chat') : (d.party ? 'New party' : 'New group chat'), body, `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="gdSave" ${d.name.trim() && d.seats.length && ready ? '' : 'disabled'}>${IC('check')}${d.id ? 'Save' : d.party ? 'Make the party' : 'Make the chat'}</button>`);
+  }
+  case 'grpDel': {
+    const gr = (g.groups || []).find(x => x.id === arg); if (!gr) return '';
+    return sheet(`Delete ${esc(gr.name)}?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The chat and everything said in it are deleted for everyone. This can’t be undone.</p>`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="grpDelGo" data-v="${esc(gr.id)}">${IC('trash')}Delete</button>`);
+  }
+  /* a picture sent in chat, as big as the screen allows */
+  case 'picView': {
+    const m = g.msgs.find(x => x.id === arg); if (!m || !m.pic) return '';
+    return sheet(`${esc(N.personObj(m.by).name)}’s picture`, `<img class="picbig" src="${esc(m.pic.u)}" alt="${esc(m.text || 'Picture')}">${m.text ? `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">${N.emoText(N.fmt(m.text))}</p>` : ''}`,
+      `<a class="btn ghost" href="${esc(m.pic.u)}" download="norne-picture.jpg">${IC('download')}Save</a><button type="button" class="btn primary" data-a="closeSheet">Close</button>`, {wide:true});
+  }
   case 'msgDel': {
     const m = g.msgs.find(x => x.id === arg); if (!m) return '';
     const what = m.text ? `“${esc(m.text.length > 140 ? m.text.slice(0, 140) + '…' : m.text)}”` : m.kind === 'roll' ? `the ${esc(m.roll.skill)} roll` : m.kind === 'scene' ? 'this scene change' : 'this card';
@@ -329,7 +357,7 @@ N.sheetHtml = function(v){
         <div class="wipe-list" role="group" aria-label="Chat to wipe">${rows}</div>`,
         `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn danger" data-a="wipeStep" data-v="2" ${w.ch ? '' : 'disabled'}>Next${IC('right')}</button>`);
     }
-    const name = esc(N.chName(w.ch, 'gm')), n = count(w.ch), who = w.ch === 'table' ? 'you and every player' : w.ch === 'gm' ? 'you' : `you and ${name}`;
+    const name = esc(N.chName(w.ch, 'gm')), n = count(w.ch), who = w.ch === 'table' ? 'you and every player' : w.ch === 'gm' ? 'you' : N.grpOf(w.ch) ? `you and ${esc(N.namesOf(N.grpOf(w.ch).seats))}` : `you and ${name}`;
     const banner = `<div class="wipe-who">${ic(w.ch)}<span><small>Chat to wipe</small><b>${name}</b><small>${n} message${n > 1 ? 's' : ''} · ${esc(N.chSub(w.ch, 'gm'))}</small></span></div>`;
     if (w.step === 2) {
       return sheet('This is permanent', `${banner}
@@ -384,6 +412,14 @@ function portraitPick(sel, act, up){
      tapping your own picture opens the framing editor again */
   return `<div class="who-row"><button type="button" data-a="${up}"><span class="av" style="--s:52px;--c:var(--line-3);background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2)">${IC('upload').replace('<svg','<svg style="width:20px;height:20px"')}</span><span>Upload</span></button>${custom ? `<button type="button" aria-pressed="true" data-a="${up.replace('Upload', 'Frame')}" title="Adjust framing"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${esc(custom)}" alt="" style="${N.frameCss(sel)}"></span><span>Adjust</span></button>` : ''}${PORTRAITS.map(p => `<button type="button" data-a="${act}" data-v="${p}" aria-pressed="${sel===p}"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${N.FACE(p)}" alt="" loading="lazy"></span></button>`).join('')}</div>`;
 }
+/* a player with several characters picks which one to play; switching reloads Norne as that character */
+function mySeats(v){
+  const my = N.me(); if (!my || isGM(v)) return '';
+  const ss = N.seatsOf(my); if (ss.length < 2) return '';
+  const g = G();
+  return `<div><h4>Your characters<small>Each has its own chats, party and memory. Switching reloads Norne.</small></h4><div class="seatpick">${ss.map(s => { const c = g.chars[g.P[s]?.char || 'pc' + s.slice(1)], cur = s === v.role;
+    return `<button type="button" class="seatb" data-a="seatGo" data-v="${s}" aria-pressed="${cur}" ${cur ? 'disabled' : ''}>${N.av({name:c?.built ? c.short : '?', portrait:c?.built ? c.portrait : null, color:g.P[s]?.color}, 40)}<span><b>${esc(c?.built ? c.short : 'New character')}</b><small>${cur ? 'Playing now' : c?.built ? 'Tap to switch' : 'No card yet · tap to switch'}</small></span>${cur ? IC('check') : IC('swap')}</button>`; }).join('')}</div></div>`;
+}
 /* a skill ladder editor: rungs from top to bottom, each with a cap (or none) */
 function skillLadder(v, d, sel, del, rungs){
   const used = Object.keys(d.skills);
@@ -404,10 +440,11 @@ const stunts = (v, d, pre) => `<div style="display:grid;gap:8px">${d.stunts.map(
   <button type="button" class="btn sm ghost" data-a="${pre}StuntAdd" style="justify-self:start">${IC('plus')}Add a stunt</button></div>`;
 const steppers = (d, pre) => `<div style="display:flex;gap:12px;flex-wrap:wrap">${[['refresh','Refresh'],['fp','Fate points now']].map(([k,l]) => `<div class="field" style="flex:1;min-width:150px"><span>${l}</span><div class="seg" style="justify-content:space-between;width:100%"><button type="button" data-a="${pre}Step" data-k="${k}" data-d="-1" aria-label="Less">${IC('minus')}</button><b style="align-self:center;font:700 18px/1 var(--f-display)">${d[k]}</b><button type="button" data-a="${pre}Step" data-k="${k}" data-d="1" aria-label="More">${IC('plus')}</button></div></div>`).join('')}</div>`;
 /* any spread is allowed, up to Mythic, so the GM can build unusual characters */
-const RUNGS = [8,7,6,5,4,3,2,1].map(x => [x, ladderWord(x), 0]);
+/* +0 is any skill left off the card, so the ladder skips it: lowering an Average skill makes it Poor (−1) */
+const RUNGS = [8,7,6,5,4,3,2,1,-1].map(x => [x, ladderWord(x), 0]);
 function pcEditor(v){
   const d = v.ui.pd;
-  const extra = Object.entries(d.skills).filter(([,x]) => x > 8 || x < 1);
+  const extra = Object.entries(d.skills).filter(([,x]) => x > 8 || x < -1 || x === 0);
   return `${raceList(v)}<div><h4>Portrait</h4>${portraitPick(d.portrait, 'pdPortrait', 'pdUpload')}</div>
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label class="field"><span>Character name</span><input class="inp" id="pdn-${v.id}" data-i="pd" data-k="name" value="${esc(d.name)}" placeholder="Full name"></label>

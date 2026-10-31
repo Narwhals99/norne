@@ -76,7 +76,8 @@ const asUnits = (arr, pub) => Object.fromEntries(arr.map((x,i) => [x.id, pub ? p
 
 /* ---------- messages: one document each, tagged with who may read them ---------- */
 const MKNOWN = new Map(), MDOCS = new Map();
-const audOf = ch => ch === 'table' ? ['*'] : ch === 'gm' ? ['gm'] : [ch.slice(3)];
+/* a group chat's messages are readable by its members (the GM reads everything) */
+const audOf = ch => ch === 'table' ? ['*'] : ch === 'gm' ? ['gm'] : ch.startsWith('grp-') ? ((N.grpOf(ch)?.seats || []).length ? [...N.grpOf(ch).seats] : ['gm']) : [ch.slice(3)];
 function syncMsgs(){
   if (!LOADED.has('msgs')) return;
   for (const m of G().msgs) {
@@ -139,6 +140,55 @@ N.wipeChat = ch => {
     for (let i = 0; i < ids.length; i += 400) { const b = F.writeBatch(db); ids.slice(i, i + 400).forEach(id => b.delete(dref('msgs/' + id))); track(b.commit()); }
   }
   return gone.length;
+};
+
+/* ---------- group chats: one document each (groups/<id>: name, seats). Players see only the groups they are in. ---------- */
+let GROUPS_OK = false, GROUPS_DONE = false;
+/* characters arrive from game/chars plus each party document this person can read */
+const CH = {base:{}, party:{}};
+function mergeChars(){
+  const all = {...CH.base}; for (const u of Object.values(CH.party)) Object.assign(all, u);
+  G().chars = Object.fromEntries(Object.entries(all).map(([k, j]) => [k, N.decorate(JSON.parse(j))]));
+  nameSeats();
+}
+function listenParty(id){
+  const path = 'parties/' + id;
+  if (PARTY_ON.has(path)) return; PARTY_ON.add(path);
+  listenDoc(path, u => { if (!G().groups.some(x => x.id === id && x.party)) return; CH.party[id] = u; mergeChars(); ensureChars(); }, true).then(() => { if (isGM()) queueSync(); });
+}
+const PARTY_ON = new Set();
+/* the GM writes character cards only once it knows every party and has read every party's document,
+   so a card is never written to the wrong place or made again from blank */
+const charsReady = () => LOADED.has('game/chars') && GROUPS_DONE && G().groups.filter(x => x.party).every(x => LOADED.has('parties/' + x.id));
+function listenGroups(){
+  const role = G().role, q = isGM() ? F.collection(db, 'groups') : F.query(F.collection(db, 'groups'), F.where('seats', 'array-contains', role));
+  return new Promise(res => F.onSnapshot(q, snap => {
+    GROUPS_OK = GROUPS_DONE = true;
+    G().groups = snap.docs.map(d => ({id:d.id, name:d.data().name || 'Group chat', seats:d.data().seats || [], t:d.data().t || 0, ...(d.data().party ? {party:true} : {})}));
+    for (const gr of G().groups) { listenFight(gr.id); if (gr.party) listenParty(gr.id); }
+    /* a party this person is no longer in takes its cards with it */
+    let gone = false; for (const id of Object.keys(CH.party)) if (!G().groups.some(x => x.id === id && x.party)) { delete CH.party[id]; gone = true; }
+    if (gone) mergeChars(); setCombat(); if (live) changed(); res();
+  }, err => { console.warn('groups', err?.code); GROUPS_DONE = true; res(); }));
+}
+/* the rules that guard groups/<id> have to be published before the GM can make one */
+N.groupsReady = () => GROUPS_OK;
+/* the GM saves a group; members added or removed get (or lose) the chat's whole history */
+N.saveGroup = (gr, before) => {
+  if (!isGM()) return;
+  const g = G(), i = g.groups.findIndex(x => x.id === gr.id); if (i < 0) g.groups.push(gr); else g.groups[i] = gr;
+  track(F.setDoc(dref('groups/' + gr.id), {name:gr.name, seats:gr.seats, t:gr.t || Date.now(), party:!!gr.party}));
+  if (gr.party) listenParty(gr.id);
+  if (before && before.join() !== gr.seats.join()) for (const m of g.msgs) if (m.ch === 'grp-' + gr.id && MKNOWN.has(m.id)) track(F.updateDoc(dref('msgs/' + m.id), {aud:audOf(m.ch)}));
+};
+/* deleting a group deletes its messages and its fight document too */
+N.dropGroup = id => {
+  if (!isGM()) return;
+  const g = G(); g.groups = g.groups.filter(x => x.id !== id);
+  for (const m of [...g.msgs]) if (m.ch === 'grp-' + id) N.delMsg(m.id);
+  /* a deleted party's cards go back to game/chars on the next save */
+  const was = CH.party[id]; delete CH.party[id]; if (was) { KNOWN.delete('parties/' + id); LOADED.delete('parties/' + id); }
+  track(F.deleteDoc(dref('groups/' + id))); track(F.deleteDoc(dref('fights/' + id))); track(F.deleteDoc(dref('parties/' + id)));
 };
 
 /* ---------- push addresses: one document per phone or computer that has notifications on ---------- */
@@ -224,17 +274,22 @@ function syncNow(){
   saveLocal();
   const g = G();
   if (isGM()) {
-    writeUnits('game/chars', g.chars);
+    /* characters of players in a party live in that party's document (parties/<id>), so other parties never receive them */
+    if (charsReady()) {
+      const inParty = new Set(g.groups.filter(x => x.party).flatMap(x => x.seats));
+      writeUnits('game/chars', Object.fromEntries(Object.entries(g.chars).filter(([, c]) => !inParty.has(c.player))));
+      for (const pt of g.groups.filter(x => x.party)) writeUnits('parties/' + pt.id, Object.fromEntries(Object.entries(g.chars).filter(([, c]) => pt.seats.includes(c.player))));
+    }
     /* fights being set up and fights in private chats stay in gm/combat, one unit per chat */
-    const all = N.allFights(), mine = Object.fromEntries(Object.entries(all).filter(([ch, cb]) => cb.state === 'setup' || (cb.state === 'live' && N.chSeat(ch))));
+    const all = N.allFights(), mine = Object.fromEntries(Object.entries(all).filter(([ch, cb]) => cb.state === 'setup' || (cb.state === 'live' && N.chKey(ch))));
     writeUnits('gm/combat', Object.fromEntries(Object.entries(mine).map(([ch, cb]) => [ch, combatOut(cb)])));
     /* what this device just wrote is the newest copy (its own writes don't come back as changes) */
     SC = mine;
     const tbl = all.table?.state === 'live' ? all.table : null;
     writeUnits('game/combat', {c:combatOut(tbl || N.freshCombat())}); GC = tbl;
-    /* a fight in a private chat is written only to that player's own fights/<seat> document */
-    for (const st of N.seats()) {
-      const path = 'fights/' + st, f = all['dm-' + st]?.state === 'live' ? all['dm-' + st] : null;
+    /* a fight in a private chat is written only to that player's own fights/<seat> document, a group chat's to fights/<group id> */
+    for (const [st, ch] of [...N.seats().map(s => [s, 'dm-' + s]), ...g.groups.map(x => [x.id, 'grp-' + x.id])]) {
+      const path = 'fights/' + st, f = all[ch]?.state === 'live' ? all[ch] : null;
       if (!LOADED.has(path)) { listenFight(st); continue; }
       writeUnits(path, {c:f ? combatOut(f) : null}); PF[st] = f;
     }
@@ -265,6 +320,12 @@ function syncNow(){
     writeUnits('gm/npcs', asUnits(g.npcs.map(n => ({...n, occ:n.job || ''}))));
     writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics});
     if (LOADED.has('gm/news')) {
+      /* pictures in an issue can be read by the same people as the issue */
+      for (const i of g.news.issues) for (const src of N.newsPics(i)) {
+        if (!src.startsWith('fs:')) continue;
+        const id = N.picBase(src).slice(3), a = N.audOf(i, 'news'), vis = a === '*', aud = Array.isArray(a) ? a : [], k = visKey(vis, aud);
+        if (MVIS.get(id) !== k) { MVIS.set(id, k); track(F.setDoc(dref('mapimgs/' + id), {vis, aud}, {merge:true})); }
+      }
       writeUnits('gm/news', Object.fromEntries(g.news.issues.map(i => [i.id, i])));
       writeUnits('game/news', Object.fromEntries(g.news.issues.map(i => [i.id, share(i, 'news', 'n:' + i.id, i)]).filter(e => e[1])));
     }
@@ -278,8 +339,9 @@ function syncNow(){
     }
   } else {
     const mine = g.P[g.role]?.char;
-    if (mine && g.chars[mine]) writeUnits('game/chars', {[mine]:g.chars[mine]}, true);
-    for (const [ch, cb] of Object.entries(N.allFights())) if (cb.state === 'live') { const s = N.chSeat(ch); writeUnits(s ? 'fights/' + s : 'game/combat', {c:combatOut(cb)}); }
+    const pt = N.partyOf(g.role);
+    if (mine && g.chars[mine]) writeUnits(pt ? 'parties/' + pt.id : 'game/chars', {[mine]:g.chars[mine]}, true);
+    for (const [ch, cb] of Object.entries(N.allFights())) if (cb.state === 'live') { const s = N.chKey(ch); writeUnits(s ? 'fights/' + s : 'game/combat', {c:combatOut(cb)}); }
   }
   syncMsgs();
 }
@@ -300,7 +362,7 @@ function listenFight(st){
 }
 const FIGHT_ON = new Map();
 /* a private fight can't start until the rules that guard fights/<seat> are published */
-N.fightBlocked = ch => { const s = N.chSeat(ch); return !!s && isGM() && !LOADED.has('fights/' + s); };
+N.fightBlocked = ch => { const s = N.chKey(ch); return !!s && isGM() && !LOADED.has('fights/' + s); };
 const queueSync = () => { clearTimeout(_sq); _sq = setTimeout(syncNow, 250); };
 N.syncNow = syncNow;
 
@@ -342,8 +404,8 @@ function setCombat(){
   const g = G(), src = {}, cur = N.allFights(), out = {};
   if (isGM()) {
     for (const [ch, x] of Object.entries(SC)) {
-      if (!x?.id || !(x.state === 'setup' || (x.state === 'live' && N.chSeat(ch)))) continue;
-      const p = PF[N.chSeat(ch)]; src[ch] = x.state === 'live' && p && p.id === x.id && p.state === 'live' ? p : x;
+      if (!x?.id || !(x.state === 'setup' || (x.state === 'live' && N.chKey(ch)))) continue;
+      const p = PF[N.chKey(ch)]; src[ch] = x.state === 'live' && p && p.id === x.id && p.state === 'live' ? p : x;
     }
     if (!src.table && GC?.state === 'live') src.table = GC;
     /* the GM's own fights stay until the GM ends them, even before they are saved */
@@ -351,6 +413,7 @@ function setCombat(){
   } else {
     if (GC?.state === 'live') src.table = GC;
     if (PF[g.role]?.state === 'live') src['dm-' + g.role] = PF[g.role];
+    for (const gr of g.groups || []) if (PF[gr.id]?.state === 'live') src['grp-' + gr.id] = PF[gr.id];
   }
   for (const [ch, c] of Object.entries(src)) out[ch] = SRC[ch] === c && cur[ch] ? cur[ch] : normCombat(c);
   for (const k of Object.keys(SRC)) delete SRC[k];
@@ -406,23 +469,34 @@ function applyMembers(list){
   const g = G(); N.MEMBERS = list;
   const gmM = list.find(m => m.role === 'gm');
   g.P = {gm:{id:'gm', name:(gmM?.name || 'GM').trim().split(/\s+/)[0] || 'GM', color:'var(--c-gm)'}};
-  for (const m of list.filter(m => isSeat(m.role)).sort((a,b) => a.role.slice(1) - b.role.slice(1))) {
-    const name = (m.name || 'Player').trim() || 'Player';
-    g.P[m.role] = {id:m.role, name, char:'pc' + m.role.slice(1), color:N.seatColor(m.role), uid:m.uid};
+  /* someone with several characters has a seat for each (seats); role is the one they are playing now */
+  const rows = [];
+  for (const m of list.filter(m => isSeat(m.role))) for (const s of N.seatsOf(m)) rows.push([s, m]);
+  for (const [s, m] of rows.sort((a, b) => a[0].slice(1) - b[0].slice(1))) {
+    const who = (m.name || 'Player').trim() || 'Player';
+    g.P[s] = {id:s, name:who, who, char:'pc' + s.slice(1), color:N.seatColor(s), uid:m.uid, ...(N.seatsOf(m).length > 1 ? {multi:true, on:m.role === s} : {})};
   }
-  ensureChars();
+  nameSeats(); ensureChars();
+}
+/* every seat this account holds, the one played now first */
+N.seatsOf = m => [...new Set([m.role, ...(m.seats || [])])].filter(isSeat);
+/* a person with several characters shows as "Jack · Brann" for each one, so their chats can be told apart */
+function nameSeats(){
+  const g = G();
+  for (const p of Object.values(g.P)) if (p.multi) { const c = g.chars[p.char]; p.name = c?.built && c.short ? `${p.who} · ${c.short}` : `${p.who} (seat ${p.id.slice(1)})`; }
 }
 /* every seated player gets an empty character card, made on the GM's device */
 function ensureChars(){
   const g = G();
-  if (!isGM() || !LOADED.has('game/chars')) return;
+  if (!isGM() || !charsReady()) return;
   let add = false;
   for (const s of N.seats()) { const id = g.P[s].char; if (!g.chars[id]) { g.chars[id] = N.decorate(N.blankChar(id, s)); add = true; } }
   if (add) queueSync();
 }
 
 /* ---------- this device: unread marks and appearance ---------- */
-const LKEY = () => 'norne-seen-' + ME.uid;
+/* each character keeps its own unread marks on this device, as if it were a different person */
+const LKEY = () => 'norne-seen-' + ME.uid + (ME.seats?.length > 1 && isSeat(G().role) ? '-' + G().role : '');
 function loadLocal(){ const g = G(); try { const d = JSON.parse(localStorage.getItem(LKEY()) || '{}'); g.seen[g.role] = d.t || {}; g.news.seen[g.role] = d.n || []; } catch(e) { g.seen[g.role] = {}; g.news.seen[g.role] = []; } }
 function saveLocal(){ const g = G(); try { localStorage.setItem(LKEY(), JSON.stringify({t:g.seen[g.role] || {}, n:g.news.seen[g.role] || []})); } catch(e) {} }
 
@@ -448,7 +522,7 @@ async function enter(u){
   else if (gm && snap.data().role !== 'gm') await F.updateDoc(mref, {role:'gm'});
   F.onSnapshot(mref, s => {
     const d = s.data(); if (!d || s.metadata.hasPendingWrites) return;
-    ME = {uid:u.uid, email, name:d.name, role:d.role};
+    ME = {uid:u.uid, email, name:d.name, role:d.role, seats:d.seats || []};
     if (started) { if (d.role !== G().role) location.reload(); else N.renderAll(); return; }
     if (d.role === 'gm' || isSeat(d.role)) start(d.role).catch(fail);
     else if (d.role === 'removed') gate(`<p>You don’t have a seat at this table any more. Ask the GM if that’s a mistake.</p>${outBtn}`);
@@ -463,7 +537,7 @@ async function start(role){
     ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','game/news','gm/news','game/maps','game/wiki','game/meta','game/emoji']
     : ['game/chars','game/combat','game/maps','game/wiki','game/news','game/meta','game/emoji'];
   const APPLY = {
-    'game/chars': u => { g.chars = Object.fromEntries(Object.entries(u).map(([k,j]) => [k, N.decorate(JSON.parse(j))])); ensureChars(); },
+    'game/chars': u => { CH.base = u; mergeChars(); ensureChars(); },
     'game/combat': u => { GC = u.c ? JSON.parse(u.c) : null; setCombat(); },
     /* one unit per chat; c is where the one fight lived before there could be several */
     'gm/combat': u => { SC = {}; for (const j of Object.values(u)) { const x = JSON.parse(j); if (x) SC[x.ch || 'table'] = x; } setCombat(); },
@@ -479,7 +553,7 @@ async function start(role){
     'game/emoji': u => { g.emoji = vals(u).sort(byO); },
   };
   await new Promise(res => F.onSnapshot(F.collection(db, 'members'), snap => { applyMembers(snap.docs.map(d => ({uid:d.id, ...d.data()}))); changed(); res(); }, err => { fail(err); res(); }));
-  await Promise.all([...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs(), isGM() ? null : listenDoc('only/' + role, setMine, true), ...(isGM() ? N.seats() : [role]).map(listenFight)]);
+  await Promise.all([...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs(), listenGroups(), isGM() ? null : listenDoc('only/' + role, setMine, true), ...(isGM() ? N.seats() : [role]).map(listenFight)]);
   ensureChars();
   for (const t of ['click','change','input','submit','keydown','pointerup']) document.addEventListener(t, queueSync);
   window.addEventListener('pagehide', syncNow);
@@ -507,6 +581,24 @@ N.admit = id => {
   const seat = m.seat || 'p' + (Math.max(0, ...used) + 1);
   track(F.updateDoc(dref('members/' + m.uid), {role:seat, seat}));
   return m.name;
+};
+/* the GM gives a player another character: a new seat of its own (own card, own private chat, own party) */
+N.addSeat = id => {
+  const m = N.MEMBERS.find(x => x.uid === id); if (!m || !isSeat(m.role)) return null;
+  const used = [...N.MEMBERS.flatMap(x => [x.seat || x.role, ...(x.seats || [])]).map(s => +String(s).slice(1) || 0), ...Object.keys(G().chars).map(k => +k.slice(2) || 0)];
+  const seat = 'p' + (Math.max(0, ...used) + 1);
+  track(F.updateDoc(dref('members/' + m.uid), {seats:[...N.seatsOf(m), seat]}));
+  return seat;
+};
+/* the GM takes an extra character away (not the one being played); its card stays, like a former player's */
+N.dropSeat = (id, seat) => {
+  const m = N.MEMBERS.find(x => x.uid === id); if (!m || m.role === seat) return;
+  track(F.updateDoc(dref('members/' + m.uid), {seats:N.seatsOf(m).filter(s => s !== seat)}));
+};
+/* a player switches character: the app reloads as that seat, with its own chats and memory */
+N.switchSeat = seat => {
+  if (!ME || !N.seatsOf(ME).includes(seat) || seat === ME.role) return;
+  track(F.updateDoc(dref('members/' + ME.uid), {role:seat}));
 };
 N.kick = id => { const m = N.MEMBERS.find(x => x.uid === id); if (m) track(F.updateDoc(dref('members/' + m.uid), {role:'removed'})); return m; };
 N.renameMember = (id, name) => { name = name.trim(); if (name) track(F.updateDoc(dref('members/' + id), {name})); };
