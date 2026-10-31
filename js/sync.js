@@ -149,6 +149,7 @@ const CH = {base:{}, party:{}};
 function mergeChars(){
   const all = {...CH.base}; for (const u of Object.values(CH.party)) Object.assign(all, u);
   G().chars = Object.fromEntries(Object.entries(all).map(([k, j]) => [k, N.decorate(JSON.parse(j))]));
+  nameSeats();
 }
 function listenParty(id){
   const path = 'parties/' + id;
@@ -468,11 +469,21 @@ function applyMembers(list){
   const g = G(); N.MEMBERS = list;
   const gmM = list.find(m => m.role === 'gm');
   g.P = {gm:{id:'gm', name:(gmM?.name || 'GM').trim().split(/\s+/)[0] || 'GM', color:'var(--c-gm)'}};
-  for (const m of list.filter(m => isSeat(m.role)).sort((a,b) => a.role.slice(1) - b.role.slice(1))) {
-    const name = (m.name || 'Player').trim() || 'Player';
-    g.P[m.role] = {id:m.role, name, char:'pc' + m.role.slice(1), color:N.seatColor(m.role), uid:m.uid};
+  /* someone with several characters has a seat for each (seats); role is the one they are playing now */
+  const rows = [];
+  for (const m of list.filter(m => isSeat(m.role))) for (const s of N.seatsOf(m)) rows.push([s, m]);
+  for (const [s, m] of rows.sort((a, b) => a[0].slice(1) - b[0].slice(1))) {
+    const who = (m.name || 'Player').trim() || 'Player';
+    g.P[s] = {id:s, name:who, who, char:'pc' + s.slice(1), color:N.seatColor(s), uid:m.uid, ...(N.seatsOf(m).length > 1 ? {multi:true, on:m.role === s} : {})};
   }
-  ensureChars();
+  nameSeats(); ensureChars();
+}
+/* every seat this account holds, the one played now first */
+N.seatsOf = m => [...new Set([m.role, ...(m.seats || [])])].filter(isSeat);
+/* a person with several characters shows as "Jack · Brann" for each one, so their chats can be told apart */
+function nameSeats(){
+  const g = G();
+  for (const p of Object.values(g.P)) if (p.multi) { const c = g.chars[p.char]; p.name = c?.built && c.short ? `${p.who} · ${c.short}` : `${p.who} (seat ${p.id.slice(1)})`; }
 }
 /* every seated player gets an empty character card, made on the GM's device */
 function ensureChars(){
@@ -484,7 +495,8 @@ function ensureChars(){
 }
 
 /* ---------- this device: unread marks and appearance ---------- */
-const LKEY = () => 'norne-seen-' + ME.uid;
+/* each character keeps its own unread marks on this device, as if it were a different person */
+const LKEY = () => 'norne-seen-' + ME.uid + (ME.seats?.length > 1 && isSeat(G().role) ? '-' + G().role : '');
 function loadLocal(){ const g = G(); try { const d = JSON.parse(localStorage.getItem(LKEY()) || '{}'); g.seen[g.role] = d.t || {}; g.news.seen[g.role] = d.n || []; } catch(e) { g.seen[g.role] = {}; g.news.seen[g.role] = []; } }
 function saveLocal(){ const g = G(); try { localStorage.setItem(LKEY(), JSON.stringify({t:g.seen[g.role] || {}, n:g.news.seen[g.role] || []})); } catch(e) {} }
 
@@ -510,7 +522,7 @@ async function enter(u){
   else if (gm && snap.data().role !== 'gm') await F.updateDoc(mref, {role:'gm'});
   F.onSnapshot(mref, s => {
     const d = s.data(); if (!d || s.metadata.hasPendingWrites) return;
-    ME = {uid:u.uid, email, name:d.name, role:d.role};
+    ME = {uid:u.uid, email, name:d.name, role:d.role, seats:d.seats || []};
     if (started) { if (d.role !== G().role) location.reload(); else N.renderAll(); return; }
     if (d.role === 'gm' || isSeat(d.role)) start(d.role).catch(fail);
     else if (d.role === 'removed') gate(`<p>You don’t have a seat at this table any more. Ask the GM if that’s a mistake.</p>${outBtn}`);
@@ -569,6 +581,24 @@ N.admit = id => {
   const seat = m.seat || 'p' + (Math.max(0, ...used) + 1);
   track(F.updateDoc(dref('members/' + m.uid), {role:seat, seat}));
   return m.name;
+};
+/* the GM gives a player another character: a new seat of its own (own card, own private chat, own party) */
+N.addSeat = id => {
+  const m = N.MEMBERS.find(x => x.uid === id); if (!m || !isSeat(m.role)) return null;
+  const used = [...N.MEMBERS.flatMap(x => [x.seat || x.role, ...(x.seats || [])]).map(s => +String(s).slice(1) || 0), ...Object.keys(G().chars).map(k => +k.slice(2) || 0)];
+  const seat = 'p' + (Math.max(0, ...used) + 1);
+  track(F.updateDoc(dref('members/' + m.uid), {seats:[...N.seatsOf(m), seat]}));
+  return seat;
+};
+/* the GM takes an extra character away (not the one being played); its card stays, like a former player's */
+N.dropSeat = (id, seat) => {
+  const m = N.MEMBERS.find(x => x.uid === id); if (!m || m.role === seat) return;
+  track(F.updateDoc(dref('members/' + m.uid), {seats:N.seatsOf(m).filter(s => s !== seat)}));
+};
+/* a player switches character: the app reloads as that seat, with its own chats and memory */
+N.switchSeat = seat => {
+  if (!ME || !N.seatsOf(ME).includes(seat) || seat === ME.role) return;
+  track(F.updateDoc(dref('members/' + ME.uid), {role:seat}));
 };
 N.kick = id => { const m = N.MEMBERS.find(x => x.uid === id); if (m) track(F.updateDoc(dref('members/' + m.uid), {role:'removed'})); return m; };
 N.renameMember = (id, name) => { name = name.trim(); if (name) track(F.updateDoc(dref('members/' + id), {name})); };

@@ -971,6 +971,21 @@
 .app .mem .av{--s:38px}
 .app .mem b{display:block;font:700 14px/1.2 var(--f-ui)}
 .app .mem small{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
+/* a player's characters (one seat each) under their row, and the player's own picker in the profile */
+.app .memseats{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding-top:8px;border-top:1px solid var(--line)}
+.app .memseats .ms{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 4px 0 5px;border-radius:999px;background:var(--sunk)}
+.app .memseats .ms .av{--s:24px;box-shadow:none;font-size:10px}
+.app .memseats .ms b{display:inline;font:700 13px/1 var(--f-ui)}
+.app .memseats .ms small{margin-right:6px}
+.app .seatpick{display:grid;gap:8px}
+.app .seatb{display:flex;align-items:center;gap:12px;width:100%;padding:8px 14px 8px 8px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);text-align:left}
+.app .seatb>span:not(.av){flex:1;min-width:0;display:grid;gap:3px}
+.app .seatb .av{--s:40px;flex:none}
+.app .seatb b{font:700 15px/1.2 var(--f-ui)}
+.app .seatb small{font:600 12.5px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .seatb>svg{width:20px;height:20px;color:var(--ink-3)}
+.app .seatb[aria-pressed="true"]{box-shadow:inset 0 0 0 1.5px var(--gold);opacity:1}
+.app .seatb[aria-pressed="true"]>svg{color:var(--gold-tx)}
 .app .mem .row{display:flex;gap:6px}
 
 /* combat setup panel */

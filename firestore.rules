@@ -31,9 +31,14 @@ service cloud.firestore {
       allow read: if isGM() || isPlayer() || (signedIn() && request.auth.uid == uid);
       allow create: if signedIn() && request.auth.uid == uid
         && (request.resource.data.role == 'pending' || (request.resource.data.role == 'gm' && isGM()));
+      // A player with several characters (seats) may switch which one they play (role), and nothing else.
       allow update: if isGM()
         || (signedIn() && request.auth.uid == uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']));
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']))
+        || (signedIn() && request.auth.uid == uid
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role'])
+            && resource.data.role in resource.data.get('seats', [])
+            && request.resource.data.role in resource.data.get('seats', []));
       allow delete: if isGM();
     }
 

@@ -157,6 +157,7 @@ N.sheetHtml = function(v){
         ${mp ? `<button type="button" class="btn sm ghost" data-a="metaFrame">${IC('fit')}Adjust</button><button type="button" class="btn sm ghost" data-a="metaNone">${IC('trash')}Remove</button>` : ''}</div></div>`;
     const body = `<div class="prof"><button type="button" class="facebtn" data-a="metaUp" aria-label="Change my Meta picture">${N.av(me,56)}<span class="badge">${IC('image')}</span></button><span><b>${esc(my?.name || me.name)}</b><small>${gm?'Game master':'Player'} · ${esc(my?.email || 'signed in with Google')}</small></span></div>
       ${meta}
+      ${mySeats(v)}
       <div><h4>Appearance</h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="night" aria-pressed="${v.theme==='night'}">${IC('moon')}Night</button><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="day" aria-pressed="${v.theme==='day'}">${IC('sun')}Day</button></div></div>
       <div><h4>Style</h4>${stylePick(v)}</div>
       <div><h4>Text size<small>On this device only</small></h4>${fzPick(v)}</div>
@@ -174,13 +175,17 @@ N.sheetHtml = function(v){
   case 'players': {
     const rank = m => m.role === 'pending' ? 0 : /^p\d+$/.test(m.role) ? 1 : 2;
     const list = N.MEMBERS.filter(m => m.role !== 'gm').sort((a,b) => rank(a) - rank(b) || (a.t||0) - (b.t||0));
-    const st = m => m.role === 'pending' ? 'Waiting to be let in' : m.role === 'removed' ? 'Removed' : `Seat ${m.role.slice(1)}`;
+    const st = m => m.role === 'pending' ? 'Waiting to be let in' : m.role === 'removed' ? 'Removed' : N.seatsOf(m).length > 1 ? `${N.seatsOf(m).length} characters` : `Seat ${m.role.slice(1)}`;
+    /* each of a player's characters is a seat of its own; the GM can add another or take an extra one away */
+    const memSeats = m => { const ss = N.seatsOf(m);
+      return `<div class="memseats">${ss.map(s => { const c = g.chars[g.P[s]?.char || 'pc' + s.slice(1)]; return `<span class="ms">${N.av({name:c?.built ? c.short : '?', portrait:c?.built ? c.portrait : null, color:g.P[s]?.color}, 24)}<b>${esc(c?.built ? c.short : 'No card yet')}</b><small>Seat ${s.slice(1)}${ss.length > 1 && s === m.role ? ' · playing now' : ''}</small>${ss.length > 1 && s !== m.role ? `<button type="button" class="ibtn sm" data-a="seatDrop" data-v="${m.uid}" data-s="${s}" aria-label="Take this character away" title="Take this character away">${IC('x')}</button>` : ''}</span>`; }).join('')}
+        <button type="button" class="btn sm ghost" data-a="seatAdd" data-v="${m.uid}">${IC('plus')}Add a character</button></div>`; };
     const body = `<div class="members">${list.map(m => {
       const seated = /^p\d+$/.test(m.role), p = g.P[m.role];
       return `<div class="mem">${N.av({name:m.name,color:p?p.color:'var(--line-3)'},38)}<span style="min-width:0">${seated ? `<input class="inp" id="mem-${m.uid}-${v.id}" data-i="memName" data-v="${m.uid}" value="${esc(m.name)}" aria-label="Name the table sees" style="min-height:34px;padding:4px 10px;font-weight:800">` : `<b>${esc(m.name)}</b>`}<small>${esc(m.email || '')} · ${st(m)}</small></span>
         <div class="row">${seated ? `<button type="button" class="btn sm danger" data-a="reject" data-v="${m.uid}">${IC('trash')}Remove</button>`
-          : `<button type="button" class="btn sm primary" data-a="admit" data-v="${m.uid}">${m.role==='removed'?'Let back in':'Let in'}</button>${m.role==='pending'?`<button type="button" class="btn sm ghost" data-a="reject" data-v="${m.uid}">Turn away</button>`:''}`}</div></div>`; }).join('') || '<p class="muted" style="margin:0;font:600 14px/1.5 var(--f-ui)">No one else has signed in yet. Send your players the link to this page.</p>'}</div>
-      <div class="note">${IC('info')}Anyone with the link can sign in with Google, but only people you let in can see the campaign. Each gets a seat, an empty character card for you to fill, and a private chat with you.</div>`;
+          : `<button type="button" class="btn sm primary" data-a="admit" data-v="${m.uid}">${m.role==='removed'?'Let back in':'Let in'}</button>${m.role==='pending'?`<button type="button" class="btn sm ghost" data-a="reject" data-v="${m.uid}">Turn away</button>`:''}`}</div>${seated ? memSeats(m) : ''}</div>`; }).join('') || '<p class="muted" style="margin:0;font:600 14px/1.5 var(--f-ui)">No one else has signed in yet. Send your players the link to this page.</p>'}</div>
+      <div class="note">${IC('info')}<span>Anyone with the link can sign in with Google, but only people you let in can see the campaign. Each gets a seat, an empty character card for you to fill, and a private chat with you. <b>Add a character</b> gives a player another one with its own card, chats and party; they switch between them from their profile.</span></div>`;
     return sheet('Players and sign-ins', body);
   }
   case 'import': return sheet('Import lore', `<div class="note">${IC('info')}Pick <b>norne-gm-lore.json</b>. It fills the World wiki and the maps, GM secrets included, and saves them for the whole table. Players only ever receive the parts they’re allowed to see.</div>
@@ -406,6 +411,14 @@ function portraitPick(sel, act, up){
   /* Upload and your own picture come first, so the new picture is in view right after the framing editor closes;
      tapping your own picture opens the framing editor again */
   return `<div class="who-row"><button type="button" data-a="${up}"><span class="av" style="--s:52px;--c:var(--line-3);background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2)">${IC('upload').replace('<svg','<svg style="width:20px;height:20px"')}</span><span>Upload</span></button>${custom ? `<button type="button" aria-pressed="true" data-a="${up.replace('Upload', 'Frame')}" title="Adjust framing"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${esc(custom)}" alt="" style="${N.frameCss(sel)}"></span><span>Adjust</span></button>` : ''}${PORTRAITS.map(p => `<button type="button" data-a="${act}" data-v="${p}" aria-pressed="${sel===p}"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${N.FACE(p)}" alt="" loading="lazy"></span></button>`).join('')}</div>`;
+}
+/* a player with several characters picks which one to play; switching reloads Norne as that character */
+function mySeats(v){
+  const my = N.me(); if (!my || isGM(v)) return '';
+  const ss = N.seatsOf(my); if (ss.length < 2) return '';
+  const g = G();
+  return `<div><h4>Your characters<small>Each has its own chats, party and memory. Switching reloads Norne.</small></h4><div class="seatpick">${ss.map(s => { const c = g.chars[g.P[s]?.char || 'pc' + s.slice(1)], cur = s === v.role;
+    return `<button type="button" class="seatb" data-a="seatGo" data-v="${s}" aria-pressed="${cur}" ${cur ? 'disabled' : ''}>${N.av({name:c?.built ? c.short : '?', portrait:c?.built ? c.portrait : null, color:g.P[s]?.color}, 40)}<span><b>${esc(c?.built ? c.short : 'New character')}</b><small>${cur ? 'Playing now' : c?.built ? 'Tap to switch' : 'No card yet · tap to switch'}</small></span>${cur ? IC('check') : IC('swap')}</button>`; }).join('')}</div></div>`;
 }
 /* a skill ladder editor: rungs from top to bottom, each with a cap (or none) */
 function skillLadder(v, d, sel, del, rungs){
