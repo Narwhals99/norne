@@ -649,16 +649,7 @@ function cbDefend(v){
   N.cbResolve();
   renderAll();
 }
-function cbAbsorb(v, k, i){
-  const g = G(), cb = g.combat, p = cb.pending; if (!p) return;
-  const t = N.tokById(p.def), c = t && g.chars[t.ref]; if (!c) return;
-  const sh = `${p.shifts} shift${p.shifts>1?'s':''}`;
-  (p.fx = p.fx || {}).pc = {k, i};
-  if (k === 'box') { c.stress.phys[i] = true; fsys(`${c.short} soaks the ${sh} with their ${c.stressV.phys[i]}-stress box.`); }
-  else if (k === 'out') { t.out = true; fsys(`${c.short} can’t soak the ${sh} and is taken out.`); }
-  else { c.cons[k] = 'Hurt in the fight'; const sl = N.consSlots(c.skills).find(x => x.k === k); fsys(`${c.short} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
-  N.cbSettled(p); renderAll();
-}
+function cbAbsorb(v, k, i){ if (N.cbAbsorb(k, i)) renderAll(); }
 
 /* ---------------- tokens and zones ---------------- */
 function tokClick(v, id){

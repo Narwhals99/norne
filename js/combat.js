@@ -107,10 +107,12 @@ function toolsHtml(v, ph){
 /* ---------- the command bar under the board: whose turn it is and what this screen can do now ----------
    tone: turn (gold, you act), alert (ember, you must defend or soak), wait (quiet) */
 const pl = n => n > 1 ? 's' : '';
-/* how a player character can soak a hit: a stress box big enough, the first free consequence that fits, or taken out */
-function soakBtns(c, p){
-  const opts = c.stressV.phys.map((x,i) => (!c.stress.phys[i] && x >= p.shifts) ? `<button type="button" class="btn sm" data-a="cbAbsorb" data-k="box" data-i="${i}"><span class="sbox" style="width:20px;height:20px">${x}</span>Stress box</button>` : '').join('');
-  const cons = N.consSlots(c.skills).filter(sl => sl.only !== 'Mental' && !c.cons[sl.k] && sl.hi >= p.shifts).slice(0,1).map(sl => `<button type="button" class="btn sm" data-a="cbAbsorb" data-k="${sl.k}">${IC('cards')}${sl.l} consequence</button>`).join('');
+/* how a fighter can soak a hit: a physical stress box big enough, the first free consequence that fits, or taken out.
+   Player characters and NPCs get the same choice (Fate: anyone with boxes or consequence slots can absorb shifts) */
+function soakBtns(t, p){
+  const st = N.tokStress(t);
+  const opts = st.v.map((x,i) => (!st.s[i] && x >= p.shifts) ? `<button type="button" class="btn sm" data-a="cbAbsorb" data-k="box" data-i="${i}"><span class="sbox" style="width:20px;height:20px">${x}</span>Stress box</button>` : '').join('');
+  const cons = N.tokCons(t).filter(sl => sl.only !== 'Mental' && !sl.v && sl.hi >= p.shifts).slice(0,1).map(sl => `<button type="button" class="btn sm" data-a="cbAbsorb" data-k="${sl.k}">${IC('cards')}${sl.l} consequence</button>`).join('');
   return `${opts}${cons}<button type="button" class="btn sm danger" data-a="cbAbsorb" data-k="out">Taken out</button>`;
 }
 /* right after Start: everyone's Notice roll, highest first. The GM taps whoever should go first. */
@@ -137,9 +139,9 @@ function nowState(v){
     if (nb && !(p && p.stage === 'defend'))
       return {tone:'turn', eye:'Name the boost', title:`${nb.by}’s boost${nb.on ? ` on ${nb.on}` : ''}`, sub:'A boost is gone once it’s invoked, or after its owner’s next two attacks or defenses.',
         acts:`<input class="inp" id="bname-${v.id}" data-i="boostName" value="${esc(v.ui.boostName||'')}" placeholder="e.g. Off Balance" style="flex:1;min-width:160px"><button type="button" class="btn gold" data-a="cbBoostName">${IC('check')}Name it</button>`};
-    if (p && p.stage === 'absorb' && pd && g.chars[pd.ref])
+    if (p && p.stage === 'absorb' && pd && (pd.kind !== 'pc' || g.chars[pd.ref]))
       return {tok:pd, tone:'alert', eye:'Soak the hit', title:`${N.tokName(pd)} takes ${p.shifts} shift${pl(p.shifts)}`, sub:`Pick how ${N.tokName(pd)} soaks it. An invoke on the defense roll can still lower it.`,
-        acts:soakBtns(g.chars[pd.ref], p) + `<button type="button" class="btn sm ghost" data-a="cbDrop">Settle it by hand</button>`};
+        acts:soakBtns(pd, p) + `<button type="button" class="btn sm ghost" data-a="cbDrop">Settle it by hand</button>`};
     if (cur) return {tok:cur, tone:'turn', eye:cb.acted ? 'You act for · action done' : 'You act for', title:N.tokName(cur),
       acts:cb.acted ? moveBtn(v) + evBtn('btn sm') : actBar(v, cur), end:nextBtn('Next turn', cb.acted)};
     return {tone:'wait', eye:'Waiting', title:'Nobody on the board', sub:'Add someone and place them in a zone.'};
@@ -550,16 +552,6 @@ N.cbMove = function(t, zid){
   if (G().combat.state === 'live') sys(`${N.tokName(t)} moves to ${z.name}.`);
   return true;
 };
-N.applyHit = function(t, shifts, fx){
-  /* GM side: put shifts on an NPC the simple way. fx (optional) remembers what changed so it can be taken back. */
-  if (t.kind === 'npc') {
-    const i = t.stressV.findIndex((x,k) => !t.stress[k] && x >= shifts);
-    if (i >= 0) { t.stress[i] = true; if (fx) fx.box = i; return `${N.tokName(t)} checks their ${t.stressV[i]}-stress box.`; }
-    t.out = true; if (fx) fx.out = true; return `${N.tokName(t)} can’t soak ${shifts} shift${shifts>1?'s':''} and is taken out!`;
-  }
-  return '';
-};
-
 /* A boost: a very short-lived fight aspect. Its owner (tok) can invoke it once for free; then it is gone.
    The GM names it (t is '' until then). It lasts for its owner's next two attacks or defenses (left counts
    down at the start of each one) and fades if it isn't invoked by then. on = who it was put on. */
@@ -579,7 +571,8 @@ N.boostTick = t => {
    attacker a boost on the defender; defending with style (3+) gives the defender one.
    Attacking with style (3+ on the rolls, with damage left after armor) lets the GM pick full damage or 2 less
    plus a boost on the defender (pending.stage 'style', then N.cbStyle).
-   An NPC soaks automatically; a player character picks a stress box or consequence (pending.stage 'absorb'). */
+   Then the GM picks how the defender soaks it: a stress box, a consequence or taken out (pending.stage 'absorb',
+   N.cbAbsorb), for player characters and NPCs alike. */
 const rollLine = (name, r) => ({n:name, sk:r.skill, b:r.bonus, g:r.gear || 0, tot:N.rollTotal(r)});
 N.cbResolve = function(again){
   const g = G(), cb = g.combat, p = cb.pending; if (!p || !p.defMsg) return;
@@ -596,7 +589,6 @@ N.cbResolve = function(again){
     out = {k:'hit', t:dmg ? `Hit${style ? ' with style' : ''} · ${dmg} shift${dmg>1?'s':''}` : 'Hit · armor holds'};
     if (!dmg) { after = `${dn}’s armor takes the whole blow. No harm done.`; N.cbSettled(p); fo = 'armor'; }
     else if (style) { p.stage = 'style'; p.dmg = dmg; after = `${N.gmName()} picks: the full ${dmg} shift${dmg>1?'s':''}, or ${Math.max(0, dmg - 2)} and a boost on ${dn}.`; fo = 'style'; }
-    else if (d.kind === 'npc') { after = N.applyHit(d, dmg, fx); N.cbSettled(p); fo = fx.out ? 'out' : 'hit'; }
     else { p.stage = 'absorb'; p.shifts = dmg; after = `${dn} must soak ${dmg} shift${dmg>1?'s':''}: check a stress box or take a consequence.`; fo = 'hit'; }
   } else if (sh === 0) { out = {k:'tie', t:'Tie'}; after = `No harm done. ${an} gets a boost on ${dn}.`; N.cbSettled(p); boost(a, d); fo = 'tie'; }
   else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ` and gets a boost on ${an}` : ''}. No harm done.`; N.cbSettled(p); if (sh <= -3) boost(d, a); fo = sh <= -3 ? 'bstyle' : 'block'; }
@@ -619,7 +611,6 @@ N.cbStyle = function(choice){
   if (choice === 'boost') { dmg = Math.max(0, dmg - 2); p.boosted = true; (fx.boosts = fx.boosts || []).push(N.addBoost(a, d).id); }
   const how = choice === 'boost' ? `${an} takes 2 off the damage and puts a boost on ${dn}.` : `${an} goes for the full damage.`;
   if (!dmg) { N.cbSettled(p); sys(`${how} No harm done.`); return; }
-  if (d.kind === 'npc') { N.cbSettled(p); sys(`${how} ${dmg} shift${dmg>1?'s':''}: ${N.applyHit(d, dmg, fx)}`); return; }
   p.stage = 'absorb'; p.shifts = dmg; sys(`${how} ${dn} must soak ${dmg} shift${dmg>1?'s':''}.`);
 };
 /* An attack is settled once its harm is on the cards. It stays as combat.last until the next attack, so an invoke
@@ -628,15 +619,35 @@ N.cbStyle = function(choice){
 N.cbSettled = p => { const cb = G().combat; cb.pending = null; cb.last = p; };
 N.cbUndo = function(p){
   const g = G(), cb = g.combat, fx = p.fx || {}, d = N.tokById(p.def);
+  /* fx.box / fx.out: NPC hits settled automatically before NPCs got the soak step */
   if (d && d.kind === 'npc') { if (fx.box != null) d.stress[fx.box] = false; if (fx.out) d.out = false; }
-  const c = d && d.kind === 'pc' && g.chars[d.ref];
-  if (c && fx.pc) {
-    if (fx.pc.k === 'box') c.stress.phys[fx.pc.i] = false;
-    else if (fx.pc.k === 'out') d.out = false;
-    else if (c.cons[fx.pc.k] === 'Hurt in the fight') c.cons[fx.pc.k] = '';
+  const sk = fx.soak || fx.pc;
+  if (d && sk) {
+    if (sk.k === 'box') { const st = N.tokStress(d); if (st.s[sk.i] != null) st.s[sk.i] = false; }
+    else if (sk.k === 'out') d.out = false;
+    else { const src = N.tokSrcCons(d); if (src && src[sk.k] === 'Hurt in the fight') src[sk.k] = ''; }
   }
   if (fx.boosts) cb.aspects = cb.aspects.filter(a => !fx.boosts.includes(a.id));
   p.fx = {}; p.boosted = false; delete p.shifts; delete p.dmg; p.stage = 'defend';
+};
+/* the consequences a fighter's soak writes to: the player's card, a named NPC's card, or a nameless copy's own */
+N.tokSrcCons = t => {
+  if (t.kind === 'pc') { const c = G().chars[t.ref]; return c ? c.cons : null; }
+  const n = t.type !== 'nameless' && G().npcs.find(x => x.id === t.ref);
+  if (n) return n.cons = n.cons || {};
+  return t.cons = t.cons || {mild:t.mild || ''};
+};
+/* the GM's soak pick for whoever was hit: k is 'box' (with i), 'out', or a consequence slot key */
+N.cbAbsorb = function(k, i){
+  const g = G(), cb = g.combat, p = cb.pending; if (!p || p.stage !== 'absorb') return false;
+  const t = N.tokById(p.def); if (!t) return false;
+  const c = t.kind === 'pc' && g.chars[t.ref]; if (t.kind === 'pc' && !c) return false;
+  const nm = c ? c.short : N.tokName(t), sh = `${p.shifts} shift${p.shifts>1?'s':''}`, fx = p.fx = p.fx || {};
+  fx.soak = {k, i};
+  if (k === 'box') { const st = N.tokStress(t); st.s[i] = true; sys(`${nm} soaks the ${sh} with their ${st.v[i]}-stress box.`); }
+  else if (k === 'out') { t.out = true; sys(`${nm} can’t soak the ${sh} and is taken out.`); }
+  else { N.tokSrcCons(t)[k] = 'Hurt in the fight'; const sl = N.tokCons(t).find(x => x.k === k); sys(`${nm} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
+  N.cbSettled(p); return true;
 };
 N.cbReresolve = function(m){
   const g = G(), cb = g.combat, p = cb.pending, l = cb.last;
