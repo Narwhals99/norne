@@ -197,7 +197,7 @@ function sceneBanner(v, sc, ch){
   const gm = isGM(v), priv = ch.startsWith('dm-');
   if (!sc) {
     if (!gm || ch === 'gm') return '';
-    return `<section class="scene empty"><div class="in" style="grid-template-columns:auto 1fr auto;display:grid;align-items:center;gap:12px"><span class="cic" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);color:var(--gold)">${IC('image')}</span><h2>No scene in this chat yet</h2><button type="button" class="btn sm primary" data-a="sheet" data-v="scene">Set the scene</button></div></section>`;
+    return `<section class="scene empty"><div class="in" style="grid-template-columns:auto 1fr auto;display:grid;align-items:center;gap:12px"><span class="cic" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);color:var(--gold-tx)">${IC('image')}</span><h2>No scene in this chat yet</h2><button type="button" class="btn sm primary" data-a="sheet" data-v="scene">Set the scene</button></div></section>`;
   }
   const min = v.ui.sceneMin;
   const onlyWho = priv ? (gm ? `Only ${esc(G().P[ch.slice(3)]?.name || 'them')} sees this scene` : 'Your private scene') : '';
@@ -285,7 +285,7 @@ function rMsg(v, m, prev, firstNarr){
   if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}"></span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
   if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);
-  if (m.kind === 'news') return `<div class="fightcard" style="box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 18px 40px -18px rgba(0,0,0,.9)"><div class="in" style="padding-top:18px;grid-template-columns:auto 1fr;align-items:center"><div class="herald" style="all:unset;display:contents"><span class="np" style="width:54px;height:66px;border-radius:4px;background:#efe6cc;rotate:-4deg;display:grid;place-items:center;font:400 12px/1 var(--f-mast);color:#2a2418;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)">News</span></div><div style="display:grid;gap:6px"><span class="eyebrow" style="color:var(--gold)">${IC('newsL')}New edition</span><h3 style="font-size:18px">${esc(m.text)}</h3><div class="row"><button type="button" class="btn sm gold" data-a="readNews" data-id="${esc(m.nid||'')}">Read it</button></div></div></div></div>`;
+  if (m.kind === 'news') return `<div class="fightcard" style="box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 18px 40px -18px rgba(0,0,0,.9)"><div class="in" style="padding-top:18px;grid-template-columns:auto 1fr;align-items:center"><div class="herald" style="all:unset;display:contents"><span class="np" style="width:54px;height:66px;border-radius:4px;background:#efe6cc;rotate:-4deg;display:grid;place-items:center;font:400 12px/1 var(--f-mast);color:#2a2418;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)">News</span></div><div style="display:grid;gap:6px"><span class="eyebrow" style="color:var(--gold-tx)">${IC('newsL')}New edition</span><h3 style="font-size:18px">${esc(m.text)}</h3><div class="row"><button type="button" class="btn sm gold" data-a="readNews" data-id="${esc(m.nid||'')}">Read it</button></div></div></div></div>`;
   if (m.kind === 'roll' && v.dev === 'phone') return rollLine(v, m);
   if (m.kind === 'roll') {
     const pc = (m.roll.whoKey || '').startsWith('pc:') && g.chars[m.roll.whoKey.slice(3)];
@@ -414,7 +414,7 @@ function gmScreen(v){
         : `<div class="pcrow" style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)">${N.av({name:pn(c),color:c.color},40)}<span><b>${esc(pn(c))}</b><small>No card yet</small></span><button type="button" class="btn sm primary" data-a="pcEdit" data-v="${c.id}">Make card</button></div>`).join('')}
     </section>
     <section class="gs-sec"><div class="gs-h"><h3>Speak as</h3><button type="button" class="btn sm" data-a="castNpcs">NPCs</button></div>
-      <div class="voices">${['Narrator', ...N.voices()].map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="voice" data-v="${esc(n)}" ${v.ui.voice===n&&v.ui.mode==='rp'?'style="background:var(--accent-soft)"':''}>${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text':esc(N.npcSub(npc))}</small></span>${v.ui.voice===n&&v.ui.mode==='rp'?`<span class="go" style="color:var(--gold)">${IC('check')}</span>`:''}</button>`; }).join('')}</div>
+      <div class="voices">${['Narrator', ...N.voices()].map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="voice" data-v="${esc(n)}" ${v.ui.voice===n&&v.ui.mode==='rp'?'style="background:var(--accent-soft)"':''}>${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text':esc(N.npcSub(npc))}</small></span>${v.ui.voice===n&&v.ui.mode==='rp'?`<span class="go" style="color:var(--gold-tx)">${IC('check')}</span>`:''}</button>`; }).join('')}</div>
     </section>
     ${picShelf(v)}
   </div>`;
@@ -506,7 +506,7 @@ function popHtml(v){
     return `<div class="pop msgpop wide${gif ? ' gifpop' : ''}" style="${pos}" role="dialog" aria-label="${gif ? 'GIFs' : 'Emoji'}">${tabs}${gif ? gifPane(v) : emoGrid(v, e => `data-a="emoIns" data-v="${esc(e)}"`, [])}</div>`;
   }
   if (p.type === 'wnew') {
-    const row = (a, ic, l, sub, x='') => `<button type="button" class="opt" data-a="${a}" ${x}><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${l}<small>${sub}</small></span></button>`;
+    const row = (a, ic, l, sub, x='') => `<button type="button" class="opt" data-a="${a}" ${x}><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${l}<small>${sub}</small></span></button>`;
     return `<div class="pop" style="${pos}" role="menu" aria-label="New">${row('wNew', 'quill', 'Wiki entry', 'A person, place or rule')}${row('writeNews', 'newsL', 'News edition', 'Players get a ping')}<div class="sep"></div>${row('sheet', 'gear', 'Categories', 'Rename, reorder, icons', 'data-v="wCats"')}</div>`;
   }
   if (p.type === 'maps') {
@@ -576,7 +576,7 @@ function worldPage(v){
   const hit = e => !q || [e.title, e.summary, ...(e.body||[])].join(' ').toLowerCase().includes(q);
   const issue = g.news.issues[g.news.issues.length-1];
   const newsNew = !gm && issue && !(g.news.seen[v.role]||[]).includes(issue.id);
-  const herald = `<button type="button" class="herald" data-a="herald"><span class="np"><b>News</b><i></i><i class="s"></i><i></i><i></i><i class="s"></i></span><span><span class="eyebrow" style="color:var(--gold)">The paper ${newsNew?'<span class="tag gold">New</span>':''}</span><h3>${issue ? esc(issue.headline) : 'No editions yet'}</h3><small>${issue ? `No. ${esc(issue.no)}${issue.date ? ' · ' + esc(issue.date) : ''}` : gm ? 'Write the first edition. Players get a ping.' : `Coming soon. ${esc(N.gmName())} publishes editions here.`}</small></span></button>`;
+  const herald = `<button type="button" class="herald" data-a="herald"><span class="np"><b>News</b><i></i><i class="s"></i><i></i><i></i><i class="s"></i></span><span><span class="eyebrow" style="color:var(--gold-tx)">The paper ${newsNew?'<span class="tag gold">New</span>':''}</span><h3>${issue ? esc(issue.headline) : 'No editions yet'}</h3><small>${issue ? `No. ${esc(issue.no)}${issue.date ? ' · ' + esc(issue.date) : ''}` : gm ? 'Write the first edition. Players get a ping.' : `Coming soon. ${esc(N.gmName())} publishes editions here.`}</small></span></button>`;
   const index = `<div class="wi scroll" data-sk="wi">
     ${ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm ghost" data-a="sheet" data-v="wCats">${IC('gear')}Categories</button><button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
     ${herald}
@@ -609,7 +609,7 @@ function articleHtml(v, e){
   const needle = '[[' + e.title.toLowerCase() + ']]';
   const backs = g.wiki.filter(x => x.id !== e.id && (gm || !x.gm) && [x.summary, ...(x.body||[]), ...(x.info||[]).map(i=>i[1])].join(' ').toLowerCase().includes(needle)).slice(0,8);
   return `<article class="article">
-    <div style="display:flex;align-items:center;gap:8px"><span class="eyebrow" style="color:var(--gold);flex:1">${IC(N.catIcon(e.cat)).replace('<svg','<svg style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:6px"')}${esc(e.cat)}${gm && N.audOf(e,'wiki') !== '*' ? ' · ' + (e.gm ? 'GM only' : esc(N.audLabel(e,'wiki'))) : ''}</span>${gm?`<button type="button" class="btn sm" data-a="wEdit" data-v="${e.id}">${IC('pen')}Edit</button>`:''}</div>
+    <div style="display:flex;align-items:center;gap:8px"><span class="eyebrow" style="color:var(--gold-tx);flex:1">${IC(N.catIcon(e.cat)).replace('<svg','<svg style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:6px"')}${esc(e.cat)}${gm && N.audOf(e,'wiki') !== '*' ? ' · ' + (e.gm ? 'GM only' : esc(N.audLabel(e,'wiki'))) : ''}</span>${gm?`<button type="button" class="btn sm" data-a="wEdit" data-v="${e.id}">${IC('pen')}Edit</button>`:''}</div>
     <h1>${esc(e.title)}</h1>
     ${e.summary ? `<p class="sum">${links(e.summary)}</p>` : ''}
     <div class="rule"><span class="star4"></span></div>
@@ -698,7 +698,7 @@ N.sheetBody = function(v, c){
     <section class="sec"><h3>Important people</h3>${noteBox(v, c, 'people', edit, 'Family, friends, rivals, debts… one per line')}</section>
     <section class="sec"><h3>Inventory</h3>${noteBox(v, c, 'invText', edit, 'What you carry, in your own words')}${invList(v, c, gm)}</section>`;
 };
-const conLv = sl => `<span class="lv"><b>${sl.l}</b>${sl.lo}–${sl.hi} shifts${sl.only?`<small style="display:block;color:var(--gold);margin-top:2px">${sl.only} only</small>`:''}</span>`;
+const conLv = sl => `<span class="lv"><b>${sl.l}</b>${sl.lo}–${sl.hi} shifts${sl.only?`<small style="display:block;color:var(--gold-tx);margin-top:2px">${sl.only} only</small>`:''}</span>`;
 N.conLv = conLv;
 /* a free-text box on a card the player and GM can both write in */
 const noteBox = (v, c, k, edit, ph) => edit ? `<textarea class="inp" id="cn-${k}-${c.id}-${v.id}" data-i="cnote" data-c="${c.id}" data-k="${k}" rows="3" placeholder="${ph}">${esc(c[k]||'')}</textarea>`

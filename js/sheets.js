@@ -73,7 +73,7 @@ N.sheetHtml = function(v){
     const r = m.roll, tot = N.rollTotal(r);
     const body = `<div class="note">${IC('cards')}Pick an aspect that helps, then take +2 or reroll all four dice. Free invokes cost nothing, the rest cost a fate point${gm?' from your own pool':` (you have ${c ? c.fp : 0})`}.</div>
       <p class="rollsum" style="margin:0">Now ${sgn(tot)} ${ladderWord(tot)}. +2 makes it ${sgn(tot + 2)} ${ladderWord(tot + 2)}. A reroll keeps ${esc(r.skill)} ${sgn(r.bonus)}${N.plusInvokes(r)?` and the +${2*N.plusInvokes(r)} already invoked`:''} and rolls the dice again (they show ${sgn(N.diceSum(r))} now).</p>
-      <div style="display:grid;gap:8px">${opts.map((o,i) => { const dis = (!o.free && !gm && (!c || c.fp < 1)) ? 'disabled' : ''; return `<div class="invopt"><span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(o.t)}</span><span class="cost">${o.free ? `<b style="color:var(--gold)">Free</b><small>${o.free} left · ${esc(o.from)}</small>` : `<b>1 fate point</b><small>${esc(o.from)}</small>`}</span><span class="how"><button type="button" class="btn sm gold" data-a="doInvoke" data-i="${i}" data-how="plus" ${dis}>+2</button><button type="button" class="btn sm" data-a="doInvoke" data-i="${i}" data-how="reroll" ${dis}>${N.fateDie}Reroll</button></span></div>`; }).join('') || '<p class="muted">No aspects to invoke here yet.</p>'}</div>`;
+      <div style="display:grid;gap:8px">${opts.map((o,i) => { const dis = (!o.free && !gm && (!c || c.fp < 1)) ? 'disabled' : ''; return `<div class="invopt"><span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(o.t)}</span><span class="cost">${o.free ? `<b style="color:var(--gold-tx)">Free</b><small>${o.free} left · ${esc(o.from)}</small>` : `<b>1 fate point</b><small>${esc(o.from)}</small>`}</span><span class="how"><button type="button" class="btn sm gold" data-a="doInvoke" data-i="${i}" data-how="plus" ${dis}>+2</button><button type="button" class="btn sm" data-a="doInvoke" data-i="${i}" data-how="reroll" ${dis}>${N.fateDie}Reroll</button></span></div>`; }).join('') || '<p class="muted">No aspects to invoke here yet.</p>'}</div>`;
     return sheet('Invoke an aspect', body);
   }
   /* ---------------- scene picker (GM) ---------------- */
@@ -116,6 +116,7 @@ N.sheetHtml = function(v){
     const body = `<div class="prof">${N.av(me,56)}<span><b>${esc(my?.name || me.name)}</b><small>${gm?'Game master':'Player'} · ${esc(my?.email || 'signed in with Google')}</small></span></div>
       <div><h4>Appearance</h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="night" aria-pressed="${v.theme==='night'}">${IC('moon')}Night</button><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="day" aria-pressed="${v.theme==='day'}">${IC('sun')}Day</button></div></div>
       <div><h4>Style</h4>${stylePick(v)}</div>
+      <div><h4>Text size<small>On this device only</small></h4>${fzPick(v)}</div>
       <div><h4>Notifications</h4>${notifyToggle()}</div>
       <div class="menu">
         ${gm ? `<button type="button" data-a="sheet" data-v="players">${IC('userplus')}<span>Players and sign-ins<small>Let people in, rename or remove them</small></span><span class="end">${pending?`<span class="badge">${pending}</span>`:IC('right')}</span></button>
@@ -299,6 +300,11 @@ function stylePick(v){
   return `<div class="stylepick">${N.STYLES.map(s => `<button type="button" class="stc" data-a="style" data-v="${s.id}" aria-pressed="${v.style===s.id}">
     <span class="sw" aria-hidden="true">${sw(s.night)}${sw(s.day)}</span><span class="t"><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span>${v.style===s.id?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}</div>`;
 }
+/* five sizes as a row of growing A's, with a line of sample text at the picked size underneath */
+function fzPick(v){
+  return `<div class="fzpick"><div class="seg" role="group" aria-label="Text size">${N.FONT_SIZES.map(f => `<button type="button" data-a="fz" data-v="${f.id}" aria-pressed="${v.fz===f.id}" aria-label="${f.name}" title="${f.name}"><span style="--a:${Math.round(15*f.k)}px">A</span></button>`).join('')}</div>
+    <p class="fzs"><b>${esc((N.FONT_SIZES.find(f => f.id === v.fz) || {}).name || '')}</b> · The lantern gutters as the rain comes in over the river.</p></div>`;
+}
 function portraitPick(sel, act, up){
   const custom = sel && !PORTRAITS.includes(sel) ? N.faceUrl(sel) : null;
   return `<div class="who-row">${custom ? `<button type="button" aria-pressed="true"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${esc(custom)}" alt=""></span><span>Yours</span></button>` : ''}${PORTRAITS.map(p => `<button type="button" data-a="${act}" data-v="${p}" aria-pressed="${sel===p}"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${N.FACE(p)}" alt="" loading="lazy"></span></button>`).join('')}<button type="button" data-a="${up}"><span class="av" style="--s:52px;--c:var(--line-3);background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2)">${IC('upload').replace('<svg','<svg style="width:20px;height:20px"')}</span><span>Upload</span></button></div>`;
@@ -470,5 +476,5 @@ N.creditsHtml = () => `<div class="note">${IC('heart')}Everything here is free t
     ['Nörne maps and lore','Maps and wiki text','The GM’s own campaign notes'],
     ['Fonts','Cinzel, Fraunces, Nunito Sans, IM Fell English, IM Fell DW Pica, Alegreya, UnifrakturMaguntia','SIL Open Font License · Google Fonts'],
     ['Parchment & Wax textures','Papyrus, vellum and the wax seal were drawn for Norne','Free to use'],
-  ].map(([a,b,c]) => `<div class="mem" style="grid-template-columns:1fr"><span><b>${a}</b><small>${b}</small><small style="display:block;color:var(--gold)">${c}</small></span></div>`).join('')}</div>`;
+  ].map(([a,b,c]) => `<div class="mem" style="grid-template-columns:1fr"><span><b>${a}</b><small>${b}</small><small style="display:block;color:var(--gold-tx)">${c}</small></span></div>`).join('')}</div>`;
 })();

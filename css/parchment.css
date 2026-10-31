@@ -13,12 +13,13 @@
   --page:rgba(37,26,17,.92); --page-solid:#261b12;
   --raise:#30241a; --raise-2:#3b2d1f; --sunk:#1b130c;
   --line:rgba(236,210,160,.12); --line-2:rgba(236,210,160,.22); --line-3:rgba(236,210,160,.38);
-  --ink:#f0e2c4; --ink-2:#d0ba93; --ink-3:#a08a66; --ink-4:#75624a;
+  --ink:#f0e2c4; --ink-2:#d0ba93; --ink-3:#b09a74; --ink-4:#9a8563;
   --accent:#b8322b; --accent-2:#952620; --accent-3:#6c1813; --accent-ink:#fcebd0;
   --accent-soft:rgba(200,62,48,.17); --accent-glow:rgba(214,74,46,.42);
   --gold:#e0b263; --gold-2:#c4913c; --gold-3:#8f6224; --gold-ink:#2a1a05; --gold-soft:rgba(224,178,99,.14);
   --ember:#e7803f; --ember-soft:rgba(231,128,63,.16); --jade:#a3bd78; --jade-soft:rgba(163,189,120,.15);
   --link:#b3c8ea;
+  --gold-tx:var(--gold); --accent-tx:#e8776a; --ember-ink:#2a1405;
   --card-paper:#ecdcb6; --card-ink:#2b1d10; --card-rule:#a52a22; --card-line:rgba(90,60,25,.12);
   --scrim:rgba(8,5,2,.64);
   --shadow-1:0 1px 0 rgba(255,230,190,.05) inset, 0 10px 30px -12px rgba(0,0,0,.7);
@@ -58,12 +59,13 @@
   --page:rgba(244,233,205,.9); --page-solid:#f1e4c4;
   --raise:#f6ecd2; --raise-2:#fbf4e1; --sunk:#e4d3ac;
   --line:rgba(78,48,20,.17); --line-2:rgba(78,48,20,.29); --line-3:rgba(78,48,20,.46);
-  --ink:#2a1c0f; --ink-2:#4f3a24; --ink-3:#77603f; --ink-4:#9e8664;
+  --ink:#2a1c0f; --ink-2:#4a3520; --ink-3:#5f4a2c; --ink-4:#6f5a3b;
   --accent:#9b2320; --accent-2:#7d1a17; --accent-3:#5e1210; --accent-ink:#fbefd8;
   --accent-soft:rgba(155,35,32,.11); --accent-glow:rgba(155,35,32,.32);
   --gold:#9a6a1c; --gold-2:#7f5614; --gold-3:#5f3f0e; --gold-ink:#2a1a05; --gold-soft:rgba(168,116,32,.15);
   --ember:#b3471b; --ember-soft:rgba(179,71,27,.13); --jade:#3f6b34; --jade-soft:rgba(63,107,52,.13);
   --link:#284d86;
+  --gold-tx:var(--gold-2); --accent-tx:var(--accent); --ember-ink:#fff;
   --card-paper:#fbf3dc; --card-ink:#2a1c0f; --card-rule:#a52a22; --card-line:rgba(90,60,25,.1);
   --scrim:rgba(50,30,8,.36);
   --shadow-1:0 1px 0 rgba(255,250,235,.7) inset, 0 10px 26px -14px rgba(80,50,15,.5);
@@ -163,8 +165,8 @@
     linear-gradient(rgba(200,170,115,.35),rgba(200,170,115,.35)),var(--tex) 0 0/640px auto,var(--sky-1)}
 .app:where([data-style="parchment"]) .tabbar button{font-family:'Alegreya SC','Alegreya',serif;font-weight:700;font-size:12px;letter-spacing:.04em;text-transform:lowercase}
 .app:where([data-style="parchment"]) .tabbar .ti{border-radius:6px}
-.app:where([data-style="parchment"]) .tabbar button[aria-current="page"] .ti{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent)}
-.app:where([data-style="parchment"])[data-theme="night"] .tabbar button[aria-current="page"] .ti{color:var(--gold)}
+.app:where([data-style="parchment"]) .tabbar button[aria-current="page"] .ti{background:var(--accent-soft);color:var(--accent-tx);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent)}
+.app:where([data-style="parchment"])[data-theme="night"] .tabbar button[aria-current="page"] .ti{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .tabbar .fightdot{border-radius:48% 52% 46% 54%;background:radial-gradient(circle at 35% 30%,var(--wax-hi),var(--wax) 55%,var(--wax-lo))}
 .app:where([data-style="parchment"]) .top h1{font-weight:400}
 
@@ -175,7 +177,7 @@
 .app:where([data-style="parchment"]) .mark::before{content:"";position:absolute;left:var(--mk-x,0px);top:50%;width:34px;height:34px;margin-top:-17px;background:url("../art/ui/seal.svg") center/contain no-repeat;filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));pointer-events:none}
 .app:where([data-style="parchment"]) .nav .mark{--mk-x:6px}
 .app:where([data-style="parchment"]) .mark b{font-family:var(--f-mark);font-weight:400;letter-spacing:.08em;color:var(--ink);text-shadow:none}
-.app:where([data-style="parchment"])[data-theme="night"] .mark b{color:var(--gold);text-shadow:0 0 14px rgba(224,178,99,.18)}
+.app:where([data-style="parchment"])[data-theme="night"] .mark b{color:var(--gold-tx);text-shadow:0 0 14px rgba(224,178,99,.18)}
 
 /* ---------- chat ---------- */
 .app:where([data-style="parchment"]) .cchip{border-radius:6px;background:var(--paper-bg)}
@@ -188,8 +190,8 @@
 .app:where([data-style="parchment"]) .scene .art.map{filter:var(--map-grade)}
 .app:where([data-style="parchment"]) .scene::before{background:linear-gradient(90deg,color-mix(in srgb,var(--sky-0) 90%,transparent) 0%,color-mix(in srgb,var(--sky-0) 58%,transparent) 55%,transparent 100%),linear-gradient(0deg,color-mix(in srgb,var(--sky-0) 60%,transparent),transparent 70%)}
 .app:where([data-style="parchment"])[data-theme="day"] .scene::before{background:linear-gradient(90deg,rgba(244,232,204,.95) 0%,rgba(244,232,204,.72) 55%,rgba(244,232,204,0) 100%)}
-.app:where([data-style="parchment"]) .scene .eyebrow{color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .scene .eyebrow{color:var(--gold)}
+.app:where([data-style="parchment"]) .scene .eyebrow{color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .scene .eyebrow{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .scene h2{font-weight:400;letter-spacing:.005em}
 .app:where([data-style="parchment"]) .scene .ctl .btn{border-radius:7px}
 .app:where([data-style="parchment"]) .scene.empty{background:repeating-linear-gradient(135deg,transparent 0 10px,var(--line) 10px 11px)}
@@ -221,32 +223,32 @@
 
 /* narration: the story itself, set like a printed page with a rubric initial */
 .app:where([data-style="parchment"]) .narr::before{width:1px;left:5px;background:var(--rule);box-shadow:3px 0 0 color-mix(in srgb,var(--rule) 55%,transparent)}
-.app:where([data-style="parchment"]) .narr .who{color:var(--accent);font-family:'Alegreya SC','Alegreya',serif;text-transform:lowercase;letter-spacing:.14em;font-size:12px}
-.app:where([data-style="parchment"])[data-theme="night"] .narr .who{color:var(--gold)}
+.app:where([data-style="parchment"]) .narr .who{color:var(--accent-tx);font-family:'Alegreya SC','Alegreya',serif;text-transform:lowercase;letter-spacing:.14em;font-size:12px}
+.app:where([data-style="parchment"])[data-theme="night"] .narr .who{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .narr p{font-family:var(--f-body);font-size:18.5px;line-height:1.5;font-variation-settings:normal}
-.app:where([data-style="parchment"]) .narr.first p::first-letter{font-family:var(--f-mast);font-weight:400;font-size:52px;line-height:.82;color:var(--accent);margin:5px 9px 0 0;
+.app:where([data-style="parchment"]) .narr.first p::first-letter{font-family:var(--f-mast);font-weight:400;font-size:52px;line-height:.82;color:var(--accent-tx);margin:5px 9px 0 0;
   text-shadow:1px 1px 0 color-mix(in srgb,var(--accent) 35%,transparent)}
 .app:where([data-style="parchment"])[data-theme="night"] .narr.first p::first-letter{color:#d8473a}
 .app:where([data-style="parchment"]) .mw.on{background:var(--accent-soft);box-shadow:0 0 0 6px var(--accent-soft);border-radius:6px}
 .app:where([data-style="parchment"]) .mdots{border-radius:6px;background:var(--paper-bg)}
 .app:where([data-style="parchment"]) .sysm{font-style:italic;font-weight:500}
-.app:where([data-style="parchment"]) .sysm svg{color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .sysm svg{color:var(--gold)}
+.app:where([data-style="parchment"]) .sysm svg{color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .sysm svg{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .scenem{border-radius:6px;background:var(--paper-bg)}
 .app:where([data-style="parchment"]) .scenem b{font-weight:400}
-.app:where([data-style="parchment"]) .scenem span{font-family:'Alegreya SC','Alegreya',serif;text-transform:lowercase;font-size:11.5px;color:var(--accent)}
+.app:where([data-style="parchment"]) .scenem span{font-family:'Alegreya SC','Alegreya',serif;text-transform:lowercase;font-size:11.5px;color:var(--accent-tx)}
 
 /* roll cards: a ruled tally slip */
 .app:where([data-style="parchment"]) .roll,.app:where([data-style="parchment"]) .m.mine .roll{border-radius:4px;background:var(--paper-bg);outline:1px solid var(--line);outline-offset:-5px;
   box-shadow:inset 0 0 0 1px var(--line-2),0 10px 22px -14px rgba(0,0,0,.8)}
 .app:where([data-style="parchment"]) .m.mine .roll{box-shadow:inset 0 0 0 1px var(--line-2),inset 3px 0 0 var(--wax),0 10px 22px -14px rgba(0,0,0,.8)}
 .app:where([data-style="parchment"]) .roll .rh{font-family:var(--f-ui)}
-.app:where([data-style="parchment"]) .roll .tot b{font-weight:400;color:var(--accent);text-shadow:none;font-size:32px}
-.app:where([data-style="parchment"])[data-theme="night"] .roll .tot b{color:var(--gold)}
+.app:where([data-style="parchment"]) .roll .tot b{font-weight:400;color:var(--accent-tx);text-shadow:none;font-size:32px}
+.app:where([data-style="parchment"])[data-theme="night"] .roll .tot b{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .roll .tot span{font-family:'Alegreya SC','Alegreya',serif;text-transform:lowercase;letter-spacing:.12em;font-size:11px}
 .app:where([data-style="parchment"]) .roll .rf{border-top:0;background:linear-gradient(var(--line-2),var(--line-2)) 10px 0/calc(100% - 20px) 1px no-repeat}
-.app:where([data-style="parchment"]) .roll .mini-tot{font-weight:400;color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .roll .mini-tot{color:var(--gold)}
+.app:where([data-style="parchment"]) .roll .mini-tot{font-weight:400;color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .roll .mini-tot{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .die{border-radius:5px;font-family:'Alegreya',serif;font-weight:800;color:#2a1c0f;
   background:radial-gradient(120% 90% at 30% 20%,#fbf3de,#e3d2a9 70%,#c9b282);
   box-shadow:inset 0 -3px 0 rgba(90,55,20,.25),inset 0 1px 0 #fff8e6,0 0 0 1px rgba(90,55,20,.25),0 3px 6px -2px rgba(0,0,0,.6)}
@@ -294,15 +296,15 @@
 .app:where([data-style="parchment"]) .pop .opt{border-radius:4px}
 .app:where([data-style="parchment"]) .pop .pop-find{background:var(--page-solid)}
 .app:where([data-style="parchment"]) .toast{border-radius:6px;background:var(--page-bg);box-shadow:var(--shadow-2),inset 0 0 0 1px var(--line-2)}
-.app:where([data-style="parchment"]) .toast button{color:var(--accent)}
+.app:where([data-style="parchment"]) .toast button{color:var(--accent-tx)}
 .app:where([data-style="parchment"]) .who-row button[aria-pressed="true"] .av{box-shadow:0 0 0 2px var(--page-solid),0 0 0 4px var(--accent),0 0 14px -2px var(--accent-glow)}
 .app:where([data-style="parchment"]) .sk,.app:where([data-style="parchment"]) .act,.app:where([data-style="parchment"]) .lchip,.app:where([data-style="parchment"]) .tgt,.app:where([data-style="parchment"]) .toggle,.app:where([data-style="parchment"]) .note,.app:where([data-style="parchment"]) .forwho button,.app:where([data-style="parchment"]) .inv-chips button,.app:where([data-style="parchment"]) .nchips button{border-radius:6px}
 .app:where([data-style="parchment"]) .sk,.app:where([data-style="parchment"]) .act,.app:where([data-style="parchment"]) .lchip,.app:where([data-style="parchment"]) .toggle{background:var(--paper-bg)}
-.app:where([data-style="parchment"]) .sk .v{border-radius:4px;font-weight:400;font-size:18px;color:var(--accent);background:var(--accent-soft)}
-.app:where([data-style="parchment"])[data-theme="night"] .sk .v{color:var(--gold);background:var(--gold-soft)}
+.app:where([data-style="parchment"]) .sk .v{border-radius:4px;font-weight:400;font-size:18px;color:var(--accent-tx);background:var(--accent-soft)}
+.app:where([data-style="parchment"])[data-theme="night"] .sk .v{color:var(--gold-tx);background:var(--gold-soft)}
 .app:where([data-style="parchment"]) .sk[aria-pressed="true"],.app:where([data-style="parchment"]) .act[aria-pressed="true"]{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 18%,transparent),transparent),var(--paper-bg);box-shadow:inset 0 0 0 1.5px var(--accent)}
-.app:where([data-style="parchment"]) .act[aria-pressed="true"] svg{color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .act[aria-pressed="true"] svg{color:var(--gold)}
+.app:where([data-style="parchment"]) .act[aria-pressed="true"] svg{color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .act[aria-pressed="true"] svg{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .lchip b{font-weight:400}
 .app:where([data-style="parchment"]) .toggle .sw{border-radius:4px}
 .app:where([data-style="parchment"]) .toggle .sw::after{border-radius:3px}
@@ -335,8 +337,8 @@
 .app:where([data-style="parchment"]) .bigcta.scn{background:linear-gradient(120deg,color-mix(in srgb,var(--gold) 18%,transparent),transparent 70%),var(--paper-bg);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 10px 24px -16px rgba(0,0,0,.8)}
 .app:where([data-style="parchment"]) .bigcta.scn .ic{border-radius:9px;color:#2a1a05;background:radial-gradient(circle at 35% 25%,#f8e3a6,#d6a54a 50%,#8f6420);box-shadow:inset 0 1px 0 #fff3cf,inset 0 -3px 6px rgba(90,50,8,.45)}
 .app:where([data-style="parchment"]) .tools button{border-radius:6px;background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
-.app:where([data-style="parchment"]) .tools button svg{color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .tools button svg{color:var(--gold)}
+.app:where([data-style="parchment"]) .tools button svg{color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .tools button svg{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .quick-sk button,.app:where([data-style="parchment"]) .lad .rung .sks button,.app:where([data-style="parchment"]) .lad .rung .sks .skc,.app:where([data-style="parchment"]) .gmrow button,.app:where([data-style="parchment"]) .pchip{border-radius:6px;background:var(--paper-bg)}
 .app:where([data-style="parchment"]) .quick-sk button i{border-radius:3px;font-weight:400}
 .app:where([data-style="parchment"]) .hero-top b,.app:where([data-style="parchment"]) .tokcard .hd b,.app:where([data-style="parchment"]) .ccard b,.app:where([data-style="parchment"]) .prof b,.app:where([data-style="parchment"]) .stunt b,.app:where([data-style="parchment"]) .ent b{font-weight:400}
@@ -354,22 +356,22 @@
 .app:where([data-style="parchment"]) .gmtools button,.app:where([data-style="parchment"]) .fight-tools button{border-radius:5px}
 .app:where([data-style="parchment"]) .gmtools button[aria-pressed="true"],.app:where([data-style="parchment"]) .fight-tools button[aria-pressed="true"],.app:where([data-style="parchment"]) .gmrow button[aria-pressed="true"]{background:radial-gradient(120% 140% at 30% 0%,var(--wax-hi),var(--wax) 50%,var(--wax-lo));color:#fbefd8}
 .app:where([data-style="parchment"]) .fight-tools{border-radius:6px;background:var(--paper-bg)}
-.app:where([data-style="parchment"]) .fight-tools button svg,.app:where([data-style="parchment"]) .gmrow button svg{color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .fight-tools button svg,.app:where([data-style="parchment"])[data-theme="night"] .gmrow button svg{color:var(--gold)}
+.app:where([data-style="parchment"]) .fight-tools button svg,.app:where([data-style="parchment"]) .gmrow button svg{color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .fight-tools button svg,.app:where([data-style="parchment"])[data-theme="night"] .gmrow button svg{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .fight-tools button.end svg,.app:where([data-style="parchment"]) .gmrow button.end svg{color:var(--ember)}
 .app:where([data-style="parchment"]) .nowbar{border-radius:6px;background:var(--paper-bg)}
 .app:where([data-style="parchment"]) .nowbar.turn{background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 16%,transparent),transparent),var(--paper-bg)}
 .app:where([data-style="parchment"]) .nowbar.alert{background:linear-gradient(90deg,var(--ember-soft),transparent),var(--paper-bg)}
 .app:where([data-style="parchment"]) .nowbar b,.app:where([data-style="parchment"]) .dock .turn b{font-weight:400}
 .app:where([data-style="parchment"]) .abtn{border-radius:6px;background:linear-gradient(180deg,var(--raise-2),var(--raise)) padding-box,linear-gradient(180deg,var(--line-3),var(--line)) border-box}
-.app:where([data-style="parchment"]) .abtn svg{color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .abtn svg{color:var(--gold)}
+.app:where([data-style="parchment"]) .abtn svg{color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .abtn svg{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .abtn.atk svg{color:var(--ember)}
 .app:where([data-style="parchment"]) .yourturn,.app:where([data-style="parchment"]) .incoming,.app:where([data-style="parchment"]) .feed,.app:where([data-style="parchment"]) .resm,.app:where([data-style="parchment"]) .ffeed .ff-list,.app:where([data-style="parchment"]) .tray{border-radius:6px}
 .app:where([data-style="parchment"]) .resm{background:var(--paper-bg)}
 .app:where([data-style="parchment"]) .resm .rs-rows li{border-radius:3px}
-.app:where([data-style="parchment"]) .resm .rs-rows b{font-weight:400;color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .resm .rs-rows b{color:var(--gold)}
+.app:where([data-style="parchment"]) .resm .rs-rows b{font-weight:400;color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .resm .rs-rows b{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .fight-order .ot{border-radius:6px}
 .app:where([data-style="parchment"]) .fight-h .fight-order{border-radius:8px}
 .app:where([data-style="parchment"]) .fight-order .ex b,.app:where([data-style="parchment"]) .ribbon .ex b{font-weight:400}
@@ -403,8 +405,8 @@
 .app:where([data-style="parchment"]) .herald{border-radius:6px;background:linear-gradient(120deg,color-mix(in srgb,var(--gold) 14%,transparent),transparent 60%),var(--paper-bg)}
 .app:where([data-style="parchment"]) .herald h3{font-weight:400}
 .app:where([data-style="parchment"]) .cat{border-radius:6px;background:var(--paper-bg);border-color:var(--line-2)}
-.app:where([data-style="parchment"]) .cat .ci,.app:where([data-style="parchment"]) .catrow .ci{border-radius:5px;color:var(--accent);background:var(--accent-soft)}
-.app:where([data-style="parchment"])[data-theme="night"] .cat .ci,.app:where([data-style="parchment"])[data-theme="night"] .catrow .ci{color:var(--gold);background:var(--gold-soft)}
+.app:where([data-style="parchment"]) .cat .ci,.app:where([data-style="parchment"]) .catrow .ci{border-radius:5px;color:var(--accent-tx);background:var(--accent-soft)}
+.app:where([data-style="parchment"])[data-theme="night"] .cat .ci,.app:where([data-style="parchment"])[data-theme="night"] .catrow .ci{color:var(--gold-tx);background:var(--gold-soft)}
 .app:where([data-style="parchment"]) .cat b{font-family:'Alegreya SC','Alegreya',serif;text-transform:lowercase;letter-spacing:.12em;font-size:14px;font-weight:700}
 .app:where([data-style="parchment"]) .cat .n{border-radius:3px}
 .app:where([data-style="parchment"]) .cat[aria-current="true"]{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 18%,transparent),transparent),var(--paper-bg);border-color:color-mix(in srgb,var(--accent) 60%,transparent);box-shadow:none}
@@ -412,15 +414,15 @@
 .app:where([data-style="parchment"]) .ent[aria-current="true"]{box-shadow:inset 3px 0 0 var(--accent)}
 .app:where([data-style="parchment"]) .article h1{font-weight:400;letter-spacing:0}
 .app:where([data-style="parchment"]) .article .sum{font-family:var(--f-body);color:var(--ink-2)}
-.app:where([data-style="parchment"]) .article .rule{color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .article .rule{color:var(--gold)}
+.app:where([data-style="parchment"]) .article .rule{color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .article .rule{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .article .rule::before,.app:where([data-style="parchment"]) .article .rule::after{height:4px;background:linear-gradient(var(--rule),var(--rule)) 0 0/100% 1px no-repeat,linear-gradient(var(--rule),var(--rule)) 0 3px/100% 1px no-repeat;
   -webkit-mask:linear-gradient(90deg,transparent,#000 60%);mask:linear-gradient(90deg,transparent,#000 60%)}
 .app:where([data-style="parchment"]) .article .rule::after{-webkit-mask:linear-gradient(270deg,transparent,#000 60%);mask:linear-gradient(270deg,transparent,#000 60%)}
 .app:where([data-style="parchment"]) .article .b,.app:where([data-style="parchment"]) .article ul{font-family:var(--f-body);font-variation-settings:normal;font-size:17px}
-.app:where([data-style="parchment"]) .article h3{font-family:'Alegreya SC','Alegreya',serif;text-transform:lowercase;letter-spacing:.12em;font-size:15px;color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .article h3{color:var(--gold)}
-.app:where([data-style="parchment"]) .article ul li::marker{color:var(--accent)}
+.app:where([data-style="parchment"]) .article h3{font-family:'Alegreya SC','Alegreya',serif;text-transform:lowercase;letter-spacing:.12em;font-size:15px;color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .article h3{color:var(--gold-tx)}
+.app:where([data-style="parchment"]) .article ul li::marker{color:var(--accent-tx)}
 .app:where([data-style="parchment"]) .wfig{border-radius:4px}
 .app:where([data-style="parchment"]) .wfig img{filter:sepia(.2)}
 .app:where([data-style="parchment"]) .secret{border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 12px,var(--accent-soft) 12px 13px),var(--paper-bg);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 45%,transparent)}
@@ -433,20 +435,20 @@
 .app:where([data-style="parchment"]) .pc-hero{border-radius:6px;background:linear-gradient(120deg,color-mix(in srgb,var(--who,var(--accent)) 20%,transparent),transparent 65%),var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2);outline:1px solid var(--line);outline-offset:-6px}
 .app:where([data-style="parchment"]) .pc-hero h2{font-weight:400}
 .app:where([data-style="parchment"]) .sec>h3::after{height:4px;background:linear-gradient(var(--line-3),var(--line-3)) 0 0/100% 1px no-repeat,linear-gradient(var(--line-2),var(--line-2)) 0 3px/100% 1px no-repeat}
-.app:where([data-style="parchment"]) .lad .rung .lv b{font-weight:400;color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .lad .rung .lv b{color:var(--gold)}
+.app:where([data-style="parchment"]) .lad .rung .lv b{font-weight:400;color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .lad .rung .lv b{color:var(--gold-tx)}
 .app:where([data-style="parchment"]) .con .slot{border-radius:4px}
 .app:where([data-style="parchment"]) .inv .it .ii{border-radius:5px}
 .app:where([data-style="parchment"]) .menu button{border-radius:4px}
-.app:where([data-style="parchment"]) .menu button>svg{color:var(--accent)}
-.app:where([data-style="parchment"])[data-theme="night"] .menu button>svg{color:var(--gold)}
+.app:where([data-style="parchment"]) .menu button>svg{color:var(--accent-tx)}
+.app:where([data-style="parchment"])[data-theme="night"] .menu button>svg{color:var(--gold-tx)}
 
 /* ---------- sign-in gate ---------- */
 .app:where([data-style="parchment"]) .gcard{border-radius:6px;background:var(--page-bg);box-shadow:inset 0 0 0 1px var(--line-3),0 40px 80px -40px rgba(0,0,0,.9);outline:1px solid var(--line-2);outline-offset:-7px}
 .app:where([data-style="parchment"]) .gmark{position:relative}
 .app:where([data-style="parchment"]) .gmark::before{content:"";position:absolute;inset:-8px;pointer-events:none;background:url("../art/ui/seal.svg") center/contain no-repeat;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5))}
 .app:where([data-style="parchment"]) .gcard h1{font-family:var(--f-mark);font-weight:400;letter-spacing:.08em;color:var(--ink);text-shadow:none}
-.app:where([data-style="parchment"])[data-theme="night"] .gcard h1{color:var(--gold)}
+.app:where([data-style="parchment"])[data-theme="night"] .gcard h1{color:var(--gold-tx)}
 
 /* ---------- chat shelf ---------- */
 .app:where([data-style="parchment"]) .shh .st{visibility:hidden}
@@ -469,8 +471,8 @@
 @container dev (min-width: 760px){
   .app:where([data-style="parchment"]) .nav .ni{border-radius:5px}
   .app:where([data-style="parchment"]) .nav .ni[aria-current="page"]{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 22%,transparent),color-mix(in srgb,var(--accent) 4%,transparent));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 38%,transparent)}
-  .app:where([data-style="parchment"]) .nav .ni[aria-current="page"]>svg{color:var(--accent)}
-  .app:where([data-style="parchment"])[data-theme="night"] .nav .ni[aria-current="page"]>svg{color:var(--gold)}
+  .app:where([data-style="parchment"]) .nav .ni[aria-current="page"]>svg{color:var(--accent-tx)}
+  .app:where([data-style="parchment"])[data-theme="night"] .nav .ni[aria-current="page"]>svg{color:var(--gold-tx)}
   .app:where([data-style="parchment"]) .nav .sub button{border-radius:4px}
   .app:where([data-style="parchment"]) .nav .who{border-radius:6px;background:var(--paper-bg)}
   .app:where([data-style="parchment"]) .page{border-radius:4px;
@@ -486,7 +488,7 @@
   .app:where([data-style="parchment"]) .shelved .nav .ni{border-radius:6px}
   .app:where([data-style="parchment"]) .shelved .nav .ni .end .tag{border-radius:48% 52% 46% 54%;background:var(--wax)}
   .app:where([data-style="parchment"]) .top.dt h1{font-weight:400}
-  .app:where([data-style="parchment"]) .top.dt .ibtn[aria-pressed="true"]{color:var(--accent)}
+  .app:where([data-style="parchment"]) .top.dt .ibtn[aria-pressed="true"]{color:var(--accent-tx)}
 }
 /* corner flourishes are mirrored per corner */
 @container dev (min-width: 760px){
