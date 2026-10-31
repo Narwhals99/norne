@@ -1966,3 +1966,24 @@
 .app .fr-chip{position:relative;width:34px;height:34px;border-radius:50%;overflow:hidden;isolation:isolate;box-shadow:0 0 0 2px var(--gold-soft)}
 .app .fr-adj svg{width:16px;height:16px}
 @container dev (min-width: 760px){ .app .framer{width:min(640px,92%)} .app .fr-stage{height:min(52vh,420px)} }
+
+/* consequences in a fight: small cards on the fighter card and the player's card, marks on the phone bar */
+.app .cq-list{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.app .cq{display:inline-grid;gap:2px;min-width:0;max-width:100%;padding:5px 9px;border-radius:10px;font:italic 500 13px/1.25 var(--f-display);background:var(--sunk);box-shadow:inset 0 0 0 1.3px var(--line);color:var(--ink-3);overflow-wrap:anywhere}
+.app .cq b{font:800 9.5px/1.1 var(--f-ui);letter-spacing:.1em;text-transform:uppercase;font-style:normal;color:var(--ink-3)}
+.app .cq b i{font-style:normal;font-weight:700;letter-spacing:0}
+.app .cq.full{background:var(--card-paper);color:var(--card-ink);box-shadow:inset 3px 0 0 var(--card-rule),0 1px 0 rgba(0,0,0,.12)}
+.app .cq.full b{color:var(--card-ink)}
+.app .cq-list.ed{display:grid;gap:6px}
+.app .cq-ed{display:grid;gap:3px}
+.app .cq-ed small{font:800 9.5px/1.1 var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.app .cq-ed small i{font-style:normal;font-weight:700;letter-spacing:0;margin-left:5px;color:var(--ink-4)}
+.app .cq-ed .inp{min-height:32px;padding:4px 10px}
+.app .cm-f .cq-ln{display:flex;align-items:center;gap:4px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .cm-f .cq-ln svg{width:11px;height:11px;flex:none}
+.app .pcmini .cqb{width:20px;height:20px;display:grid;place-items:center;border-radius:6px;font:800 10px/1 var(--f-ui);color:var(--ink-3);background:var(--sunk);box-shadow:inset 0 0 0 1.3px var(--line-3)}
+.app .pcmini .cqb.on{background:var(--card-paper);color:var(--card-ink);box-shadow:inset 0 0 0 2px var(--card-rule)}
+.app .pcmini .pm-cq{flex:1 0 100%;display:flex;flex-wrap:wrap;gap:5px}
+.app .pcmini .pm-cq .cq{padding:4px 8px;font-size:12.5px}
+.app .nowbar .mine .cqt{padding:3px 8px;border-radius:7px;font:italic 500 12.5px/1.2 var(--f-display);background:var(--card-paper);color:var(--card-ink);box-shadow:inset 3px 0 0 var(--card-rule)}
+.app .tokcard .kv>.kv-w{grid-column:1/-1}

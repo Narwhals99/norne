@@ -488,6 +488,8 @@ function coinsHtml(c, edit){
   const n = Math.max(c.fp, c.refresh);
   return Array.from({length:n}, (_,i) => `<span class="coin${i<c.fp?'':' off'}"></span>`).join('') + (edit ? `<span class="mini"><button type="button" data-a="fp" data-c="${c.id}" data-d="-1" aria-label="Take a fate point">−</button><button type="button" data-a="fp" data-c="${c.id}" data-d="1" aria-label="Give a fate point">+</button></span>` : '');
 }
+/* one consequence slot as a small read-only card: its name when filled, Empty otherwise */
+N.cqChip = sl => `<span class="cq${sl.v ? ' full' : ''}"><b>${sl.l}${sl.only ? ` · ${sl.only}` : ''} <i>${sl.lo}–${sl.hi}</i></b>${sl.v ? esc(sl.v) : 'Empty'}</span>`;
 N.coinsHtml = coinsHtml; N.rRoll = rRoll; N.resCard = resCard;
 function heroQuick(v){
   const g = G(), c = N.charOf(v.role);
@@ -501,6 +503,7 @@ function heroQuick(v){
     <section class="gs-sec"><div class="gs-h"><h3>Stress</h3></div>
       <div class="pcrow" style="grid-template-columns:auto 1fr"><div class="tracks" style="grid-column:1/-1"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}</div><span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<span class="sbox${c.stress.ment[i]?' on':''}">${x}</span>`).join('')}</div></div></div>
     </section>
+    <section class="gs-sec"><div class="gs-h"><h3>Consequences</h3></div><div class="cq-list">${N.consSlots(c.skills).map(sl => N.cqChip(Object.assign({v:(c.cons || {})[sl.k] || ''}, sl))).join('')}</div></section>
     <button type="button" class="btn block" data-a="tab" data-v="hero">${IC('hero')}Open my full card</button>
   </div>`;
 }
