@@ -1,8 +1,9 @@
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
-<!-- maximum-scale=1 keeps iPhones from zooming in on a typing box and leaving the page zoomed (it then slides sideways); pinching still zooms -->
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<!-- maximum-scale=1 keeps iPhones from zooming in on a typing box and leaving the page zoomed (it then slides sideways); pinching still zooms.
+     interactive-widget=resizes-content: Android Chrome shrinks the page above its keyboard instead of sliding the page up under it -->
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#060819">
 <title>Norne</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -16,10 +17,10 @@
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/parchment.css">
 <style>
-/* The page is only a frame: the app fills the visible screen (shrinking above the phone keyboard). */
+/* The page is only a frame: the app fills the visible screen (js/app.js kbInit sizes it to the part above the phone keyboard). */
 html,body{height:100%;margin:0;background:#060819;overflow:hidden;overscroll-behavior:none}
 body{-webkit-text-size-adjust:100%;text-size-adjust:100%}
-.device{container:dev / inline-size;position:fixed;inset:0 0 auto;height:var(--vvh,100dvh);overflow:hidden}
+.device{container:dev / inline-size;position:fixed;inset:0 0 auto;height:100dvh;overflow:hidden}
 .app{--safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px);
   padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
 .app.kb{--safe-b:0px}

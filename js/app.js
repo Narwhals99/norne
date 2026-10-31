@@ -86,6 +86,7 @@ const HS = '.hscroll,.who-row,.fight-order,.chips,.ladder-chips,.party-row,.thum
 function render(v){
   const root = v.root;
   if (!root.isConnected) return;
+  if (swBusy(v)) { v._later = true; return; }
   root.dataset.theme = v.theme; root.dataset.style = v.style; root.dataset.dev = v.dev; root.dataset.role = v.role || '';
   fzSet(v);
   if (N.gated || !v.role) { root.innerHTML = N.gateHtml(N.gated || '<p>Opening the campaign…</p>'); fzInline(v); return; }
@@ -102,6 +103,9 @@ function render(v){
   fzInline(v);
   if (still) root.querySelectorAll('.sheet,.scrim').forEach(e => e.classList.add('still'));
   v._sheet = v.ui.sheet ? v.ui.sheet + ':' + v.ui.sheetArg : null;
+  /* so does the phone's chat list (and one pulled out by a swipe is already in place) */
+  if (v.ui.shelf && v._shelf) root.querySelectorAll('.shelf.drawer,.shelf-scrim').forEach(e => e.classList.add('still'));
+  v._shelf = !!(v.ui.shelf && root.querySelector('.shelf.drawer'));
   /* the same goes for a fighter's card on the desktop board: new chat lines must not make it slide in again */
   if (v.ui.tokSel && v._tokSel === v.ui.tokSel) root.querySelectorAll('.tokpanel').forEach(e => e.classList.add('still'));
   v._tokSel = root.querySelector('.tokpanel') ? v.ui.tokSel : null;
@@ -236,58 +240,160 @@ function bind(v){
   /* iPhone Safari zooms the whole page on a pinch unless its own gesture events are stopped over the map */
   root.addEventListener('gesturestart', e => { if (e.target.closest('[data-mapcv]')) e.preventDefault(); });
   root.addEventListener('wheel', e => { const cv = e.target.closest('[data-mapcv]'); if (cv) { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(v, Math.exp(-clamp(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY, -120, 120) * (e.ctrlKey ? .01 : .0018)), e.clientX - r.left, e.clientY - r.top); } }, {passive:false});
-  /* phones: swipe in from the left edge for the chat list, swipe it back to close.
-     With a fight in this chat, swipe left for combat and right for roleplay, like the Roleplay | Combat switch. */
-  const NOSWIPE = HS + ',input,textarea,select,.tok,[data-rs],[data-zl],[data-mapcv],.pop,.sheet';
+  /* phones: swipes that follow the finger (see "swipes" below).
+     In from the left edge, or across a page that has its own back arrow: one step back. At the top of a chat: the chat list,
+     and pushing the list left puts it away. With a fight in this chat, swipe left for combat and right for roleplay. */
+  /* things that are dragged themselves (the map, the fight board, the picture framer) never start a swipe, not even at the edge */
+  const DRAGS = 'input,textarea,select,.tok,[data-rs],[data-zl],[data-mapcv],.fr-stage';
+  const NOSWIPE = HS + ',' + DRAGS + ',.pop,.sheet';
   let sw = null;
   root.addEventListener('touchstart', e => {
+    if (swBusy(v)) return;
     sw = null;
     const ui = v.ui, t = e.touches[0];
     if (v.dev !== 'phone' || e.touches.length > 1) return;
     const fa = ui.tab === 'chat' && N.fightAvail(v), inFight = fa && ui.fightPane === 'fight';
-    if (ui.shelf) { if (e.target.closest('.shelf,.shelf-scrim')) sw = {x:t.clientX, y:t.clientY, k:'shelf'}; return; }
-    /* in from the left edge: one step back (wiki entry, then its category…), or the chat list at the top of a chat.
-       In a fight the pane swipe below already goes back to the chat. */
-    if (t.clientX < 24 && !inFight && !e.target.closest('input,textarea,select,[data-mapcv]')) { sw = {x:t.clientX, y:t.clientY, k:'edge'}; return; }
-    if (ui.tab !== 'chat' || ui.sheet || ui.pop) return;
-    if (!fa || e.target.closest(NOSWIPE)) return;
+    const s = {x:t.clientX, y:t.clientY, pts:[[t.clientX, e.timeStamp]]};
+    if (ui.shelf) { if (e.target.closest('.shelf,.shelf-scrim')) sw = Object.assign(s, {k:'shelf'}); return; }
+    if (t.clientX < SW_EDGE && !inFight && !e.target.closest(DRAGS)) { sw = Object.assign(s, {k:'back', edge:true}); return; }
+    if (ui.sheet || ui.pop || e.target.closest(NOSWIPE)) return;
+    if (!fa) { if (ui.tab !== 'map' && pageBack(v) && !hScroll(e.target, root)) sw = Object.assign(s, {k:'back'}); return; }
     /* the GM drawing zones drags on the board, so the board doesn't swipe then */
     if (inFight && isGM(v) && ui.cbTool === 'zone' && e.target.closest('[data-board]')) return;
-    sw = {x:t.clientX, y:t.clientY, k:'pane'};
+    sw = Object.assign(s, {k:'pane'});
   }, {passive:true});
-  /* while the edge swipe is under way a round arrow follows the finger in, and lights up once letting go would go back */
-  const hint = () => root.querySelector('.backhint');
-  const dropHint = () => { const h = hint(); if (h) h.remove(); };
+  /* the first few pixels decide: mostly sideways takes the swipe (and stops the list scrolling), otherwise it's a scroll */
   root.addEventListener('touchmove', e => {
-    if (sw?.k !== 'edge') return;
-    const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
-    if (dx < 8 || Math.abs(dy) > dx * .7) { dropHint(); return; }
-    let h = hint();
-    if (!h) { h = document.createElement('div'); h.className = 'backhint'; h.setAttribute('aria-hidden', 'true'); h.innerHTML = IC(backStep(v) || v.ui.tab !== 'chat' ? 'left' : 'list'); root.appendChild(h); }
-    h.style.top = t.clientY + 'px'; h.style.setProperty('--p', Math.min(dx / 50, 1).toFixed(2)); h.classList.toggle('go', dx >= 50);
-  }, {passive:true});
-  root.addEventListener('touchcancel', () => { sw = null; dropHint(); }, {passive:true});
-  root.addEventListener('touchend', e => {
-    dropHint();
     if (!sw) return;
-    const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y, k = sw.k; sw = null;
-    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * .7 || v.suppress) return;
-    const ui = v.ui;
-    if (k === 'edge') {
-      if (dx < 0 || backTwice()) return;
-      if (!goBack(v)) if (ui.tab === 'chat') { ui.shelf = true; render(v); }
-      return;
+    const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+    if (!sw.on) {
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      if (e.touches.length > 1 || Math.abs(dx) < Math.abs(dy) * (sw.edge ? .9 : 1.5) || v.suppress || !swStart(v, sw, dx)) { sw = null; return; }
+      sw.on = true; v.swiping = performance.now();
     }
-    if (k === 'shelf') {
-      if (!ui.shelf && dx > 0) { ui.shelf = true; render(v); }
-      else if (ui.shelf && dx < 0) { ui.shelf = false; render(v); }
-      return;
-    }
-    const to = dx < 0 ? 'fight' : 'chat';
-    if (!N.fightAvail(v) || ui.fightPane === to) return;
-    ui.fightPane = to; ui.targeting = null; ui.slide = dx < 0 ? 'l' : 'r'; ui.stick = to === 'chat';
-    render(v); ui.slide = null;
-  }, {passive:true});
+    if (e.cancelable) e.preventDefault();
+    sw.pts.push([t.clientX, e.timeStamp]); if (sw.pts.length > 6) sw.pts.shift();
+    sw.draw(sw.g = sw.at(dx));
+  }, {passive:false});
+  root.addEventListener('touchend', e => {
+    const s = sw; sw = null;
+    if (!s?.on) return;
+    const t = e.changedTouches[0]; s.pts.push([t.clientX, e.timeStamp]);
+    /* how fast the finger was going at the end, in px per ms, towards the goal */
+    const a = s.pts.find(p => e.timeStamp - p[1] < 90) || s.pts[0], dt = Math.max(1, e.timeStamp - a[1]);
+    const vel = (t.clientX - a[0]) / dt * s.dir, g = s.g = s.at(t.clientX - s.x);
+    swEnd(v, s, vel > -.2 && (g > .4 || (vel > .3 && g > .04)), vel);
+  });
+  root.addEventListener('touchcancel', () => { const s = sw; sw = null; if (s?.on) swEnd(v, s, false, 0); });
+}
+
+/* ---------------- swipes ----------------
+   A swipe drags something with the finger and, when let go, glides on to the end (or back) from the speed it had.
+   Going back: the page slides off to the right and the page it goes back to shows underneath, a little behind, the way
+   an iPhone app does it. Popups and sheets slide away alone; the chat list slides in and out by its edge. */
+const SW_EDGE = 32;
+/* while a swipe is under way, redraws wait for it to end (a stuck one stops counting after a few seconds) */
+const swBusy = v => !!v.swiping && performance.now() - v.swiping < 3000;
+/* a wide table or picture row that scrolls sideways keeps its own swipe */
+const hScroll = (el, root) => { for (let e = el; e && e !== root; e = e.parentElement) if (e.scrollWidth > e.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(e).overflowX)) return true; return false; };
+const pageBack = v => v.root.querySelector('.page [data-a][aria-label^="Back"]');
+function swStart(v, s, dx){
+  const ui = v.ui, root = v.root;
+  s.W = root.clientWidth; s.dir = dx < 0 ? -1 : 1;
+  if (s.k === 'shelf') {
+    const d = root.querySelector('.shelf.drawer'); if (dx > 0 || !d) return false;
+    return swDrawer(v, s, d, root.querySelector('.shelf-scrim'), true);
+  }
+  if (s.k === 'pane') {
+    const to = dx < 0 ? 'fight' : 'chat'; if (ui.fightPane === to) return false;
+    s.go = () => { ui.fightPane = to; ui.targeting = null; ui.stick = to === 'chat'; render(v); };
+    return swPage(v, s, fv => { fv.ui.fightPane = to; fv.ui.targeting = null; });
+  }
+  if (dx < 0) return false;
+  const lay = ui.pop ? '.pop' : ui.sheet ? '.sheet' : ui.tab === 'map' && ui.pinSel ? '.pincard' : null;
+  if (lay) {
+    const el = root.querySelector(lay); if (!el) return false;
+    s.go = () => goBack(v);
+    return swLayer(v, s, el, ui.pop || ui.sheet ? root.querySelector('.scrim:not(.shelf-scrim)') : null);
+  }
+  if (!backStep(v)) {
+    /* nothing to go back to: at the top of a chat this pulls out the chat list */
+    if (ui.tab !== 'chat' || !N.shelfHtml) return false;
+    root.insertAdjacentHTML('beforeend', `<div class="scrim shelf-scrim still swtmp" data-a="shelf"></div>${N.shelfHtml(v)}`);
+    const d = root.lastElementChild; d.classList.add('swtmp'); fzInline(v);
+    return swDrawer(v, s, d, d.previousElementSibling, false);
+  }
+  s.go = () => goBack(v);
+  return swPage(v, s, fv => { const f = backStep(fv); fv.root = document.createElement('div'); if (f) f(); });
+}
+/* the page underneath: the app drawn for a copy of this view with the step already taken */
+function swPage(v, s, take){
+  const shell = v.root.querySelector('.shell'), pg = shell && shell.querySelector(':scope > .page'); if (!pg) return false;
+  const peek = document.createElement('div'); peek.className = 'swpeek'; peek.setAttribute('aria-hidden', 'true'); peek.inert = true;
+  peek.style.cssText = `left:${pg.offsetLeft}px;top:${pg.offsetTop}px;width:${pg.offsetWidth}px;height:${pg.offsetHeight}px`;
+  try {
+    const fv = Object.assign({}, v, {ui:Object.assign({}, v.ui, {folded:new Map(v.ui.folded), wikiPrev:[...(v.ui.wikiPrev || [])], toast:null})});
+    take(fv);
+    const tpl = document.createElement('template'); tpl.innerHTML = N.appHtml(fv);
+    const np = tpl.content.querySelector('.shell > .page'); if (np) peek.appendChild(np);
+  } catch(err) { console.warn('swipe preview', err); }
+  peek.insertAdjacentHTML('beforeend', '<i class="swdim"></i>');
+  shell.insertBefore(peek, pg);
+  if (fzSheets) peek.querySelectorAll('[style*="px"]').forEach(e => fzDecl(e.style));
+  /* lists start where the redraw will put them: chats on their newest line, the rest where they are now */
+  peek.querySelectorAll('[data-sk]').forEach(e => { const o = pg.querySelector(`[data-sk="${CSS.escape(e.dataset.sk)}"]`); if (e.dataset.bottom) e.scrollTop = e.scrollHeight; else if (o) e.scrollTop = o.scrollTop; });
+  /* the moving page carries the sky behind it, so the page underneath doesn't show through */
+  const app = getComputedStyle(v.root), stars = v.root.querySelector('.stars'), lit = stars && +getComputedStyle(stars).opacity > .05;
+  const n = app.backgroundSize.split(',').length, wh = `${v.root.clientWidth}px ${v.root.clientHeight}px`;
+  Object.assign(pg.style, {backgroundImage:(lit ? getComputedStyle(document.documentElement).getPropertyValue('--stars') + ',' : '') + app.backgroundImage,
+    backgroundSize:(lit ? '520px 520px,' : '') + Array(n).fill(wh).join(','), backgroundRepeat:'repeat', backgroundPosition:`${-pg.offsetLeft}px ${-pg.offsetTop}px`, backgroundColor:app.backgroundColor});
+  pg.classList.add('swfront');
+  const dim = peek.lastElementChild;
+  s.at = dx => clamp(dx * s.dir / s.W, 0, 1);
+  s.draw = g => {
+    pg.style.transform = `translate3d(${(g * s.W * s.dir).toFixed(1)}px,0,0)`;
+    peek.style.transform = `translate3d(${((1 - g) * -s.dir * .3 * s.W).toFixed(1)}px,0,0)`;
+    dim.style.opacity = (1 - g).toFixed(3);
+  };
+  s.back = () => { peek.remove(); pg.classList.remove('swfront'); for (const k of ['transform', 'backgroundImage', 'backgroundSize', 'backgroundRepeat', 'backgroundPosition', 'backgroundColor']) pg.style[k] = ''; };
+  return true;
+}
+/* a popup, a sheet or a map place card slides off to the right on its own, its dimmed backdrop clearing as it goes */
+function swLayer(v, s, el, scrim){
+  el.classList.add('swdrag'); if (scrim) scrim.classList.add('swdrag');
+  s.at = dx => clamp(dx / s.W, 0, 1);
+  s.draw = g => { el.style.transform = `translate3d(${(g * s.W).toFixed(1)}px,0,0)`; el.style.opacity = (1 - g * .4).toFixed(3); if (scrim) scrim.style.opacity = (1 - g).toFixed(3); };
+  s.back = () => { el.classList.remove('swdrag'); el.style.transform = el.style.opacity = ''; if (scrim) { scrim.classList.remove('swdrag'); scrim.style.opacity = ''; } };
+  return true;
+}
+/* the chat list: pulled out by its edge from the left (open=false), or pushed back in (open=true) */
+function swDrawer(v, s, d, scrim, open){
+  const w = d.offsetWidth || s.W * .86;
+  d.classList.add('swdrag'); if (scrim) scrim.classList.add('swdrag');
+  s.dir = open ? -1 : 1;
+  s.at = dx => clamp(open ? -dx / w : dx / w, 0, 1);
+  s.draw = g => { const shown = open ? 1 - g : g; d.style.transform = `translate3d(${((shown - 1) * w).toFixed(1)}px,0,0)`; if (scrim) scrim.style.opacity = shown.toFixed(3); };
+  s.span = w;
+  if (open) { s.go = () => { v.ui.shelf = false; render(v); }; s.back = () => { d.classList.remove('swdrag'); d.style.transform = ''; if (scrim) { scrim.classList.remove('swdrag'); scrim.style.opacity = ''; } }; }
+  else { s.go = () => { v.ui.shelf = true; v._shelf = true; render(v); }; s.back = () => v.root.querySelectorAll('.swtmp').forEach(e => e.remove()); }
+  s.draw(0);
+  return true;
+}
+/* let go: glide the rest of the way (or back) from the finger's speed, then make the change for real */
+function swEnd(v, s, go, vel){
+  v.swiping = performance.now();
+  const g0 = s.g ?? 0, g1 = go ? 1 : 0, span = s.span || s.W;
+  const px = Math.abs(g1 - g0) * span, speed = Math.max(Math.abs(vel), 1.1);
+  const dur = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : clamp(px / speed * 1.6, 120, 300), t0 = performance.now();
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  const fin = () => { const later = v._later; v.swiping = 0; v._later = false; if (go) s.go(); else { s.back(); if (later) render(v); } };
+  if (!dur) { fin(); return; }
+  const tick = now => {
+    const k = Math.min(1, (now - t0) / dur);
+    s.draw(g0 + (g1 - g0) * ease(k));
+    if (k < 1) requestAnimationFrame(tick); else fin();
+  };
+  requestAnimationFrame(tick);
 }
 
 /* ---------------- going back ----------------
@@ -1358,22 +1464,87 @@ const nextIssue = p => { const last = p.issues[p.issues.length - 1]; return {pap
 N.draftIssue = d => ({paper:d.paper.trim(), no:parseInt(d.no, 10) || 0, date:d.date.trim(), price:d.price.trim(), headline:d.headline.trim(), sub:d.sub.trim(), lead:d.lead,
   stories:[{title:d.s1t.trim(), body:d.s1b}, {title:d.s2t.trim(), body:d.s2b}].filter(s => s.title || s.body.trim()), notices:d.notices.split('\n').map(s => s.trim()).filter(Boolean)});
 
-/* ---------------- phones: keep the composer on top of the keyboard ---------------- */
+/* ---------------- phones: keep the composer on top of the keyboard ----------------
+   The app is sized to the part of the screen above the keyboard (visualViewport). When that size changes, the height glides
+   to the new one over about a quarter of a second, the way the keyboard itself slides, while the tab bar tucks away under it
+   and the chat stays on its newest line. (The app used to jump to the new size in one frame, and the tab bar vanished at once.)
+   iPhones also scrolled the whole page up to show a typing box and the app then snapped back down: a box that is being focused
+   is lifted out of sight for that one moment (see focus below), so Safari finds nothing to scroll. */
+const KB_FIELD = el => !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !/^(button|checkbox|radio|range|file|color|submit|reset|image|hidden)$/i.test(el.type)));
 N.kbInit = function(){
-  const vv = window.visualViewport, root = document.documentElement;
-  let raf = 0, base = window.innerHeight;
+  const vv = window.visualViewport, dev = document.querySelector('.device');
+  if (!vv || !dev) return;
+  const calm = matchMedia('(prefers-reduced-motion: reduce)');
+  const ease = t => 1 - Math.pow(1 - t, 3);
+  /* cur: the app's height now; tuck: how far the tab bar is tucked away (0 shown, 1 gone); tb: its height and bottom padding when shown */
+  let raf = 0, base = window.innerHeight, wide = window.innerWidth, cur = 0, kbOn = false, tuck = 0, tb = {h:0, pad:0}, tw = null;
+  const setH = h => { cur = h; dev.style.height = h + 'px'; };
+  const bars = () => views.map(v => v.root.querySelector('.tabbar')).filter(Boolean);
+  const tuckBars = () => bars().forEach(b => {
+    if (tuck <= 0 || tuck >= 1 && kbOn) { b.style.display = b.style.paddingBottom = b.style.marginBottom = ''; return; }
+    b.style.display = 'grid'; b.style.paddingBottom = tb.pad + 'px'; b.style.marginBottom = -(tuck * tb.h).toFixed(1) + 'px';
+  });
+  /* chats that sat on their newest line stay there while the height changes */
+  const pinned = new Set();
+  const pin = () => views.forEach(v => pinned.forEach(k => { const e = v.root.querySelector(`[data-sk="${k}"]`); if (e) e.scrollTop = e.scrollHeight; }));
+  /* a typing box away from the composer (a search, a sheet) is scrolled into view inside its own list, never by moving the page */
+  const reveal = el => {
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      if (!/(auto|scroll)/.test(getComputedStyle(p).overflowY) || p.scrollHeight <= p.clientHeight) continue;
+      const r = el.getBoundingClientRect(), b = p.getBoundingClientRect();
+      if (r.bottom > b.bottom - 12) p.scrollTop += r.bottom - b.bottom + 12; else if (r.top < b.top + 12) p.scrollTop -= b.top + 12 - r.top;
+      return;
+    }
+  };
+  const settle = () => {
+    tw = null; pinned.clear(); tuckBars();
+    const a = document.activeElement;
+    if (kbOn && KB_FIELD(a) && a.closest('.app') && !a.closest('.composer')) reveal(a);
+    if (window.scrollY) window.scrollTo(0, 0);
+  };
+  const step = now => {
+    const k = Math.min(1, (now - tw.t0) / tw.dur), e = ease(k);
+    setH(Math.round(tw.h0 + (tw.h1 - tw.h0) * e));
+    tuck = tw.u0 + (tw.u1 - tw.u0) * e; tuckBars(); pin();
+    if (k < 1) tw.raf = requestAnimationFrame(step); else settle();
+  };
+  const glide = (h, kb) => {
+    if (tw) cancelAnimationFrame(tw.raf);
+    const flip = kb !== kbOn;
+    views.forEach(v => v.root.querySelectorAll('[data-sk][data-bottom]').forEach(e => { if (flip || e.scrollHeight - e.scrollTop - e.clientHeight < 60) pinned.add(e.dataset.sk); }));
+    if (flip) {
+      /* measure the tab bar while it shows, before .kb hides it */
+      if (!kb) views.forEach(v => v.root.classList.remove('kb'));
+      const b = bars()[0]; if (b && !b.style.display) { tb = {h:b.offsetHeight, pad:parseFloat(getComputedStyle(b).paddingBottom) || 0}; }
+      kbOn = kb; views.forEach(v => v.root.classList.toggle('kb', kb));
+    }
+    const snap = !cur || calm.matches || !TOUCH.matches || window.innerWidth !== wide;
+    wide = window.innerWidth;
+    if (snap) { setH(h); tuck = kb ? 1 : 0; pin(); settle(); return; }
+    /* a small change (Android can resize in several steps while its keyboard slides) glides for less time */
+    tw = {h0:cur, h1:h, u0:tuck, u1:kb ? 1 : 0, t0:performance.now(), dur:clamp(Math.abs(h - cur) * .85, 100, kb ? 260 : 240)};
+    tuckBars(); tw.raf = requestAnimationFrame(step);
+  };
   const apply = () => { raf = 0;
-    if (!vv) return;
+    if (window.innerWidth !== wide) base = 0;
     const h = Math.round(vv.height);
-    root.style.setProperty('--vvh', h + 'px');
     if (vv.offsetTop || window.scrollY) window.scrollTo(0, 0);
     base = Math.max(base, window.innerHeight);
-    const kb = base - h > 120 && /^(TEXTAREA|INPUT|SELECT)$/.test(document.activeElement?.tagName || '');
-    views.forEach(v => { const was = v.root.classList.contains('kb'); v.root.classList.toggle('kb', kb); const m = v.root.querySelector('.msgs'); if (m && kb !== was) m.scrollTop = m.scrollHeight; });
+    const kb = base - h > 120 && KB_FIELD(document.activeElement);
+    if (h === (tw ? tw.h1 : cur) && kb === kbOn) return;
+    glide(h, kb);
   };
   const sched = () => { if (!raf) raf = requestAnimationFrame(apply); };
-  if (vv) { vv.addEventListener('resize', sched); vv.addEventListener('scroll', sched); }
+  vv.addEventListener('resize', sched); vv.addEventListener('scroll', sched);
   window.addEventListener('orientationchange', () => { base = 0; setTimeout(() => { base = window.innerHeight; sched(); }, 300); });
+  apply();
+  /* iPhone: lift a box out of sight while it takes focus, so Safari doesn't scroll the page up to it; it is back before the next paint */
+  if (APPLE) document.addEventListener('focus', e => {
+    const el = e.target;
+    if (!KB_FIELD(el) || el.tagName === 'SELECT' || !el.closest('.app')) return;
+    el.style.transform = 'translateY(-2000px)';
+    requestAnimationFrame(() => { el.style.transform = ''; });
+  }, true);
   /* Safari's prev/next bar shows while other fields can take focus: park them while typing in the chat */
   const isDraft = el => el && el.dataset && el.dataset.i === 'draft';
   const park = on => document.querySelectorAll('.app input,.app select,.app textarea,.app button').forEach(el => {
@@ -1382,6 +1553,14 @@ N.kbInit = function(){
     else if (el.dataset.ti) { delete el.dataset.ti; el.removeAttribute('tabindex'); }
   });
   document.addEventListener('focusin', e => { if (isDraft(e.target)) { park(true); sched(); setTimeout(sched, 300); } else sched(); });
-  document.addEventListener('focusout', e => { if (isDraft(e.target)) park(false); setTimeout(sched, 50); });
+  document.addEventListener('focusout', e => {
+    if (isDraft(e.target)) park(false); setTimeout(sched, 50);
+    /* iPhone home-screen app: the first keyboard can leave the screen measured short after it closes (a dark band at the bottom);
+       hiding and showing the app in one go makes Safari measure it again */
+    if (APPLE && navigator.standalone) setTimeout(() => {
+      if (KB_FIELD(document.activeElement) || vv.height >= base - 4) return;
+      dev.style.display = 'none'; void dev.offsetHeight; dev.style.display = ''; sched();
+    }, 450);
+  });
 };
 })();

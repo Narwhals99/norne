@@ -82,6 +82,7 @@ function shelfRow(v, c){
   const n = N.unread(v.role, c), cur = v.ui.ch === c, cb = N.fightIn(c), fight = !!cb && (cb.state === 'live' || (isGM(v) && cb.state === 'setup'));
   return `<button type="button" class="shr${n&&!cur?' new':''}" data-a="ch" data-v="${c}" title="${esc(N.chName(c, v.role))}" ${cur?'aria-current="true"':''}>${chanIcon(v,c)}<span class="t"><b>${esc(N.chName(c, v.role))}</b><small>${esc(chanLast(v, c).replace(/\s+/g, ' ').slice(0, 90))}</small></span>${fight?`<span class="tag ember">${IC('swords')}</span>`:''}${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
 }
+N.shelfHtml = v => shelfHtml(v);
 function shelfHtml(v){
   const gm = isGM(v), chs = N.channelsFor(v.role), ph = v.dev === 'phone';
   const group = (t, list) => list.length ? `<div class="shg" role="group" aria-label="${t}"><h3>${t}</h3>${list.map(c => shelfRow(v, c)).join('')}</div>` : '';

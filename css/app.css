@@ -1921,12 +1921,14 @@
 .app .shelfgrip:hover::after,.app .shelfgrip.on::after{background:var(--accent)}
 .app .nav .ni.shopen{color:var(--gold-tx)}
 
-/* phones: the round arrow that follows an edge swipe in from the left (going back, or the chat list at the top of a chat) */
-.app .backhint{position:fixed;z-index:90;left:0;width:44px;height:44px;margin-top:-22px;border-radius:50%;display:grid;place-items:center;pointer-events:none;
-  translate:calc(var(--p,0) * 26px - 30px) 0;opacity:calc(.35 + var(--p,0) * .65);background:var(--raise-2);color:var(--ink-2);
-  box-shadow:inset 0 0 0 1.5px var(--line-2),0 10px 24px -10px rgba(0,0,0,.7);transition:background .15s,color .15s,box-shadow .15s}
-.app .backhint svg{width:20px;height:20px}
-.app .backhint.go{background:color-mix(in srgb,var(--accent) 24%,var(--raise-2));color:var(--gold-tx);box-shadow:inset 0 0 0 1.5px var(--gold),0 0 18px -4px var(--accent-glow)}
+/* phones: swipes that follow the finger (js/app.js "swipes"): the page being left, the page underneath it, and anything dragged */
+.app .swpeek{position:absolute;z-index:1;overflow:hidden;pointer-events:none;will-change:transform}
+.app .swpeek>.page{height:100%}
+.app .swdim{position:absolute;inset:0;background:rgba(2,3,12,.32);pointer-events:none}
+.app[data-theme="day"] .swdim{background:rgba(40,30,10,.16)}
+.app .page.swfront{z-index:2;will-change:transform;animation:none;box-shadow:0 0 36px -4px rgba(0,0,0,.55)}
+.app :is(.sheet,.pop,.pincard,.scrim,.shelf.drawer).swdrag,.app .shelf.drawer.still{animation:none;transition:none}
+.app :is(.sheet,.pop,.pincard,.shelf.drawer).swdrag{will-change:transform}
 /* roll sheet: rolled against an NPC card / a skill (roleplay rolls, GM only) */
 .app .vsbox{display:grid;gap:8px}
 .app .vsbox h4{margin:0}
