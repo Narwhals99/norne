@@ -462,7 +462,7 @@ N.invokePayer = function(v, r, by){
   if (k.startsWith('npc:')) return npc(k.slice(4));
   const t = N.tokOfKey(k); return t ? N.invokePayer(v, r, t) : null;
 };
-/* what can be invoked on a roll: scene and fight aspects, the invoker's own boosts and aspects, and consequences
+/* what can be invoked on a roll: scene and situation aspects, the invoker's own boosts, both fighters' aspects, and consequences
    (they are aspects too) on the invoker and on whoever they face */
 N.invokeOptions = function(v, m, x = N.invokeCtx(v, m)){
   const g = G(), out = [], gm = isGM(v), r = m.roll;
@@ -471,12 +471,17 @@ N.invokeOptions = function(v, m, x = N.invokeCtx(v, m)){
   const cb = g.combat, me = x.by || (cb.state === 'live' && m.ch === N.fightCh() ? N.tokOfKey(r.whoKey) : null);
   if (cb.state === 'live' && m.ch === N.fightCh()) {
     /* a boost can only be invoked by its owner, for free */
-    cb.aspects.forEach((a,i) => { if (a.boost && (!me || a.tok !== me.id || !a.free)) return; out.push({t:a.t || 'Unnamed boost', free:a.free || 0, from:a.boost ? `${a.by}’s boost` : 'Fight', kind:'cb', i}); });
+    cb.aspects.forEach((a,i) => { if (a.boost && (!me || a.tok !== me.id || !a.free)) return; out.push({t:a.t || 'Unnamed boost', free:a.free || 0, from:a.boost ? `${a.by}’s boost` : 'Situation', kind:'cb', i}); });
     cb.zones.filter(z => z.aspect).forEach(z => out.push({t:z.aspect, free:z.free || 0, from:z.name, kind:'zone', z:z.id}));
   }
   const pcAsp = c => [c.hc, c.trouble, ...c.aspects].filter(Boolean).forEach(a => out.push({t:a, free:0, from:gm ? `${c.short}’s aspect` : 'Your aspect'}));
   const k = r.whoKey || '';
-  if (x.by) { if (x.by.kind === 'pc') { const c = g.chars[x.by.ref]; if (c) pcAsp(c); } else (x.by.aspects || []).filter(Boolean).forEach(a => out.push({t:a, free:0, from:`${x.by.name}’s aspect`})); }
+  /* in the GM's hands both fighters' aspects are on offer: the invoker's own, and the other side's (a weakness to play on).
+     A named NPC's come from its card, so edits made mid-fight show */
+  const tokAsp = t => { if (t.kind === 'pc') { const c = g.chars[t.ref]; if (c) pcAsp(c); return; }
+    const n = t.type !== 'nameless' && g.npcs.find(y => y.id === t.ref);
+    (n ? [n.hc, n.trouble, ...(n.aspects || [])] : t.aspects || []).filter(Boolean).forEach(a => out.push({t:a, free:0, from:`${t.name}’s aspect`})); };
+  if (x.by) { tokAsp(x.by); if (x.faces) tokAsp(x.faces); }
   else if (k.startsWith('pc:')) { const c = g.chars[k.slice(3)]; if (c) pcAsp(c); }
   else if (gm && k.startsWith('tok:')) { const t = N.tokById(k.slice(4)); (t?.aspects || []).filter(Boolean).forEach(a => out.push({t:a, free:0, from:'NPC aspect'})); }
   else if (gm && k.startsWith('npc:')) { const n = g.npcs.find(x => x.id === k.slice(4)); if (n) [n.hc, n.trouble, ...n.aspects].filter(Boolean).forEach(a => out.push({t:a, free:0, from:'NPC aspect'})); }
