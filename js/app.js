@@ -634,6 +634,8 @@ function openPop(v, type, el){
 /* portraits and scene pictures are shared with players, so they are stored as visible */
 function uploadFace(v, cb){ N.pickImage(img => { cb(N.storeImg(N.shrinkFace(img), true)); render(v); }); }
 /* every background the GM uploads is kept on the GM screen shelf until it is deleted */
+/* a player's own picture lives on their card (players can't save pictures elsewhere), so it is kept small */
+function myFace(v, c, p){ c.portrait = p; v.ui.sheet = null; toast(v, p ? 'Picture changed.' : 'Picture removed.'); renderAll(); N.syncNow && N.syncNow(); }
 function keepPic(src){ const p = {id:uid('pic'), src}; G().pics = [p, ...G().pics]; return p; }
 function uploadPicture(v, cb){ N.pickImage(img => { const src = N.storeImg(N.shrink(img, 1600, 700000), true); keepPic(src); cb(src); render(v); }); }
 
@@ -893,6 +895,9 @@ function act(v, a, el, e){
   case 'invDel': { ui.invEdit = null; const c = invOwner(d, v), it = c?.inv?.splice(+d.i, 1)[0]; if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
   case 'npcNew': openSheet(v, 'npcNew', d); break;
   case 'npcEdit': openSheet(v, 'npcNew', {edit:val}); break;
+  case 'myFace': { const c = N.charOf(v.role); if (c) myFace(v, c, val); return; }
+  case 'myFaceNone': { const c = N.charOf(v.role); if (c) myFace(v, c, null); return; }
+  case 'myFaceUp': N.pickImage(img => { const c = N.charOf(v.role); if (c) myFace(v, c, N.shrinkFace(img, 168, .82)); }); return;
   case 'ndPortrait': ui.nd.portrait = val; break;
   case 'ndUpload': uploadFace(v, src => { ui.nd.portrait = src; }); return;
   case 'ndType': ui.nd.type = val; break;
