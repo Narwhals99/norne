@@ -608,14 +608,8 @@ function doRoll(v){
   else if (ch !== v.ui.ch || v.ui.tab !== 'chat') toast(v, `${name} rolled ${sgn(N.rollTotal(roll))} ${ladderWord(N.rollTotal(roll))}.`);
   renderAll();
 }
-function actorTokOfKey(key){
-  const cb = G().combat;
-  if (key.startsWith('tok:')) return N.tokById(key.slice(4));
-  if (key.startsWith('pc:')) return cb.tokens.find(t => t.kind === 'pc' && t.ref === key.slice(3));
-  return null;
-}
 function afterFightRoll(v, r, m){
-  const cb = G().combat, a = actorTokOfKey(m.roll.whoKey), tot = N.rollTotal(m.roll);
+  const cb = G().combat, a = N.tokOfKey(m.roll.whoKey), tot = N.rollTotal(m.roll);
   if (!a || cb.state !== 'live') return;
   if (r.action === 'attack' && r.target) {
     const d = N.tokById(r.target);
@@ -943,7 +937,7 @@ function act(v, a, el, e){
   case 'shelfDt': ui.shelfOff = !ui.shelfOff; try { localStorage.setItem('norne-shelfoff', ui.shelfOff ? '1' : '0'); } catch(e) {} break;
   case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
-  case 'sheet': ui.pop = null; openSheet(v, val, d); break;
+  case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); break;
   case 'closeSheet': ui.sheet = null; break;
   case 'closePop': ui.pop = null; break;
   case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { openPop(v, val, el); if (val === 'emo' && ui.emoTab === 'gif' && !ui.gifRes?.length && g.gifKey) gifSearch(v); } break;
@@ -970,7 +964,10 @@ function act(v, a, el, e){
     break;
   }
   case 'newVoice': ui.pop = null; openSheet(v, 'npcNew', {from:'voice'}); break;
-  case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; break;
+  case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; ui.invBy = null; break;
+  case 'invBy': ui.invBy = val; break;
+  /* add a situation aspect from the invoke sheet, then come back to it */
+  case 'invAsp': ui.invBack = ui.sheetArg; ui.sheet = 'cbAspect'; break;
   case 'doInvoke': doInvoke(v, +d.i, d.how === 'reroll'); return;
   case 'readNews': case 'herald': { close(); ui.tab = 'news'; ui.newsEdit = null; const i = g.news.issues.find(x => x.id === d.id); if (i) openIssue(v, i); else newsTab(v); break; }
   case 'newsSel': { const i = g.news.issues.find(x => x.id === val); if (i) openIssue(v, i); const r = v.root.querySelector('[data-sk="nr"]'); if (r) r.scrollTop = 0; break; }
@@ -1359,7 +1356,7 @@ function act(v, a, el, e){
   case 'cbStart': if (N.fightBlocked && N.fightBlocked(cb.ch)) { toast(v, 'To run a fight in a private chat, publish the new security rules first: paste firestore.rules into Firebase > Firestore > Rules, press Publish, then reload.'); break; } N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, 'The fight is on. Roll Notice to see who goes first.'); renderAll(); return;
   case 'cbCancelSetup': g.combat = N.freshCombat(); ui.fightPane = 'chat'; ui.fightOpen = true; ui.zoneSel = null; toast(v, 'Fight setup thrown away.'); renderAll(); return;
   case 'cbEndGo': N.cbEnd(); ui.sheet = null; ui.tokSel = null; ui.targeting = null; ui.watching = false; renderAll(); return;
-  case 'cbAspAdd': { const t = (ui.cbAsp || '').trim(); if (t) { cb.aspects.push({t, free:+ui.cbAspFree || 0}); ui.cbAsp = ''; ui.sheet = null; renderAll(); return; } break; }
+  case 'cbAspAdd': { const t = (ui.cbAsp || '').trim(); if (t) { cb.aspects.push({t, free:+ui.cbAspFree || 0}); fsys(`${N.gmName()} adds a situation aspect: “${t}”${ui.cbAspFree ? `, ${ui.cbAspFree} free invoke${ui.cbAspFree > 1 ? 's' : ''}` : ''}.`); ui.cbAsp = ''; ui.cbAspFree = 0; if (ui.invBack) { ui.sheet = 'invoke'; ui.sheetArg = ui.invBack; ui.invBack = null; } else ui.sheet = null; renderAll(); return; } break; }
   case 'cbAspDel': cb.aspects.splice(+d.i, 1); renderAll(); return;
   case 'cbAspFree': ui.cbAspFree = +val; break;
   }
@@ -1452,22 +1449,27 @@ function saveNpc(v){
   toast(v, old ? 'NPC saved.' : `${n.name} saved. Pick them in “Speak as”.`); renderAll();
 }
 function doInvoke(v, i, reroll){
-  const g = G(), m = g.msgs.find(x => x.id === v.ui.sheetArg), o = m && N.invokeOptions(v, m)[i];
-  if (!o) return;
+  const g = G(), m = g.msgs.find(x => x.id === v.ui.sheetArg), x = m && N.invokeCtx(v, m), o = x && N.invokeOptions(v, m, x)[i];
+  if (!o || (reroll && x.against)) return;
   let how = 'gm';
   if (o.free) {
     how = 'free';
     if (o.kind === 'cb') { const asp = g.combat.aspects[o.i]; asp.free--; if (asp.boost && asp.free <= 0) g.combat.aspects.splice(o.i, 1); }
     if (o.kind === 'zone') g.combat.zones.find(z => z.id === o.z).free--;
-  } else if (!isGM(v)) { const c = N.charOf(v.role); if (!c || c.fp < 1) { toast(v, 'No fate points left.'); return; } c.fp--; how = 'fp'; }
-  const iv = Object.assign({aspect:o.t, how}, o.ref ? {ref:o.ref} : {});
-  if (reroll) { iv.reroll = true; iv.was = m.roll.dice; m.roll.dice = N.rollDice(); v.ui.fresh = m.id; }
-  m.roll.invokes.push(iv);
-  const p = g.combat.pending; if (p && p.msgId === m.id) p.total = N.rollTotal(m.roll);
-  N.cbReresolve(m);
-  v.ui.sheet = null;
-  const cost = o.free ? ' (free)' : isGM(v) ? '' : ', 1 fate point spent';
-  toast(v, reroll ? `Rerolled with “${o.t}”${cost}: now ${sgn(N.rollTotal(m.roll))} ${ladderWord(N.rollTotal(m.roll))}.` : `+2 from “${o.t}”${cost}.`);
+  } else if (x.pay) { if ((x.pay.o.fp || 0) < 1) { toast(v, x.pay.o === N.charOf(v.role) ? 'No fate points left.' : `${x.pay.name} has no fate points left.`); return; } x.pay.o.fp--; how = 'fp'; }
+  else if (!isGM(v)) { toast(v, 'No fate points left.'); return; }
+  /* the invoke goes on the invoker's own roll (see N.invokeSides); by names them when that roll isn't theirs */
+  const t = x.onto, iv = Object.assign({aspect:o.t, how}, o.ref ? {ref:o.ref} : {}, x.by && N.tokName(x.by) !== t.roll.who ? {by:N.tokName(x.by)} : {});
+  if (x.against) { iv.opp = true; t.roll.opp += 2; }
+  else if (reroll) { iv.reroll = true; iv.was = t.roll.dice; t.roll.dice = N.rollDice(); v.ui.fresh = t.id; }
+  t.roll.invokes.push(iv);
+  const p = g.combat.pending; if (p && p.msgId === t.id) p.total = N.rollTotal(t.roll);
+  N.cbReresolve(t);
+  v.ui.sheet = null; v.ui.invBy = null;
+  const cost = o.free ? ' (free)' : how === 'fp' ? `, 1 fate point spent${x.pay.o === N.charOf(v.role) ? '' : ` from ${x.pay.name}`}` : '';
+  const who = x.by && x.by !== x.sides.me ? `${N.tokName(x.by)}: ` : '';
+  toast(v, x.against ? `${who}+2 to beat from “${o.t}”${cost}. ${N.tokName(x.sides.me)} now needs ${sgn(t.roll.opp)}.`
+    : reroll ? `${who}Rerolled with “${o.t}”${cost}: now ${sgn(N.rollTotal(t.roll))} ${ladderWord(N.rollTotal(t.roll))}.` : `${who}+2 from “${o.t}”${cost}.`);
   renderAll();
 }
 /* news: open one issue (and mark it read), or land on the paper with the newest issue */

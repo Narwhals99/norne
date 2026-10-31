@@ -67,8 +67,9 @@ const discOf = (o, k) => { const x = (o.disc || {})[k]; return Array.isArray(x) 
 const stressVals = r => r <= -1 ? [2] : r === 0 ? [1,2] : r <= 2 ? [1,2,2] : [1,2,2,3];
 const ACTIONS = [['Overcome','overcome'],['Create an advantage','advantage'],['Attack','attack'],['Defend','defend']];
 const diceSum = r => r.dice.reduce((a,b)=>a+b,0);
-/* an invoke is +2, or a reroll of all four dice (marked reroll:true, adds nothing) */
-const plusInvokes = r => (r.invokes||[]).filter(i => !i.reroll).length;
+/* an invoke is +2, or a reroll of all four dice (marked reroll:true, adds nothing). One made by the other side
+   against a roll with nothing rolled on their side (opp:true) went onto r.opp, so it doesn't count here either */
+const plusInvokes = r => (r.invokes||[]).filter(i => !i.reroll && !i.opp).length;
 const rollTotal = r => diceSum(r) + r.bonus + 2*plusInvokes(r);
 function outcome(r){
   if (r.opp == null) return null;
@@ -319,6 +320,8 @@ N.chSeat = ch => /^dm-p\d+$/.test(ch || '') ? ch.slice(3) : null;
 /* the characters whose players can see a chat */
 N.pcsIn = ch => { const s = N.chSeat(ch); return N.pcs().filter(c => !s || c.player === s); };
 N.tokById = id => N.G.combat.tokens.find(t => t.id === id);
+/* the fighter behind a roll's whoKey ('tok:<id>' or 'pc:<char id>'), if they are in this fight */
+N.tokOfKey = (key = '') => key.startsWith('tok:') ? N.tokById(key.slice(4)) : key.startsWith('pc:') ? N.G.combat.tokens.find(t => t.kind === 'pc' && t.ref === key.slice(3)) : null;
 N.zoneOf = t => N.G.combat.zones.find(z => z.id === t.zone);
 N.sideOf = t => t.kind === 'pc' ? 'ally' : (t.side || 'foe');
 N.sameZone = t => N.G.combat.tokens.filter(o => o !== t && !o.out && t.zone && o.zone === t.zone);
