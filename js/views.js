@@ -248,8 +248,8 @@ function inOldFight(m){
   }
   return (OLDW.w[m.ch] || []).some(([a, b]) => m.t > a && m.t < b);
 }
-/* the actions leave the chat only while Recent actions is there to show them */
-const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'chat' && railShown(v) && !v.ui.recentOff;
+/* on desktop the actions always live in Recent actions, folded or not; they never spill into the chat */
+const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'chat' && railShown(v);
 N.isAction = isAction; N.isFightAct = isFightAct; N.hhmm = hhmm;
 function renderMsgs(v, side){
   const g = G(), out1 = actionsOut(v, side), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)) && !m.fc && !(out1 && isAction(m)) && !(v.dev === 'phone' && isFightAct(m)));
