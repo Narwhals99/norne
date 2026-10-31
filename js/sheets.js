@@ -407,7 +407,7 @@ const hhmm = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-
 function rollText(r){
   const tot = N.rollTotal(r), o = N.outcome(r);
   const pl = N.plusInvokes(r), rr = r.invokes.filter(i => i.reroll);
-  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''} (${r.action}${r.target?` on ${r.target}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll).map(i => '“' + i.aspect + '”').join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”').join(', ')}`:''} → ${sgn(tot)} ${ladderWord(tot)}${o?` vs ${ladderWord(r.opp)} (${sgn(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
+  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''} (${r.action}${r.target?` on ${r.target}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll).map(i => '“' + i.aspect + '”').join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”').join(', ')}`:''} → ${sgn(tot)} (${ladderWord(tot)})${o?` vs ${sgn(r.opp)} (${ladderWord(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
 }
 function exLine(m){
   const t = `[${hhmm(m.t)}]`;
