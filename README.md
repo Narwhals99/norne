@@ -13,6 +13,8 @@ It runs on GitHub Pages and keeps everything in Firebase (Google sign-in + Fires
   - `js/fx.js` plays the attack animations on the fight board (sword, bow or magic bolt, and the result over the target).
   - `js/app.js` handles taps, typing and drags. `js/sync.js` signs people in and keeps Firestore in step.
   - `css/app.css` is every style (night and day themes; phone and desktop layouts by container query).
+  - `css/parchment.css` is the Parchment & Wax look, picked under Profile > Style. Before adding or changing a look,
+    read [docs/THEMES.md](docs/THEMES.md): the rules, tokens and checks every style needs.
   - `art/` holds the scene backdrops and portraits, `img/` small decorations, `maps/` the atlas images.
 - `vendor/firebase.js` is the Firebase SDK (13.0.0) bundled into one file.
 - The GM's device keeps the full campaign in `gm/*` documents and writes a player-safe copy to `game/*`.

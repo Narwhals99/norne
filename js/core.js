@@ -17,6 +17,7 @@ Object.assign(N, {esc, fmt, uid, clamp, sgn, IC, STAR, MARK});
 
 /* ---------- styles: whole looks picked under Profile > Style, each with a Night and a Day ----------
    A new style is one entry here plus its own stylesheet scoped to .app[data-style="<id>"] (see css/parchment.css).
+   docs/THEMES.md has the rules and checks a style needs.
    The swatches only draw the little preview card in the picker. */
 const STYLES = [
   {id:'storybook', name:'Storybook', sub:'Starry indigo by night, green and gold by day',
