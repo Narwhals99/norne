@@ -119,9 +119,6 @@ function build(board, s){
     fx.P = fx.E;
   }
   fx.total = fx.TI + 2350;
-  /* camera: push in on the two fighters, never past the board's edges */
-  const Z = !RM ? (W < 600 ? 1.7 : 1.25) : 1, cx = (A.x + D.x) / 2, cy = (A.y + D.y) / 2 - .5 * R;
-  fx.Z = Z; fx.TX = clamp(W / 2 - Z * cx, W - Z * W, 0); fx.TY = clamp(H / 2 - Z * cy, H - Z * H, 0);
 
   const svg = document.createElementNS(NS, 'svg');
   set(svg, {class:'fxsvg', width:W, height:H, viewBox:`0 0 ${W} ${H}`, 'aria-hidden':'true'});
@@ -156,7 +153,20 @@ function build(board, s){
   tx.innerHTML = `<b>${o.word}</b><small>${esc(o.sub(an.dmg || 0, N.tokName(at), N.tokName(dt)))}</small>`;
   cam.appendChild(tx);
   fx.tx = tx; fx.tw = tx.offsetWidth; fx.th = tx.offsetHeight;
-  const vx0 = -fx.TX / Z, vx1 = (W - fx.TX) / Z, vy0 = -fx.TY / Z, rise = R * .9;
+  const rise = R * .9;
+  /* camera: push in on the two fighters (up to 1.7x on small boards, 1.25x on big ones), but only as far as keeps both
+     of them, the swing and the words over the target in view, and never past the board's edges. Fighters far apart
+     across a wide zone get little or no zoom. */
+  const x0 = Math.min(A.x, D.x) - 3.4 * R, x1 = Math.max(A.x, D.x) + 3.4 * R;
+  const y0 = Math.min(A.y - 1.4 * R, D.y - Rd - 6 - fx.th - rise), y1 = Math.max(A.y, D.y) + 1.9 * R;
+  const fit = Math.min(W / Math.max(x1 - x0, fx.tw + 12), H / (y1 - y0)), Zmax = RM ? 1 : W < 600 ? 1.7 : 1.25;
+  const Z = fit > 1.05 ? Math.min(Zmax, fit) : 1, cx = (A.x + D.x) / 2, cy = (A.y + D.y) / 2 - .5 * R;
+  fx.Z = Z; fx.TX = fx.TY = 0;
+  if (Z > 1) {
+    fx.TX = clamp(clamp(W / 2 - Z * cx, -Z * x0, W - Z * x1), W - Z * W, 0);
+    fx.TY = clamp(clamp(H / 2 - Z * cy, -Z * y0, H - Z * y1), H - Z * H, 0);
+  }
+  const vx0 = -fx.TX / Z, vx1 = (W - fx.TX) / Z, vy0 = -fx.TY / Z;
   fx.txX = clamp(D.x, vx0 + fx.tw * .64 + 4, vx1 - fx.tw * .64 - 4);
   fx.txY = Math.max(D.y - Rd - 6, vy0 + fx.th + rise + 6);
   A.el.classList.add('fxa'); D.el.classList.add('fxd');
