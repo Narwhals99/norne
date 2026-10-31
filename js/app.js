@@ -488,7 +488,7 @@ function input(v, el){
     case 'mapName': { const m = G().maps.find(x => x.id === el.dataset.v); if (m) m.name = val; return; }
     case 'npcNotes': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n[k || 'notes'] = val; return; }
     case 'npcCon': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n.cons[k] = val; return; }
-    case 'tokMild': { const t = N.tokById(el.dataset.t); if (t) t.mild = val; return; }
+    case 'tokCon': { const t = N.tokById(el.dataset.t); if (t) { t.cons = t.cons || {mild:t.mild || ''}; t.cons[k] = val; } return; }
     case 'tokGear': { const t = N.tokById(el.dataset.t); if (!t) return; const o = t.kind === 'pc' ? g.chars[t.ref] : t; if (o) { o[k] = +val || 0; renderAll(); } return; }
   }
 }

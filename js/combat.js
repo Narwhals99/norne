@@ -154,11 +154,15 @@ function nowState(v){
   return {tok:cur, tone:'wait', eye:'Watching', title:cur ? `${N.tokName(cur)}’s turn` : 'Waiting', sub:pw || `${gmN} rolls for everyone. Watch the board.`};
 }
 const smallStress = t => { const st = N.tokStress(t); return `<span class="nb-st">${st.v.map((x,i) => `<i class="${st.s[i]?'on':''}"></i>`).join('')}</span>`; };
-/* a fighter's consequence slots with what is in them: a player character has the slots from their sheet, an NPC token one mild */
-N.tokCons = t => {
-  if (t.kind === 'pc') { const c = G().chars[t.ref]; return c ? N.consSlots(c.skills).map(sl => Object.assign({v:(c.cons || {})[sl.k] || ''}, sl)) : []; }
-  return [{k:'mild', l:'Mild', lo:1, hi:2, v:t.mild || ''}];
+/* a fighter's consequence slots with what is in them. A player character and a named NPC use the slots on their card
+   (src says where to write); nameless copies like "Bandit 2" keep their own on the token, starting from the card's */
+N.tokConsSrc = t => {
+  if (t.kind === 'pc') { const c = G().chars[t.ref]; return c ? {o:c, i:`data-i="con" data-c="${c.id}"`} : null; }
+  const n = t.type !== 'nameless' && G().npcs.find(x => x.id === t.ref);
+  if (n) return {o:n, i:`data-i="npcCon" data-n="${n.id}"`};
+  return {o:{skills:t.skills, cons:t.cons || {mild:t.mild || ''}}, i:`data-i="tokCon" data-t="${t.id}"`};
 };
+N.tokCons = t => { const s = N.tokConsSrc(t); return s ? N.consSlots(s.o.skills).map(sl => Object.assign({v:(s.o.cons || {})[sl.k] || ''}, sl)) : []; };
 const smallCons = t => { const cs = N.tokCons(t).filter(x => x.v); return cs.length ? `<small class="cq-ln">${IC('cards')}${cs.map(x => esc(x.v)).join(' · ')}</small>` : ''; };
 const zoneTag = t => { const z = N.zoneOf(t); return z ? `<span class="nb-zt" style="--zc:${z.col}">${esc(z.name)}</span>` : ''; };
 const gearTag = t => (N.tokGear(t, 'gearAtk') || N.tokGear(t, 'gearDef')) ? `<span class="nb-gear" title="Weapon and armor">${IC('sword')}${sgn(N.tokGear(t, 'gearAtk'))} ${IC('shieldU')}${sgn(N.tokGear(t, 'gearDef'))}</span>` : '';
@@ -297,7 +301,7 @@ N.tokCard = function(v, t){
     <div class="kv"><span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
       ${(() => {
         const cs = N.tokCons(t); if (!gm && t.kind !== 'pc' && !cs.some(x => x.v)) return '';
-        const ed = sl => `<label class="cq-ed"><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${t.kind === 'pc' ? `data-i="con" data-c="${t.ref}" data-k="${sl.k}"` : `data-i="tokMild" data-t="${t.id}"`} value="${esc(sl.v)}" placeholder="Empty"></label>`;
+        const ed = sl => `<label class="cq-ed"><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${N.tokConsSrc(t).i} data-k="${sl.k}" value="${esc(sl.v)}" placeholder="Empty"></label>`;
         return `<span class="kv-w">Consequences</span><span class="kv-w cq-list${gm ? ' ed' : ''}">${cs.map(sl => gm ? ed(sl) : N.cqChip(sl)).join('')}</span>`;
       })()}
       ${gm || t.kind==='pc' ? `<span>Skills</span><span>${sk.map(([n,x])=>`${esc(n)} ${sgn(x)}`).join(' · ')}</span>` : ''}
