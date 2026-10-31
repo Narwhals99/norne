@@ -1331,7 +1331,7 @@ function act(v, a, el, e){
   case 'tokStress': { const t = N.tokById(d.t), s = N.tokStress(t); s.s[+d.i] = !s.s[+d.i]; renderAll(); return; }
   case 'tokTurn': { const o = N.order(), i = o.findIndex(t => t.id === d.t); if (i >= 0) { cb.turn = i; cb.acted = false; cb.moved = false; cb.pending = null; } ui.tokSel = null; ui.sheet = null; renderAll(); return; }
   case 'tokOut': { const t = N.tokById(d.t); t.out = !t.out; if (t.out && cb.state === 'live') fsys(`${N.tokName(t)} is taken out.`); ui.sheet = null; renderAll(); return; }
-  case 'tokRemove': { const i = cb.tokens.findIndex(t => t.id === d.t), t = cb.tokens[i]; cb.tokens.splice(i, 1); ui.tokSel = null; ui.sheet = null; toast(v, `${N.tokName(t)} removed from the fight.`, () => cb.tokens.splice(i, 0, t)); renderAll(); return; }
+  case 'tokRemove': { const t = N.cbRemove(d.t); ui.tokSel = null; ui.sheet = null; if (t) toast(v, `${N.tokName(t)} removed from the fight.`); renderAll(); return; }
   case 'cbBg': cb.bg = val; renderAll(); return;
   /* picture shelf on the GM screen */
   case 'picSel': ui.picSel = ui.picSel === val ? null : val; break;
