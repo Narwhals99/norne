@@ -65,7 +65,7 @@ N.sheetHtml = function(v){
     const ev = gm && r.event && r.ctx === 'cb' && cb.state === 'live';
     const rp = gm && !fightAtk && (r.ctx !== 'cb' || ev);
     const vsN = rp ? N.vsFind(v, r, r.vsNpc) : null, vsVal = vsN && r.vsSkill ? (vsN.skills[r.vsSkill] || 0) : null;
-    const oppList = [null,0,1,2,3,4,5,6,7,8,9]; if (r.opp != null && !oppList.includes(r.opp)) oppList.push(r.opp);
+    const oppList = [null,0,1,2,3,4,5,6,7,8,9,10,11,12]; if (r.opp != null && !oppList.includes(r.opp)) oppList.push(r.opp);
     const oppChips = `<div class="ladder-chips">${oppList.map(x => `<button type="button" class="lchip" data-a="rollOpp" data-v="${x}" aria-pressed="${r.opp===x}"><b>${x==null?'—':sgn(x)}</b>${x==null?'No target':ladderWord(x)}</button>`).join('')}</div>`;
     const vsNpcs = rp ? N.vsCands(v, r) : [];
     const vsHtml = rp ? `<div class="vsbox"><h4>Rolled against</h4>
