@@ -58,6 +58,7 @@ function chanIcon(v, c){
   if (isGM(v)) return N.av(g.P[c.slice(3)] ? N.personObj(c.slice(3)) : {name:'?'}, 24);
   return N.av(N.personObj('gm'), 24);
 }
+N.chanIcon = chanIcon;
 function chanBtn(v, c){
   const n = N.unread(v.role, c), cur = v.ui.tab === 'chat' && v.ui.ch === c;
   return `<button type="button" data-a="ch" data-v="${c}" ${cur?'aria-current="true"':''} class="${n&&!cur?'new':''}">${chanIcon(v,c)}<span>${esc(N.chName(c, v.role))}</span>${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
@@ -449,7 +450,7 @@ function gmScreen(v){
   const pcs = N.pcs(), npc1 = g.npcs[0], waiting = N.MEMBERS.filter(m => m.role === 'pending').length;
   const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
     ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
-    ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export the log', 'data-v="export"'], ['sheet', 'smile', 'Emoji and GIFs', 'data-v="emoji"'], ['sheet', 'upload', 'Import lore', 'data-v="import"']];
+    ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export the log', 'data-v="export"'], ['sheet', 'smile', 'Emoji and GIFs', 'data-v="emoji"'], ['sheet', 'upload', 'Import lore', 'data-v="import"'], ['sheet', 'trash', 'Wipe a chat', 'data-v="wipe"']];
   const scenes = ['table', ...N.seats().map(x => 'dm-' + x)].filter(c => g.scenes[c]).length;
   return `<div class="gs">
     ${fight}

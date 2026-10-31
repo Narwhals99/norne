@@ -130,6 +130,17 @@ N.delMsg = id => {
   if (isGM() && MKNOWN.has(id)) { MKNOWN.delete(id); MDOCS.delete(id); track(F.deleteDoc(dref('msgs/' + id))); }
 };
 
+/* the GM wiping a whole chat: every message in it is deleted for good, in batches */
+N.wipeChat = ch => {
+  const g = G(), gone = g.msgs.filter(m => m.ch === ch); if (!gone.length) return 0;
+  g.msgs = g.msgs.filter(m => m.ch !== ch); N.invalidateScenes();
+  if (isGM() && F) {
+    const ids = gone.map(m => m.id); ids.forEach(id => { MKNOWN.delete(id); MDOCS.delete(id); });
+    for (let i = 0; i < ids.length; i += 400) { const b = F.writeBatch(db); ids.slice(i, i + 400).forEach(id => b.delete(dref('msgs/' + id))); track(b.commit()); }
+  }
+  return gone.length;
+};
+
 /* ---------- push addresses: one document per phone or computer that has notifications on ---------- */
 N.PUSH = [];
 N.pushSave = (dev, sub) => sub
