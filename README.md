@@ -14,7 +14,8 @@ It runs on GitHub Pages and keeps everything in Firebase (Google sign-in + Fires
   - `js/framer.js` is the framing editor every uploaded picture opens in (drag to move, pinch, scroll or slider to zoom); the frame is saved on the picture's name, so Adjust can change it later.
   - `js/app.js` handles taps, typing and drags. `js/sync.js` signs people in and keeps Firestore in step.
   - `css/app.css` is every style (night and day themes; phone and desktop layouts by container query).
-  - `css/parchment.css` is the Parchment & Wax look, picked under Profile > Style. Before adding or changing a look,
+  - `css/parchment.css` and `css/oak.css` are the Parchment & Wax and Oak & Iron looks, picked under Profile > Style
+    (Oak's frames and buttons are in `art/ui/oak/`). Before adding or changing a look,
     read [docs/THEMES.md](docs/THEMES.md): the rules, tokens and checks every style needs.
   - `art/` holds the scene backdrops and portraits, `img/` small decorations, `maps/` the atlas images.
 - `vendor/firebase.js` is the Firebase SDK (13.0.0) bundled into one file.

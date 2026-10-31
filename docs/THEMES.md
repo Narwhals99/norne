@@ -5,8 +5,9 @@ Read it before you add a style, change a colour, or build any new screen (new sc
 
 **Words used here**
 
-- A **style** is a whole look that people pick under Profile > **Style**: today *Storybook* (the default) and *Parchment & Wax*.
-- A **theme** is **Night** or **Day** (Profile > **Appearance**). Every style has both, so there are four looks today.
+- A **style** is a whole look that people pick under Profile > **Style**: today *Storybook* (the default), *Parchment & Wax*
+  and *Oak & Iron*.
+- A **theme** is **Night** or **Day** (Profile > **Appearance**). Every style has both, so there are six looks today.
 - Both are saved per device in `localStorage` (`norne-style`, `norne-theme`), like the text size (`norne-fz`).
   Two devices on the same account can each show a different look.
 
@@ -102,6 +103,28 @@ inline styles after each draw. So:
 
 Phone vs desktop is decided by the device frame: `@container dev (max-width: 759px)` / `(min-width: 760px)`, the same as
 `app.css`. Use those, not `@media` widths, or the harness and the real app disagree.
+
+### 2.7 Frames and buttons from a UI art pack (border-image)
+
+Jack found that colour-only styles look like "plain panels with color schemes". *Oak & Iron* (`css/oak.css`) shows how to put
+real pack art (Kenney's UI Pack: Adventure, CC0) on the existing boxes without moving anything:
+
+- Pack panels and buttons are 9-slice pictures, so they go on with `border-image`, e.g. a button
+  `border-image:url("../art/ui/oak/btn-wood.svg") 8 fill / 8px` and `background:none`. The `/ 8px` width draws the art over the
+  box's padding area, so the box keeps its size and nothing reflows. Leave out `fill` for a frame whose middle should stay the
+  box's own colour.
+- Bigger frames that sit on top of a panel (the desktop page, the sheet, the scene and fight cards) are a pseudo-element:
+  `position:absolute;inset:0;pointer-events:none`. Put it at `z-index:-1` inside a box that has `isolation:isolate`, or above
+  the content when it is only an edge.
+- **Safari rule:** WebKit has a history of not painting `border-image` on a box without a border style, and a bare
+  `border-style` gives a default `medium` border. To be safe, every box that wears art gets `border:1px solid transparent`,
+  with its padding cut by 1px so the size stays the same (art pseudo-elements get
+  `box-sizing:border-box;border:1px solid transparent`). The cloud container only has Chromium, so check the live site on an
+  iPhone after merging.
+- `border-image` ignores `border-radius`. Pick a radius that matches the art's corners (Oak sets 6px on every rounded `app.css`
+  box) so focus rings and shadows follow the same shape.
+- Turn the pack's PNGs into small files: recolour, cut out middles you don't need, wrap them in SVG. The script for Oak is in
+  the project files at `/mnt/project-files/asset-theme/source/make_art.py`; the whole set is about 80 KB.
 
 ---
 
@@ -246,7 +269,8 @@ in Parchment, the GM desk's stress labels in Storybook Day. Fix these the next t
    like. Write the picker `sub` line from that.
 2. **Collect assets** (OFL fonts, CC/MIT icons, free textures). The cloud container's proxy blocks many art sites (ambientCG,
    OpenGameArt and Poly Haven were blocked); Google Fonts and generating textures yourself (Python + Pillow) work.
-   Note every license as you go.
+   When a site is blocked, Jack can download the zip and share the folder from his computer (that is how the Kenney pack came
+   in). Note every license as you go.
 3. **Branch from main** and add the `N.STYLES` entry, `css/<id>.css`, the `<link>`, fonts and `body:has` backgrounds (section 2).
 4. **Tokens first** for Night and Day (section 3), then per-component touches (section 4). Start by copying `parchment.css`'s
    structure; it is ordered by screen.
@@ -287,6 +311,9 @@ node $SCRATCH/kit/shots.js $SCRATCH/audit --audit --styles <id> && python3 -I $S
 
 `baseline/` in the kit holds the contrast report and chat sheets for main on 2026-10-31 to compare against.
 
+Quirk: the kit's `roll` screen does not open the roll sheet for a player (`role=p1`). To see the roll sheet, open
+`harness.html?role=gm&run=document.querySelector(".diceb").click()`.
+
 ---
 
 ## 10. History, for context
@@ -301,3 +328,6 @@ node $SCRATCH/kit/shots.js $SCRATCH/audit --audit --styles <id> && python3 -I $S
   function"; Jack asked for it as an alternate, which created the Style picker (PR #38).
 - **2026-10-31** Text size per device and the contrast tokens (PR #40). Liquid glass Meta bubbles (PR #49), then own/others tints,
   glass on wiki rows, speaker-coloured in-character bubbles, quotes as speech, and OOC renamed to Meta (PR #51).
+- **2026-10-31** Oak & Iron, the first style built from a real UI art pack (Kenney UI Pack: Adventure, CC0): wooden and iron
+  frames, wooden/red/gold buttons, a red ribbon on sheet titles, Vollkorn, Nunito and Grenze. Jack picked the pack from a few
+  free options because the earlier styles looked like "plain panels with color schemes".

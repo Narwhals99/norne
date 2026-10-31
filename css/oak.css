@@ -1,0 +1,573 @@
+/* =====================================================================
+   NORNE — Oak & Iron style: a look, nothing else.
+   Picked under Profile > Style. Every rule here only applies while the app has data-style="oak",
+   and :where() keeps each selector exactly as specific as the app.css rule it reskins.
+   It is built from real game-UI art: Kenney's "UI Pack: Adventure" (CC0), recoloured in art/ui/oak/.
+   Wooden frames with iron corners go round the panels, window titles sit on a red ribbon, buttons are
+   wooden, parchment, brass, iron or red plates, and portraits sit in wooden rings.
+   Frames are drawn with border-image (border stays 0) or on an overlay that ignores the pointer,
+   so every size, place and behaviour stays app.css's.
+   Night = a lantern-lit hall of dark oak. Day = a sunlit quest board of parchment and pale wood.
+   ===================================================================== */
+
+.app:where([data-style="oak"]){
+  /* ---- Night: lantern-lit oak ---- */
+  --sky-0:#0f141b; --sky-1:#161d27; --sky-2:#1e2733;
+  --page:rgba(41,29,20,.97); --page-solid:#291d14;
+  --raise:#3a2919; --raise-2:#47331f; --sunk:#1d140d;
+  --line:rgba(255,231,190,.11); --line-2:rgba(255,231,190,.2); --line-3:rgba(255,231,190,.34);
+  --ink:#fff1d2; --ink-2:#e6d2ae; --ink-3:#c9b08a; --ink-4:#ad9573;
+  --accent:#e2665b; --accent-2:#b5483f; --accent-3:#8e3f38; --accent-ink:#fff;
+  --accent-soft:rgba(226,102,91,.16); --accent-glow:rgba(226,102,91,.4);
+  --gold:#f0bd55; --gold-2:#d9a03a; --gold-3:#9a6a1c; --gold-ink:#2b1a04; --gold-soft:rgba(240,189,85,.14);
+  --ember:#ff8f80; --ember-soft:rgba(255,143,128,.14); --jade:#8fd16a; --jade-soft:rgba(143,209,106,.14);
+  --link:#a6c4de;
+  --gold-tx:#f3c463; --accent-tx:#ff8f83; --ember-ink:#2b0b04;
+  --card-paper:#fff1d2; --card-ink:#2b1d10; --card-rule:#b5483f; --card-line:rgba(109,75,39,.13);
+  --scrim:rgba(6,8,12,.62);
+  --shadow-1:0 1px 0 rgba(255,226,170,.05) inset, 0 10px 30px -12px rgba(0,0,0,.7);
+  --shadow-2:0 24px 60px -20px rgba(0,0,0,.85), 0 0 0 1px rgba(255,231,190,.14);
+  --sky-art:radial-gradient(70% 50% at 50% -8%, rgba(255,190,110,.14), transparent 65%),
+            radial-gradient(130% 95% at 50% 45%, transparent 55%, rgba(0,0,0,.5)),
+            url("../art/ui/oak/stripes-night.svg") 0 0/32px,
+            linear-gradient(180deg, var(--sky-2), var(--sky-0));
+  --engrave:#f0bd55;
+  --c-p1:#7fb6ec; --c-p2:#f29ac4; --c-gm:#f0bd55; --c-npc:#eaa55c; --c-foe:#ff7f6e;
+  --c-p3:#96d07a; --c-p4:#f3b066; --c-p5:#c6a6f0; --c-p6:#7fd3ca; --c-p7:#f39187; --c-p8:#d6dc84;
+  --map-grade:saturate(.8) brightness(.66) contrast(1.05);
+  --map-tint:linear-gradient(180deg, rgba(40,26,10,.3), rgba(12,10,8,.5));
+
+  --f-mark:'Grenze Gotisch', 'Grenze', Georgia, serif;
+  --f-display:'Vollkorn', 'Iowan Old Style', Georgia, serif;
+  --f-ui:'Nunito', 'Nunito Sans', 'Segoe UI', system-ui, sans-serif;
+  --f-paper:'IM Fell English', Georgia, serif;
+  --f-mast:'UnifrakturMaguntia', 'IM Fell English', Georgia, serif;
+  --k-title:'Grenze', 'Vollkorn', Georgia, serif;
+
+  --r-xs:4px; --r-sm:6px; --r-md:6px; --r-lg:8px; --r-xl:10px;
+
+  /* the art, and the colours of Kenney's flat wood: a dark outline, a face and a shade */
+  --k-frame:url("../art/ui/oak/frame.svg");
+  --k-frame-plain:url("../art/ui/oak/frame-plain.svg");
+  --k-frame-iron:url("../art/ui/oak/frame-iron.svg");
+  --k-btn:url("../art/ui/oak/btn-wood.svg");
+  --k-wood:#b47b41; --k-wood-2:#a3703a; --k-wood-3:#6d4b27; --k-iron:#94afc6; --k-iron-3:#515f6b;
+  --k-rim:#5c3f21; --k-hi:rgba(255,226,170,.07); --k-lo:rgba(0,0,0,.3);
+  --k-tile:inset 0 0 0 1.5px var(--k-rim), inset 0 2px 0 var(--k-hi), inset 0 -3px 0 var(--k-lo);
+  --k-bar:#20160e;
+  --k-page-bg:radial-gradient(120% 70% at 50% -5%, rgba(255,190,110,.08), transparent 60%), var(--page-solid);
+  --star4:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M10.55 1.25 L11.95 3.05 13.85 3.85 Q15 4.15 15.55 5.1 16 5.75 16 6.9 16 7.85 15.5 8.65 L14.3 10.6 14.15 12.85 14.15 12.95 Q14.15 13.9 13.45 14.75 L13.6 14.6 Q13.05 15.4 12.15 15.8 L11.9 15.9 10.1 15.85 10.15 15.9 8.05 15.25 5.95 15.9 6 15.85 4.15 15.9 3.9 15.8 Q3.15 15.45 2.6 14.8 1.85 13.9 1.85 12.95 L1.8 10.65 0.5 8.65 0.55 8.65 Q0 7.85 0 6.9 0 5.6 0.65 4.95 1.15 4.1 2.25 3.85 L4.1 3.05 5.6 1.2 5.9 0.85 Q6.35 0.5 6.95 0.2 L7.15 0.15 Q7.95 -0.15 8.95 0.15 L9.3 0.25 Q9.95 0.55 10.5 1.25 L10.55 1.25 M10.7 13.95 L11.35 13.95 11.9 13.5 12.15 12.85 12.3 10 13.8 7.55 14 6.9 13.8 6.15 13.3 5.75 10.7 4.7 8.95 2.5 8.4 2.05 7.75 2.05 7.15 2.4 5.35 4.7 2.8 5.75 Q2.4 5.85 2.25 6.15 2 6.4 2 6.9 L2.2 7.55 3.75 10 3.85 12.85 4.1 13.5 4.7 13.95 5.35 13.95 8.05 13.15 10.7 13.95'/%3E%3Cpath d='M10.7 13.95 L8.05 13.15 5.35 13.95 4.7 13.95 4.1 13.5 3.85 12.85 3.75 10 2.2 7.55 2 6.9 Q2 6.4 2.25 6.15 2.4 5.85 2.8 5.75 L5.35 4.7 7.15 2.4 7.75 2.05 8.4 2.05 8.95 2.5 10.7 4.7 13.3 5.75 13.8 6.15 14 6.9 13.8 7.55 12.3 10 12.15 12.85 11.9 13.5 11.35 13.95 10.7 13.95'/%3E%3C/svg%3E");
+  font-synthesis-weight:none;
+}
+.app:where([data-style="oak"])[data-theme="day"]{
+  /* ---- Day: a sunlit quest board ---- */
+  --sky-0:#93a8b9; --sky-1:#aabdcc; --sky-2:#c3d2de;
+  --page:rgba(255,241,210,.98); --page-solid:#fff1d2;
+  --raise:#fbe9c4; --raise-2:#fff8e8; --sunk:#f0dcb4;
+  --line:rgba(109,75,39,.17); --line-2:rgba(109,75,39,.28); --line-3:rgba(109,75,39,.46);
+  --ink:#3a2513; --ink-2:#563a20; --ink-3:#5f4223; --ink-4:#6e4c2a;
+  --accent:#c6594f; --accent-2:#a8463d; --accent-3:#8e3f38; --accent-ink:#fff;
+  --accent-soft:rgba(198,89,79,.13); --accent-glow:rgba(198,89,79,.32);
+  --gold:#d9a03a; --gold-2:#b37f1f; --gold-3:#875a10; --gold-ink:#2b1a04; --gold-soft:rgba(217,160,58,.17);
+  --ember:#a0322a; --ember-soft:rgba(160,50,42,.12); --jade:#3f7a24; --jade-soft:rgba(63,122,36,.13);
+  --link:#2f5f8a;
+  --gold-tx:#774e0b; --accent-tx:#93372f; --ember-ink:#fff;
+  --card-paper:#fffaf0; --card-ink:#2b1d10; --card-rule:#c6594f; --card-line:rgba(109,75,39,.12);
+  --scrim:rgba(30,40,52,.4);
+  --shadow-1:0 1px 0 rgba(255,255,255,.7) inset, 0 10px 26px -14px rgba(60,40,15,.45);
+  --shadow-2:0 24px 60px -24px rgba(40,50,60,.55), 0 0 0 1px rgba(109,75,39,.22);
+  --sky-art:radial-gradient(80% 55% at 50% -10%, rgba(255,250,230,.55), transparent 65%),
+            radial-gradient(130% 95% at 50% 45%, transparent 55%, rgba(40,60,80,.25)),
+            url("../art/ui/oak/stripes-day.svg") 0 0/32px,
+            linear-gradient(180deg, var(--sky-2), var(--sky-0));
+  --engrave:#a3703a;
+  --c-p1:#2a5f9a; --c-p2:#a23a72; --c-gm:#8a5a10; --c-npc:#8e5414; --c-foe:#a63a2a;
+  --c-p3:#2f6b2a; --c-p4:#9a5414; --c-p5:#5e3b9a; --c-p6:#16706b; --c-p7:#a32f2f; --c-p8:#5f6a12;
+  --map-grade:saturate(.92) brightness(1) contrast(1.02);
+  --map-tint:linear-gradient(180deg, rgba(255,240,200,.05), rgba(180,123,65,.1));
+  --k-btn:url("../art/ui/oak/btn-cream.svg");
+  --k-rim:#c9a271; --k-hi:rgba(255,255,255,.65); --k-lo:rgba(109,75,39,.14);
+  --k-bar:#f6e2b8;
+  --k-page-bg:radial-gradient(120% 70% at 50% -5%, rgba(255,255,255,.5), transparent 60%), var(--page-solid);
+}
+
+/* ---------- base ---------- */
+.app:where([data-style="oak"]) .stars{display:none}
+.app:where([data-style="oak"]) ::selection{background:color-mix(in srgb,var(--accent) 35%,transparent)}
+.app:where([data-style="oak"]) :focus-visible{outline-color:var(--gold);border-radius:4px}
+.app:where([data-style="oak"])[data-theme="day"] :focus-visible{outline-color:var(--accent-2)}
+.app:where([data-style="oak"]) .scroll{scrollbar-color:var(--k-wood-2) transparent}
+.app:where([data-style="oak"]) .scroll::-webkit-scrollbar-thumb{background:var(--k-wood-2);border-radius:3px;box-shadow:inset 0 0 0 1px var(--k-wood-3)}
+.app:where([data-style="oak"]) .eyebrow{letter-spacing:.14em}
+.app:where([data-style="oak"]) .ttl{font-family:var(--k-title);font-weight:600;letter-spacing:.005em}
+.app:where([data-style="oak"]) .star4{background:var(--gold)}
+.app:where([data-style="oak"])[data-theme="day"] .star4{background:var(--accent)}
+.app:where([data-style="oak"]) .spark::after{filter:none}
+
+/* corners: Kenney's plates are only slightly rounded, so every rounded panel, chip and pill in app.css gets a small radius
+   (same selectors as app.css, so each wins by coming later; the rules below set the special ones) */
+.app:where([data-style="oak"]) .seg,.app:where([data-style="oak"]) .seg button,.app:where([data-style="oak"]) .inp,.app:where([data-style="oak"]) .search .inp,
+.app:where([data-style="oak"]) .av.sq,.app:where([data-style="oak"]) .av.sq img,.app:where([data-style="oak"]) .tabbar .ti,.app:where([data-style="oak"]) .cchip,
+.app:where([data-style="oak"]) .mw,.app:where([data-style="oak"]) .scenem,.app:where([data-style="oak"]) .roll,.app:where([data-style="oak"]) .roll .out,
+.app:where([data-style="oak"]) .fightcard,.app:where([data-style="oak"]) .composer .box,.app:where([data-style="oak"]) .voice,.app:where([data-style="oak"]) .fightbar,
+.app:where([data-style="oak"]) .pop,.app:where([data-style="oak"]) .pop .opt,.app:where([data-style="oak"]) .toast,.app:where([data-style="oak"]) .toast button,
+.app:where([data-style="oak"]) .sk,.app:where([data-style="oak"]) .act,.app:where([data-style="oak"]) .lchip,.app:where([data-style="oak"]) .tgt,
+.app:where([data-style="oak"]) .note,.app:where([data-style="oak"]) .toggle,.app:where([data-style="oak"]) .thumb,.app:where([data-style="oak"]) .forwho button,
+.app:where([data-style="oak"]) .pcrow,.app:where([data-style="oak"]) .scenecard,.app:where([data-style="oak"]) .recent button,
+.app:where([data-style="oak"]) .voices button,.app:where([data-style="oak"]) .bigcta,.app:where([data-style="oak"]) .bigcta .ic,
+.app:where([data-style="oak"]) .tools button,.app:where([data-style="oak"]) .quick-sk :is(button,span),.app:where([data-style="oak"]) .board,
+.app:where([data-style="oak"]) .zone,.app:where([data-style="oak"]) .zone .zl,.app:where([data-style="oak"]) .tok .nm,.app:where([data-style="oak"]) .board .hint-chip,
+.app:where([data-style="oak"]) .gmtools,.app:where([data-style="oak"]) .gmtools button,.app:where([data-style="oak"]) .yourturn,.app:where([data-style="oak"]) .abtn,
+.app:where([data-style="oak"]) .waiting,.app:where([data-style="oak"]) .incoming,.app:where([data-style="oak"]) .tray,.app:where([data-style="oak"]) .inv-chips button,
+.app:where([data-style="oak"]) .zlist .zi,.app:where([data-style="oak"]) .mapsel,.app:where([data-style="oak"]) .pin .pl,.app:where([data-style="oak"]) .pincard,
+.app:where([data-style="oak"]) .mapedit,.app:where([data-style="oak"]) .herald,.app:where([data-style="oak"]) .cat,.app:where([data-style="oak"]) .catrow,
+.app:where([data-style="oak"]) .ent,.app:where([data-style="oak"]) .facts,.app:where([data-style="oak"]) .wfig,.app:where([data-style="oak"]) .secret,
+.app:where([data-style="oak"]) .pc-hero,.app:where([data-style="oak"]) .lad .rung .sks button,.app:where([data-style="oak"]) .lad .rung .sks .skc,
+.app:where([data-style="oak"]) .trk,.app:where([data-style="oak"]) .con .slot,.app:where([data-style="oak"]) .stunt,.app:where([data-style="oak"]) .inv .it,
+.app:where([data-style="oak"]) .pchip,.app:where([data-style="oak"]) .ccard,.app:where([data-style="oak"]) .menu,.app:where([data-style="oak"]) .menu button,
+.app:where([data-style="oak"]) .mem,.app:where([data-style="oak"]) .nav .ni,.app:where([data-style="oak"]) .nav .sub button,.app:where([data-style="oak"]) .nav .who,
+.app:where([data-style="oak"]) .scene,.app:where([data-style="oak"]) .tokpanel,.app:where([data-style="oak"]) .setup-panel,.app:where([data-style="oak"]) .gmrow button,
+.app:where([data-style="oak"]) .feed,.app:where([data-style="oak"]) .maploading,.app:where([data-style="oak"]) .resm,.app:where([data-style="oak"]) .resm .out,
+.app:where([data-style="oak"]) .invopt,.app:where([data-style="oak"]) .shr,.app:where([data-style="oak"]) .shelf .who,.app:where([data-style="oak"]) .chname,
+.app:where([data-style="oak"]) .chname-row .chname,.app:where([data-style="oak"]) .shelved .nav .ni,.app:where([data-style="oak"]) .nb-zt,
+.app:where([data-style="oak"]) .fight-order .ot,.app:where([data-style="oak"]) .fight-tools,.app:where([data-style="oak"]) .fight-tools button,
+.app:where([data-style="oak"]) .fight-tools.ph,.app:where([data-style="oak"]) .fight-tools.ph button,.app:where([data-style="oak"]) .nowbar,
+.app:where([data-style="oak"]) .fight-h .fight-order,.app:where([data-style="oak"]) .fight.cmd.ph .nowbar,.app:where([data-style="oak"]) .fight.cmd.ph .nowbar .abtn,
+.app:where([data-style="oak"]) .fight.ph .fight-scroll>.gmrow button,.app:where([data-style="oak"]) .nchips button,.app:where([data-style="oak"]) .dicefx,
+.app:where([data-style="oak"]) .ffeed .ff-list,.app:where([data-style="oak"]) .ff .ffb,.app:where([data-style="oak"]) .msgs .fightcard,
+.app:where([data-style="oak"]) .mtools,.app:where([data-style="oak"]) .rxp,.app:where([data-style="oak"]) .composer .replying,.app:where([data-style="oak"]) .emo-new,
+.app:where([data-style="oak"]) .emo-it,.app:where([data-style="oak"]) .m.gifm .gifbox,.app:where([data-style="oak"]) .m.gifm .gif,.app:where([data-style="oak"]) .rxwho,
+.app:where([data-style="oak"]) .rcnt .ff-list,.app:where([data-style="oak"]) .modeseg .nb,.app:where([data-style="oak"]) .cm-tok,.app:where([data-style="oak"]) .cm-f,
+.app:where([data-style="oak"]) .stc,.app:where([data-style="oak"]) .fcm,.app:where([data-style="oak"]) .fcm.mine,.app:where([data-style="oak"]) .fc-comp .inp,
+.app:where([data-style="oak"]) .sysm.fend,.app:where([data-style="oak"]) .rl,.app:where([data-style="oak"]) .rl .out,.app:where([data-style="oak"]) .pcmini,
+.app:where([data-style="oak"]) .gmban,.app:where([data-style="oak"]) .gmban .go,.app:where([data-style="oak"]) .fzpick .fzs,.app:where([data-style="oak"]) .railopen,
+.app:where([data-style="oak"]) .vssk button,.app:where([data-style="oak"]) .fr-stage{border-radius:6px}
+
+/* every box that wears a piece of art gets a 1px see-through border: some browsers only draw a border-image on a box
+   that has a real border. Where it matters the padding gives the pixel back, so nothing moves */
+.app:where([data-style="oak"]) .ibtn.solid,.app:where([data-style="oak"]) .seg button,.app:where([data-style="oak"]) .tabbar .ti,.app:where([data-style="oak"]) .cchip,.app:where([data-style="oak"]) .m.say .bub,.app:where([data-style="oak"]) .roll:not(.ff),.app:where([data-style="oak"]) .composer .box,.app:where([data-style="oak"]) .pop,.app:where([data-style="oak"]) .toast,.app:where([data-style="oak"]) .sbox,.app:where([data-style="oak"]) .bigcta,.app:where([data-style="oak"]) .gmrow button,.app:where([data-style="oak"]) .gmtools,.app:where([data-style="oak"]) .gmtools button,.app:where([data-style="oak"]) .fight-tools button,.app:where([data-style="oak"]) .nowbar,.app:where([data-style="oak"]) .yourturn,.app:where([data-style="oak"]) .incoming,.app:where([data-style="oak"]) .resm,.app:where([data-style="oak"]) .dicefx,.app:where([data-style="oak"]) .glass,.app:where([data-style="oak"]) .herald,.app:where([data-style="oak"]) .secret,.app:where([data-style="oak"]) .pc-hero,.app:where([data-style="oak"]) .gcard,.app:where([data-style="oak"]) .shr,.app:where([data-style="oak"]) .shelf.drawer,.app:where([data-style="oak"]) .gmban .go,.app:where([data-style="oak"]) .pincard,.app:where([data-style="oak"]) .tokpanel,.app:where([data-style="oak"]) .setup-panel{border:1px solid transparent}
+.app:where([data-style="oak"]) .nav .ni{border:1px solid transparent}
+.app:where([data-style="oak"]) .scene::after,.app:where([data-style="oak"]) .fightcard::after,.app:where([data-style="oak"]) .board::after,.app:where([data-style="oak"]) .sheet::after,.app:where([data-style="oak"]) .sheet .sh-h::before,.app:where([data-style="oak"]) .tabbar::before,.app:where([data-style="oak"]) .top.ph::after,.app:where([data-style="oak"]) .page::after{box-sizing:border-box;border:1px solid transparent}
+.app:where([data-style="oak"]) .seg button{padding:0 13px}.app:where([data-style="oak"]) .fzpick .seg button{padding:0}.app:where([data-style="oak"]) .cchip{padding:0 12px 0 4px}.app:where([data-style="oak"]) .composer .box{padding:4px}.app:where([data-style="oak"]) .pop{padding:5px}
+.app:where([data-style="oak"]) .toast{padding:9px 11px 9px 15px}.app:where([data-style="oak"]) .bigcta{padding:11px 13px}.app:where([data-style="oak"]) .gmrow button{padding:0 11px 0 8px}.app:where([data-style="oak"]) .gmtools{padding:4px}.app:where([data-style="oak"]) .fight-tools button{padding:8px 2px 7px}
+.app:where([data-style="oak"]) .nowbar{padding:11px}.app:where([data-style="oak"]) .fight.cmd.dt .nowbar{padding:11px 13px}.app:where([data-style="oak"]) .fight.cmd.ph .nowbar{padding:9px}.app:where([data-style="oak"]) .yourturn{padding:11px}.app:where([data-style="oak"]) .incoming{padding:11px}
+.app:where([data-style="oak"]) .resm{padding:9px 11px}.app:where([data-style="oak"]) .dicefx{padding:15px 19px 13px}.app:where([data-style="oak"]) .herald{padding:13px}.app:where([data-style="oak"]) .secret{padding:13px 15px 13px 57px}.app:where([data-style="oak"]) .pc-hero{padding:17px 15px}
+.app:where([data-style="oak"]) .gcard{padding:31px 23px 25px}.app:where([data-style="oak"]) .shr{padding:6px 9px 6px 7px}.app:where([data-style="oak"]) .gmban .go{padding:0 9px}.app:where([data-style="oak"]) .pincard{padding:13px 13px 11px}
+
+/* ---------- buttons: wooden plates by night, parchment plates by day; red, brass and iron for the special ones ---------- */
+.app:where([data-style="oak"]) .btn{border-radius:6px;font-weight:800;letter-spacing:.02em;color:var(--ink);background:none;
+  border-image:var(--k-btn) 8 fill / 8px;box-shadow:none;text-shadow:0 1px 0 rgba(0,0,0,.35)}
+.app:where([data-style="oak"])[data-theme="day"] .btn{text-shadow:0 1px 0 rgba(255,255,255,.6)}
+.app:where([data-style="oak"]) .btn:active{box-shadow:none}
+.app:where([data-style="oak"]) .btn.primary,.app:where([data-style="oak"])[data-theme="day"] .btn.primary{color:#fff;text-shadow:0 1px 0 rgba(70,12,8,.55);
+  background:none;border-image:url("../art/ui/oak/btn-red.svg") 8 fill / 8px;box-shadow:none}
+.app:where([data-style="oak"]) .btn.gold,.app:where([data-style="oak"])[data-theme="day"] .btn.gold{color:#2b1a04;text-shadow:0 1px 0 rgba(255,240,200,.6);
+  background:none;border-image:url("../art/ui/oak/btn-gold.svg") 8 fill / 8px;box-shadow:none}
+.app:where([data-style="oak"]) .btn.ghost{background:transparent;border-image:url("../art/ui/oak/btn-line.svg") 8 / 8px;box-shadow:none}
+.app:where([data-style="oak"]) .btn.ghost:hover{background:var(--accent-soft)}
+.app:where([data-style="oak"]) .btn.danger{color:var(--ember);background:var(--ember-soft);border-image:url("../art/ui/oak/btn-line.svg") 8 / 8px;box-shadow:none}
+.app:where([data-style="oak"]) .btn.on{color:#14191f;text-shadow:0 1px 0 rgba(255,255,255,.35);background:none;border-image:url("../art/ui/oak/btn-iron.svg") 8 fill / 8px}
+.app:where([data-style="oak"]) .btn .tag{color:#fff1d2;background:rgba(43,26,4,.45)}
+.app:where([data-style="oak"])[data-theme="day"] .btn:not(.primary) .tag{color:#3a2513;background:rgba(180,123,65,.25)}
+.app:where([data-style="oak"]) .ibtn,.app:where([data-style="oak"]) .ibtn.sm{border-radius:6px}
+.app:where([data-style="oak"]) .ibtn.solid{background:none;border-image:var(--k-btn) 8 fill / 8px;box-shadow:none;color:var(--ink)}
+
+/* badges are little red plates with a dark rim, dots are red studs */
+.app:where([data-style="oak"]) .badge{border-radius:5px;font-weight:900;color:#fff;background:linear-gradient(#c4524a,#b5483f);
+  box-shadow:inset 0 -2px 0 rgba(0,0,0,.18),0 0 0 1.5px #6b2a24}
+.app:where([data-style="oak"]) .badge.gold{color:#2b1a04;background:linear-gradient(#f6cf6c,#e9b24c);box-shadow:inset 0 -2px 0 rgba(120,80,10,.25),0 0 0 1.5px #7a5410}
+.app:where([data-style="oak"]) .dot{background:#d0584d;box-shadow:0 0 0 1.5px #6b2a24}
+.app:where([data-style="oak"]) .tag{border-radius:4px;font-weight:900}
+
+/* segmented control: a sunk track, the chosen part is a plate */
+.app:where([data-style="oak"]) .seg{border-radius:8px;background:var(--sunk);box-shadow:inset 0 0 0 1.5px var(--k-rim),inset 0 2px 3px -1px rgba(0,0,0,.25)}
+.app:where([data-style="oak"]) .seg button{border-radius:6px}
+.app:where([data-style="oak"]) .seg button[aria-pressed="true"]{background:none;border-image:var(--k-btn) 8 fill / 8px;box-shadow:none;color:var(--ink)}
+.app:where([data-style="oak"]) .inp{border-radius:6px;background:var(--sunk);border-color:var(--k-rim);box-shadow:inset 0 2px 3px -1px rgba(0,0,0,.3)}
+.app:where([data-style="oak"])[data-theme="day"] .inp{background:#fffaf0;box-shadow:inset 0 2px 3px -1px rgba(109,75,39,.18)}
+.app:where([data-style="oak"]) .search .inp{border-radius:6px}
+.app:where([data-style="oak"]) .inp:focus{border-color:var(--accent);box-shadow:inset 0 2px 3px -1px rgba(0,0,0,.25),0 0 0 3px var(--accent-soft)}
+
+/* ---------- portraits sit in wooden rings ---------- */
+.app:where([data-style="oak"]) .av{box-shadow:0 0 0 1.5px var(--k-wood-3),0 0 0 3.5px color-mix(in srgb,var(--c) 85%,transparent),0 3px 8px -3px rgba(0,0,0,.6);font-family:var(--k-title)}
+.app:where([data-style="oak"]) .av:has(>img):not(.sq)::after{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;background:url("../art/ui/oak/ring-thin.svg") center/100% 100% no-repeat}
+.app:where([data-style="oak"]) :is(.tok,.pc-hero,.hero-top,.tokcard .hd,.facegrid,.who-row,.pcrow,.ccard,.rt,.fr-prev) .av:has(>img):not(.sq)::after{background-image:url("../art/ui/oak/ring-wood.svg")}
+.app:where([data-style="oak"]) .av.narrav{background:radial-gradient(circle at 40% 35%,#7a5230,#4a3019);box-shadow:0 0 0 1.5px var(--k-wood-3),0 0 0 3.5px var(--k-wood)}
+.app:where([data-style="oak"]) .av.narrav svg{color:#ffd978}
+
+/* ---------- aspect cards: parchment notes, free invokes as gold studs ---------- */
+.app:where([data-style="oak"]) .icard{border-radius:4px;font-family:var(--f-display);
+  background:repeating-linear-gradient(180deg,transparent 0 15px,var(--card-line) 15px 16px) 0 18px/100% calc(100% - 18px) no-repeat,var(--card-paper);
+  box-shadow:inset 0 0 0 1.5px #c9a271,inset 0 -3px 0 rgba(109,75,39,.12),0 6px 12px -8px rgba(0,0,0,.6)}
+.app:where([data-style="oak"]) .icard .k{letter-spacing:.12em;color:#8e3f38}
+.app:where([data-style="oak"]) .icard.add{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-3)}
+
+/* ---------- shell ---------- */
+@container dev (max-width: 759px){
+  /* the phone is one board: the page is the panel, with a beam above the tab bar */
+  .app:where([data-style="oak"]) .page{background:var(--k-page-bg)}
+}
+.app:where([data-style="oak"]) .tabbar{background:var(--k-bar);border-top:0;backdrop-filter:none;-webkit-backdrop-filter:none}
+.app:where([data-style="oak"]) .tabbar::before{content:"";position:absolute;left:0;right:0;top:-4px;height:8px;pointer-events:none;
+  border-image:url("../art/ui/oak/btn-wood.svg") 8 fill / 4px 8px}
+.app:where([data-style="oak"]) .tabbar button{font-weight:800}
+.app:where([data-style="oak"]) .tabbar .ti{border-radius:6px}
+.app:where([data-style="oak"]) .tabbar button[aria-current="page"] .ti,.app:where([data-style="oak"])[data-theme] .tabbar button[aria-current="page"] .ti{background:none;box-shadow:none;color:#fff;
+  border-image:url("../art/ui/oak/btn-red.svg") 8 fill / 8px}
+.app:where([data-style="oak"]) .tabbar .fightdot{background:#d0584d;color:#fff;box-shadow:0 0 0 1.5px #6b2a24,0 0 0 3px var(--k-bar)}
+.app:where([data-style="oak"]) .top h1{font-family:var(--k-title);font-weight:600;font-size:21px}
+.app:where([data-style="oak"]) .top.ph{background:var(--k-bar)}
+.app:where([data-style="oak"]) .wi>.top.ph{background:none}
+.app:where([data-style="oak"]) .top.ph::after{content:"";position:absolute;left:0;right:0;bottom:-4px;height:8px;pointer-events:none;
+  border-image:url("../art/ui/oak/btn-wood.svg") 8 fill / 4px 8px}
+
+/* wordmark: Kenney's gold star and a blackletter name */
+.app:where([data-style="oak"]) .mark svg,.app:where([data-style="oak"]) .gmark svg{visibility:hidden}
+.app:where([data-style="oak"]) .mark{position:relative}
+.app:where([data-style="oak"]) .mark::before{content:"";position:absolute;left:var(--mk-x,0px);top:50%;width:30px;height:30px;margin-top:-15px;background:url("../art/ui/oak/star.svg") center/contain no-repeat;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.4));pointer-events:none}
+.app:where([data-style="oak"]) .nav .mark{--mk-x:8px}
+.app:where([data-style="oak"]) .mark b{font-family:var(--f-mark);font-weight:700;letter-spacing:.06em;color:var(--gold-tx);text-shadow:0 2px 0 rgba(0,0,0,.35)}
+.app:where([data-style="oak"])[data-theme="day"] .mark b{color:var(--ink);text-shadow:none}
+
+/* ---------- chat ---------- */
+.app:where([data-style="oak"]) .cchip{border-radius:6px;background:var(--raise);box-shadow:var(--k-tile)}
+.app:where([data-style="oak"]) .cchip .cic{border-radius:5px}
+.app:where([data-style="oak"]) .cchip[aria-current="true"],.app:where([data-style="oak"])[data-theme] .cchip[aria-current="true"]{color:#fff;background:none;box-shadow:none;
+  border-image:url("../art/ui/oak/btn-red.svg") 8 fill / 8px}
+
+/* scene banner: the picture in a wooden frame with iron corners */
+.app:where([data-style="oak"]) .scene{border-radius:6px;box-shadow:0 14px 30px -18px rgba(0,0,0,.8)}
+.app:where([data-style="oak"]) .scene::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border-image:var(--k-frame) 16 / 16px}
+.app:where([data-style="oak"]) .scene::before{background:linear-gradient(90deg,rgba(24,16,10,.88) 0%,rgba(24,16,10,.55) 55%,transparent 100%),linear-gradient(0deg,rgba(24,16,10,.55),transparent 70%)}
+.app:where([data-style="oak"])[data-theme="day"] .scene::before{background:linear-gradient(90deg,rgba(255,241,210,.95) 0%,rgba(255,241,210,.74) 55%,rgba(255,241,210,0) 100%)}
+.app:where([data-style="oak"]) .scene .eyebrow{color:var(--gold-tx)}
+.app:where([data-style="oak"])[data-theme="day"] .scene .eyebrow{color:var(--accent-tx)}
+.app:where([data-style="oak"]) .scene h2{font-family:var(--k-title);font-weight:600;letter-spacing:.005em}
+.app:where([data-style="oak"]) .scene .ctl .btn,.app:where([data-style="oak"])[data-theme] .scene .ctl .btn{background:none;border-image:var(--k-btn) 8 fill / 8px;color:var(--ink);
+  backdrop-filter:none;-webkit-backdrop-filter:none}
+.app:where([data-style="oak"]) .scene.empty{background:url("../art/ui/oak/stripes-night.svg") 0 0/32px,var(--sunk)}
+.app:where([data-style="oak"])[data-theme="day"] .scene.empty{background:repeating-linear-gradient(135deg,transparent 0 10px,var(--line) 10px 11px),var(--sunk)}
+.app:where([data-style="oak"]) .scene.empty h2{font-size:17px}
+
+/* messages */
+.app:where([data-style="oak"]) .day-div{font-weight:800}
+.app:where([data-style="oak"]) .day-div::before,.app:where([data-style="oak"]) .day-div::after{height:4px;border-radius:2px;
+  background:linear-gradient(var(--k-wood),var(--k-wood)) 0 1px/100% 2px no-repeat;box-shadow:inset 0 0 0 1px var(--k-wood-3);opacity:.7;
+  -webkit-mask:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent);mask:linear-gradient(90deg,transparent,#000 30%,#000 70%,transparent)}
+.app:where([data-style="oak"]) .m .who{font-weight:900}
+.app:where([data-style="oak"]) .m .bub{border-radius:6px;font-size:15.5px}
+.app:where([data-style="oak"]) .m.cont .bub{border-radius:6px}
+.app:where([data-style="oak"]) .m .bub em,.app:where([data-style="oak"]) .m .bub .rpd{font-family:var(--f-display);font-size:1.03em}
+/* other speakers: a pane tinted with their colour inside a wooden rim, the lit edge just inside the wood */
+.app:where([data-style="oak"]){--say-top:18%; --say-bot:10%}
+.app:where([data-style="oak"])[data-theme="day"]{--say-top:16%; --say-bot:9%}
+.app:where([data-style="oak"]) .m.say:not(.mine) .bub{padding:8px 13px 9px 15px;border-image:url("../art/ui/oak/btn-line.svg") 8 / 8px;
+  box-shadow:inset 7px 0 0 var(--spk),0 6px 14px -10px rgba(0,0,0,.7)}
+.app:where([data-style="oak"]) .m.say.npc:not(.mine) .bub{padding-left:17px;
+  box-shadow:inset 7px 0 0 var(--spk),inset 9px 0 0 color-mix(in srgb,var(--spk) 20%,transparent),inset 11px 0 0 color-mix(in srgb,var(--spk) 55%,transparent),0 6px 14px -10px rgba(0,0,0,.7)}
+/* your own lines in character: a red plate */
+.app:where([data-style="oak"]) .m.say.mine .bub{padding:8px 13px 9px;color:#fff;background:none;border-image:url("../art/ui/oak/btn-red.svg") 8 fill / 8px;
+  box-shadow:0 6px 14px -10px rgba(80,10,5,.8);text-shadow:0 1px 0 rgba(70,12,8,.35)}
+.app:where([data-style="oak"]) .m.say.mine .bub em,.app:where([data-style="oak"]) .m.say.mine .bub .rpd{color:#fff3e6}
+.app:where([data-style="oak"]) .m.say.mine .bub .ed{color:rgba(255,240,225,.8)}
+
+/* Meta: liquid glass, steel for others and red for yours by night, steel and brass by day; the glass rules live in app.css */
+.app:where([data-style="oak"]){--glass-tint:rgba(148,175,198,.16); --glass-tint-2:rgba(148,175,198,.04); --glass-mine:rgba(226,102,91,.32); --glass-mine-2:rgba(181,72,63,.16); --glass-mine-rim:rgba(255,150,135,.8);
+  --glass-sheen:rgba(255,240,215,.14); --glass-rim:rgba(255,236,205,.55); --glass-rim-2:rgba(255,236,205,.06); --glass-rim-3:rgba(148,175,198,.5);
+  --glass-shadow:0 8px 20px -12px rgba(0,0,0,.75); --glass-filter:blur(5px) saturate(160%) brightness(1.12)}
+.app:where([data-style="oak"])[data-theme="day"]{--glass-tint:rgba(118,156,204,.42); --glass-tint-2:rgba(170,196,226,.26); --glass-mine:rgba(240,189,85,.5); --glass-mine-2:rgba(217,160,58,.28); --glass-mine-rim:rgba(160,110,30,.75);
+  --glass-sheen:rgba(255,255,255,.65); --glass-rim:rgba(255,255,255,.95); --glass-rim-2:rgba(255,255,255,.22); --glass-rim-3:rgba(81,95,107,.4);
+  --glass-shadow:0 8px 18px -12px rgba(40,50,60,.5); --glass-filter:blur(6px) saturate(170%) brightness(1.04)}
+.app:where([data-style="oak"]) .m.ooc .bub{border-radius:6px}
+.app:where([data-style="oak"]) .m.ooc .bub::before{font-weight:900}
+.app:where([data-style="oak"]) .m.gifm .gifbox{border-radius:6px;border-color:var(--k-rim)}
+.app:where([data-style="oak"]) .m.gifm .gif{border-radius:4px}
+
+/* narration: the story, set in Vollkorn with a blackletter initial and a wooden rule */
+.app:where([data-style="oak"]) .narr::before{width:4px;left:3px;border-radius:2px;background:var(--k-wood);box-shadow:0 0 0 1px var(--k-wood-3)}
+.app:where([data-style="oak"]) .narr .who{font-weight:900}
+.app:where([data-style="oak"]) .narr p{font-family:var(--f-display);font-size:18px;line-height:1.55;font-variation-settings:normal}
+.app:where([data-style="oak"]) .narr.first p::first-letter{font-family:var(--f-mark);font-weight:700;font-size:50px;line-height:.84;margin:5px 9px 0 0;color:var(--accent-tx);
+  text-shadow:0 2px 0 color-mix(in srgb,var(--accent-3) 45%,transparent)}
+.app:where([data-style="oak"]) .mw.on{background:var(--accent-soft);box-shadow:0 0 0 6px var(--accent-soft);border-radius:6px}
+.app:where([data-style="oak"]) .mdots{border-radius:6px}
+.app:where([data-style="oak"]) .sysm{font-weight:700}
+.app:where([data-style="oak"]) .scenem{border-radius:6px;background:var(--raise);box-shadow:var(--k-tile)}
+.app:where([data-style="oak"]) .scenem .th{border-radius:4px;box-shadow:0 0 0 1.5px var(--k-wood-3),0 0 0 3px var(--k-wood)}
+.app:where([data-style="oak"]) .scenem b{font-family:var(--k-title);font-size:15px}
+
+/* roll cards: a wooden tally board; secret rolls are framed in iron */
+.app:where([data-style="oak"]) .roll,.app:where([data-style="oak"]) .m.mine .roll{border-radius:6px;background:linear-gradient(180deg,var(--raise-2),var(--raise));
+  border-image:var(--k-frame-plain) 16 / 12px;box-shadow:0 10px 22px -14px rgba(0,0,0,.8)}
+.app:where([data-style="oak"]) .m.mine .roll{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 18%,var(--raise-2)),var(--raise))}
+.app:where([data-style="oak"]) .roll.secret,.app:where([data-style="oak"]) .m.mine .roll.secret{border-image:var(--k-frame-iron) 16 / 12px;box-shadow:0 10px 22px -14px rgba(0,0,0,.8)}
+.app:where([data-style="oak"]) .roll .rh{padding-top:12px}
+.app:where([data-style="oak"]) .roll .tot b{font-family:var(--k-title);font-weight:700;font-size:32px;text-shadow:0 2px 0 rgba(0,0,0,.3)}
+.app:where([data-style="oak"])[data-theme="day"] .roll .tot b{text-shadow:none}
+.app:where([data-style="oak"]) .roll .rf{border-top:0;background:linear-gradient(var(--line-2),var(--line-2)) 12px 0/calc(100% - 24px) 1px no-repeat;padding-bottom:12px}
+.app:where([data-style="oak"]) .roll .mini-tot{font-family:var(--k-title)}
+/* dice are parchment tiles with a wooden rim */
+.app:where([data-style="oak"]) .die{border-radius:5px;font-weight:900;color:#3a2513;background:linear-gradient(#fff8e8,#fff1d2 60%,#f0dcb4);
+  box-shadow:inset 0 0 0 1.5px #b47b41,inset 0 -3px 0 rgba(109,75,39,.18),0 0 0 1px #6d4b27,0 3px 5px -2px rgba(0,0,0,.6)}
+.app:where([data-style="oak"]) .die.p{color:#2f6b2a}.app:where([data-style="oak"]) .die.m{color:#a8463d}.app:where([data-style="oak"]) .die.z{color:transparent}
+.app:where([data-style="oak"]) .roll .out,.app:where([data-style="oak"]) .resm .out{border-radius:4px;font-weight:900}
+.app:where([data-style="oak"]) .out.style{color:#2b1a04;background:linear-gradient(#f6cf6c,#e9b24c);box-shadow:inset 0 0 0 1px #7a5410}
+
+/* fight card in chat: a battle picture in an iron frame */
+.app:where([data-style="oak"]) .fightcard{border-radius:6px;box-shadow:0 18px 40px -18px rgba(0,0,0,.9)}
+.app:where([data-style="oak"]) .fightcard::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border-image:var(--k-frame-iron) 16 / 16px}
+.app:where([data-style="oak"]) .fightcard::before{background:linear-gradient(180deg,rgba(24,16,10,.45),rgba(24,16,10,.95) 52%)}
+.app:where([data-style="oak"])[data-theme="day"] .fightcard::before{background:linear-gradient(180deg,rgba(255,241,210,.45),rgba(255,241,210,.97) 52%)}
+.app:where([data-style="oak"]) .fightcard h3{font-family:var(--k-title);font-weight:600}
+@container dev (max-width: 759px){
+  .app:where([data-style="oak"]) .msgs .fightcard{border-radius:6px}
+  .app:where([data-style="oak"]) .msgs .fightcard::before{background:linear-gradient(90deg,rgba(24,16,10,.95) 45%,rgba(24,16,10,.62))}
+  .app:where([data-style="oak"])[data-theme="day"] .msgs .fightcard::before{background:linear-gradient(90deg,rgba(255,241,210,.97) 45%,rgba(255,241,210,.74))}
+}
+
+/* composer: a plank with a parchment slot; dice is a brass stud, send a red one */
+.app:where([data-style="oak"]) .composer .box{border-radius:6px;background:var(--raise);border-image:var(--k-frame-plain) 16 / 10px;box-shadow:0 10px 26px -14px rgba(0,0,0,.75)}
+.app:where([data-style="oak"]) .composer .box:focus-within{box-shadow:0 0 0 3px var(--accent-soft),0 10px 26px -14px rgba(0,0,0,.75)}
+.app:where([data-style="oak"]) .composer.ooc .box{background:color-mix(in srgb,var(--raise) 60%,transparent)}
+.app:where([data-style="oak"]) .composer textarea::placeholder{font-style:italic}
+.app:where([data-style="oak"]) .voice{border-radius:6px}
+.app:where([data-style="oak"]) .diceb{border-radius:50%;color:#2b1a04;background:url("../art/ui/oak/disc-gold.svg") center/100% 100% no-repeat;box-shadow:0 4px 8px -4px rgba(0,0,0,.6)}
+.app:where([data-style="oak"]) .sendb{border-radius:50%;color:#fff;background:url("../art/ui/oak/disc-red.svg") center/100% 100% no-repeat;box-shadow:0 4px 8px -4px rgba(0,0,0,.6)}
+.app:where([data-style="oak"]) .sendb svg{filter:drop-shadow(0 1px 0 rgba(70,12,8,.6))}
+.app:where([data-style="oak"]) .fightbar{border-radius:6px;background:linear-gradient(90deg,color-mix(in srgb,var(--ember) 18%,transparent),transparent),var(--raise);box-shadow:var(--k-tile)}
+
+/* ---------- popovers, sheets, toasts: framed boards with a ribbon title ---------- */
+.app:where([data-style="oak"]) .sheet{border-radius:8px 8px 0 0;background:var(--k-page-bg);box-shadow:0 -30px 60px -20px rgba(0,0,0,.65)}
+.app:where([data-style="oak"]) .sheet::after{content:"";position:absolute;inset:0;z-index:6;pointer-events:none;border-image:var(--k-frame) 16 / 16px}
+.app:where([data-style="oak"]) .sheet::before{z-index:7;width:44px;height:6px;top:5px;border-radius:3px;background:var(--k-iron);box-shadow:0 0 0 1.5px var(--k-iron-3)}
+.app:where([data-style="oak"]) .sheet .sh-h{position:relative;z-index:8;isolation:isolate}
+.app:where([data-style="oak"]) .sheet .sh-h::before{content:"";position:absolute;z-index:-1;left:-4px;right:-4px;top:15px;bottom:3px;pointer-events:none;
+  border-image:url("../art/ui/oak/ribbon.svg") 0 64 fill / 0 52px;filter:drop-shadow(0 4px 4px rgba(0,0,0,.35))}
+.app:where([data-style="oak"]) .sheet .sh-h .ttl{font-size:22px;color:#fff1d2;text-shadow:0 2px 0 rgba(70,14,10,.6)}
+.app:where([data-style="oak"]) .sheet .sh-h .ibtn{color:#fff1d2}
+.app:where([data-style="oak"]) .sheet .sh-h .ibtn:hover{background:rgba(0,0,0,.18)}
+.app:where([data-style="oak"]) .sheet .sh-h .av{box-shadow:0 0 0 1.5px #6b2a24,0 0 0 3px #fff1d2}
+.app:where([data-style="oak"]) .sheet .sh-f{background:color-mix(in srgb,var(--page-solid) 80%,transparent);border-top-color:var(--line-2)}
+.app:where([data-style="oak"]) .sheet h4,.app:where([data-style="oak"]) .gs-h h3,.app:where([data-style="oak"]) .sec>h3,.app:where([data-style="oak"]) .shg h3,.app:where([data-style="oak"]) .pop .lbl{font-weight:900;letter-spacing:.14em}
+.app:where([data-style="oak"]) .pop{border-radius:6px;background:var(--page-solid);border-image:var(--k-frame-plain) 16 / 10px;box-shadow:var(--shadow-2)}
+.app:where([data-style="oak"]) .pop .opt{border-radius:4px}
+.app:where([data-style="oak"]) .pop .pop-find{background:var(--page-solid)}
+.app:where([data-style="oak"]) .toast{border-radius:6px;background:var(--page-solid);border-image:var(--k-frame-plain) 16 / 10px;box-shadow:var(--shadow-2)}
+.app:where([data-style="oak"]) .toast button{color:var(--accent-tx);border-radius:4px}
+.app:where([data-style="oak"])[data-theme="night"] .toast button{color:var(--gold-tx)}
+.app:where([data-style="oak"]) .who-row button[aria-pressed="true"] .av,.app:where([data-style="oak"]) .facegrid button[aria-pressed="true"] .av{box-shadow:0 0 0 2px var(--k-wood-3),0 0 0 4.5px var(--gold),0 0 14px -2px var(--gold)}
+
+/* tiles and chips: wooden boards with a dark rim and a bottom shade */
+.app:where([data-style="oak"]) .sk,.app:where([data-style="oak"]) .act,.app:where([data-style="oak"]) .lchip,.app:where([data-style="oak"]) .tgt,.app:where([data-style="oak"]) .toggle,.app:where([data-style="oak"]) .note,.app:where([data-style="oak"]) .forwho button,.app:where([data-style="oak"]) .inv-chips button,.app:where([data-style="oak"]) .pcrow,.app:where([data-style="oak"]) .ccard,.app:where([data-style="oak"]) .mem,.app:where([data-style="oak"]) .stunt,.app:where([data-style="oak"]) .trk,.app:where([data-style="oak"]) .catrow,.app:where([data-style="oak"]) .invopt,.app:where([data-style="oak"]) .waiting,.app:where([data-style="oak"]) .inv .it,.app:where([data-style="oak"]) .tools button,.app:where([data-style="oak"]) .quick-sk :is(button,span),.app:where([data-style="oak"]) .lad .rung .sks button,.app:where([data-style="oak"]) .lad .rung .sks .skc,.app:where([data-style="oak"]) .gmrow button,.app:where([data-style="oak"]) .pchip,.app:where([data-style="oak"]) .mapsel,.app:where([data-style="oak"]) .mtools,.app:where([data-style="oak"]) .rxp,.app:where([data-style="oak"]) .stc{border-radius:6px;box-shadow:var(--k-tile)}
+.app:where([data-style="oak"]) .sk,.app:where([data-style="oak"]) .act,.app:where([data-style="oak"]) .lchip,.app:where([data-style="oak"]) .tgt,.app:where([data-style="oak"]) .toggle,.app:where([data-style="oak"]) .pcrow,.app:where([data-style="oak"]) .ccard,.app:where([data-style="oak"]) .tools button,.app:where([data-style="oak"]) .stc{background:var(--raise)}
+.app:where([data-style="oak"]) .note{background:var(--sunk)}
+.app:where([data-style="oak"]) .ccard.empty{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-3)}
+.app:where([data-style="oak"]) .sk .v{border-radius:4px;font-family:var(--k-title);font-weight:700;font-size:18px;color:var(--gold-tx);background:var(--gold-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold) 35%,transparent)}
+.app:where([data-style="oak"]) .sk[aria-pressed="true"],.app:where([data-style="oak"]) .act[aria-pressed="true"],.app:where([data-style="oak"]) .lchip[aria-pressed="true"]{background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 20%,var(--raise)),var(--raise));
+  box-shadow:inset 0 0 0 2px var(--accent),inset 0 -3px 0 var(--k-lo)}
+.app:where([data-style="oak"]) .tgt[aria-pressed="true"]{background:var(--ember-soft);box-shadow:inset 0 0 0 2px var(--ember),inset 0 -3px 0 var(--k-lo)}
+.app:where([data-style="oak"]) .lchip b{font-family:var(--k-title)}
+.app:where([data-style="oak"]) .toggle .sw{border-radius:5px;background:var(--sunk);box-shadow:inset 0 0 0 1.5px var(--k-rim)}
+.app:where([data-style="oak"]) .toggle .sw::after{border-radius:4px;background:var(--k-wood);box-shadow:inset 0 0 0 1.5px var(--k-wood-3)}
+.app:where([data-style="oak"]) .toggle[aria-pressed="true"] .sw{background:#b5483f;box-shadow:inset 0 0 0 1.5px #6b2a24}
+.app:where([data-style="oak"]) .toggle[aria-pressed="true"] .sw::after{background:#fff1d2;box-shadow:inset 0 0 0 1.5px #6d4b27}
+.app:where([data-style="oak"]) .thumb{border-radius:6px;box-shadow:0 0 0 1.5px var(--k-wood-3),0 0 0 3.5px var(--k-wood)}
+.app:where([data-style="oak"]) .thumb::after{background:linear-gradient(0deg,rgba(24,16,10,.88),transparent 60%)}
+.app:where([data-style="oak"]) .thumb.on{box-shadow:0 0 0 1.5px var(--k-wood-3),0 0 0 4px var(--gold),0 0 16px -4px var(--gold)}
+.app:where([data-style="oak"]) .thumb .ck{border-radius:50%;background:url("../art/ui/oak/disc-gold.svg") center/100% 100%;color:#2b1a04}
+.app:where([data-style="oak"]) .thumb.up{box-shadow:inset 0 0 0 1.5px var(--line-3)}
+
+/* ---------- GM screen / hero ---------- */
+.app:where([data-style="oak"]) .coin{background:url("../art/ui/oak/disc-gold.svg") center/100% 100% no-repeat;box-shadow:0 2px 3px -1px rgba(0,0,0,.5)}
+.app:where([data-style="oak"]) .coin::after{display:none}
+.app:where([data-style="oak"]) .coin.off{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-3)}
+.app:where([data-style="oak"]) .coins .mini button,.app:where([data-style="oak"]) .inv .mini button{border-radius:4px}
+/* stress boxes: empty slots in the wood, a taken box is a red plate */
+.app:where([data-style="oak"]) .sbox{border-radius:4px;font-weight:900;background:var(--sunk);box-shadow:inset 0 0 0 1.5px var(--k-rim),inset 0 2px 2px -1px rgba(0,0,0,.3)}
+.app:where([data-style="oak"]) .sbox.on{color:#fff;background:none;border-image:url("../art/ui/oak/btn-red.svg") 8 fill / 6px;box-shadow:0 0 8px -3px #d0584d}
+.app:where([data-style="oak"]) .nb-st i{border-radius:2px}
+.app:where([data-style="oak"]) .nb-st i.on{background:#d0584d;box-shadow:0 0 0 1px #6b2a24}
+.app:where([data-style="oak"]) .scenecard{border-radius:6px;box-shadow:0 0 0 1.5px var(--k-wood-3),0 0 0 3.5px var(--k-wood)}
+.app:where([data-style="oak"]) .scenecard::after{background:linear-gradient(0deg,rgba(24,16,10,.9),rgba(24,16,10,.1) 75%)}
+.app:where([data-style="oak"]) .scenecard b{font-family:var(--k-title)}
+.app:where([data-style="oak"]) .recent button,.app:where([data-style="oak"]) .voices button{border-radius:4px}
+.app:where([data-style="oak"]) .bigcta{border-radius:6px;background:linear-gradient(120deg,color-mix(in srgb,var(--ember) 20%,transparent),transparent 70%),var(--raise);
+  border-image:var(--k-frame-plain) 16 / 12px;box-shadow:0 10px 24px -16px rgba(0,0,0,.8)}
+.app:where([data-style="oak"]) .bigcta .ic{border-radius:50%;color:#fff;background:url("../art/ui/oak/disc-red.svg") center/100% 100%}
+.app:where([data-style="oak"]) .bigcta b{font-family:var(--k-title);font-weight:600;font-size:18px}
+.app:where([data-style="oak"]) .bigcta.scn{background:linear-gradient(120deg,color-mix(in srgb,var(--gold) 18%,transparent),transparent 70%),var(--raise)}
+.app:where([data-style="oak"]) .bigcta.scn .ic{color:#2b1a04;background:url("../art/ui/oak/disc-gold.svg") center/100% 100%}
+.app:where([data-style="oak"]) .tools button svg{color:var(--accent-tx)}
+.app:where([data-style="oak"])[data-theme="night"] .tools button svg{color:var(--gold-tx)}
+.app:where([data-style="oak"]) .quick-sk :is(button,span) i{border-radius:3px}
+.app:where([data-style="oak"]) .hero-top b,.app:where([data-style="oak"]) .tokcard .hd b,.app:where([data-style="oak"]) .ccard b,.app:where([data-style="oak"]) .prof b,.app:where([data-style="oak"]) .stunt b,.app:where([data-style="oak"]) .ent b{font-family:var(--k-title);font-weight:600;font-size:1.08em}
+.app:where([data-style="oak"]) .gmrow button[aria-pressed="true"],.app:where([data-style="oak"]) .gmtools button[aria-pressed="true"],.app:where([data-style="oak"]) .fight-tools button[aria-pressed="true"]{color:#fff;background:none;box-shadow:none;
+  border-image:url("../art/ui/oak/btn-red.svg") 8 fill / 8px}
+.app:where([data-style="oak"]) .gmrow button[aria-pressed="true"] svg,.app:where([data-style="oak"]) .gmtools button[aria-pressed="true"] svg,.app:where([data-style="oak"]) .fight-tools button[aria-pressed="true"] svg{color:#fff}
+
+/* ---------- combat ---------- */
+.app:where([data-style="oak"]) .board{border-radius:6px;box-shadow:0 20px 40px -20px rgba(0,0,0,.9)}
+.app:where([data-style="oak"]) .board::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border-image:var(--k-frame) 16 / 14px}
+.app:where([data-style="oak"]) .zone{border-radius:6px}
+.app:where([data-style="oak"]) .zone .zl{border-radius:4px;font-weight:900}
+.app:where([data-style="oak"]) .tok .nm{border-radius:4px;background:rgba(32,22,14,.88);color:#fff1d2;box-shadow:0 0 0 1px #6d4b27}
+.app:where([data-style="oak"])[data-theme="day"] .tok .nm{background:rgba(255,241,210,.96);color:var(--ink)}
+.app:where([data-style="oak"]) .zone .tok.now .nm,.app:where([data-style="oak"]) .zone .tok.now.me .nm{background:#f0bd55;color:#2b1a04;box-shadow:0 0 0 1px #7a5410}
+.app:where([data-style="oak"]) .board .hint-chip,.app:where([data-style="oak"]) .fight-tools.ph{border-radius:6px}
+.app:where([data-style="oak"]) .gmtools{border-radius:6px;background:var(--page-solid);border-image:var(--k-frame-iron) 16 / 10px;backdrop-filter:none;-webkit-backdrop-filter:none}
+.app:where([data-style="oak"]) .gmtools button,.app:where([data-style="oak"]) .fight-tools button{border-radius:5px}
+.app:where([data-style="oak"]) .fight-tools{border-radius:6px;background:var(--raise);box-shadow:var(--k-tile)}
+.app:where([data-style="oak"]) .fight-tools button svg,.app:where([data-style="oak"]) .gmrow button svg{color:var(--accent-tx)}
+.app:where([data-style="oak"])[data-theme="night"] .fight-tools button svg,.app:where([data-style="oak"])[data-theme="night"] .gmrow button svg{color:var(--gold-tx)}
+.app:where([data-style="oak"]) .fight-tools button.end svg,.app:where([data-style="oak"]) .gmrow button.end svg{color:var(--ember)}
+.app:where([data-style="oak"]) .nowbar{border-radius:6px;background:var(--raise);border-image:var(--k-frame-plain) 16 / 12px;box-shadow:0 18px 40px -20px rgba(0,0,0,.8)}
+.app:where([data-style="oak"]) .nowbar.turn{background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 16%,transparent),transparent),var(--raise)}
+.app:where([data-style="oak"]) .nowbar.alert{background:linear-gradient(90deg,var(--ember-soft),transparent),var(--raise)}
+.app:where([data-style="oak"]) .nowbar b,.app:where([data-style="oak"]) .dock .turn b{font-family:var(--k-title);font-weight:600}
+/* action buttons are wooden plates; attack keeps its ember icon */
+.app:where([data-style="oak"]) .abtn{border-radius:6px;background:none;border-image:var(--k-btn) 8 fill / 8px;box-shadow:none}
+.app:where([data-style="oak"]) .abtn svg{color:var(--gold-tx)}
+.app:where([data-style="oak"])[data-theme="day"] .abtn svg{color:var(--accent-tx)}
+.app:where([data-style="oak"]) .abtn.atk svg{color:var(--ember)}
+.app:where([data-style="oak"]) .yourturn{border-radius:6px;background:linear-gradient(180deg,color-mix(in srgb,var(--gold) 16%,var(--raise)),var(--raise));
+  border-image:url("../art/ui/oak/frame.svg") 16 / 14px;box-shadow:0 0 34px -14px var(--gold)}
+.app:where([data-style="oak"]) .incoming{border-radius:6px;background:linear-gradient(90deg,var(--ember-soft),var(--raise));border-image:var(--k-frame-iron) 16 / 12px;box-shadow:0 0 0 1.5px color-mix(in srgb,var(--ember) 50%,transparent)}
+.app:where([data-style="oak"]) .feed,.app:where([data-style="oak"]) .ffeed .ff-list,.app:where([data-style="oak"]) .tray{border-radius:6px}
+.app:where([data-style="oak"]) .resm{border-radius:6px;background:var(--raise);border-image:var(--k-frame) 16 / 12px;box-shadow:0 10px 22px -14px rgba(0,0,0,.7)}
+.app:where([data-style="oak"]) .resm .rs-rows li{border-radius:4px}
+.app:where([data-style="oak"]) .resm .rs-rows b{font-family:var(--k-title);font-weight:700}
+.app:where([data-style="oak"]) .fight-order .ot{border-radius:6px}
+.app:where([data-style="oak"]) .fight-h .fight-order{border-radius:8px;box-shadow:inset 0 0 0 1.5px var(--k-rim)}
+.app:where([data-style="oak"]) .fight-order .ex b,.app:where([data-style="oak"]) .ribbon .ex b{font-family:var(--k-title)}
+.app:where([data-style="oak"]) .fight-h h1{font-family:var(--k-title);font-weight:600}
+.app:where([data-style="oak"]) .dicefx{border-radius:6px;background:var(--page-solid);border-image:var(--k-frame) 16 / 14px}
+.app:where([data-style="oak"]) .dicefx .die{border-radius:6px}
+.app:where([data-style="oak"]) .dicefx .dfx-t b{font-family:var(--k-title)}
+.app:where([data-style="oak"]) .fxt b{font-family:var(--k-title)}
+.app:where([data-style="oak"]) .ff{border-radius:4px}
+.app:where([data-style="oak"]) .ff .ffb{border-radius:4px}
+.app:where([data-style="oak"]) .ff .ffd i{background:#fff1d2;color:#3a2513;box-shadow:inset 0 0 0 1px #b47b41}
+.app:where([data-style="oak"]) .ff .ffd i.p{color:#2f6b2a}.app:where([data-style="oak"]) .ff .ffd i.m{color:#a8463d}
+.app:where([data-style="oak"]) .step.done .n{color:#fff;background:url("../art/ui/oak/disc-red.svg") center/100% 100%}
+
+/* the fight log's roll rows, the phone roll lines and the GM banner: small boards, not framed cards */
+.app:where([data-style="oak"]) .ff.roll,.app:where([data-style="oak"]) .m.mine .ff.roll{border-image:none;box-shadow:var(--k-tile)}
+.app:where([data-style="oak"]) .rcnt .ff.roll{box-shadow:none}
+.app:where([data-style="oak"]) .rcnt .ff.roll:last-child{box-shadow:var(--k-tile)}
+.app:where([data-style="oak"]) .rl,.app:where([data-style="oak"]) .pcmini,.app:where([data-style="oak"]) .gmban,.app:where([data-style="oak"]) .sysm.fend,.app:where([data-style="oak"]) .facts,.app:where([data-style="oak"]) .zlist .zi,.app:where([data-style="oak"]) .cm-f{box-shadow:var(--k-tile)}
+.app:where([data-style="oak"]) .gmban.turn{box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--gold) 70%,transparent),inset 0 -3px 0 var(--k-lo)}
+.app:where([data-style="oak"]) .gmban.alert{box-shadow:inset 0 0 0 2px var(--ember),inset 0 -3px 0 var(--k-lo)}
+.app:where([data-style="oak"]) .gmban .t small{color:var(--gold-tx)}
+.app:where([data-style="oak"]) .gmban.alert .t small{color:var(--ember)}
+.app:where([data-style="oak"]) .gmban .go{color:#fff;background:none;border-image:url("../art/ui/oak/btn-red.svg") 8 fill / 8px}
+.app:where([data-style="oak"]) .dock.mine{border-radius:6px 6px 0 0}
+.app:where([data-style="oak"]) .rl .rlv,.app:where([data-style="oak"]) .sysm.fend b,.app:where([data-style="oak"]) .ff.end .fft b,.app:where([data-style="oak"]) .rcnt .rc-h svg{color:var(--gold-tx)}
+.app:where([data-style="oak"]) .rl .rld i{background:#fff1d2;color:#3a2513;box-shadow:inset 0 0 0 1px #b47b41}
+.app:where([data-style="oak"]) .rl .rld i.p{color:#2f6b2a}.app:where([data-style="oak"]) .rl .rld i.m{color:#a8463d}
+.app:where([data-style="oak"]) .rl .rlv,.app:where([data-style="oak"]) .ff .ffv{font-family:var(--k-title);font-weight:700}
+.app:where([data-style="oak"]) .ffeed .ff-list,.app:where([data-style="oak"]) .rcnt .ff-list{box-shadow:inset 0 0 0 1.5px var(--k-rim),inset 0 2px 3px -1px rgba(0,0,0,.25)}
+.app:where([data-style="oak"]) .fcm{box-shadow:inset 0 0 0 1.5px var(--k-rim)}
+.app:where([data-style="oak"]) .fcm.mine{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 55%,transparent)}
+.app:where([data-style="oak"]) .modeseg .nb{color:#fff;background:#b5483f;box-shadow:0 0 0 1px #6b2a24}
+
+/* ---------- map ---------- */
+.app:where([data-style="oak"]) .glass{background:var(--page-solid);border-image:var(--k-frame-plain) 16 / 10px;box-shadow:var(--shadow-2)}
+.app:where([data-style="oak"]) .mapsel b{font-family:var(--k-title)}
+.app:where([data-style="oak"]) .pin .pl{border-radius:4px;background:rgba(255,241,210,.96);color:#2b1d10;box-shadow:0 0 0 1.5px #6d4b27,0 4px 8px -4px rgba(0,0,0,.8)}
+.app:where([data-style="oak"]) .pin.party .pl{background:#b5483f;color:#fff;box-shadow:0 0 0 1.5px #6b2a24}
+.app:where([data-style="oak"]) .pincard{border-radius:6px}
+.app:where([data-style="oak"]) .pincard .hd b{font-family:var(--k-title)}
+.app:where([data-style="oak"]) .mapedit,.app:where([data-style="oak"]) .maploading{border-radius:6px}
+
+/* ---------- world: the lore book ---------- */
+.app:where([data-style="oak"]) .herald{border-radius:6px;background:linear-gradient(120deg,color-mix(in srgb,var(--gold) 14%,transparent),transparent 60%),var(--raise);border-image:var(--k-frame) 16 / 14px;box-shadow:none}
+.app:where([data-style="oak"]) .herald h3{font-family:var(--k-title);font-weight:600}
+.app:where([data-style="oak"]) .cat .ci,.app:where([data-style="oak"]) .catrow .ci{border-radius:5px;color:var(--gold-tx);background:var(--gold-soft)}
+.app:where([data-style="oak"])[data-theme="day"] .cat .ci,.app:where([data-style="oak"])[data-theme="day"] .catrow .ci{color:var(--accent-tx);background:var(--accent-soft)}
+.app:where([data-style="oak"]) .cat,.app:where([data-style="oak"]) .cat[aria-current="true"]{border-radius:6px}
+.app:where([data-style="oak"]) .cat b{font-weight:900}
+.app:where([data-style="oak"]) .cat .n{border-radius:4px}
+.app:where([data-style="oak"]) .ent{border-radius:6px}
+.app:where([data-style="oak"]) .ent[aria-current="true"]::before{background:#d0584d}
+.app:where([data-style="oak"]) .article h1{font-family:var(--k-title);font-weight:600;letter-spacing:0}
+.app:where([data-style="oak"]) .article .sum{color:var(--ink-2)}
+.app:where([data-style="oak"]) .article .rule{color:var(--gold-tx)}
+.app:where([data-style="oak"])[data-theme="day"] .article .rule{color:var(--accent-tx)}
+.app:where([data-style="oak"]) .article .b,.app:where([data-style="oak"]) .article ul{font-family:var(--f-display);font-variation-settings:normal;font-size:17px}
+.app:where([data-style="oak"]) .article h3{font-family:var(--k-title);font-weight:600;font-size:21px;letter-spacing:.01em;text-transform:none;color:var(--gold-tx)}
+.app:where([data-style="oak"])[data-theme="day"] .article h3{color:var(--accent-tx)}
+.app:where([data-style="oak"]) .wfig{border-radius:6px}
+.app:where([data-style="oak"]) .secret{border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 12px,var(--accent-soft) 12px 13px),var(--raise);border-image:var(--k-frame-iron) 16 / 12px}
+.app:where([data-style="oak"]) .paper{border-radius:3px}
+
+/* ---------- character sheet ---------- */
+.app:where([data-style="oak"]) .pc-hero{border-radius:6px;background:linear-gradient(120deg,color-mix(in srgb,var(--who,var(--accent)) 20%,transparent),transparent 65%),var(--raise);border-image:var(--k-frame) 16 / 16px}
+.app:where([data-style="oak"]) .pc-hero h2{font-family:var(--k-title);font-weight:600}
+.app:where([data-style="oak"]) .sec>h3::after{height:4px;border-radius:2px;background:var(--k-wood);box-shadow:inset 0 0 0 1px var(--k-wood-3);opacity:.55}
+.app:where([data-style="oak"]) .lad .rung .lv b{font-family:var(--k-title);font-weight:700}
+.app:where([data-style="oak"]) .con .slot{border-radius:4px}
+.app:where([data-style="oak"]) .inv .it .ii{border-radius:5px}
+.app:where([data-style="oak"]) .menu button{border-radius:4px}
+.app:where([data-style="oak"]) .menu button>svg{color:var(--accent-tx)}
+.app:where([data-style="oak"])[data-theme="night"] .menu button>svg{color:var(--gold-tx)}
+
+/* ---------- sign-in gate: a framed board under a ribbon ---------- */
+.app:where([data-style="oak"]) .gcard{position:relative;border-radius:8px;background:var(--k-page-bg);border-image:var(--k-frame) 16 / 18px;box-shadow:0 40px 80px -40px rgba(0,0,0,.9);backdrop-filter:none;-webkit-backdrop-filter:none}
+.app:where([data-style="oak"]) .gmark{position:relative}
+.app:where([data-style="oak"]) .gmark::before{content:"";position:absolute;inset:-4px;pointer-events:none;background:url("../art/ui/oak/star.svg") center/contain no-repeat;filter:drop-shadow(0 3px 3px rgba(0,0,0,.45))}
+.app:where([data-style="oak"]) .gcard h1{font-family:var(--f-mark);font-weight:700;letter-spacing:.06em;color:var(--gold-tx);text-shadow:0 2px 0 rgba(0,0,0,.35)}
+.app:where([data-style="oak"])[data-theme="day"] .gcard h1{color:var(--ink);text-shadow:none}
+
+/* ---------- chat shelf ---------- */
+.app:where([data-style="oak"]) .shh .st{visibility:hidden}
+.app:where([data-style="oak"]) .shh{position:relative}
+.app:where([data-style="oak"]) .shh::before{content:"";position:absolute;pointer-events:none;left:9px;top:50%;width:16px;height:16px;margin-top:-8px;background:url("../art/ui/oak/star.svg") center/contain no-repeat}
+.app:where([data-style="oak"]) .shh h2{font-family:var(--k-title);font-weight:700;letter-spacing:.06em;font-size:17px;text-transform:none;color:var(--ink)}
+.app:where([data-style="oak"]) .shr{border-radius:6px}
+.app:where([data-style="oak"]) .shr[aria-current="true"],.app:where([data-style="oak"])[data-theme] .shr[aria-current="true"]{background:none;box-shadow:none;border-image:var(--k-btn) 8 fill / 8px}
+.app:where([data-style="oak"]) .shr[aria-current="true"]::before{left:-8px;width:8px;height:30px;margin-top:-15px;border-radius:0;background:linear-gradient(90deg,#d0584d,#b5483f);box-shadow:inset 0 0 0 1px #6b2a24;
+  clip-path:polygon(0 0,100% 0,100% 100%,0 100%,40% 50%)}
+.app:where([data-style="oak"]) .shr.new::before{background:#d0584d;box-shadow:0 0 0 1px #6b2a24;border-radius:50%}
+.app:where([data-style="oak"]) .shr[aria-current="true"] small{color:var(--ink-2)}
+.app:where([data-style="oak"]) .shr .cic,.app:where([data-style="oak"]) .chname .cic{border-radius:6px}
+.app:where([data-style="oak"]) .shelf .who,.app:where([data-style="oak"]) .chname-row .chname{border-radius:6px;background:var(--raise);box-shadow:var(--k-tile)}
+.app:where([data-style="oak"]) .chname b{font-family:var(--k-title);font-weight:600}
+.app:where([data-style="oak"]) .shelf.drawer{border-radius:0 8px 8px 0;background:var(--k-page-bg);border-image:var(--k-frame) 16 / 14px}
+
+/* ---------- desktop: the page is one big framed board on the table ---------- */
+@container dev (min-width: 760px){
+  /* the nav and the chat list sit straight on the pale blue table by day: darker faint inks there */
+  .app:where([data-style="oak"])[data-theme="day"] :is(.nav,.shelf:not(.drawer)){--ink-3:#4f361c; --ink-4:#553a1f}
+  .app:where([data-style="oak"]) .page{border-radius:8px;background:var(--k-page-bg);backdrop-filter:none;-webkit-backdrop-filter:none;
+    box-shadow:0 30px 80px -40px rgba(0,0,0,.85)}
+  .app:where([data-style="oak"]) .page::after{content:"";position:absolute;inset:0;z-index:30;pointer-events:none;border-image:var(--k-frame) 16 / 20px}
+  .app:where([data-style="oak"]) .pc-hero{padding:21px}
+  .app:where([data-style="oak"]) .nav .ni{padding:0 11px 0 9px}
+  .app:where([data-style="oak"]) .nav .ni{border-radius:6px}
+  .app:where([data-style="oak"]) .nav .ni[aria-current="page"],.app:where([data-style="oak"])[data-theme] .nav .ni[aria-current="page"]{background:none;box-shadow:none;border-image:var(--k-btn) 8 fill / 8px}
+  .app:where([data-style="oak"]) .nav .ni[aria-current="page"]>svg{color:var(--gold-tx)}
+  .app:where([data-style="oak"])[data-theme="day"] .nav .ni[aria-current="page"]>svg{color:var(--accent-tx)}
+  .app:where([data-style="oak"]) .nav .sub button{border-radius:4px}
+  .app:where([data-style="oak"]) .nav .who{border-radius:6px;background:var(--raise);box-shadow:var(--k-tile)}
+  .app:where([data-style="oak"]) .rail{border-left:0;box-shadow:inset 2px 0 0 var(--k-rim)}
+  .app:where([data-style="oak"]) .sheet{border-radius:8px}
+  .app:where([data-style="oak"]) .composer .box{border-radius:6px}
+  .app:where([data-style="oak"]) .scene{border-radius:6px}
+  .app:where([data-style="oak"]) .tokpanel,.app:where([data-style="oak"]) .setup-panel{border-radius:6px;border-image:var(--k-frame) 16 / 16px}
+  .app:where([data-style="oak"]) .pincard{border-image:var(--k-frame) 16 / 14px}
+  .app:where([data-style="oak"]) .shelved .nav .ni{border-radius:6px}
+  .app:where([data-style="oak"]) .shelved .nav .ni .end .tag{border-radius:5px;background:#b5483f;color:#fff}
+  .app:where([data-style="oak"]) .top.dt h1{font-family:var(--k-title);font-weight:600;font-size:26px}
+  .app:where([data-style="oak"]) .top.dt .ibtn[aria-pressed="true"]{color:var(--accent-tx)}
+  .app:where([data-style="oak"])[data-theme="night"] .top.dt .ibtn[aria-pressed="true"]{color:var(--gold-tx)}
+}
+/* the style picker itself */
+.app:where([data-style="oak"]) .stc .sw{border-radius:4px;box-shadow:0 0 0 1.5px var(--k-wood-3)}
+.app:where([data-style="oak"]) .stc .ck{border-radius:50%;background:url("../art/ui/oak/disc-red.svg") center/100% 100%;color:#fff}
+/* message tools, reactions and reply quotes */
+.app:where([data-style="oak"]) .mtools{background:var(--page-solid)}
+.app:where([data-style="oak"]) .mtools button,.app:where([data-style="oak"]) .mtools .mdots{border-radius:4px}
+.app:where([data-style="oak"]) .rxp{background:var(--raise)}
+.app:where([data-style="oak"]) .composer .replying{border-radius:6px}
+.app:where([data-style="oak"]) .emo,.app:where([data-style="oak"]) .emo-it,.app:where([data-style="oak"]) .emo-new{border-radius:5px}
