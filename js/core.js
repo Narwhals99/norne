@@ -78,7 +78,13 @@ function outcome(r){
   if (sh < 3) return {k:'succ', t:'Success', sh};
   return {k:'style', t:'With style', sh};
 }
-const rollDice = () => [0,0,0,0].map(() => Math.floor(Math.random()*3) - 1);
+/* Fate dice from the browser's secure random source (crypto.getRandomValues), not Math.random.
+   A byte is 0..255; 255 is thrown away so the 255 left split evenly into three faces (85 each).
+   getRandomValues is captured at load, so swapping it out later from the console changes nothing. */
+const getRandom = crypto.getRandomValues.bind(crypto), rbuf = new Uint8Array(64);
+let rpos = rbuf.length;
+const fateDie = () => { let b; do { if (rpos >= rbuf.length) { getRandom(rbuf); rpos = 0; } b = rbuf[rpos++]; } while (b === 255); return b % 3 - 1; };
+const rollDice = () => [fateDie(), fateDie(), fateDie(), fateDie()];
 /* consequence slots: everyone has mild, moderate and severe; Strength and Will at Expert (+5) add a
    second mild for that kind of harm only, and at Legendary (+7) a second moderate too */
 const consSlots = sk => {
@@ -94,7 +100,9 @@ const consSlots = sk => {
   return out;
 };
 Object.assign(N, {DISC, MAGIC, discOf, consSlots});
-Object.assign(N, {LADDER, ladderWord, MUNDANE, stressVals, ACTIONS, diceSum, plusInvokes, rollTotal, outcome, rollDice});
+Object.assign(N, {LADDER, ladderWord, MUNDANE, stressVals, ACTIONS, diceSum, plusInvokes, rollTotal, outcome});
+/* locked so N.rollDice can't be replaced from the console to load the dice */
+Object.defineProperty(N, 'rollDice', {value:rollDice, enumerable:true});
 
 /* ---------- art ---------- */
 const FACE = n => `art/pt/${n}-face.png`, BG = n => `art/bg/${n}.jpg`;
