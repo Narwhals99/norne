@@ -528,8 +528,8 @@
 .app .hero-top b{display:block;font:600 20px/1.1 var(--f-display)}
 .app .hero-top small{font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
 .app .quick-sk{display:flex;flex-wrap:wrap;gap:6px}
-.app .quick-sk button{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 6px 0 11px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 12.5px/1 var(--f-ui)}
-.app .quick-sk button i{font:700 13px/1 var(--f-display);font-style:normal;color:var(--gold-tx);background:var(--gold-soft);padding:4px 6px;border-radius:999px}
+.app .quick-sk :is(button,span){display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 6px 0 11px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 12.5px/1 var(--f-ui)}
+.app .quick-sk :is(button,span) i{font:700 13px/1 var(--f-display);font-style:normal;color:var(--gold-tx);background:var(--gold-soft);padding:4px 6px;border-radius:999px}
 .app .quick-sk button:hover{box-shadow:inset 0 0 0 1.5px var(--accent)}
 
 /* ---------- combat ---------- */
@@ -932,7 +932,7 @@
   .app .nav .who .end svg{width:18px;height:18px}
   .app .page{margin:10px 10px 10px 0;border-radius:24px;background:var(--page);box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 0 0 1px var(--line),0 30px 80px -40px rgba(0,0,0,.8);overflow:hidden;
     backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
-  .app .page.with-rail{grid-template-columns:1fr 330px}
+  .app .page.with-rail{grid-template-columns:minmax(0,1fr) var(--railw,330px)}
   .app .rail{display:block;min-height:0;border-left:1px solid var(--line);background:color-mix(in srgb,var(--sunk) 40%,transparent)}
   .app .chat{grid-template-rows:auto auto 1fr auto}
   .app .chat .top{display:none}
@@ -1111,7 +1111,7 @@
 .app .page.with-rail{grid-template-columns:minmax(0,1fr)}
 .app .fight-chat{grid-template-columns:minmax(0,1fr)}
 .app .chat,.app .msgs{min-width:0}
-@container dev (min-width: 760px){ .app .page.with-rail{grid-template-columns:minmax(0,1fr) 330px} }
+@container dev (min-width: 760px){ .app .page.with-rail{grid-template-columns:minmax(0,1fr) var(--railw,330px)} }
 @container dev (min-width: 760px){ .app .shell{grid-template-columns:auto minmax(0,1fr)} }
 .app .toast{pointer-events:none}.app .toast button{pointer-events:auto}
 .app .eyebrow svg{width:12px;height:12px;flex:none}
@@ -1283,7 +1283,7 @@
   .app .shelved .nav .who{width:auto;padding:4px;border-radius:50%;background:none;box-shadow:none}
   .app .shelved .nav .who>span:not(.av){display:none}
   .app .shelf:not(.drawer){width:256px;padding:18px 8px 12px 6px}
-  .app .page.with-rail{grid-template-columns:minmax(0,1fr) 330px}
+  .app .page.with-rail{grid-template-columns:minmax(0,1fr) var(--railw,330px)}
   .app .top.dt .ibtn[aria-pressed="true"]{color:var(--gold);background:var(--accent-soft)}
 }
 @container dev (min-width: 760px){
@@ -1624,6 +1624,70 @@
 .app[data-dev="desktop"] .msgs .mw.mine .m.rollm .body>.mtools{right:auto;left:calc(100% + 8px)}
 .app[data-dev="desktop"] .msgs .mw.mine .m.rollm .body>.rxp{left:auto;right:-10px}
 
+/* desktop side panel: card on top, recent actions below (they fold away), a draggable line on its left edge */
+.app .rail{position:relative;grid-template-rows:minmax(0,1fr) minmax(0,40%);overflow:visible}
+.app .rail.rc-off{grid-template-rows:minmax(0,1fr) auto}
+@container dev (min-width: 760px){ .app .page.with-rail>.rail{display:grid} }
+.app .rail-a{min-height:0}
+.app .rcnt{min-height:0;display:flex;flex-direction:column;gap:6px;padding:8px 12px 12px;border-top:1px solid var(--line)}
+.app .rc-off .rcnt{padding-bottom:8px}
+.app .rcnt .rc-h{flex:none;display:flex;align-items:center;gap:8px;width:100%;height:32px;padding:0 6px;border-radius:10px;font:800 11px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+.app .rcnt .rc-h b{flex:1;text-align:left;font-weight:800}
+.app .rcnt .rc-h svg{width:16px;height:16px;color:var(--gold)}
+.app .rcnt .rc-h svg:last-child{color:var(--ink-3)}
+@media (hover:hover){ .app .rcnt .rc-h:hover{background:var(--raise);color:var(--ink)} .app .rcnt .ff[data-a]:hover{background:var(--raise);cursor:pointer} }
+.app .rcnt .ff-list{flex:1 1 0;min-height:0;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:1px;padding:5px;border-radius:16px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .rcnt .ff-list>:first-child{margin-top:auto}
+.app .rcnt .ff-list>.muted{margin:auto;padding:10px;text-align:center;font:600 12px/1.4 var(--f-ui)}
+.app .railgrip{position:absolute;z-index:5;top:0;bottom:0;left:-5px;width:10px;cursor:col-resize;touch-action:none}
+.app .railgrip::after{content:"";position:absolute;top:0;bottom:0;left:4px;width:2px;border-radius:2px;background:transparent;transition:background .12s}
+.app .railgrip:hover::after,.app .page.resizing .railgrip::after{background:var(--accent)}
+.app .page.resizing{cursor:col-resize;user-select:none}
+.app .page.resizing *{pointer-events:none}
+.app .page.resizing .railgrip{pointer-events:auto}
+.app .rcnt .ff.roll{width:auto;border-radius:10px;background:none;box-shadow:none;overflow:visible}
+.app .rcnt .ff.roll:last-child{background:var(--raise)}
+.app .rail{grid-template-rows:minmax(0,1fr) minmax(0,52%)}
+.app .rail.rc-off{grid-template-rows:minmax(0,1fr) auto}
+.app .rcnt .ff-list{gap:8px;padding:8px}
+.app .rcnt .rc-roll{flex:none;display:grid;gap:4px}
+.app .rcnt .rc-roll .who{display:flex;align-items:center;gap:7px;padding:0 4px;font:800 12px/1 var(--f-ui);color:var(--ink-2)}
+.app .rcnt .rc-roll .who time{font:600 11px/1 var(--f-ui);color:var(--ink-4)}
+.app .rcnt .rc-roll .roll{width:100%}
+.app .rcnt .resm{flex:none;width:100%;margin:0}
+.app .rcnt .ff{flex:none}
+.app .rcnt .ff:last-child{background:none}
+
+/* ---------- desktop: Roleplay | Combat switch and the combat screen ---------- */
+.app .modeseg .nb{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--ember);color:#fff;font:800 10.5px/1 var(--f-ui);font-style:normal}
+.app .top.dt .modeseg{flex:none}
+.app .fight-h .modeseg{flex:none;margin-left:auto}
+@container dev (min-width: 760px){ .app .page.with-rail:has(>.fight.cmd){grid-template-columns:minmax(0,1fr) var(--railw,330px)} }
+.app .rcnt .ff.go{cursor:pointer}
+.app .rcnt .ff.go .fft b{color:var(--ember)}
+/* GM: the battlefield sits in the top of the right side */
+.app .cm-gmpage .rail-a{min-height:0;display:flex}
+.app .cm-gmpage .rail-a>.fight.cmd.dt{padding:10px}
+/* GM: the controls fill the big panel */
+.app .fight.cmd>.cm-ctl{flex:1 1 0;min-height:0;overflow:auto;display:grid;gap:14px;align-content:start;padding:2px 2px 8px}
+.app .cm-ctl .fight-order{padding:2px 0}
+.app .cm-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;align-items:start}
+.app .cm-tools{display:flex;flex-wrap:wrap;gap:4px}
+.app .cm-tools .sep{display:none}
+.app .cm-tools button{width:auto;min-width:76px;padding:10px 10px 8px}
+.app .cm-hint{margin:10px 2px 0;font:600 12.5px/1.4 var(--f-ui)}
+.app .cm-tok{margin-top:10px;padding:12px;border-radius:16px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .cm-fl{display:grid;gap:4px}
+.app .cm-f{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);text-align:left}
+.app .cm-f>.nm{flex:1;min-width:0;display:grid;gap:2px}
+.app .cm-f .nb-zt{flex:none}
+.app .cm-ctl .nowbar{grid-template-columns:minmax(0,1fr) auto}
+.app .cm-ctl .nowbar .acts{grid-column:1/-1;grid-row:2}
+.app .cm-f b{font:700 13.5px/1.15 var(--f-ui);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .cm-f small{font:600 11px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .cm-f.on{box-shadow:inset 0 0 0 1.5px var(--gold)}
+.app .cm-f.out{opacity:.5}
+@media (hover:hover){ .app .cm-f:hover{background:var(--raise-2)} }
 /* ---------- Profile > Style: every look as a card with a small Night and Day picture of it ---------- */
 .app .stylepick{display:grid;gap:8px}
 .app .stc{display:flex;align-items:center;gap:12px;width:100%;min-height:72px;padding:7px 12px 7px 7px;border-radius:16px;text-align:left;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);transition:box-shadow .15s}
@@ -1639,6 +1703,87 @@
 .app .stc .t small{font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
 .app .stc .ck{flex:none;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink)}
 .app .stc .ck svg{width:14px;height:14px}
+/* a fight's own chat: small bubbles among the results, and a one-line box under them */
+.app .fcm{flex:none;display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;gap:2px 8px;padding:7px 10px;border-radius:12px 12px 12px 4px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:500 13.5px/1.4 var(--f-ui);color:var(--ink);max-width:92%}
+.app .fcm.mine{align-self:flex-end;border-radius:12px 12px 4px 12px;background:var(--accent-soft)}
+.app .fcm b{font:800 12px/1.2 var(--f-ui);color:var(--ink-2)}
+.app .fcm span{grid-column:1/-1;grid-row:2;overflow-wrap:anywhere}
+.app .fcm time{font:600 10.5px/1 var(--f-ui);color:var(--ink-4)}
+.app .fc-comp{flex:none;display:flex;gap:6px;align-items:center}
+.app .fc-comp .inp{flex:1;min-width:0;min-height:38px;padding:6px 12px;border-radius:999px}
+.app .fc-comp .ibtn{flex:none;color:var(--accent)}
+.app .ffeed .ff-list .ff{flex:none}
+.app .ffeed .fcm{margin:2px 0}
+.app .ffeed .fc-comp{margin-top:6px}
+/* a finished fight: its end note opens what happened */
+.app .sysm.fend{width:auto;margin:14px auto 6px;padding:6px 12px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app .sysm.fend b{color:var(--gold);font-weight:800}
+.app .ff.end .fft b{color:var(--gold)}
+.app .fight-rec{display:flex;flex-direction:column;gap:8px}
+.app .fight-rec .roll,.app .fight-rec .resm{width:100%;margin:0}
+.app .fight-rec .rc-roll{display:grid;gap:4px}
+.app .fight-rec .rc-roll .who{display:flex;align-items:center;gap:7px;padding:0 4px;font:800 12px/1 var(--f-ui);color:var(--ink-2)}
+.app .fight-rec .rc-roll .who time{font:600 11px/1 var(--f-ui);color:var(--ink-4)}
+
+/* ---------- phones: a roll in the roleplay chat is a small line ---------- */
+.app .rl{align-self:center;display:flex;align-items:center;gap:8px;max-width:100%;margin:10px auto 4px;padding:6px 10px 6px 8px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2);font:600 12.5px/1.25 var(--f-ui);color:var(--ink-2);text-align:left}
+.app .mwb:has(>.rl){align-self:center;display:flex;justify-content:center}
+.app .rl .rld{flex:none;display:inline-flex;align-items:center;gap:2px}
+.app .rl .rld i{width:15px;height:15px;border-radius:4px;display:grid;place-items:center;background:#e9e0c6;color:#2a2418;font:800 11px/1 var(--f-ui);font-style:normal}
+.app .rl .rld i.p{color:#1f7a4c}.app .rl .rld i.m{color:#b23b2a}
+.app .rl .rlt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .rl .rlt b{color:var(--ink);font-weight:800}
+.app .rl .rlv{flex:none;font:600 17px/1 var(--f-display);color:var(--gold)}
+.app .rl .out{flex:none;display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;font:800 9.5px/1 var(--f-ui);letter-spacing:.06em;text-transform:uppercase}
+.app .rl.fx{animation:rlin .45s cubic-bezier(.3,1.5,.5,1) both;animation-delay:calc(var(--el,0s) + 2.25s)}
+@keyframes rlin{0%{opacity:0;transform:scale(.6)}100%{opacity:1;transform:none}}
+.app .rollcard .roll{width:100%}
+
+/* the dice: four cubes roll in from the left, land face up, show the total, then shrink down into the chat */
+.app .rfx{position:absolute;inset:0;z-index:40;display:grid;place-items:center;pointer-events:none;perspective:800px;
+  background:color-mix(in srgb,var(--page-solid) 72%,transparent);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);animation:rfxbg 2.7s linear both;animation-delay:var(--el,0s)}
+@keyframes rfxbg{0%{opacity:0}8%{opacity:1}80%{opacity:1}100%{opacity:0}}
+.app .rfx .grp{display:grid;justify-items:center;gap:16px;animation:rfxgo .5s cubic-bezier(.6,0,.8,.4) both;animation-delay:calc(var(--el,0s) + 1.85s)}
+@keyframes rfxgo{to{transform:translateY(34vh) scale(.18);opacity:0}}
+.app .rfx .rtray{display:flex;gap:14px;transform-style:preserve-3d}
+.app .rfx .cube{--s:50px;position:relative;width:var(--s);height:var(--s);transform-style:preserve-3d;animation:rfxroll 1.15s cubic-bezier(.15,.75,.3,1) both;animation-delay:calc(var(--el,0s) + var(--i) * 70ms)}
+@keyframes rfxroll{
+  0%{transform:translate3d(-95vw,-60px,0) rotateX(810deg) rotateY(630deg) rotateZ(120deg)}
+  55%{transform:translate3d(12px,-18px,0) rotateX(60deg) rotateY(-40deg) rotateZ(-10deg)}
+  78%{transform:translate3d(-4px,4px,0) rotateX(-12deg) rotateY(8deg)}
+  100%{transform:none}}
+.app .rfx .f{position:absolute;inset:0;display:grid;place-items:center;border-radius:11px;background:linear-gradient(145deg,#f6eed8,#d8ccab);color:#2a2418;font:800 30px/1 var(--f-ui);font-style:normal;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),inset 0 -4px 8px rgba(0,0,0,.12);backface-visibility:hidden}
+.app .rfx .f.p{color:#1f7a4c}.app .rfx .f.m{color:#b23b2a}
+.app .rfx .fr{transform:translateZ(25px)}.app .rfx .bk{transform:rotateY(180deg) translateZ(25px)}
+.app .rfx .rt{transform:rotateY(90deg) translateZ(25px)}.app .rfx .lf{transform:rotateY(-90deg) translateZ(25px)}
+.app .rfx .tp{transform:rotateX(90deg) translateZ(25px)}.app .rfx .bt{transform:rotateX(-90deg) translateZ(25px)}
+.app .rfx .rfx-t{display:grid;justify-items:center;gap:4px;animation:rfxt .35s ease-out both;animation-delay:calc(var(--el,0s) + 1.1s)}
+@keyframes rfxt{from{opacity:0;transform:translateY(8px) scale(.9)}}
+.app .rfx .rfx-t small{font:800 11px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2)}
+.app .rfx .rfx-t b{font:600 44px/1 var(--f-display);color:var(--gold);text-shadow:0 0 24px color-mix(in srgb,var(--gold) 50%,transparent)}
+.app .rfx .rfx-t b span{font:800 13px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink);vertical-align:middle}
+@media (prefers-reduced-motion:reduce){ .app .rfx{display:none} .app .rl.fx{animation:none} }
+
+/* ---------- phones, fight: the player's small card, the GM's controls banner ---------- */
+.app .pcmini{flex:none;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 10px 8px;padding:7px 10px 7px 7px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app .pcmini>b{font:700 14px/1.1 var(--f-display);color:var(--ink);margin-right:auto}
+.app .pcmini .pm-st{display:inline-flex;align-items:center;gap:3px}
+.app .pcmini .pm-st small{font:800 9px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);margin-right:2px}
+.app .pcmini .sbox{width:20px;height:20px;font-size:10px;border-radius:6px}
+.app .pcmini .coins{display:inline-flex;gap:3px}
+.app .pcmini .coin{width:16px;height:16px}
+.app .gmban{flex:none;display:flex;align-items:center;gap:10px;margin:0 10px 8px;padding:7px 12px 7px 7px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1.5px var(--line-2);text-align:left}
+.app .gmban.turn{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--gold) 65%,transparent)}
+.app .gmban.alert{box-shadow:inset 0 0 0 1.5px var(--ember);background:color-mix(in srgb,var(--ember) 14%,var(--raise))}
+.app .gmban .t{flex:1;min-width:0;display:grid;gap:2px}
+.app .gmban .t small{font:800 9.5px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.app .gmban.alert .t small{color:var(--ember)}
+.app .gmban .t b{font:700 14px/1.15 var(--f-ui);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .gmban .go{flex:none;display:inline-flex;align-items:center;gap:4px;height:30px;padding:0 10px;border-radius:999px;background:var(--accent);color:#fff;font:700 12px/1 var(--f-ui)}
+.app .gmban .go svg{width:14px;height:14px}
+.app .gmfs{display:grid;gap:12px}
+.app .gmfs .nowbar{margin:0}
+.app .gmfs .gmrow{flex-wrap:wrap;overflow:visible}
 
 /* ---------- Profile > Text size: a row of growing A's and a sample line ---------- */
 .app .sheet h4 small{margin-left:8px;font-weight:700;letter-spacing:.04em;text-transform:none;color:var(--ink-3)}
@@ -1650,3 +1795,42 @@
 .app .fzpick .fzs b{color:var(--ink)}
 /* iPhones zoom into any box with text under 16px, so Small keeps typing boxes at 16px (1rem, which the resize leaves alone) */
 .app[data-dev="phone"][data-fz="s"] :is(input,textarea,select){font-size:1rem!important}
+
+/* ---------- desktop: every panel line drags, every side panel folds ---------- */
+.app .page.resizing .railgrip:not(.on)::after{background:transparent}
+.app .page.resizing .railgrip.on::after{background:var(--accent)}
+.app :is(.shell,.page).resizing{cursor:col-resize;user-select:none}
+.app :is(.shell,.page).resizing *{pointer-events:none}
+.app :is(.shell,.page).resizing :is(.railgrip,.rowgrip,.shelfgrip).on{pointer-events:auto}
+.app .page.resizing:has(.rowgrip.on){cursor:row-resize}
+/* the line between the card and the actions below it */
+.app .rail{grid-template-rows:minmax(0,1fr) var(--rch,52%)}
+.app .rail.rc-off{grid-template-rows:minmax(0,1fr) auto}
+.app .rcnt{position:relative}
+.app .rowgrip{position:absolute;z-index:5;left:0;right:0;top:-6px;height:12px;cursor:row-resize;touch-action:none}
+.app .rowgrip::after{content:"";position:absolute;left:0;right:0;top:5px;height:2px;border-radius:2px;background:transparent;transition:background .12s}
+.app .rowgrip:hover::after,.app .rowgrip.on::after{background:var(--accent)}
+/* fold the whole side panel to a thin strip, and open it again */
+.app .railx{position:absolute;z-index:6;left:-13px;top:50%;translate:0 -50%;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--page-solid);color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--line-2),0 4px 10px -4px rgba(0,0,0,.6);opacity:.75;transition:opacity .12s,color .12s}
+.app .railx svg{width:14px;height:14px}
+@media (hover:hover){ .app .railx:hover{opacity:1;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--accent)} }
+@container dev (min-width: 760px){
+  .app .page.with-rail.rail-off,.app .page.with-rail.rail-off:has(>.fight.cmd){grid-template-columns:minmax(0,1fr) 44px}
+}
+.app .rail-off>.rail{display:flex!important;justify-content:center;padding-top:14px}
+.app .railopen{display:flex;flex-direction:column;align-items:center;gap:10px;width:34px;padding:10px 0;border-radius:12px;color:var(--ink-3);font:800 10.5px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase}
+.app .railopen svg{width:16px;height:16px}
+.app .railopen span{writing-mode:vertical-rl}
+@media (hover:hover){ .app .railopen:hover{background:var(--raise);color:var(--ink)} }
+/* the chat list: hide it to leave only the slim menu bar, drag its edge to resize it */
+@container dev (min-width: 760px){
+  .app .shell.shelved.shelf-off{grid-template-columns:auto 1fr}
+  .app .shelf:not(.drawer):not(.mini){width:var(--shelfw,256px);position:relative}
+}
+.app .shelf .shx{flex:none;width:30px;height:30px;color:var(--ink-3)}
+.app .shelf .shx svg{width:15px;height:15px}
+.app .shelf.mini .shh .st{display:none}
+.app .shelfgrip{position:absolute;z-index:5;top:0;bottom:0;right:-5px;width:10px;cursor:col-resize;touch-action:none}
+.app .shelfgrip::after{content:"";position:absolute;top:0;bottom:0;left:4px;width:2px;border-radius:2px;background:transparent;transition:background .12s}
+.app .shelfgrip:hover::after,.app .shelfgrip.on::after{background:var(--accent)}
+.app .nav .ni.shopen{color:var(--gold-tx)}

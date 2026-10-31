@@ -21,6 +21,7 @@ N.appHtml = function(v){
   const nav = `<nav class="nav" aria-label="Sections">
     <div class="mark">${MARK}<b>N<small>ORNE</small></b></div>
     <div class="navl scroll">
+      ${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? `<button type="button" class="ni shopen" data-a="shelfDt" title="Show the chat list" aria-label="Show the chat list">${IC('list')}<span>Chats</span></button>` : ''}
       ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&otherUnread?'<span class="dot"></span>':''}${id==='world'&&newsNew?'<span class="badge gold">1</span>':''}</span></button>
         ${id==='chat' && !shelfOn && !gm ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
     </div>
@@ -40,7 +41,7 @@ N.appHtml = function(v){
   else if (v.ui.tab === 'gm') page = `<main class="page">${gmPage(v)}</main>`;
 
   return `<div class="stars" aria-hidden="true"></div>
-    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}">${nav}${shelfOn && v.dev === 'desktop' ? shelfHtml(v) : ''}${page}${tabbar}</div>
+    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? ' shelf-off' : ''}"${v.ui.shelfW ? ` style="--shelfw:${v.ui.shelfW}px"` : ''}>${nav}${shelfOn && v.dev === 'desktop' && !v.ui.shelfOff ? shelfHtml(v) : ''}${page}${tabbar}</div>
     ${shelfOn && v.dev === 'phone' && v.ui.shelf ? `<div class="scrim shelf-scrim" data-a="shelf"></div>${shelfHtml(v)}` : ''}
     ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
     ${v.ui.pop ? `<div class="scrim" style="background:transparent;backdrop-filter:none" data-a="closePop"></div>${popHtml(v)}` : ''}
@@ -63,7 +64,7 @@ function chanLast(v, c){
   const ms = G().msgs;
   for (let i = ms.length - 1; i >= 0; i--) {
     const m = ms[i];
-    if (m.ch !== c || (m.kind === 'scene' && (m.quiet || !m.scene))) continue;
+    if (m.ch !== c || m.fc || (m.kind === 'scene' && (m.quiet || !m.scene))) continue;
     if (m.kind === 'scene') return 'New scene: ' + m.scene.title;
     if (m.kind === 'roll') return `${m.roll.who} rolled`;
     if (m.kind === 'fight' || m.kind === 'combat') return 'A fight';
@@ -85,13 +86,13 @@ function shelfHtml(v){
   /* beside an open fight on desktop the list shrinks to just the chat pictures, so the board keeps its room */
   const mini = !ph && fightAvail(v) && v.ui.fightOpen;
   return `<aside class="shelf${ph?' drawer':''}${mini?' mini':''}" aria-label="Chats">
-    <header class="shh">${STAR.replace('<svg','<svg class="st"')}<h2>Chats</h2>${ph ? `<button type="button" class="ibtn" data-a="shelf" aria-label="Close the chat list">${IC('x')}</button>` : ''}</header>
+    <header class="shh">${STAR.replace('<svg','<svg class="st"')}<h2>Chats</h2>${ph ? `<button type="button" class="ibtn" data-a="shelf" aria-label="Close the chat list">${IC('x')}</button>` : `<button type="button" class="ibtn sm shx" data-a="shelfDt" aria-label="Hide the chat list" title="Hide the chat list">${IC('left')}</button>`}</header>
     <div class="shl scroll" data-sk="shelf">
       ${group('The table', chs.filter(c => c === 'table'))}
       ${group(gm ? 'Private chats' : 'Just you and the GM', chs.filter(c => c.startsWith('dm-')))}
       ${group('Only you', chs.filter(c => c === 'gm'))}
     </div>
-    ${ph ? `<button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>` : ''}
+    ${ph ? `<button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>` : mini ? '' : '<div class="shelfgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the chat list" title="Drag to resize"></div>'}
   </aside>`;
 }
 function shelfBtn(v){
@@ -122,25 +123,53 @@ function chatPage(v){
   if (v.dev === 'phone') {
     const sl = v.ui.slide ? ` slide-${v.ui.slide}` : '';
     if (fa && v.ui.fightPane === 'fight') return `<main class="page${sl}">${N.fightView(v)}</main>`;
-    return `<main class="page${sl}">${chatView(v)}</main>`;
+    return `<main class="page${sl}">${chatView(v)}${rollFx(v)}</main>`;
   }
+  if (fa && v.ui.fightOpen && G().combat.state === 'live') return N.combatDesk(v);
   if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
-  return `<main class="page${railShown(v) ? ' with-rail' : ''}">${chatView(v)}${railShown(v) ? `<aside class="rail scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</aside>` : ''}</main>`;
+  /* roleplay: the chat, the card (or GM screen) on the right, and the roleplay actions under it */
+  v.ui.rpSeen = (G().msgs.findLast(m => m.ch === v.ui.ch) || {}).t || 0;
+  return deskPage(v, chatView(v), `<div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>`, 'rp');
 }
+/* desktop: the big panel (C) on the left, and on the right the top panel (A) over the actions (B).
+   The line on the right side's left edge drags to share the width; roleplay and combat remember their own widths. */
+function deskPage(v, c, a, mode, cls){
+  /* every line between panels drags and every panel beside the main one folds; roleplay and combat remember their own sizes */
+  const rp = mode === 'rp', off = v.ui.recentOff, wk = rp ? 'railW' : 'railWc', hk = rp ? 'rcH' : 'rcHc', ok = rp ? 'railOff' : 'railOffc';
+  const w = v.ui[wk] || (!rp && isGM(v) ? 560 : 0), h = v.ui[hk];
+  if (v.ui[ok]) return `<main class="page with-rail rail-off${cls ? ' ' + cls : ''}">${c}<aside class="rail"><button type="button" class="railopen" data-a="railFold" data-v="${ok}" aria-label="Show the side panel" title="Show the side panel">${IC('left')}<span>${rp ? 'Card and actions' : 'Fight panel'}</span></button></aside></main>`;
+  return `<main class="page with-rail${cls ? ' ' + cls : ''}" data-wk="${wk}" data-hk="${hk}"${w ? ` style="--railw:${w}px"` : ''}>${c}<aside class="rail${off ? ' rc-off' : ''}"${h && !off ? ` style="--rch:${h}px"` : ''}>
+    <div class="railgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the side panel" title="Drag to resize"></div>
+    <button type="button" class="railx" data-a="railFold" data-v="${ok}" aria-label="Hide the side panel" title="Hide the side panel">${IC('right')}</button>
+    ${a}
+    <section class="rcnt">${off ? '' : '<div class="rowgrip" role="separator" aria-orientation="horizontal" aria-label="Drag to resize" title="Drag to resize"></div>'}<button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC(rp ? 'dice' : 'swords')}<b>${rp ? 'Recent actions' : 'Fight results and chat'}</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
+      ${off ? '' : N.recentHtml(v, mode) + (mode === 'cb' ? fightComposer(v) : '')}</section>
+  </aside></main>`;
+}
+/* desktop, when this chat has a fight: one switch between the roleplay screen and the combat screen.
+   In combat a count shows talk that came in since the roleplay screen was last open. */
+function modeSeg(v){
+  const cb = v.ui.fightOpen, g = G();
+  const n = cb ? g.msgs.filter(m => m.ch === v.ui.ch && m.by !== v.role && m.t > (v.ui.rpSeen || 0) && !isAction(m) && m.kind !== 'scene').length : 0;
+  return `<div class="seg modeseg" role="group" aria-label="Screen"><button type="button" data-a="mode" data-v="rp" aria-pressed="${!cb}">${IC('chatL')}Roleplay${n ? `<i class="nb">${n}</i>` : ''}</button><button type="button" data-a="mode" data-v="cb" aria-pressed="${!!cb}">${IC('swords')}Combat</button></div>`;
+}
+/* the chat that belongs to one fight: questions, what you'd like to do next. It stays with the fight, never in the roleplay chat */
+function fightComposer(v){
+  return `<form class="fc-comp" onsubmit="return false"><input class="inp" id="fc-${v.id}" data-i="fcDraft" value="${esc(v.ui.fcDraft || '')}" placeholder="Talk about the fight…" autocomplete="off" enterkeyhint="send"><button type="button" class="ibtn" data-a="fcSend" aria-label="Send to the fight chat">${IC('send')}</button></form>`;
+}
+N.deskPage = deskPage; N.modeSeg = modeSeg; N.fightComposer = fightComposer; N.rMsg = rMsg;
 /* the GM screen / character panel beside the chat: on by default when there is room, the viewer can flip it */
 function railShown(v){
-  if (v.ui.rail != null) return v.ui.rail;
-  return (v.root.clientWidth || innerWidth) >= 1180;
+  return v.dev === 'desktop';
 }
 function chatView(v, side){
   const g = G(), gm = isGM(v), ch = v.ui.ch, sc = g.scenes[ch], cb = g.combat;
   const fa = fightAvail(v);
   const topPh = `<div class="top ph">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${sideBtn(v, 'chat')}</div>`;
   const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
-    ${fa && !v.ui.fightOpen ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}${cb.state==='setup'?'Back to fight setup':'Back to the fight'}</button>` : ''}
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
-    ${fa && v.ui.fightOpen ? '' : `${gm ? `<button type="button" class="btn sm" data-a="rail" aria-pressed="${railShown(v)}" style="--h:36px">${IC('crown')}${railShown(v)?'Hide GM screen':'GM screen'}</button>` : `<button type="button" class="ibtn" data-a="rail" aria-pressed="${railShown(v)}" aria-label="${railShown(v)?'Hide':'Show'} the side panel" title="${railShown(v)?'Hide':'Show'} the ${gm?'GM screen':'character panel'}">${IC('gmscreen')}</button>`}`}</header>`;
-  const fightbar = (cb.state === 'live' && ch === N.fightCh() && !N.owedTok(v) && (!fa || (v.dev==='desktop' && !v.ui.fightOpen))) ? (() => {
+    ${fa ? (cb.state === 'setup' ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}Back to fight setup</button>` : modeSeg(v)) : ''}</header>`;
+  const fightbar = (cb.state === 'live' && ch === N.fightCh() && !N.owedTok(v) && !fa) ? (() => {
     const cur = N.curTok();
     return `<div class="fightbar">${IC('swords','sw')}<div class="t">Fight on ${esc(cb.title)}<span>${cur ? `${esc(N.tokName(cur))}’s turn · exchange ${cb.exchange}` : ''}</span></div>${fa ? `<button type="button" class="btn sm gold" data-a="openFight">Back to the fight</button>` : `<button type="button" class="btn sm" data-a="watch">Watch</button>`}</div>`;
   })() : '';
@@ -153,14 +182,15 @@ function chatView(v, side){
   return `<section class="chat" aria-label="${esc(N.chName(ch, v.role))}">
     ${side ? '' : topPh}${chipRow}${topDt}
     ${side ? '' : sceneBanner(v, sc, ch)}
-    <div class="msgs scroll" id="msgs-${v.id}" data-sk="msgs" data-bottom="1">${fightbar && side ? '' : ''}${renderMsgs(v)}</div>
+    <div class="msgs scroll" id="msgs-${v.id}" data-sk="msgs" data-bottom="1">${fightbar && side ? '' : ''}${renderMsgs(v, side)}</div>
     ${fightbar && !side ? '' : ''}
     ${composer(v)}
   </section>`.replace('<div class="msgs', (!side ? owedBar || fightbar : '') + '<div class="msgs');
 }
 function fightSeg(v){
   const n = N.unread(v.role, N.fightCh());
-  return `<div class="seg" role="group" aria-label="Fight or chat"><button type="button" data-a="pane" data-v="fight" aria-pressed="${v.ui.fightPane==='fight'}">${IC('swords')}Fight</button><button type="button" data-a="pane" data-v="chat" aria-pressed="${v.ui.fightPane==='chat'}">${IC('chatL')}Chat${n&&v.ui.fightPane!=='chat'?'<span class="dot"></span>':''}</button></div>`;
+  /* the same Roleplay | Combat switch as on a computer */
+  return `<div class="seg modeseg" role="group" aria-label="Screen"><button type="button" data-a="pane" data-v="chat" aria-pressed="${v.ui.fightPane==='chat'}">${IC('chatL')}Roleplay${n&&v.ui.fightPane!=='chat'?'<span class="dot"></span>':''}</button><button type="button" data-a="pane" data-v="fight" aria-pressed="${v.ui.fightPane==='fight'}">${IC('swords')}Combat</button></div>`;
 }
 N.sceneArt = (sc) => {
   if (!sc) return '';
@@ -187,8 +217,19 @@ function sceneBanner(v, sc, ch){
     <div class="ctl">${gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Change scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
   </section>`;
 }
-function renderMsgs(v){
-  const g = G(), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)));
+/* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */
+function isAction(m){
+  return m.kind === 'sys' || m.kind === 'fight' || m.kind === 'combat' || m.kind === 'roll';
+}
+/* the part of the actions that belongs to a fight: fight rolls, results, and the fight's own notices */
+function isFightAct(m){
+  return !!m.fc || (m.kind === 'roll' && !!(m.roll.fight || m.roll.target || m.roll.action === 'Attack' || m.roll.action === 'Defend')) || (m.kind === 'sys' && !!(m.res || m.fight));
+}
+/* the actions leave the chat only while Recent actions is there to show them */
+const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'chat' && railShown(v) && !v.ui.recentOff;
+N.isAction = isAction; N.isFightAct = isFightAct; N.hhmm = hhmm;
+function renderMsgs(v, side){
+  const g = G(), out1 = actionsOut(v, side), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)) && !m.fc && !(out1 && isAction(m)) && !(v.dev === 'phone' && isFightAct(m)));
   if (!ms.length) return `<div class="quiet"><div class="art"></div><p>${v.ui.ch.startsWith('dm-') ? 'Nothing here yet. Anything said here stays between you two.' : 'Nothing here yet.'}</p></div>`;
   let out = '', prev = null, firstNarr = true;
   /* only the newest roll in a chat starts open; a roll someone opened or closed by hand stays that way */
@@ -245,11 +286,12 @@ function rxPill(v, m){
 }
 function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
-  if (m.kind === 'sys') return m.res ? resCard(m.res) : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
+  if (m.kind === 'sys') return m.res ? resCard(m.res) : m.fightEnd ? `<button type="button" class="sysm fend" data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}">${IC('swords')}<span>${esc(m.text)}</span><b>See what happened</b></button>` : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
   if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}"></span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
   if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);
   if (m.kind === 'news') return `<div class="fightcard" style="box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 18px 40px -18px rgba(0,0,0,.9)"><div class="in" style="padding-top:18px;grid-template-columns:auto 1fr;align-items:center"><div class="herald" style="all:unset;display:contents"><span class="np" style="width:54px;height:66px;border-radius:4px;background:#efe6cc;rotate:-4deg;display:grid;place-items:center;font:400 12px/1 var(--f-mast);color:#2a2418;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)">News</span></div><div style="display:grid;gap:6px"><span class="eyebrow" style="color:var(--gold-tx)">${IC('newsL')}New edition</span><h3 style="font-size:18px">${esc(m.text)}</h3><div class="row"><button type="button" class="btn sm gold" data-a="readNews" data-id="${esc(m.nid||'')}">Read it</button></div></div></div></div>`;
+  if (m.kind === 'roll' && v.dev === 'phone') return rollLine(v, m);
   if (m.kind === 'roll') {
     const pc = (m.roll.whoKey || '').startsWith('pc:') && g.chars[m.roll.whoKey.slice(3)];
     const s = pc ? {name:pc.short, portrait:pc.built ? pc.portrait : null, color:pc.color} : m.by === 'gm' ? {name:m.roll.who, color:'var(--c-npc)', portrait:m.pt || N.npcByName(m.roll.who.replace(/ \d+$/,''))?.portrait} : N.speakerObj({by:m.by, as:''});
@@ -271,6 +313,30 @@ function rMsg(v, m, prev, firstNarr){
   const gmv = mine && isGM(v) ? ' gmv' : '';
   return `<div class="m${mine?' mine':''}${gmv}${cont?' cont':''}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${txt}</div></div></div>`;
 }
+/* phones: a roll in the roleplay chat is one small line; tapping it opens the full card */
+function rollLine(v, m){
+  const r = m.roll, tot = rollTotal(r), o = outcome(r), fx = v._rfx && v._rfx.id === m.id && Date.now() - v._rfx.at < RFX_MS;
+  return `<button type="button" class="rl${fx ? ' fx' : ''}" ${fx ? `style="--el:-${Date.now() - v._rfx.at}ms"` : ''} data-a="sheet" data-v="rollCard" data-c="${m.id}" aria-label="${esc(r.who)} rolled ${sgn(tot)}. Open the roll">
+    <span class="rld">${r.dice.map(d => `<i class="${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':''}</i>`).join('')}</span><span class="rlt"><b>${esc(r.who)}</b> ${esc(r.skill)} · ${esc(r.action.toLowerCase())}${m.ch==='gm'?' · secret':''}</span><b class="rlv">${sgn(tot)}</b>${o ? `<span class="out ${o.k}">${o.t}</span>` : ''}</button>`;
+}
+/* phones: right after you roll, the dice tumble across the screen, show the total, then shrink into the line in the chat.
+   Like the board's dice it keeps its place across redraws (a negative delay), so a new message doesn't restart it. */
+const RFX_MS = 2700;
+function rollFx(v){
+  /* a roll someone else makes in this chat plays here too, once, as it arrives (the newest roll per chat is remembered;
+     the first look at a chat only notes it). GM secret rolls never reach players, so only the GM sees those. */
+  const ch = v.ui.ch, last = G().msgs.findLast(x => x.ch === ch && x.kind === 'roll' && !isFightAct(x)), seen = v._rl || (v._rl = {});
+  if (last && seen[ch] !== last.id) {
+    if (ch in seen && (!v._rfx || v._rfx.id !== last.id) && Date.now() - (last.t || 0) < 20000) { v._rfx = {id:last.id, at:Date.now()}; setTimeout(() => N.render(v), RFX_MS + 60); }
+    seen[ch] = last.id;
+  }
+  const f = v._rfx; if (!f || Date.now() - f.at > RFX_MS) return '';
+  const m = G().msgs.find(x => x.id === f.id); if (!m || (m.ch !== ch && !f.own)) return '';
+  const r = m.roll, tot = rollTotal(r), face = d => d > 0 ? '+' : d < 0 ? '−' : '';
+  const cube = (d, i) => `<span class="cube" style="--i:${i}"><i class="f fr ${d>0?'p':d<0?'m':'z'}">${face(d)}</i><i class="f bk">−</i><i class="f rt p">+</i><i class="f lf"></i><i class="f tp m">−</i><i class="f bt p">+</i></span>`;
+  return `<div class="rfx" style="--el:-${Date.now() - f.at}ms" aria-hidden="true"><div class="grp"><div class="rtray">${r.dice.map(cube).join('')}</div><div class="rfx-t"><small>${esc(r.who)} · ${esc(r.skill)}</small><b>${sgn(tot)} <span>${ladderWord(tot)}</span></b></div></div></div>`;
+}
+N.RFX_MS = RFX_MS;
 function rRoll(v, m){
   const r = m.roll, tot = rollTotal(r), o = outcome(r), fold = v.ui.folded.has(m.id) ? v.ui.folded.get(m.id) : m.id !== v._lastRoll;
   const dice = r.dice.map(d => `<span class="die ${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':'·'}</span>`).join('');
@@ -325,7 +391,7 @@ function composer(v){
       ${v.ui.ch === 'gm' ? `<span class="voice">${chip}</span>` : `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`}
       <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="${N.enterSends() ? 'send' : 'enter'}">${esc(v.ui.draft)}</textarea>
       <button type="button" class="emob" data-a="pop" data-v="emo" aria-label="Emoji" title="Emoji">${IC('smile')}</button>
-      <button type="button" class="diceb" data-a="roll" aria-label="Roll the dice" title="Roll">${fateDie}</button>
+      ${isGM(v) ? `<button type="button" class="diceb" data-a="roll" aria-label="Roll the dice" title="Roll">${fateDie}</button>` : ''}
       <button type="button" class="sendb" data-a="send" aria-label="Send">${IC('send')}</button>
     </div>
     ${N.enterSends() ? '<div class="nlhint"><b>Enter</b> sends · <b>Shift + Enter</b> for a new line</div>' : ''}
@@ -395,7 +461,7 @@ function heroQuick(v){
     <div class="hero-top">${N.av(c,58)}<span><b>${esc(c.name)}</b><small>${esc(N.pcTag(c))}</small></span></div>
     <section class="gs-sec"><div class="gs-h"><h3>Fate points</h3><span class="muted" style="font-weight:700;font-size:12px">Refresh ${c.refresh}</span></div><div class="coins">${coinsHtml(c,false)}</div></section>
     <section class="gs-sec"><div class="gs-h"><h3>Aspects</h3></div><div class="icards">${N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.8,.7,-.4][i%3]}deg"><span class="k">${k}</span>${esc(a)}</span>`).join('')}</div></section>
-    <section class="gs-sec"><div class="gs-h"><h3>Roll a skill</h3></div><div class="quick-sk">${top.map(([n,x])=>`<button type="button" data-a="roll" data-skill="${n}">${esc(n)}<i>${sgn(x)}</i></button>`).join('')}</div></section>
+    <section class="gs-sec"><div class="gs-h"><h3>Top skills</h3></div><div class="quick-sk">${top.map(([n,x])=>`<span>${esc(n)}<i>${sgn(x)}</i></span>`).join('')}</div></section>
     <section class="gs-sec"><div class="gs-h"><h3>Stress</h3></div>
       <div class="pcrow" style="grid-template-columns:auto 1fr"><div class="tracks" style="grid-column:1/-1"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}</div><span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<span class="sbox${c.stress.ment[i]?' on':''}">${x}</span>`).join('')}</div></div></div>
     </section>
@@ -628,7 +694,7 @@ N.sheetBody = function(v, c){
     ${gm?`<div class="full" style="display:flex;justify-content:center"><button type="button" class="btn primary lg spark" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Make ${esc(pn(c))}’s card</button></div>`:''}
     <div class="quiet full"><div class="art"></div><p>${gm?'Name, age, aspects, skills, stunts and fate points. The player gets a note when it’s ready.':'It shows up here as soon as it’s ready.'}</p></div>`;
   const rungs = [8,7,6,5,4,3,2,1].map(x => [x, Object.entries(c.skills).filter(([,y]) => y === x).map(([n]) => n)]).filter(r => r[1].length);
-  const canRoll = mine || gm, edit = mine || gm;
+  const canRoll = gm, edit = mine || gm;
   return `<section class="pc-hero full" style="${who}">
       ${mine && !gm ? `<button type="button" class="facebtn" data-a="sheet" data-v="myFace" aria-label="Change my picture">${N.av(c,84)}<span class="badge">${IC('image')}</span></button>` : N.av(c,84)}
       <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${esc(N.pcTag(c))}</div>`:''}</div>
