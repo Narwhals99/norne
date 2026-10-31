@@ -17,7 +17,7 @@ N.appHtml = function(v){
   const otherUnread = N.channelsFor(v.role).some(c => !(v.ui.tab === 'chat' && v.ui.ch === c) && N.unread(v.role, c));
   const fightLive = Object.values(N.allFights()).some(f => f.state === 'live');
   const newsNew = gm ? 0 : N.newsUnseen(v.role).length;
-  const me = gm ? {name:N.gmName(), color:'var(--c-gm)'} : {name:g.P[v.role]?.name || '', color:g.P[v.role]?.color};
+  const me = N.personObj(v.role);
 
   const shelfOn = v.ui.tab === 'chat';
   const nav = `<nav class="nav" aria-label="Sections">
@@ -55,8 +55,8 @@ function chanIcon(v, c){
   const g = G();
   if (c === 'table') return `<span class="cic">${IC('users')}</span>`;
   if (c === 'gm') return `<span class="cic">${IC('lock')}</span>`;
-  if (isGM(v)) { const p = g.P[c.slice(3)] || {name:'?'}, ch = g.chars[p.char] || {}; return N.av({name:p.name, portrait:ch.built?ch.portrait:null, color:p.color}, 24); }
-  return N.av({name:N.gmName(), color:'var(--c-gm)'}, 24);
+  if (isGM(v)) return N.av(g.P[c.slice(3)] ? N.personObj(c.slice(3)) : {name:'?'}, 24);
+  return N.av(N.personObj('gm'), 24);
 }
 function chanBtn(v, c){
   const n = N.unread(v.role, c), cur = v.ui.tab === 'chat' && v.ui.ch === c;
@@ -86,7 +86,7 @@ N.shelfHtml = v => shelfHtml(v);
 function shelfHtml(v){
   const gm = isGM(v), chs = N.channelsFor(v.role), ph = v.dev === 'phone';
   const group = (t, list) => list.length ? `<div class="shg" role="group" aria-label="${t}"><h3>${t}</h3>${list.map(c => shelfRow(v, c)).join('')}</div>` : '';
-  const me = gm ? {name:N.gmName(), color:'var(--c-gm)'} : {name:G().P[v.role]?.name || '', color:G().P[v.role]?.color};
+  const me = N.personObj(v.role);
   /* beside an open fight on desktop the list shrinks to just the chat pictures, so the board keeps its room */
   const mini = !ph && fightAvail(v) && v.ui.fightOpen;
   return `<aside class="shelf${ph?' drawer':''}${mini?' mini':''}" aria-label="Chats">
@@ -104,8 +104,7 @@ function shelfBtn(v){
   return `<button type="button" class="ibtn shelfb" data-a="shelf" aria-label="All chats">${IC('list')}${other?'<span class="dot"></span>':''}</button>`;
 }
 function meBtn(v){
-  const g = G();
-  const me = isGM(v) ? {name:N.gmName(), color:'var(--c-gm)'} : {name:g.P[v.role]?.name || '', color:g.P[v.role]?.color};
+  const me = N.personObj(v.role);
   return `<button type="button" class="me-btn" data-a="sheet" data-v="profile" aria-label="You and settings">${N.av(me,34)}</button>`;
 }
 function sideBtn(v, where){

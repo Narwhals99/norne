@@ -893,6 +893,12 @@ function uploadFace(v, cb){ pickFramed(v, 'face', (img, f) => { cb(N.withFrame(N
 /* every background the GM uploads is kept on the GM screen shelf until it is deleted */
 /* a player's own picture lives on their card (players can't save pictures elsewhere), so it is kept small */
 function myFace(v, c, p){ c.portrait = p; v.ui.sheet = null; toast(v, p ? 'Picture changed.' : 'Picture removed.'); renderAll(); N.syncNow && N.syncNow(); }
+/* a Meta picture: the person out of character. A player's sits on their card (the one thing they may write), the GM's on game/meta */
+function metaPic(v, p){
+  const g = G();
+  if (isGM(v)) g.gmPic = p || null; else { const c = N.charOf(v.role); if (!c) return; if (p) c.mpic = p; else delete c.mpic; }
+  toast(v, p ? 'Meta picture saved.' : 'Meta picture removed.'); renderAll(); N.syncNow && N.syncNow();
+}
 function keepPic(src){ const p = {id:uid('pic'), src}; G().pics = [p, ...G().pics]; return p; }
 function uploadPicture(v, cb){ pickFramed(v, 'bg', (img, f) => { const src = N.withFrame(N.storeImg(N.shrink(img, 1600, 700000), true), f); keepPic(src); cb(src); render(v); }); }
 /* a reframed background changes everywhere it is in use right now */
@@ -1155,6 +1161,7 @@ function act(v, a, el, e){
   case 'pcSave': savePc(v); return;
   case 'pcDelete': {
     const old = g.chars[val]; g.chars[val] = N.decorate(N.blankChar(val, old.player));
+    if (old.mpic) g.chars[val].mpic = old.mpic; /* the player's Meta picture is theirs, not the card's */
     ui.sheet = null; toast(v, `${old.short}’s card is empty again.`, () => { g.chars[val] = old; }); renderAll(); return;
   }
   case 'invAdd': {
@@ -1189,6 +1196,9 @@ function act(v, a, el, e){
   case 'myFace': { const c = N.charOf(v.role); if (c) myFace(v, c, val); return; }
   case 'myFaceNone': { const c = N.charOf(v.role); if (c) myFace(v, c, null); return; }
   case 'myFaceUp': pickFramed(v, 'face', (img, f) => { const c = N.charOf(v.role); if (c) myFace(v, c, N.withFrame(N.shrink(img, 360, 60000), f)); }); return;
+  case 'metaUp': pickFramed(v, 'face', (img, f) => metaPic(v, N.withFrame(N.shrink(img, 360, 60000), f))); return;
+  case 'metaFrame': { const p = N.metaPic(v.role); if (p) reframe(v, 'face', p, nu => metaPic(v, nu)); return; }
+  case 'metaNone': metaPic(v, null); return;
   case 'myFaceFrame': { const c = N.charOf(v.role); if (c?.portrait) reframe(v, 'face', c.portrait, nu => myFace(v, c, nu)); return; }
   case 'ndPortrait': ui.nd.portrait = val; break;
   case 'ndUpload': uploadFace(v, src => { ui.nd.portrait = src; }); return;

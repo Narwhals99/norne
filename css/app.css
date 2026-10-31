@@ -452,6 +452,9 @@
 .app .facebtn{position:relative;display:block;border-radius:50%}
 .app .facebtn .badge{position:absolute;right:-2px;bottom:-2px;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--gold);color:var(--page-solid);box-shadow:0 0 0 3px var(--page-solid)}
 .app .facebtn .badge svg{width:16px;height:16px}
+.app .prof .facebtn{flex:none}
+.app .prof .facebtn .badge{width:22px;height:22px;box-shadow:0 0 0 2px var(--page-solid)}
+.app .prof .facebtn .badge svg{width:12px;height:12px}
 @media (hover:hover){.app .facebtn:hover .av{filter:brightness(1.08)}}
 .app .skills{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .app .sk{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:6px 8px 6px 12px;border-radius:14px;text-align:left;
