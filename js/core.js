@@ -40,6 +40,7 @@ N.fzK = id => (FONT_SIZES.find(f => f.id === id) || FONT_SIZES[1]).k;
 
 /* ---------- Fate on the Nörne ladder ---------- */
 const LADDER = {9:'Beyond Mythic',8:'Mythic',7:'Legendary',6:'Renowned',5:'Expert',4:'Great',3:'Good',2:'Fair',1:'Average',0:'Mediocre','-1':'Poor','-2':'Terrible'};
+/* past Mythic the ladder has no more words: +9 to +12 all read Beyond Mythic */
 const ladderWord = v => LADDER[clamp(v,-2,9)];
 const MUNDANE = ['Athletics','Riding','Stealth','Fighting','Shooting','Strength','Will','Crafting','Crime','Resources','Contact','Search','Empathy','Notice','Deception','Provoke','Rapport','Lore'];
 /* skills that need a discipline (Skills.docx). A magic gives exactly one; the others can gather more. */
