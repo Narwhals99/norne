@@ -315,6 +315,36 @@ N.sheetHtml = function(v){
     return sheet('Delete this message?', `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">${esc(N.msgWho(m))}: ${what} is removed for everyone. You can undo it for a few seconds.</p>`,
       `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="msgDelGo" data-v="${esc(m.id)}">${IC('trash')}Delete</button>`);
   }
+  /* ---------------- wiping a whole chat (GM): pick it, read the warning, then type its name ---------------- */
+  case 'wipe': {
+    const w = v.ui.wipe; if (!w) return '';
+    const count = c => g.msgs.filter(m => m.ch === c).length, fights = N.allFights();
+    const ic = c => N.chanIcon ? N.chanIcon(v, c) : '';
+    if (w.step === 1 || !w.ch) {
+      const rows = N.channelsFor('gm').map(c => {
+        const n = count(c), fight = !!fights[c], off = fight || !n;
+        return `<button type="button" class="wipe-ch" data-a="wipePick" data-v="${esc(c)}" aria-pressed="${w.ch === c}" ${off ? 'disabled' : ''}>${ic(c)}<span><b>${esc(N.chName(c, 'gm'))}</b><small>${esc(N.chSub(c, 'gm'))}</small></span><span class="n">${fight ? 'Fight on: end it first' : n ? `${n} message${n > 1 ? 's' : ''}` : 'Already empty'}</span></button>`;
+      }).join('');
+      return sheet('Wipe a chat', `<p class="muted" style="margin:0;font:600 13.5px/1.45 var(--f-ui)">Pick the one chat whose history you want to erase. Nothing is erased yet: two more checks come after this.</p>
+        <div class="wipe-list" role="group" aria-label="Chat to wipe">${rows}</div>`,
+        `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn danger" data-a="wipeStep" data-v="2" ${w.ch ? '' : 'disabled'}>Next${IC('right')}</button>`);
+    }
+    const name = esc(N.chName(w.ch, 'gm')), n = count(w.ch), who = w.ch === 'table' ? 'you and every player' : w.ch === 'gm' ? 'you' : `you and ${name}`;
+    const banner = `<div class="wipe-who">${ic(w.ch)}<span><small>Chat to wipe</small><b>${name}</b><small>${n} message${n > 1 ? 's' : ''} · ${esc(N.chSub(w.ch, 'gm'))}</small></span></div>`;
+    if (w.step === 2) {
+      return sheet('This is permanent', `${banner}
+        <div class="wipe-warn">${IC('warn')}<div><b>Wiping ${name} erases all ${n} message${n > 1 ? 's' : ''} in it, for ${who}, forever.</b>
+          <ul><li>Every message, roll, picture, GIF and scene card in this chat is deleted.</li><li>There is no undo, no backup and no recycle bin. Not even the GM can get it back.</li><li>Other chats, characters, the wiki, maps and news are not touched.</li></ul></div></div>
+        <button type="button" class="btn" data-a="wipeExp" style="align-self:flex-start">${IC('export')}Save a copy first (export this chat)</button>
+        <button type="button" class="wipe-ok" data-a="wipeOk" aria-pressed="${!!w.ok}"><span class="bx">${w.ok ? IC('check') : ''}</span><span>I understand that <b>${name}</b> will be wiped permanently and cannot be brought back.</span></button>`,
+        `<button type="button" class="btn ghost" data-a="wipeStep" data-v="1">${IC('left')}Back</button><button type="button" class="btn danger" data-a="wipeStep" data-v="3" ${w.ok ? '' : 'disabled'}>Continue</button>`);
+    }
+    const match = N.wipeMatch(w);
+    return sheet('Last chance', `${banner}
+      <div class="wipe-warn">${IC('warn')}<div><b>Are you absolutely sure?</b> This is permanent. Type the chat’s name, <b class="nm">${name}</b>, to wipe it.</div></div>
+      <input class="inp" id="wipe-${v.id}" data-i="wipeType" value="${esc(w.typed || '')}" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${name}" aria-label="Type ${name} to confirm">`,
+      `<button type="button" class="btn ghost" data-a="wipeStep" data-v="2">${IC('left')}Back</button><button type="button" class="btn danger solid" data-a="wipeGo" ${match ? '' : 'disabled'}>${IC('trash')}Wipe ${name} forever</button>`);
+  }
   /* ---------------- a news edition (GM) ---------------- */
   case 'newsSet': {
     const i = g.news.issues.find(x => x.id === arg); if (!i) return '';

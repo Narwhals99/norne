@@ -471,6 +471,7 @@ function input(v, el){
     case 'gifUrl': { v.ui.gifUrl = val; const b = v.root.querySelector('[data-a="gifLink"]'); if (b) b.disabled = !N.gifLinkOk(val); return; }
     case 'gifKey': v.ui.gifKeyD = val; return;
     case 'boostName': v.ui.boostName = val; return;
+    case 'wipeType': if (v.ui.wipe) { v.ui.wipe.typed = val; const b = v.root.querySelector('[data-a="wipeGo"]'); if (b) b.disabled = !N.wipeMatch(v.ui.wipe); } return;
     case 'med': if (v.ui.med) v.ui.med.text = val; { const b = v.root.querySelector('[data-a="msgSave"]'); if (b) b.disabled = !val.trim(); } return;
     case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .pl`); if (lab) lab.textContent = val; return; }
     case 'pinNote': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (pin) pin.note = val; return; }
@@ -1037,6 +1038,18 @@ function act(v, a, el, e){
     toast(v, 'Message deleted.', () => { if (!g.msgs.some(x => x.id === m.id)) { g.msgs.push(m); g.msgs.sort((a,b) => a.t - b.t || (a.id < b.id ? -1 : 1)); N.invalidateScenes(); } });
     renderAll(); return;
   }
+  /* the GM wiping a whole chat's history: pick, warning + tick, type the name, then gone for good */
+  case 'wipePick': if (gm && ui.wipe) { ui.wipe.ch = val; ui.wipe.ok = false; ui.wipe.typed = ''; } break;
+  case 'wipeStep': if (gm && ui.wipe && ui.wipe.ch) { ui.wipe.step = +val; if (+val < 3) ui.wipe.typed = ''; if (+val === 3) setTimeout(() => { const f = v.root.querySelector(`#wipe-${v.id}`); f && f.focus(); }, 30); } break;
+  case 'wipeOk': if (ui.wipe) ui.wipe.ok = !ui.wipe.ok; break;
+  case 'wipeExp': { const w = ui.wipe; if (!gm || !w || !w.ch) break; openSheet(v, 'export'); ui.exp.ch = new Set([w.ch]); ui.exp.meta = true; ui.wipe = null; break; }
+  case 'wipeGo': {
+    const w = ui.wipe; if (!gm || !w || !N.wipeMatch(w) || N.allFights()[w.ch]) break;
+    const name = N.chName(w.ch, 'gm'), n = N.wipeChat(w.ch);
+    ui.sheet = null; ui.wipe = null;
+    if (w.ch !== 'gm') sys(`${N.gmName()} wiped this chat’s history.`, w.ch);
+    toast(v, `Wiped ${name}: ${n} message${n === 1 ? '' : 's'} deleted for good.`); renderAll(); return;
+  }
   case 'newsDelGo': {
     const at = g.news.issues.findIndex(x => x.id === val), i = g.news.issues[at]; if (!i) break;
     g.news.issues.splice(at, 1); ui.sheet = null; if (ui.newsSel === val) ui.newsSel = null;
@@ -1391,9 +1404,12 @@ function openSheet(v, s, d={}){
               : {id:null, title:'', cat:ui.wikiCat || (N.cats().find(c => c.name === 'People') || N.cats()[0] || {name:'People'}).name, summary:'', info:'', body:'', secret:'', gm:false, imgs:[]};
   }
   if (s === 'wCats') { ui.cd = N.catNames(g.wiki).map(name => ({from:name, name, ic:N.catIcon(name)})); ui.cdIc = null; }
+  if (s === 'wipe') ui.wipe = {ch:null, step:1, ok:false, typed:''};
   if (s === 'export') ui.exp = {ch:new Set(N.channelsFor('gm').filter(c => c !== 'gm')), rp:true, roll:true, meta:false};
 }
 N.openSheet = openSheet;
+/* the typed name has to match the chat's name exactly (any capitals) before a wipe is allowed */
+N.wipeMatch = w => !!(w && w.ch) && (w.typed || '').trim().toLowerCase() === N.chName(w.ch, 'gm').trim().toLowerCase();
 
 function setScene(v, ch, s, post){
   const g = G();
