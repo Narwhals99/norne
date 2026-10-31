@@ -48,7 +48,7 @@ const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:n
 
 /* ---------------- mount + render ---------------- */
 N.mount = function(root, o){
-  const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', ui:newUi(o.role)};
+  const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), ui:newUi(o.role)};
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
   try { const w = +localStorage.getItem('norne-railw'), wc = +localStorage.getItem('norne-railwc'); if (w) v.ui.railW = w; if (wc) v.ui.railWc = wc; v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; } catch(e) {}
   views.push(v); bind(v); render(v);
@@ -59,7 +59,7 @@ const HS = '.hscroll,.who-row,.fight-order,.chips,.ladder-chips,.party-row,.thum
 function render(v){
   const root = v.root;
   if (!root.isConnected) return;
-  root.dataset.theme = v.theme; root.dataset.dev = v.dev; root.dataset.role = v.role || '';
+  root.dataset.theme = v.theme; root.dataset.style = v.style; root.dataset.dev = v.dev; root.dataset.role = v.role || '';
   if (N.gated || !v.role) { root.innerHTML = N.gateHtml(N.gated || '<p>Opening the campaign…</p>'); return; }
   const sk = {};
   root.querySelectorAll('[data-sk]').forEach(e => { sk[e.dataset.sk] = {t:e.scrollTop, l:e.scrollLeft, bottom:e.scrollHeight - e.scrollTop - e.clientHeight < 60}; });
@@ -648,6 +648,8 @@ function openPop(v, type, el){
 /* portraits and scene pictures are shared with players, so they are stored as visible */
 function uploadFace(v, cb){ N.pickImage(img => { cb(N.storeImg(N.shrinkFace(img), true)); render(v); }); }
 /* every background the GM uploads is kept on the GM screen shelf until it is deleted */
+/* a player's own picture lives on their card (players can't save pictures elsewhere), so it is kept small */
+function myFace(v, c, p){ c.portrait = p; v.ui.sheet = null; toast(v, p ? 'Picture changed.' : 'Picture removed.'); renderAll(); N.syncNow && N.syncNow(); }
 function keepPic(src){ const p = {id:uid('pic'), src}; G().pics = [p, ...G().pics]; return p; }
 function uploadPicture(v, cb){ N.pickImage(img => { const src = N.storeImg(N.shrink(img, 1600, 700000), true); keepPic(src); cb(src); render(v); }); }
 
@@ -682,6 +684,7 @@ function act(v, a, el, e){
   case 'undo': if (ui.toast && ui.toast.undo) { ui.toast.undo(); ui.toast = null; renderAll(); return; } break;
   case 'notify': N.toggleNotify(v); return;
   case 'theme': v.theme = val; try { localStorage.setItem('norne-theme', val); } catch(e) {} if (N.onTheme) N.onTheme(v); break;
+  case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {} break;
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;
   case 'fold': ui.folded.set(d.id, !d.f); break;
@@ -912,6 +915,9 @@ function act(v, a, el, e){
   case 'invDel': { ui.invEdit = null; const c = invOwner(d, v), it = c?.inv?.splice(+d.i, 1)[0]; if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
   case 'npcNew': openSheet(v, 'npcNew', d); break;
   case 'npcEdit': openSheet(v, 'npcNew', {edit:val}); break;
+  case 'myFace': { const c = N.charOf(v.role); if (c) myFace(v, c, val); return; }
+  case 'myFaceNone': { const c = N.charOf(v.role); if (c) myFace(v, c, null); return; }
+  case 'myFaceUp': N.pickImage(img => { const c = N.charOf(v.role); if (c) myFace(v, c, N.shrinkFace(img, 168, .82)); }); return;
   case 'ndPortrait': ui.nd.portrait = val; break;
   case 'ndUpload': uploadFace(v, src => { ui.nd.portrait = src; }); return;
   case 'ndType': ui.nd.type = val; break;
@@ -960,7 +966,7 @@ function act(v, a, el, e){
   }
   /* roll sheet */
   case 'rollWho': { ui.roll.who = val; const r = N.rollerOf(v, val); ui.roll.skill = Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'Notice'; ui.roll.target = null; break; }
-  case 'rollAct': ui.roll.action = val; if (val === 'defend') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Athletics||0) >= (r.skills.Fighting||0) ? 'Athletics' : 'Fighting'; } if (val === 'attack') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Shooting||0) > (r.skills.Fighting||0) ? 'Shooting' : 'Fighting'; } break;
+  case 'rollAct': ui.roll.action = val; if (val === 'defend') { ui.roll.skill = 'Athletics'; } if (val === 'attack') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Shooting||0) > (r.skills.Fighting||0) ? 'Shooting' : 'Fighting'; } break;
   case 'rollTgt': ui.roll.target = val; ui.roll.ctx = 'cb'; break;
   case 'rollSkill': ui.roll.skill = val; break;
   case 'rollAll': ui.roll.all = true; break;

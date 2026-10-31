@@ -115,6 +115,7 @@ N.sheetHtml = function(v){
     const pending = N.MEMBERS.filter(m => m.role === 'pending').length, my = N.me();
     const body = `<div class="prof">${N.av(me,56)}<span><b>${esc(my?.name || me.name)}</b><small>${gm?'Game master':'Player'} · ${esc(my?.email || 'signed in with Google')}</small></span></div>
       <div><h4>Appearance</h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="night" aria-pressed="${v.theme==='night'}">${IC('moon')}Night</button><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="day" aria-pressed="${v.theme==='day'}">${IC('sun')}Day</button></div></div>
+      <div><h4>Style</h4>${stylePick(v)}</div>
       <div><h4>Notifications</h4>${notifyToggle()}</div>
       <div class="menu">
         ${gm ? `<button type="button" data-a="sheet" data-v="players">${IC('userplus')}<span>Players and sign-ins<small>Let people in, rename or remove them</small></span><span class="end">${pending?`<span class="badge">${pending}</span>`:IC('right')}</span></button>
@@ -150,6 +151,14 @@ N.sheetHtml = function(v){
     return sheet('Export the log', body, `<button type="button" class="btn ghost" data-a="expCopy">${IC('copy')}Copy</button><button type="button" class="btn primary lg" data-a="expDl">${IC('download')}Download .md</button>`, {wide:true});
   }
   case 'credits': return sheet('Art credits', N.creditsHtml(), '', {wide:true});
+  case 'myFace': {
+    const c = N.charOf(v.role); if (!c) return '';
+    const cur = c.portrait, own = cur && !PORTRAITS.includes(cur) ? N.faceUrl(cur) : null;
+    const face = (src, on, attrs, label) => `<button type="button" ${attrs} aria-pressed="${on}"${label ? ` aria-label="${label}"` : ''}><span class="av" style="--c:var(--gold)"><img src="${esc(src)}" alt="" loading="lazy"></span></button>`;
+    return sheet('Your picture', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Shown next to everything ${esc(c.short)} says and on your card. Pick one or upload your own.</p>
+      <div class="facegrid">${own ? face(own, true, 'data-a="closeSheet"', 'Your current picture') : ''}${PORTRAITS.map(p => face(N.FACE(p), cur === p, `data-a="myFace" data-v="${p}"`, '')).join('')}<button type="button" data-a="myFaceUp" class="up"><span class="av">${IC('upload')}</span><span>Upload</span></button></div>`,
+      `${cur ? `<button type="button" class="btn ghost" data-a="myFaceNone">${IC('trash')}No picture</button>` : ''}<button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+  }
   case 'pcDel': {
     const c = g.chars[arg];
     return sheet(`Delete ${esc(c.short)}’s card?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The card goes back to empty. ${esc(pName(c.player))} keeps their seat and you can make a new card any time.</p>`,
@@ -270,6 +279,12 @@ function notifyToggle(){
   const sub = {on:N.notifyPush && N.notifyPush() ? 'You get a ping for new messages, rolls and news, even with Norne closed.' : 'You get a ping for new messages, rolls and news while Norne is open but not in front.', off:'Get a ping for new messages, rolls and news on this device.',
     blocked:'Your browser blocks them for this site. Allow notifications in its site settings, then try again.', install:'On iPhone, add Norne to your home screen first (Share > Add to Home Screen), then turn this on there.', none:'This browser can’t show notifications.'}[st];
   return `<button type="button" class="toggle" data-a="notify" aria-pressed="${st==='on'}">${IC(st==='on'?'herald':'clock')}<span>Notifications on this device<small>${sub}</small></span><span class="sw"></span></button>`;
+}
+/* every style as a card: a little Night and Day picture of it, its name, and a tick on the one in use */
+function stylePick(v){
+  const sw = t => `<i style="--sw-bg:${t.bg};--sw-card:${t.card};--sw-ink:${t.ink};--sw-acc:${t.acc};--sw-hi:${t.hi}"><b></b><b></b><em></em></i>`;
+  return `<div class="stylepick">${N.STYLES.map(s => `<button type="button" class="stc" data-a="style" data-v="${s.id}" aria-pressed="${v.style===s.id}">
+    <span class="sw" aria-hidden="true">${sw(s.night)}${sw(s.day)}</span><span class="t"><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span>${v.style===s.id?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}</div>`;
 }
 function portraitPick(sel, act, up){
   const custom = sel && !PORTRAITS.includes(sel) ? N.faceUrl(sel) : null;
@@ -404,9 +419,10 @@ N.creditsHtml = () => `<div class="note">${IC('heart')}Everything here is free t
     ['Battle for Wesnoth art','Portraits and scene backdrops','GNU GPL 2.0 or later · wesnoth.org'],
     ['WTactics card art','Scene backdrops · by Santiago Iborra and others (edges trimmed)','CC BY-SA 4.0 · wtactics.org'],
     ['Flare game art','Backdrops','CC BY-SA 3.0 · flarerpg.org'],
-    ['game-icons.net','Combat, item and category icons · by Lorc, Delapouite and others','CC BY 3.0'],
+    ['game-icons.net','Combat, item and category icons, and the triquetra on the Parchment & Wax seal · by Lorc, Delapouite and others','CC BY 3.0'],
     ['Phosphor Icons','Interface icons','MIT'],
     ['Nörne maps and lore','Maps and wiki text','The GM’s own campaign notes'],
-    ['Fonts','Cinzel, Fraunces, Nunito Sans, IM Fell English, UnifrakturMaguntia','SIL Open Font License · Google Fonts'],
+    ['Fonts','Cinzel, Fraunces, Nunito Sans, IM Fell English, IM Fell DW Pica, Alegreya, UnifrakturMaguntia','SIL Open Font License · Google Fonts'],
+    ['Parchment & Wax textures','Papyrus, vellum and the wax seal were drawn for Norne','Free to use'],
   ].map(([a,b,c]) => `<div class="mem" style="grid-template-columns:1fr"><span><b>${a}</b><small>${b}</small><small style="display:block;color:var(--gold)">${c}</small></span></div>`).join('')}</div>`;
 })();

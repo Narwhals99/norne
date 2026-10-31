@@ -244,12 +244,9 @@ function gmRow(v){
     ${cb.state==='live'?`<button type="button" class="end" data-a="sheet" data-v="cbEnd">${IC('stop')}End fight</button>`:''}
   </div>`;
 }
-/* the better of Athletics and Fighting: [skill, skill value]. Armor doesn't change the roll. */
-function defSkill(t){
-  const s = N.tokSkills(t);
-  const opts = [['Athletics', s.Athletics||0], ['Fighting', s.Fighting||0]];
-  return opts.sort((a,b) => b[1]-a[1])[0];
-}
+/* the defense skill: [skill, skill value]. Every defense is Athletics (Jake's rule), whatever the attack was.
+   Armor doesn't change the roll. */
+function defSkill(t){ return ['Athletics', N.tokSkills(t).Athletics || 0]; }
 N.defSkill = defSkill;
 const defBtn = t => { const [sk, x] = defSkill(t); return `<button type="button" class="btn gold" data-a="cbDefend">${N.fateDie}Defend: ${esc(sk)} ${sgn(x)}</button>`; };
 N.defBtn = defBtn;

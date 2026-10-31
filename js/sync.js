@@ -180,10 +180,10 @@ N.shrinkEmoji = img => {
   return png.length < 24000 ? png : c.toDataURL('image/webp', .9).startsWith('data:image/webp') ? c.toDataURL('image/webp', .9) : png;
 };
 /* square crop for portraits */
-N.shrinkFace = img => {
-  const s = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement('canvas'); c.width = c.height = 256;
-  c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2.6, s, s, 0, 0, 256, 256);
-  return c.toDataURL('image/jpeg', .86);
+N.shrinkFace = (img, S=256, q=.86) => {
+  const s = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement('canvas'); c.width = c.height = S;
+  c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2.6, s, s, 0, 0, S, S);
+  return c.toDataURL('image/jpeg', q);
 };
 /* opens the file picker (call it from a click) and hands back a loaded image */
 N.pickImage = cb => {
