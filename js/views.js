@@ -10,8 +10,10 @@ N.fateDie = fateDie;
 
 /* ================= shell ================= */
 N.appHtml = function(v){
-  const g = G(), gm = isGM(v);
-  const tabs = [['chat','Chat','chat'],['map','Map','map'],['world','World','world'],['news','News','newsL'], ...(gm ? [['cast','Cast','cast'], ['gm','GM','crown']] : [['hero','Character','hero'], ['inv','Inventory','bag']])];
+  const g = G(), gm = isGM(v), ph = v.dev === 'phone';
+  /* phone players open their inventory from the character sheet, so no Inventory tab there */
+  if (ph && !gm && v.ui.tab === 'inv') { v.ui.tab = 'hero'; v.ui.charSel = null; v.ui.heroInv = true; }
+  const tabs = [['chat','Chat','chat'],['map','Map','map'],['world','World','world'],['news','News','newsL'], ...(gm ? [['cast','Cast','cast'], ['gm','GM','crown']] : [['hero','Character','hero'], ...(ph ? [] : [['inv','Inventory','bag']])])];
   const otherUnread = N.channelsFor(v.role).some(c => !(v.ui.tab === 'chat' && v.ui.ch === c) && N.unread(v.role, c));
   const fightLive = Object.values(N.allFights()).some(f => f.state === 'live');
   const newsNew = gm ? 0 : N.newsUnseen(v.role).length;
@@ -722,12 +724,24 @@ function heroPage(v){
   const g = G(), mine = N.charOf(v.role), sel = g.chars[v.ui.charSel] || mine;
   const others = N.pcs();
   if (!sel) return `<div class="scroll" data-sk="hero" style="min-height:0">${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>Character</h1></div>` : ''}<div class="quiet"><div class="art"></div><p>No character yet.</p></div></div>`;
+  const bag = N.heroBag(v);
+  if (bag && v.ui.heroInv) return heroInv(v, sel, mine);
   return `<div class="scroll" data-sk="hero" style="min-height:0">
-    ${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>${sel===mine?'My character':esc(sel.built?sel.short:pn(sel))}</h1></div>` : ''}
+    ${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>${sel===mine?'My character':esc(sel.built?sel.short:pn(sel))}</h1>${bag && sel.built ? `<button type="button" class="btn sm" data-a="heroInv" data-v="1">${IC('bag')}Inventory${sel.inv?.length ? ` <span class="tag" style="height:16px">${sel.inv.length}</span>` : ''}</button>` : ''}</div>` : ''}
     <div class="sheetv">
       ${others.length > 1 ? `<div class="party-row full">${others.map(c => `<button type="button" class="pchip" data-a="charSel" data-v="${c.id}" aria-current="${c===sel}">${N.av({name:c.built?c.short:pn(c),portrait:c.built?c.portrait:null,color:c.color},36)}<span><b>${esc(c===mine?'You':c.built?c.short:pn(c))}</b><small>${c.built?esc(N.pcTag(c)):'No card yet'}</small></span></button>`).join('')}</div>` : ''}
       ${N.sheetBody(v, sel)}
     </div></div>`;
+}
+/* phone, player: the sheet's items open in their own view with a way back */
+N.heroBag = v => v.dev === 'phone' && !isGM(v) && v.ui.tab === 'hero';
+function heroInv(v, c, mine){
+  const own = c === mine;
+  return `<div class="scroll" data-sk="heroinv" style="min-height:0"><div class="top ph" style="display:flex"><button type="button" class="ibtn" data-a="heroInv" data-v="" aria-label="Back to the character sheet">${IC('left')}</button><h1>${own ? 'My inventory' : `${esc(c.built ? c.short : pn(c))}’s inventory`}</h1><button type="button" class="btn sm" data-a="heroInv" data-v="">${IC('x')}Close</button></div>
+    <div class="sheetv">${c.built
+      ? `<section class="sec"><h3>Items</h3>${invList(v, c, false)}</section>
+        <section class="sec"><h3>${own ? 'Your notes' : 'Notes'}</h3>${noteBox(v, c, 'invText', own, 'What you carry, in your own words')}</section>`
+      : `<section class="sec"><p class="muted">${own ? `${esc(N.gmName())} hasn’t made your character card yet.` : 'No card yet.'}</p></section>`}</div></div>`;
 }
 const asps = list => list.filter(x => x[1]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.6,.5,-.3][i%3]}deg"><span class="k">${k}</span>${esc(a)}</span>`).join('');
 N.sheetBody = function(v, c){
@@ -751,7 +765,7 @@ N.sheetBody = function(v, c){
     <section class="sec"><h3>Stunts</h3>${c.stunts.map(([n,d]) => `<div class="stunt"><b>${esc(n)}</b><p>${esc(d)}</p></div>`).join('') || '<p class="muted">None yet.</p>'}</section>
     <section class="sec full"><h3>Bio</h3>${noteBox(v, c, 'bio', edit, 'Who they are, where they come from, what they look like…')}</section>
     <section class="sec"><h3>Important people</h3>${noteBox(v, c, 'people', edit, 'Family, friends, rivals, debts… one per line')}</section>
-    <section class="sec"><h3>Inventory</h3>${noteBox(v, c, 'invText', edit, 'What you carry, in your own words')}${invList(v, c, gm)}</section>`;
+    ${N.heroBag(v) ? '' : `<section class="sec"><h3>Inventory</h3>${noteBox(v, c, 'invText', edit, 'What you carry, in your own words')}${invList(v, c, gm)}</section>`}`;
 };
 const conLv = sl => `<span class="lv"><b>${sl.l}</b>${sl.lo}–${sl.hi} shifts${sl.only?`<small style="display:block;color:var(--gold-tx);margin-top:2px">${sl.only} only</small>`:''}</span>`;
 N.conLv = conLv;
