@@ -206,6 +206,9 @@
 .app:where([data-style="parchment"]) .m .bub{border-radius:3px 10px 10px 3px;background:var(--paper-bg);font-family:var(--f-ui);font-weight:500;font-size:16px;
   box-shadow:inset 0 1px 0 rgba(255,240,210,.05),0 0 0 1px var(--line-2),0 4px 10px -8px rgba(0,0,0,.7)}
 .app:where([data-style="parchment"]) .m.cont .bub{border-radius:3px 10px 10px 3px}
+.app:where([data-style="parchment"]) .m.say:not(.mine) .bub{background:linear-gradient(180deg,color-mix(in srgb,var(--spk) var(--say-top),transparent),color-mix(in srgb,var(--spk) var(--say-bot),transparent)),var(--paper-bg)}
+.app:where([data-style="parchment"]){--say-top:18%; --say-bot:10%}
+.app:where([data-style="parchment"])[data-theme="day"]{--say-top:14%; --say-bot:8%}
 .app:where([data-style="parchment"]) .m .bub em{font-family:var(--f-body);font-size:1.04em}
 .app:where([data-style="parchment"]) .m.mine .bub,.app:where([data-style="parchment"]) .m.mine.cont .bub{border-radius:10px 3px 3px 10px;color:#2a1c0f;
   background:linear-gradient(rgba(250,240,214,.6),rgba(240,226,192,.6)),url("../art/ui/parchment.jpg") 0 0/420px auto,#efe0bb;

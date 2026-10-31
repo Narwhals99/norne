@@ -332,7 +332,7 @@ function rMsg(v, m, prev, firstNarr){
   const s = N.speakerObj(m);
   if (s.narr) return `<div class="narr${firstNarr?' first':''}"><div class="who">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}Narrator ${time}</div><p>${txt}</p></div>`;
   const gmv = mine && isGM(v) ? ' gmv' : '';
-  return `<div class="m${mine?' mine':''}${gmv}${cont?' cont':''}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${txt}</div></div></div>`;
+  return `<div class="m say${s.npc?' npc':''}${mine?' mine':''}${gmv}${cont?' cont':''}" style="--spk:${s.color}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${txt}</div></div></div>`;
 }
 /* phones: a roll in the roleplay chat is one small line; tapping it opens the full card */
 function rollLine(v, m){

@@ -266,6 +266,13 @@
 .app .m.mine .body{justify-items:end}
 .app .m.mine .bub{border-radius:20px 20px 6px 20px;color:#fff;background:linear-gradient(180deg,var(--accent-2),color-mix(in srgb,var(--accent-2) 65%,var(--accent-3)));box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 6px 16px -10px var(--accent-glow)}
 .app .m.mine.cont .bub{border-radius:20px 6px 6px 20px}
+/* in character, other speakers: a solid pane (against the OOC glass) tinted with the speaker's colour,
+   with a lit edge in that colour. NPCs share --c-npc and get a doubled edge, so the world's voices read apart from players'. */
+.app .m.say:not(.mine) .bub{background:linear-gradient(180deg,color-mix(in srgb,var(--spk) var(--say-top),var(--raise-2)),color-mix(in srgb,var(--spk) var(--say-bot),var(--raise)));
+  box-shadow:inset 3px 0 0 var(--spk),inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px color-mix(in srgb,var(--spk) 38%,var(--line)),0 6px 16px -12px color-mix(in srgb,var(--spk) 70%,transparent)}
+.app .m.say.npc:not(.mine) .bub{box-shadow:inset 3px 0 0 var(--spk),inset 5px 0 0 color-mix(in srgb,var(--spk) 20%,transparent),inset 7px 0 0 color-mix(in srgb,var(--spk) 55%,transparent),inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px color-mix(in srgb,var(--spk) 45%,var(--line)),0 6px 16px -12px color-mix(in srgb,var(--spk) 70%,transparent)}
+.app{--say-top:16%; --say-bot:9%}
+.app[data-theme="day"]{--say-top:13%; --say-bot:7%}
 .app .m.mine .bub em{color:rgba(255,255,255,.94)}
 .app .m.mine .av{display:none}
 .app .m.mine.gmv .av{display:grid}
