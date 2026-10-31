@@ -43,7 +43,7 @@ const tell = (x, kind, text, only) => { const a = N.audOf(x, kind); if (a === 'g
 const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:null, pop:null, toast:null, mode:'rp', voice:'Narrator', draft:'', sceneMin:false, folded:new Map(), fresh:null,
   fightPane:'fight', fightOpen:true, watching:false, cbTool:'move', tokSel:null, targeting:null, placing:null, zoneSel:null,
   mapId:null, mapType:'all', mapQ:'', pinSel:null, mapEdit:false, addPin:false, mapT:null,
-  wikiQ:'', wikiCat:null, wikiSel:null, herald:false, newsEdit:null, newsSel:null, charSel:null, castSeg:'players', castSel:null, npcQ:'',
+  wikiQ:'', wikiCat:null, wikiSel:null, paper:null, newsEdit:null, newsSel:null, charSel:null, castSeg:'players', castSel:null, npcQ:'',
   roll:null, sd:null, pd:null, nd:null, wd:null, exp:null, cbAsp:'', cbAspFree:0});
 
 /* ---------------- mount + render ---------------- */
@@ -723,7 +723,7 @@ function act(v, a, el, e){
   case 'signIn': N.signIn(); return;
   case 'signOut': N.signOut(); return;
   /* navigation */
-  case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') ui.charSel = null; if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.herald = false; } break;
+  case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') ui.charSel = null; if (val === 'world' && v.dev === 'phone') ui.wikiSel = null; if (val === 'news') newsTab(v); break;
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
   case 'mode': if (val === 'cb') { ui.fightOpen = true; ui.fightPane = 'fight'; } else { ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; ui.stick = true; } break;
@@ -759,23 +759,33 @@ function act(v, a, el, e){
   case 'newVoice': ui.pop = null; openSheet(v, 'npcNew', {from:'voice'}); break;
   case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; break;
   case 'doInvoke': doInvoke(v, +d.i, d.how === 'reroll'); return;
-  case 'readNews': case 'herald': close(); ui.tab = 'world'; ui.herald = true; ui.wikiSel = null; ui.newsEdit = null; ui.newsSel = d.id || null; seeNews(v); break;
-  case 'newsSel': ui.newsSel = val; break;
+  case 'readNews': case 'herald': { close(); ui.tab = 'news'; ui.newsEdit = null; const i = g.news.issues.find(x => x.id === d.id); if (i) openIssue(v, i); else newsTab(v); break; }
+  case 'newsSel': { const i = g.news.issues.find(x => x.id === val); if (i) openIssue(v, i); const r = v.root.querySelector('[data-sk="nr"]'); if (r) r.scrollTop = 0; break; }
+  case 'newsPaper': {
+    ui.newsEdit = null;
+    if (v.dev === 'phone') { ui.paper = val; ui.newsSel = null; break; }
+    if (ui.paper === val) { ui.paper = null; ui.newsSel = null; break; }
+    const p = N.papers().find(x => x.name === val); if (!p) break;
+    const s = g.news.seen[v.role] || [];
+    openIssue(v, p.issues.find(i => !s.includes(i.id)) || p.issues[p.issues.length - 1]); break;
+  }
+  case 'nBack': if (ui.newsEdit) ui.newsEdit = null; else if (ui.newsSel) ui.newsSel = null; else ui.paper = null; break;
   case 'writeNews': {
-    close(); ui.tab = 'world'; ui.herald = true; ui.wikiSel = null;
-    const last = g.news.issues[g.news.issues.length - 1] || {paper:'', no:0, price:''};
-    ui.newsEdit = {paper:last.paper || '', no:String((+last.no || 0) + 1), date:'', price:last.price || '', headline:'', sub:'', lead:'', s1t:'', s1b:'', s2t:'', s2b:'', notices:''};
+    close(); ui.tab = 'news';
+    const ps = N.papers(), p = ps.find(x => x.name === (d.v || ui.paper)) || ps[0];
+    ui.newsEdit = Object.assign({paper:'', no:'1', date:'', price:'', headline:'', sub:'', lead:'', s1t:'', s1b:'', s2t:'', s2b:'', notices:''}, p ? nextIssue(p) : {});
     break;
   }
+  case 'ndPaper': { const p = N.papers().find(x => x.name === val); if (p) Object.assign(ui.newsEdit, nextIssue(p)); break; }
   case 'newsCancel': ui.newsEdit = null; break;
   case 'newsPub': {
     const n = ui.newsEdit; if (!n.headline.trim()) { toast(v, 'Add a headline first.'); break; }
-    const issue = Object.assign({id:uid('ed')}, N.draftIssue(n));
+    const issue = Object.assign({id:uid('ed'), t:N.now()}, N.draftIssue(n));
     if (n.see?.length) issue.see = [...n.see];
     g.news.issues.push(issue); (g.news.seen.gm = g.news.seen.gm || []).push(issue.id);
     const to = N.audOf(issue, 'news');
     for (const ch of to === '*' ? ['table'] : to.map(s => 'dm-' + s)) push({ch, kind:'news', by:'gm', text:issue.headline, nid:issue.id});
-    ui.newsEdit = null; ui.newsSel = issue.id; toast(v, to === '*' ? 'Published. Everyone got a note in chat.' : `Published for ${N.audLabel(issue, 'news').replace(/^Only /, '')}. They got a note.`); renderAll(); return;
+    ui.newsEdit = null; ui.paper = N.paperName(issue); ui.newsSel = issue.id; toast(v, to === '*' ? 'Published. Everyone got a note in chat.' : `Published for ${N.audLabel(issue, 'news').replace(/^Only /, '')}. They got a note.`); renderAll(); return;
   }
   case 'ndAud': N.audSet(ui.newsEdit, 'news', val); break;
   case 'newsAud': {
@@ -875,9 +885,9 @@ function act(v, a, el, e){
   case 'pinVis': { const m = curMap(v), p = m.pins.find(x => x.id === ui.pinSel); if (!p) break; p.vis = !p.vis; if (p.vis) tell(m, 'map', `${N.gmName()} revealed ${p.label} on the ${m.name.replace(/ \(.*\)$/, '')} map.`); renderAll(); return; }
   case 'pinDel': { const m = curMap(v), i = m.pins.findIndex(x => x.id === ui.pinSel), p = m.pins[i]; if (!p) break; m.pins.splice(i, 1); ui.pinSel = null; toast(v, `Removed ${p.label}.`, () => m.pins.splice(i, 0, p)); renderAll(); return; }
   /* world */
-  case 'wiki': { const en = g.wiki.find(x => x.id === val); if (!en || (!gm && en.gm)) break; close(); ui.tab = 'world'; ui.wikiSel = val; ui.herald = false; ui.newsEdit = null; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
+  case 'wiki': { const en = g.wiki.find(x => x.id === val); if (!en || (!gm && en.gm)) break; close(); ui.tab = 'world'; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
   case 'wCat': ui.wikiCat = ui.wikiCat === val ? null : val; if (v.dev === 'phone') ui.wikiSel = null; break;
-  case 'wBack': if (ui.wikiSel || ui.herald) { ui.wikiSel = null; ui.herald = false; ui.newsEdit = null; } else ui.wikiCat = null; break;
+  case 'wBack': if (ui.wikiSel) ui.wikiSel = null; else ui.wikiCat = null; break;
   case 'wNew': openSheet(v, 'wEdit', {}); break;
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
   case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;
@@ -922,7 +932,7 @@ function act(v, a, el, e){
     en.imgs = w.imgs.map(p => { const o = {src:p.src}; if (p.alt) o.alt = p.alt; if (p.cap?.trim()) o.cap = p.cap.trim(); return o; });
     if (old) for (const p of N.wikiPics(old)) if (!en.imgs.some(x => x.src === p.src)) N.dropImg(p.src);
     const i = g.wiki.findIndex(x => x.id === en.id); if (i >= 0) g.wiki[i] = en; else g.wiki.push(en);
-    ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.herald = false; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
+    ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
   }
   /* character + cast */
   case 'charSel': ui.charSel = val; break;
@@ -1230,7 +1240,16 @@ function doInvoke(v, i, reroll){
   toast(v, reroll ? `Rerolled with “${o.t}”${cost}: now ${sgn(N.rollTotal(m.roll))} ${ladderWord(N.rollTotal(m.roll))}.` : `+2 from “${o.t}”${cost}.`);
   renderAll();
 }
-function seeNews(v){ const g = G(), s = g.news.seen[v.role] || (g.news.seen[v.role] = []); g.news.issues.forEach(i => { if (!s.includes(i.id)) s.push(i.id); }); }
+/* news: open one issue (and mark it read), or land on the paper with the newest issue */
+function openIssue(v, i){ const g = G(), s = g.news.seen[v.role] || (g.news.seen[v.role] = []); v.ui.paper = N.paperName(i); v.ui.newsSel = i.id; if (!s.includes(i.id)) s.push(i.id); }
+function newsTab(v){
+  if (v.dev === 'phone') { v.ui.paper = null; v.ui.newsSel = null; return; }
+  const ps = N.papers(), p = ps.find(x => x.name === v.ui.paper) || ps[0]; if (!p) return;
+  const s = G().news.seen[v.role] || [];
+  openIssue(v, p.issues.find(i => i.id === v.ui.newsSel) || p.issues.find(i => !s.includes(i.id)) || p.issues[p.issues.length - 1]);
+}
+/* the next issue of a paper: its name, number and price carried over */
+const nextIssue = p => { const last = p.issues[p.issues.length - 1]; return {paper:p.name, no:String(Math.max(0, ...p.issues.map(i => +i.no || 0)) + 1), price:last.price || ''}; };
 N.draftIssue = d => ({paper:d.paper.trim(), no:parseInt(d.no, 10) || 0, date:d.date.trim(), price:d.price.trim(), headline:d.headline.trim(), sub:d.sub.trim(), lead:d.lead,
   stories:[{title:d.s1t.trim(), body:d.s1b}, {title:d.s2t.trim(), body:d.s2b}].filter(s => s.title || s.body.trim()), notices:d.notices.split('\n').map(s => s.trim()).filter(Boolean)});
 

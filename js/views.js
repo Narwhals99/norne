@@ -11,10 +11,10 @@ N.fateDie = fateDie;
 /* ================= shell ================= */
 N.appHtml = function(v){
   const g = G(), gm = isGM(v);
-  const tabs = [['chat','Chat','chat'],['map','Map','map'],['world','World','world'], ...(gm ? [['cast','Cast','cast'], ['gm','GM','crown']] : [['hero','Character','hero'], ['inv','Inventory','bag']])];
+  const tabs = [['chat','Chat','chat'],['map','Map','map'],['world','World','world'],['news','News','newsL'], ...(gm ? [['cast','Cast','cast'], ['gm','GM','crown']] : [['hero','Character','hero'], ['inv','Inventory','bag']])];
   const otherUnread = N.channelsFor(v.role).some(c => !(v.ui.tab === 'chat' && v.ui.ch === c) && N.unread(v.role, c));
   const fightLive = Object.values(N.allFights()).some(f => f.state === 'live');
-  const newsNew = !gm && g.news.issues.some(i => !(g.news.seen[v.role]||[]).includes(i.id));
+  const newsNew = gm ? 0 : N.newsUnseen(v.role).length;
   const me = gm ? {name:N.gmName(), color:'var(--c-gm)'} : {name:g.P[v.role]?.name || '', color:g.P[v.role]?.color};
 
   const shelfOn = v.ui.tab === 'chat';
@@ -22,19 +22,20 @@ N.appHtml = function(v){
     <div class="mark">${MARK}<b>N<small>ORNE</small></b></div>
     <div class="navl scroll">
       ${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? `<button type="button" class="ni shopen" data-a="shelfDt" title="Show the chat list" aria-label="Show the chat list">${IC('list')}<span>Chats</span></button>` : ''}
-      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&otherUnread?'<span class="dot"></span>':''}${id==='world'&&newsNew?'<span class="badge gold">1</span>':''}</span></button>
+      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&otherUnread?'<span class="dot"></span>':''}${id==='news'&&newsNew?`<span class="badge gold">${newsNew}</span>`:''}</span></button>
         ${id==='chat' && !shelfOn && !gm ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
     </div>
     <div class="art" aria-hidden="true"></div>
     <button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>
   </nav>`;
 
-  const tabbar = `<nav class="tabbar" aria-label="Sections">${tabs.map(([id,l,ic]) => `<button type="button" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}><span class="ti">${IC(ic)}</span>${l}${id==='chat'&&fightLive?`<span class="fightdot">${IC('swords')}</span>`:id==='chat'&&otherUnread?'<span class="dot"></span>':''}${id==='world'&&newsNew?'<span class="dot"></span>':''}</button>`).join('')}</nav>`;
+  const tabbar = `<nav class="tabbar" aria-label="Sections">${tabs.map(([id,l,ic]) => `<button type="button" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}><span class="ti">${IC(ic)}</span>${l}${id==='chat'&&fightLive?`<span class="fightdot">${IC('swords')}</span>`:id==='chat'&&otherUnread?'<span class="dot"></span>':''}${id==='news'&&newsNew?'<span class="dot"></span>':''}</button>`).join('')}</nav>`;
 
   let page = '';
   if (v.ui.tab === 'chat') page = chatPage(v);
   else if (v.ui.tab === 'map') page = `<main class="page">${mapPage(v)}</main>`;
   else if (v.ui.tab === 'world') page = `<main class="page">${worldPage(v)}</main>`;
+  else if (v.ui.tab === 'news') page = `<main class="page">${newsPage(v)}</main>`;
   else if (v.ui.tab === 'hero') page = `<main class="page">${heroPage(v)}</main>`;
   else if (v.ui.tab === 'cast') page = `<main class="page">${castPage(v)}</main>`;
   else if (v.ui.tab === 'inv') page = `<main class="page">${invPage(v)}</main>`;
@@ -586,19 +587,15 @@ function worldPage(v){
   const g = Object.assign({}, g0, {wiki: g0.wiki.filter(e => gm || !e.gm)});
   const q = v.ui.wikiQ.trim().toLowerCase();
   const hit = e => !q || [e.title, e.summary, ...(e.body||[])].join(' ').toLowerCase().includes(q);
-  const issue = g.news.issues[g.news.issues.length-1];
-  const newsNew = !gm && issue && !(g.news.seen[v.role]||[]).includes(issue.id);
-  const herald = `<button type="button" class="herald" data-a="herald"><span class="np"><b>News</b><i></i><i class="s"></i><i></i><i></i><i class="s"></i></span><span><span class="eyebrow" style="color:var(--gold-tx)">The paper ${newsNew?'<span class="tag gold">New</span>':''}</span><h3>${issue ? esc(issue.headline) : 'No editions yet'}</h3><small>${issue ? `No. ${esc(issue.no)}${issue.date ? ' · ' + esc(issue.date) : ''}` : gm ? 'Write the first edition. Players get a ping.' : `Coming soon. ${esc(N.gmName())} publishes editions here.`}</small></span></button>`;
   const index = `<div class="wi scroll" data-sk="wi">
     ${ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm ghost" data-a="sheet" data-v="wCats">${IC('gear')}Categories</button><button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
-    ${herald}
     <div class="search">${IC('search')}<input class="inp" id="wq-${v.id}" data-i="wikiQ" placeholder="Search ${g.wiki.length} entries" value="${esc(v.ui.wikiQ)}"></div>
     ${q ? `<div class="ents">${g.wiki.filter(hit).slice(0,40).map(e => entBtn(v,e)).join('') || '<p class="muted" style="font-weight:600">Nothing matches.</p>'}</div>`
       : `<div class="cats">${N.catNames(g.wiki).map(c => { const es = g.wiki.filter(e => e.cat === c); if (!es.length) return ''; const open = v.ui.wikiCat === c; return `<button type="button" class="cat" data-a="wCat" data-v="${esc(c)}" aria-current="${open}"><span class="ci">${IC(N.catIcon(c))}</span><b>${esc(c)}</b><span class="n">${es.length}</span>${IC('right','car')}</button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${es.map(e => entBtn(v,e)).join('')}</div>` : ''}`; }).join('')}</div>`}
   </div>`;
-  const read = v.ui.herald ? heraldPane(v) : v.ui.wikiSel ? articleHtml(v, g.wiki.find(e => e.id === v.ui.wikiSel)) : `<div class="quiet" style="align-self:center"><div class="art" style="width:260px;height:220px"></div><p>Pick a category, or search for a person, place or rule.<br>Everything here comes from Nörne’s lore.</p></div>`;
+  const read = v.ui.wikiSel ? articleHtml(v, g.wiki.find(e => e.id === v.ui.wikiSel)) : `<div class="quiet" style="align-self:center"><div class="art" style="width:260px;height:220px"></div><p>Pick a category, or search for a person, place or rule.<br>Everything here comes from Nörne’s lore.</p></div>`;
   if (!ph) return `<div class="world">${index}<div class="scroll" data-sk="wr" style="min-height:0;display:grid">${read}</div></div>`;
-  if (v.ui.herald || v.ui.wikiSel) return `<div class="world"><div class="scroll" data-sk="wr" style="min-height:0;padding-top:var(--safe-t,0px)"><div class="top ph"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1 style="font-size:16px">${v.ui.herald?'The paper':esc(g.wiki.find(e=>e.id===v.ui.wikiSel)?.cat||'')}</h1></div>${read}</div></div>`;
+  if (v.ui.wikiSel) return `<div class="world"><div class="scroll" data-sk="wr" style="min-height:0;padding-top:var(--safe-t,0px)"><div class="top ph"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1 style="font-size:16px">${esc(g.wiki.find(e=>e.id===v.ui.wikiSel)?.cat||'')}</h1></div>${read}</div></div>`;
   if (v.ui.wikiCat) { const es = g.wiki.filter(e => e.cat === v.ui.wikiCat); return `<div class="world"><div class="wi scroll" data-sk="wc"><div class="top ph" style="padding-left:0;padding-right:0"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1>${esc(v.ui.wikiCat)}</h1><span class="tag">${es.length}</span></div><div class="ents">${es.map(e=>entBtn(v,e)).join('')}</div></div></div>`; }
   return `<div class="world">${index}</div>`;
 }
@@ -634,34 +631,62 @@ function articleHtml(v, e){
     ${e.src ? `<p class="src">From the lore notes: ${esc(e.src)}</p>` : ''}
   </article>`;
 }
-function heraldPane(v){
-  const g = G(), gm = isGM(v), issues = [...g.news.issues].sort((a,b) => (+b.no||0) - (+a.no||0));
-  const issue = issues.find(i => i.id === v.ui.newsSel) || issues[0];
-  if (gm && v.ui.newsEdit) {
-    const d = v.ui.newsEdit;
-    const f = (k, l, ph, rows) => `<label class="field"><span>${l}</span>${rows ? `<textarea class="inp" id="nd-${k}-${v.id}" data-i="news" data-k="${k}" rows="${rows}" placeholder="${esc(ph)}">${esc(d[k])}</textarea>` : `<input class="inp" id="nd-${k}-${v.id}" data-i="news" data-k="${k}" value="${esc(d[k])}" placeholder="${esc(ph)}">`}</label>`;
-    return `<div class="article" style="max-width:none;grid-template-columns:1fr;gap:18px">
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 style="font-size:28px;flex:1">New edition</h1><button type="button" class="btn ghost" data-a="newsCancel">Cancel</button><button type="button" class="btn gold" data-a="newsPub">${IC('send')}Publish</button></div>
-      <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
-        <div style="display:grid;gap:12px;align-content:start">
-          ${f('paper','Paper name','Name of the paper')}
-          <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr">${f('no','Issue number','1')}${f('price','Price','Optional')}</div>
-          ${f('date','In-world date','e.g. Restday, the 3rd of High Shine')}
-          ${f('headline','Headline','What everyone is talking about')}
-          ${f('sub','Under the headline','One line of detail')}
-          ${f('lead','Lead story','Leave a blank line between paragraphs.',6)}
-          ${f('s1t','Second story: title','Optional')}${f('s1b','Second story: text','',3)}
-          ${f('s2t','Third story: title','Optional')}${f('s2b','Third story: text','',3)}
-          ${f('notices','Notices, one per line','Wanted posters, ads, announcements…',3)}
-          <div><span class="eyebrow" style="display:block;margin-bottom:8px">Who gets this edition</span>${N.audPick('ndAud', d, 'news')}</div>
-        </div>
-        <div><span class="eyebrow" style="display:block;margin-bottom:8px">Preview</span>${paperHtml(N.draftIssue(d), true)}</div>
-      </div></div>`;
-  }
-  return `<div class="article" style="max-width:760px">
-    ${issues.length > 1 || gm ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${issues.length > 1 ? `<div class="chips" style="padding:0;flex:1;min-width:0">${issues.map(i => `<button type="button" class="cchip" data-a="newsSel" data-v="${i.id}" aria-current="${i===issue}" style="padding:0 12px">No. ${esc(i.no)}${i.date?' · '+esc(i.date):''}${gm && i.see?.length ? ' · ' + esc(N.audLabel(i,'news')) : ''}</button>`).join('')}</div>` : '<span style="flex:1"></span>'}${gm && issue ? `<button type="button" class="btn ghost" data-a="sheet" data-v="newsSet" data-c="${esc(issue.id)}">${IC(issue.see?.length?'eyeoff':'users')}${esc(N.audLabel(issue,'news'))}</button>` : ''}${gm ? `<button type="button" class="btn primary" data-a="writeNews">${IC('pen')}${issue?'Write a new edition':'Write the first edition'}</button>` : ''}</div>` : ''}
-    ${issue ? paperHtml(issue) : `<div class="paper"><h1 class="mast">The News</h1><div class="strip"><span>No. —</span><span>Coming soon</span><span>—</span></div><div class="soon"><span class="star4" style="background:#8a7a55"></span>No editions yet. Coming soon.</div></div>`}
+/* ================= news: every paper the GM runs, each with its issues in order ================= */
+const npIcon = name => `<span class="np"><b>${esc(name.length > 12 ? name.split(/\s+/).map(w => w[0]).join('').slice(0, 4) : name)}</b><i></i><i class="s"></i><i></i><i></i><i class="s"></i></span>`;
+function newsPage(v){
+  const gm = isGM(v), ph = v.dev === 'phone', papers = N.papers();
+  const seen = G().news.seen[v.role] || [], unseen = i => !gm && !seen.includes(i.id);
+  const paper = papers.find(p => p.name === v.ui.paper);
+  const issueBtn = i => `<button type="button" class="ent" data-a="newsSel" data-v="${i.id}" aria-current="${v.ui.newsSel===i.id}"><b>No. ${esc(i.no || '—')}${i.date ? ` <span class="nd">· ${esc(i.date)}</span>` : ''}${unseen(i) ? ' <span class="tag gold">New</span>' : ''}${gm ? audTag(i, 'news') : ''}</b><small>${esc(i.headline)}</small></button>`;
+  const paperBtn = p => { const last = p.issues[p.issues.length - 1], n = p.issues.filter(unseen).length, open = paper === p;
+    return `<button type="button" class="herald" data-a="newsPaper" data-v="${esc(p.name)}" aria-current="${open}">${npIcon(p.name)}<span><span class="eyebrow" style="color:var(--gold-tx)">${p.issues.length} ${p.issues.length > 1 ? 'issues' : 'issue'} ${n ? `<span class="tag gold">${n} new</span>` : ''}</span><h3>${esc(p.name)}</h3><small>Latest: No. ${esc(last.no || '—')} · ${esc(last.headline)}</small></span></button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${p.issues.map(issueBtn).join('')}</div>` : ''}`; };
+  const none = `<div class="quiet"><div class="art" style="width:220px;height:180px"></div><p>${gm ? 'No papers yet. Write the first edition and give the paper a name. Players get a ping.' : `No news yet. ${esc(N.gmName())} publishes papers here.`}</p></div>`;
+  const newBtn = gm ? (ph ? `<button type="button" class="btn sm primary" data-a="writeNews">${IC('plus')}New edition</button>` : `<button type="button" class="btn sm primary spark" data-a="writeNews">${IC('pen')}New edition</button>`) : '';
+  const index = `<div class="wi scroll" data-sk="ni">
+    ${ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>News</h1>${newBtn}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">News</h1>${newBtn}</div>`}
+    ${papers.length ? `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${papers.length > 1 ? `${papers.length} papers. ` : ''}Pick a paper to see its issues, oldest first.</p><div class="papers">${papers.map(paperBtn).join('')}</div>` : none}
   </div>`;
+  const issue = paper && paper.issues.find(i => i.id === v.ui.newsSel);
+  const read = gm && v.ui.newsEdit ? newsForm(v, papers) : issue ? issuePane(v, paper, issue) : paper ? `<div class="quiet" style="align-self:center"><div class="art" style="width:240px;height:200px"></div><p>Pick an issue of ${esc(paper.name)}.</p></div>` : `<div class="quiet" style="align-self:center"><div class="art" style="width:260px;height:220px"></div><p>${papers.length ? 'Pick a paper to read its issues.' : gm ? 'Write the first edition with “New edition”.' : 'Nothing printed yet.'}</p></div>`;
+  if (!ph) return `<div class="world">${index}<div class="scroll" data-sk="nr" style="min-height:0;display:grid">${read}</div></div>`;
+  const back = t => `<div class="top ph"><button type="button" class="ibtn" data-a="nBack" aria-label="Back">${IC('left')}</button><h1 style="font-size:16px">${esc(t)}</h1></div>`;
+  if (gm && v.ui.newsEdit) return `<div class="world"><div class="scroll" data-sk="nr" style="min-height:0;padding-top:var(--safe-t,0px)">${back('New edition')}${read}</div></div>`;
+  if (issue) return `<div class="world"><div class="scroll" data-sk="nr" style="min-height:0;padding-top:var(--safe-t,0px)">${back(paper.name)}${read}</div></div>`;
+  if (paper) return `<div class="world"><div class="wi scroll" data-sk="np"><div class="top ph" style="padding-left:0;padding-right:0;padding-top:var(--safe-t,0px)"><button type="button" class="ibtn" data-a="nBack" aria-label="Back">${IC('left')}</button><h1>${esc(paper.name)}</h1><span class="tag">${paper.issues.length}</span></div>
+    <p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Oldest first. Tap an issue to read it.</p><div class="ents">${paper.issues.map(issueBtn).join('')}</div>
+    ${gm ? `<button type="button" class="btn primary" data-a="writeNews" data-v="${esc(paper.name)}">${IC('pen')}Write the next issue</button>` : ''}</div></div>`;
+  return `<div class="world">${index}</div>`;
+}
+function issuePane(v, paper, issue){
+  const gm = isGM(v), at = paper.issues.indexOf(issue), prev = paper.issues[at - 1], next = paper.issues[at + 1];
+  const step = (i, dir) => i ? `<button type="button" class="btn sm ghost" data-a="newsSel" data-v="${i.id}">${dir < 0 ? IC('left') : ''}No. ${esc(i.no || '—')}${dir > 0 ? IC('right') : ''}</button>` : '<span></span>';
+  return `<div class="article" style="max-width:760px">
+    ${gm ? `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="eyebrow" style="flex:1 1 160px">Who can read No. ${esc(issue.no || '—')}</span><button type="button" class="btn ghost" data-a="sheet" data-v="newsSet" data-c="${esc(issue.id)}">${IC(issue.see?.length?'eyeoff':'users')}${esc(N.audLabel(issue,'news'))}</button><button type="button" class="btn primary" data-a="writeNews" data-v="${esc(paper.name)}">${IC('pen')}Next issue</button></div>` : ''}
+    ${paperHtml(issue)}
+    ${prev || next ? `<div style="display:flex;justify-content:space-between;gap:8px">${step(prev, -1)}${step(next, 1)}</div>` : ''}
+  </div>`;
+}
+function newsForm(v, papers){
+  const d = v.ui.newsEdit;
+  const f = (k, l, ph, rows) => `<label class="field"><span>${l}</span>${rows ? `<textarea class="inp" id="nd-${k}-${v.id}" data-i="news" data-k="${k}" rows="${rows}" placeholder="${esc(ph)}">${esc(d[k])}</textarea>` : `<input class="inp" id="nd-${k}-${v.id}" data-i="news" data-k="${k}" value="${esc(d[k])}" placeholder="${esc(ph)}">`}</label>`;
+  return `<div class="article" style="max-width:none;grid-template-columns:1fr;gap:18px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 style="font-size:28px;flex:1">New edition</h1><button type="button" class="btn ghost" data-a="newsCancel">Cancel</button><button type="button" class="btn gold" data-a="newsPub">${IC('send')}Publish</button></div>
+    <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+      <div style="display:grid;gap:12px;align-content:start">
+        ${f('paper','Paper name','Name of the paper')}
+        ${papers.length ? `<div><span class="eyebrow" style="display:block;margin-bottom:8px">Or pick one of your papers</span><div class="chips" style="padding:0;flex-wrap:wrap">${papers.map(pp => `<button type="button" class="cchip" data-a="ndPaper" data-v="${esc(pp.name)}" aria-current="${pp.name === N.paperName(d)}" style="padding:0 12px">${esc(pp.name)}</button>`).join('')}</div></div>` : ''}
+        <div style="display:grid;gap:12px;grid-template-columns:1fr 1fr">${f('no','Issue number','1')}${f('price','Price','Optional')}</div>
+        ${f('date','In-world date','e.g. Restday, the 3rd of High Shine')}
+        ${f('headline','Headline','What everyone is talking about')}
+        ${f('sub','Under the headline','One line of detail')}
+        ${f('lead','Lead story','Leave a blank line between paragraphs.',6)}
+        ${f('s1t','Second story: title','Optional')}${f('s1b','Second story: text','',3)}
+        ${f('s2t','Third story: title','Optional')}${f('s2b','Third story: text','',3)}
+        ${f('notices','Notices, one per line','Wanted posters, ads, announcements…',3)}
+        <div><span class="eyebrow" style="display:block;margin-bottom:8px">Who gets this edition</span>${N.audPick('ndAud', d, 'news')}</div>
+      </div>
+      <div><span class="eyebrow" style="display:block;margin-bottom:8px">Preview</span>${paperHtml(N.draftIssue(d), true)}</div>
+    </div></div>`;
 }
 function paperHtml(p, prev){
   const ph = (x, f) => x ? esc(x) : prev ? `<span class="ph">${f}</span>` : '';
