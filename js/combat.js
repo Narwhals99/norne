@@ -154,11 +154,17 @@ function nowState(v){
   return {tok:cur, tone:'wait', eye:'Watching', title:cur ? `${N.tokName(cur)}’s turn` : 'Waiting', sub:pw || `${gmN} rolls for everyone. Watch the board.`};
 }
 const smallStress = t => { const st = N.tokStress(t); return `<span class="nb-st">${st.v.map((x,i) => `<i class="${st.s[i]?'on':''}"></i>`).join('')}</span>`; };
+/* a fighter's consequence slots with what is in them: a player character has the slots from their sheet, an NPC token one mild */
+N.tokCons = t => {
+  if (t.kind === 'pc') { const c = G().chars[t.ref]; return c ? N.consSlots(c.skills).map(sl => Object.assign({v:(c.cons || {})[sl.k] || ''}, sl)) : []; }
+  return [{k:'mild', l:'Mild', lo:1, hi:2, v:t.mild || ''}];
+};
+const smallCons = t => { const cs = N.tokCons(t).filter(x => x.v); return cs.length ? `<small class="cq-ln">${IC('cards')}${cs.map(x => esc(x.v)).join(' · ')}</small>` : ''; };
 const zoneTag = t => { const z = N.zoneOf(t); return z ? `<span class="nb-zt" style="--zc:${z.col}">${esc(z.name)}</span>` : ''; };
 const gearTag = t => (N.tokGear(t, 'gearAtk') || N.tokGear(t, 'gearDef')) ? `<span class="nb-gear" title="Weapon and armor">${IC('sword')}${sgn(N.tokGear(t, 'gearAtk'))} ${IC('shieldU')}${sgn(N.tokGear(t, 'gearDef'))}</span>` : '';
 function myStress(v){
   const c = N.charOf(v.role); if (!c || !c.built) return '';
-  return `<div class="mine"><span class="lab">Phys</span>${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}<span class="lab">Fate</span><span class="coins">${N.coinsHtml(c,false)}</span></div>`;
+  return `<div class="mine"><span class="lab">Phys</span>${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}${(() => { const f = N.consSlots(c.skills).filter(sl => (c.cons || {})[sl.k]); return f.length ? `<span class="lab">Hurt</span>${f.map(sl => `<span class="cqt" title="${sl.l} consequence">${esc(c.cons[sl.k])}</span>`).join('')}` : ''; })()}<span class="lab">Fate</span><span class="coins">${N.coinsHtml(c,false)}</span></div>`;
 }
 function nowBar(v, ph){
   const n = nowState(v), t = n.tok, gm = isGM(v), c = N.charOf(v.role), s = ph ? 42 : 50;
@@ -289,10 +295,14 @@ N.tokCard = function(v, t){
     <div class="hd">${N.av(o,54)}<span style="flex:1;min-width:0"><b>${esc(N.tokName(t))}</b><small>${role} · ${z?esc(z.name):'Not placed'}${t.out?' · taken out':''}</small></span>${v.dev==='desktop'?`<button type="button" class="ibtn sm" data-a="tokClose" aria-label="Close">${IC('x')}</button>`:''}</div>
     ${asp.filter(Boolean).length ? `<div class="icards">${asp.filter(Boolean).map((a,i)=>`<span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(a)}</span>`).join('')}</div>` : ''}
     <div class="kv"><span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
+      ${(() => {
+        const cs = N.tokCons(t); if (!gm && t.kind !== 'pc' && !cs.some(x => x.v)) return '';
+        const ed = sl => `<label class="cq-ed"><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${t.kind === 'pc' ? `data-i="con" data-c="${t.ref}" data-k="${sl.k}"` : `data-i="tokMild" data-t="${t.id}"`} value="${esc(sl.v)}" placeholder="Empty"></label>`;
+        return `<span class="kv-w">Consequences</span><span class="kv-w cq-list${gm ? ' ed' : ''}">${cs.map(sl => gm ? ed(sl) : N.cqChip(sl)).join('')}</span>`;
+      })()}
       ${gm || t.kind==='pc' ? `<span>Skills</span><span>${sk.map(([n,x])=>`${esc(n)} ${sgn(x)}`).join(' · ')}</span>` : ''}
       ${t.init != null ? `<span>Turn roll</span><span>Notice ${sgn(N.tokNotice(t))}, rolled ${sgn(t.init)} ${ladderWord(t.init)}</span>` : ''}
       ${gm ? `<span>Gear</span><span style="display:flex;gap:8px;flex-wrap:wrap"><label class="field" style="flex:1;min-width:110px"><span>Weapon</span>${N.gearSelect(`tga-${t.id}-${v.id}`, `data-i="tokGear" data-k="gearAtk" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, N.tokGear(t, 'gearAtk'))}</label><label class="field" style="flex:1;min-width:110px"><span>Armor</span>${N.gearSelect(`tgd-${t.id}-${v.id}`, `data-i="tokGear" data-k="gearDef" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, N.tokGear(t, 'gearDef'))}</label></span>` : (N.tokGear(t, 'gearAtk') || N.tokGear(t, 'gearDef')) ? `<span>Gear</span><span>Weapon ${sgn(N.tokGear(t, 'gearAtk'))} · Armor ${sgn(N.tokGear(t, 'gearDef'))}</span>` : ''}
-      ${t.kind==='npc' && gm ? `<span>Mild</span><span><input class="inp" id="tmild-${t.id}-${v.id}" data-i="tokMild" data-t="${t.id}" value="${esc(t.mild||'')}" placeholder="Empty" style="min-height:32px;padding:4px 10px"></span>` : t.kind==='npc' && t.mild ? `<span>Mild</span><span>${esc(t.mild)}</span>` : ''}
     </div>
     ${gm ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
       ${t.kind==='npc'?`<button type="button" class="btn sm" data-a="voice" data-v="${esc(t.name.replace(/ \d+$/,''))}" data-go="side">${IC('chatL')}Speak as</button><button type="button" class="btn sm" data-a="roll" data-who="tok:${t.id}">${N.fateDie}Roll</button>`:''}
@@ -330,11 +340,13 @@ N.fightView = function(v){
   </section>`;
 };
 
-/* phones, players: just what matters in a fight, your picture and name, stress and fate points */
+/* phones, players: just what matters in a fight, your picture and name, stress, consequences and fate points */
 function pcMini(v){
   const c = N.charOf(v.role); if (!c || !c.built) return '';
   const boxes = (k, l) => `<span class="pm-st"><small>${l}</small>${c.stressV[k].map((x,i) => `<span class="sbox${c.stress[k][i]?' on':''}">${x}</span>`).join('')}</span>`;
-  return `<div class="pcmini">${N.av(c, 38)}<b>${esc(c.short)}</b>${boxes('phys', 'Phys')}${boxes('ment', 'Mind')}<span class="coins">${N.coinsHtml(c, false)}</span></div>`;
+  const cs = N.consSlots(c.skills).map(sl => Object.assign({v:(c.cons || {})[sl.k] || ''}, sl)), full = cs.filter(x => x.v);
+  const marks = `<span class="pm-st"><small>Cons</small>${cs.map(sl => `<span class="cqb${sl.v ? ' on' : ''}" title="${sl.l}${sl.v ? ': ' + esc(sl.v) : ', empty'}">${sl.hi}</span>`).join('')}</span>`;
+  return `<div class="pcmini">${N.av(c, 38)}<b>${esc(c.short)}</b>${boxes('phys', 'Phys')}${boxes('ment', 'Mind')}${marks}<span class="coins">${N.coinsHtml(c, false)}</span>${full.length ? `<span class="pm-cq">${full.map(N.cqChip).join('')}</span>` : ''}</div>`;
 }
 /* phones, GM: a slim banner says what is up now; tapping it pulls up the fight controls */
 function gmBanner(v){
@@ -354,7 +366,7 @@ N.combatDesk = function(v){
   if (!gm) return N.deskPage(v, `<section class="fight cmd dt" aria-label="Fight on ${esc(cb.title)}">${head}${board}${nowBar(v, false)}${sel ? `<div class="tokpanel glass" data-sk="tokpanel">${N.tokCard(v, sel)}</div>` : ''}</section>`,
     `<div class="rail-a scroll" data-sk="rail">${N.heroQuick(v)}</div>`, 'cb');
   const toks = cb.tokens.filter(t => t.zone).sort((a, b) => (a.kind === 'pc' ? 0 : a.side === 'ally' ? 1 : 2) - (b.kind === 'pc' ? 0 : b.side === 'ally' ? 1 : 2));
-  const fighters = toks.map(t => `<button type="button" class="cm-f${t.out ? ' out' : ''}${sel === t ? ' on' : ''}" data-tok="${t.id}">${N.av(N.tokObj(t), 34)}<span class="nm"><b>${esc(N.tokName(t))}</b><small>${t.kind === 'pc' ? 'Player' : t.side === 'ally' ? 'Ally' : 'Foe'}${t.out ? ' · taken out' : ''}</small></span>${zoneTag(t)}${smallStress(t)}</button>`).join('');
+  const fighters = toks.map(t => `<button type="button" class="cm-f${t.out ? ' out' : ''}${sel === t ? ' on' : ''}" data-tok="${t.id}">${N.av(N.tokObj(t), 34)}<span class="nm"><b>${esc(N.tokName(t))}</b><small>${t.kind === 'pc' ? 'Player' : t.side === 'ally' ? 'Ally' : 'Foe'}${t.out ? ' · taken out' : ''}</small>${smallCons(t)}</span>${zoneTag(t)}${smallStress(t)}</button>`).join('');
   const ctl = `<section class="fight cmd dt cm-gm" aria-label="Fight controls">${head}
     <div class="cm-ctl scroll" data-sk="cmctl">
       ${orderStrip(v, false)}
