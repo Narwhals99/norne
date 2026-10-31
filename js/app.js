@@ -274,7 +274,7 @@ function bind(v){
     if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * .7 || v.suppress) return;
     const ui = v.ui;
     if (k === 'edge') {
-      if (dx < 0) return;
+      if (dx < 0 || backTwice()) return;
       if (!goBack(v)) if (ui.tab === 'chat') { ui.shelf = true; render(v); }
       return;
     }
@@ -308,8 +308,13 @@ function backStep(v, home){
   if (home && ui.tab !== 'chat') return () => { ui.tab = 'chat'; ui.stick = true; };
   return null;
 }
+/* iPhones have their own swipe back from the edge, which uses up the history entry below as well as firing our own swipe,
+   so the second of the two within a moment is ignored (otherwise one swipe went back two steps) */
+let lastBack = 0;
+const backTwice = () => Date.now() - lastBack < 1000;
 function goBack(v, home){
   const f = backStep(v, home); if (!f) return false;
+  lastBack = Date.now();
   f(); render(v); v.ui.slide = null;
   return true;
 }
@@ -327,7 +332,7 @@ window.addEventListener('popstate', () => {
   if (dropping) { dropping = false; syncBack(); return; }
   backEntry = false;
   const v = phoneView(); if (!v) return;
-  if (!goBack(v, true)) syncBack();
+  if (backTwice() || !goBack(v, true)) syncBack();
 });
 
 /* ---------------- inputs ---------------- */
