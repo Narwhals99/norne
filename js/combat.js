@@ -303,7 +303,7 @@ N.tokCard = function(v, t){
   const asp = t.kind === 'pc' ? (() => { const c = g.chars[t.ref] || {aspects:[]}; return [c.hc, c.trouble, ...c.aspects]; })() : (t.aspects || []);
   const role = t.kind === 'pc' ? `Played by ${esc(g.P[g.chars[t.ref]?.player]?.name || 'a former player')}` : t.side === 'ally' ? 'Ally' : (t.type === 'nameless' ? 'Nameless foe' : 'Foe');
   return `<div class="tokcard">
-    <div class="hd">${N.av(o,54)}<span style="flex:1;min-width:0"><b>${esc(N.tokName(t))}</b><small>${role} · ${z?esc(z.name):'Not placed'}${t.out?' · taken out':''}</small></span>${v.dev==='desktop'?`<button type="button" class="ibtn sm" data-a="tokClose" aria-label="Close">${IC('x')}</button>`:''}</div>
+    <div class="hd">${N.av(o,54)}<span style="flex:1;min-width:0"><b>${esc(N.tokName(t))}</b><small>${role} · ${z?esc(z.name):'Not placed'}${t.out?' · taken out':''}</small></span>${gm?`<button type="button" class="btn sm ghost tok-rm" data-a="sheet" data-v="tokRm" data-c="${t.id}" title="Take ${esc(N.tokName(t))} out of this fight">${IC('trash')}Remove</button>`:''}${v.dev==='desktop'?`<button type="button" class="ibtn sm" data-a="tokClose" aria-label="Close">${IC('x')}</button>`:''}</div>
     ${asp.filter(Boolean).length ? `<div class="icards">${asp.filter(Boolean).map((a,i)=>`<span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(a)}</span>`).join('')}</div>` : ''}
     <div class="kv"><span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
       ${(() => {
@@ -319,7 +319,6 @@ N.tokCard = function(v, t){
       ${t.kind==='npc'?`<button type="button" class="btn sm" data-a="voice" data-v="${esc(t.name.replace(/ \d+$/,''))}" data-go="side">${IC('chatL')}Speak as</button><button type="button" class="btn sm" data-a="roll" data-who="tok:${t.id}">${N.fateDie}Roll</button>`:''}
       ${G().combat.state==='live' && !t.out ? `<button type="button" class="btn sm" data-a="tokTurn" data-t="${t.id}">${IC('play')}Give them the turn</button>`:''}
       <button type="button" class="btn sm ${t.out?'':'danger'}" data-a="tokOut" data-t="${t.id}">${t.out?IC('undo')+'Back in':IC('skull')+'Taken out'}</button>
-      <button type="button" class="btn sm ghost" data-a="tokRemove" data-t="${t.id}">${IC('trash')}Remove</button>
     </div>` : ''}
   </div>`;
 };
@@ -469,6 +468,28 @@ N.cbAddFoe = function(i, side, zone){
   const same = cb.tokens.filter(t => t.ref === 'foe:' + f.name).length;
   const t = N.tokFromNpc({id:'foe:' + f.name, name:f.name, type:f.type, skills:f.skills, aspects:f.aspects || [], gearAtk:f.gearAtk, gearDef:f.gearDef}, side, `${f.name} ${same + 1}`);
   t.zone = zone || null; cb.tokens.push(t); N.cbLateInit(t); return t;
+};
+/* the GM takes someone out of the fight (a copy added by mistake, say). Only the fight's token goes: an NPC card stays
+   on the GM's cards. The turn stays with whoever had it; if it was the removed one's, it passes to the next in line. */
+N.cbRemove = function(id){
+  const cb = G().combat, i = cb.tokens.findIndex(t => t.id === id); if (i < 0) return null;
+  const ord = N.order(), n = ord.length, oi = ord.findIndex(t => t.id === id), cur = cb.state === 'live' && n ? cb.turn % n : -1;
+  const t = cb.tokens.splice(i, 1)[0];
+  if (cb.lead === id) cb.lead = null;
+  if (oi >= 0 && cur >= 0) {
+    if (oi < cur) cb.turn = cur - 1;
+    else if (oi > cur) cb.turn = cur;
+    else { cb.acted = false; cb.moved = false; cb.turn = cur < n - 1 ? cur : 0; if (cb.turn === 0 && n > 1 && cb.phase !== 'notice' && cb.phase !== 'pick') cb.exchange++; }
+  }
+  const p = cb.pending; if (p && (p.att === id || p.def === id)) cb.pending = null;
+  const l = cb.last; if (l && (l.att === id || l.def === id)) cb.last = null;
+  cb.aspects = cb.aspects.filter(a => !(a.boost && a.tok === id));
+  if (t.kind === 'pc') cb.invited = (cb.invited || []).filter(r => r !== t.ref);
+  if (cb.state === 'live') {
+    sys(`${N.tokName(t)} is removed from the fight.`);
+    const nx = oi === cur && N.curTok(); if (nx && cb.phase !== 'pick') sys(cb.turn === 0 && n > 1 ? `Exchange ${cb.exchange} begins. ${N.tokName(nx)}’s turn.` : `${N.tokName(nx)}’s turn.`);
+  }
+  return t;
 };
 /* turn order comes from a Notice roll: 4 Fate dice + Notice. The fight starts in the 'notice' phase, the GM
    presses Notice roll ('pick' phase: everyone's result shows and he can choose who goes first), then Start. */

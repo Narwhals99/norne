@@ -134,6 +134,9 @@ N.sheetHtml = function(v){
   /* ---------------- GM screen / my hero on phones ---------------- */
   case 'gm': return sheet('GM screen', N.gmScreen(v).replace('<div class="gs">','<div class="gs" style="padding:0">'), '', {lead:`<span class="av narrav" style="--s:34px">${N.STAR}</span>`});
   case 'hero': return sheet('My character', N.heroQuick(v).replace('<div class="gs">','<div class="gs" style="padding:0">'));
+  case 'tokRm': { const t = N.tokById(arg); if (!t) return ''; const nm = esc(N.tokName(t)), npc = t.kind === 'npc' && G().npcs.some(n => n.id === t.ref);
+    return sheet(`Remove ${nm}?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">${nm} leaves the battlefield and the turn order for everyone.${npc ? ' Their NPC card stays in your cards.' : t.kind === 'pc' ? ' Their character card is not touched.' : ''}</p>`,
+      `<button type="button" class="btn ghost" ${v.dev === 'phone' ? `data-a="sheet" data-v="tok" data-c="${t.id}"` : 'data-a="closeSheet"'}>Keep them</button><button type="button" class="btn danger" data-a="tokRemove" data-t="${t.id}">${IC('trash')}Remove from fight</button>`); }
   case 'tok': { const t = N.tokById(arg); return t ? sheet(esc(N.tokName(t)), N.tokCard(v, t)) : ''; }
   case 'zone': { const z = g.combat.zones.find(x => x.id === arg); return z ? sheet('Edit zone', N.zoneForm(v, z), `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`) : ''; }
   /* ---------------- profile ---------------- */
