@@ -778,12 +778,24 @@ function openPop(v, type, el){
 
 /* ---------------- pictures ---------------- */
 /* portraits and scene pictures are shared with players, so they are stored as visible */
-function uploadFace(v, cb){ N.pickImage(img => { cb(N.storeImg(N.shrinkFace(img), true)); render(v); }); }
+/* every upload opens the framing editor first; the picture is kept whole and its frame rides on its name (core.js) */
+function pickFramed(v, kind, cb){ N.pickImage((img, file) => N.frameEdit(v, {url:img.src, kind, save:'Use this picture', onSave:f => cb(img, f, file)})); }
+/* Adjust: reframe a picture that is already in place */
+function reframe(v, kind, src, cb){ const url = N.faceUrl(src); if (url) N.frameEdit(v, {url, kind, frame:N.picFrame(src), onSave:f => cb(N.withFrame(src, f))}); }
+const samePic = (a, b) => N.picBase(a) === N.picBase(b);
+function uploadFace(v, cb){ pickFramed(v, 'face', (img, f) => { cb(N.withFrame(N.storeImg(N.shrink(img, 720, 300000), true), f)); render(v); }); }
 /* every background the GM uploads is kept on the GM screen shelf until it is deleted */
 /* a player's own picture lives on their card (players can't save pictures elsewhere), so it is kept small */
 function myFace(v, c, p){ c.portrait = p; v.ui.sheet = null; toast(v, p ? 'Picture changed.' : 'Picture removed.'); renderAll(); N.syncNow && N.syncNow(); }
 function keepPic(src){ const p = {id:uid('pic'), src}; G().pics = [p, ...G().pics]; return p; }
-function uploadPicture(v, cb){ N.pickImage(img => { const src = N.storeImg(N.shrink(img, 1600, 700000), true); keepPic(src); cb(src); render(v); }); }
+function uploadPicture(v, cb){ pickFramed(v, 'bg', (img, f) => { const src = N.withFrame(N.storeImg(N.shrink(img, 1600, 700000), true), f); keepPic(src); cb(src); render(v); }); }
+/* a reframed background changes everywhere it is in use right now */
+function reframePic(v, src){ reframe(v, 'bg', src, nu => {
+  const g = G(); g.pics.forEach(p => { if (samePic(p.src, src)) p.src = nu; }); g.recent.forEach(r => { if (r.art && samePic(r.art, src)) r.art = nu; });
+  if (g.combat.bg && samePic(g.combat.bg, src)) g.combat.bg = nu;
+  if (v.ui.sd?.art && samePic(v.ui.sd.art, src)) v.ui.sd.art = nu;
+  toast(v, 'Framing saved.'); renderAll();
+}); }
 
 /* ---------------- actions ---------------- */
 /* the fight on screen is the one in the open chat; picks made in another chat's fight don't carry over */
@@ -898,7 +910,7 @@ function act(v, a, el, e){
     ui.draft = ui.draft.slice(0, a) + t + ui.draft.slice(b); ui.pop = null; render(v);
     const f = v.root.querySelector('.composer textarea'); if (f) { f.focus({preventScroll:true}); f.setSelectionRange(a + t.length, a + t.length); } return; }
   /* the GM's own emoji pictures */
-  case 'emoAdd': if (!gm) break; N.pickImage(img => { ui.emoNew = {d:N.shrinkEmoji(img), n:''}; render(v); setTimeout(() => v.root.querySelector(`#emn-${v.id}`)?.focus(), 30); }); return;
+  case 'emoAdd': if (!gm) break; pickFramed(v, 'emoji', (img, f) => { ui.emoNew = {d:N.shrinkEmoji(N.cropToFrame(img, f)), n:''}; render(v); setTimeout(() => v.root.querySelector(`#emn-${v.id}`)?.focus(), 30); }); return;
   case 'emoCancel': ui.emoNew = null; break;
   case 'emoSave': { const e = ui.emoNew, n = N.emoName(e?.n); if (!gm || !e || !n || g.emoji.some(x => x.n === n)) break;
     g.emoji.push({id:n, n, d:e.d}); ui.emoNew = null; toast(v, `Added :${n}:. Everyone can use it now.`); renderAll(); return; }
@@ -976,11 +988,12 @@ function act(v, a, el, e){
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
   case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;
   /* pictures start as GM only; saving the entry shares them with whoever can read it */
-  case 'wdImgAdd': N.pickImage(img => { if (!ui.wd) return; ui.wd.imgs.push({src:N.storeImg(N.shrink(img, 1400, 600000), false), cap:''}); render(v); }); return;
+  case 'wdImgAdd': pickFramed(v, 'wiki', (img, f) => { if (!ui.wd) return; ui.wd.imgs.push({src:N.withFrame(N.storeImg(N.shrink(img, 1400, 600000), false), f), cap:''}); render(v); }); return;
+  case 'wdImgFrame': { const p = ui.wd?.imgs[+val]; if (p) reframe(v, 'wiki', p.src, nu => { p.src = nu; render(v); }); return; }
   case 'wdImgDel': {
     /* a picture added in this edit and removed again is deleted now; saved ones go when the entry is saved */
     const [p] = ui.wd.imgs.splice(+val, 1), old = ui.wd.id && g.wiki.find(x => x.id === ui.wd.id);
-    if (p && !(old && N.wikiPics(old).some(x => x.src === p.src))) N.dropImg(p.src);
+    if (p && !(old && N.wikiPics(old).some(x => samePic(x.src, p.src)))) N.dropImg(p.src);
     break;
   }
   case 'wDelGo': {
@@ -1014,7 +1027,7 @@ function act(v, a, el, e){
     if (old) for (const k of ['src','soon']) if (old[k]) en[k] = old[k];
     /* the lore's own picture joins the list, so it can be captioned or removed like the others */
     en.imgs = w.imgs.map(p => { const o = {src:p.src}; if (p.alt) o.alt = p.alt; if (p.cap?.trim()) o.cap = p.cap.trim(); return o; });
-    if (old) for (const p of N.wikiPics(old)) if (!en.imgs.some(x => x.src === p.src)) N.dropImg(p.src);
+    if (old) for (const p of N.wikiPics(old)) if (!en.imgs.some(x => samePic(x.src, p.src))) N.dropImg(p.src);
     const i = g.wiki.findIndex(x => x.id === en.id); if (i >= 0) g.wiki[i] = en; else g.wiki.push(en);
     ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
   }
@@ -1026,6 +1039,7 @@ function act(v, a, el, e){
   case 'pcEdit': openSheet(v, 'pcEdit', {v:val}); break;
   case 'pdPortrait': ui.pd.portrait = val; break;
   case 'pdUpload': uploadFace(v, src => { ui.pd.portrait = src; }); return;
+  case 'pdFrame': if (ui.pd?.portrait) reframe(v, 'face', ui.pd.portrait, nu => { ui.pd.portrait = nu; render(v); }); return;
   case 'pdSkillDel': delete ui.pd.skills[val]; break;
   case 'pdSkillMv': ui.pd.skills[val] = clamp(ui.pd.skills[val] + (+d.d), 1, 8); break;
   case 'pdStuntAdd': ui.pd.stunts.push(['','']); break;
@@ -1068,9 +1082,11 @@ function act(v, a, el, e){
   case 'npcEdit': openSheet(v, 'npcNew', {edit:val}); break;
   case 'myFace': { const c = N.charOf(v.role); if (c) myFace(v, c, val); return; }
   case 'myFaceNone': { const c = N.charOf(v.role); if (c) myFace(v, c, null); return; }
-  case 'myFaceUp': N.pickImage(img => { const c = N.charOf(v.role); if (c) myFace(v, c, N.shrinkFace(img, 168, .82)); }); return;
+  case 'myFaceUp': pickFramed(v, 'face', (img, f) => { const c = N.charOf(v.role); if (c) myFace(v, c, N.withFrame(N.shrink(img, 360, 60000), f)); }); return;
+  case 'myFaceFrame': { const c = N.charOf(v.role); if (c?.portrait) reframe(v, 'face', c.portrait, nu => myFace(v, c, nu)); return; }
   case 'ndPortrait': ui.nd.portrait = val; break;
   case 'ndUpload': uploadFace(v, src => { ui.nd.portrait = src; }); return;
+  case 'ndFrame': if (ui.nd?.portrait) reframe(v, 'face', ui.nd.portrait, nu => { ui.nd.portrait = nu; render(v); }); return;
   case 'ndType': ui.nd.type = val; break;
   case 'ndSkillDel': delete ui.nd.skills[val]; break;
   case 'ndSkillMv': ui.nd.skills[val] = clamp(ui.nd.skills[val] + (+d.d), 1, 8); break;
@@ -1141,6 +1157,7 @@ function act(v, a, el, e){
     break;
   }
   case 'sdPickUp': ui.sd.art = val; ui.sd.place = null; ui.sd.touched = true; break;
+  case 'sdFrame': if (ui.sd?.art) reframePic(v, ui.sd.art); return;
   case 'sdUpload': uploadPicture(v, src => { ui.sd.art = src; ui.sd.place = null; ui.sd.touched = true; ui.sd.tab = 'pics'; }); return;
   case 'sdAspAdd': { const t = (ui.sd.newAsp || '').trim(); if (t) { ui.sd.aspects.push({t, free:0}); ui.sd.newAsp = ''; } break; }
   case 'sdAspFree': { const a = ui.sd.aspects[+d.i]; a.free = ((a.free || 0) + 1) % 3; break; }
@@ -1206,6 +1223,7 @@ function act(v, a, el, e){
     renderAll(); return;
   }
   case 'cbBgUpload': uploadPicture(v, src => { cb.bg = src; }); return;
+  case 'picFrame': { const p = g.pics.find(x => x.id === val); if (p) reframePic(v, p.src); else if (val === 'fight' && cb.bg) reframePic(v, cb.bg); return; }
   case 'zoneEdit': ui.zoneSel = ui.zoneSel === val && v.dev === 'desktop' ? null : val; ui.cbTool = 'zone'; if (v.dev === 'phone') { ui.sheet = 'zone'; ui.sheetArg = val; } break;
   case 'zoneCol': cb.zones.find(z => z.id === d.z).col = val; renderAll(); return;
   case 'zoneDel': { const i = cb.zones.findIndex(z => z.id === d.z), z = cb.zones[i]; cb.zones.splice(i, 1); const moved = cb.tokens.filter(t => t.zone === z.id); moved.forEach(t => t.zone = null); ui.zoneSel = null; ui.sheet = null; toast(v, `Deleted ${z.name}.`, () => { cb.zones.splice(i, 0, z); moved.forEach(t => t.zone = z.id); }); renderAll(); return; }

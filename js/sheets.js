@@ -101,10 +101,11 @@ N.sheetHtml = function(v){
     const body = `
       <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
       <div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">Picture</h4><div class="seg"><button type="button" data-a="sdTab" data-v="recent" aria-pressed="${tab==='recent'}">Recent</button><button type="button" data-a="sdTab" data-v="pics" aria-pressed="${tab==='pics'}">Pictures</button><button type="button" data-a="sdTab" data-v="maps" aria-pressed="${tab==='maps'}">Map places</button></div></div>
-        <div class="thumbs">${pics.map(p => `<button type="button" class="thumb${isOn(p)?' on':''}" ${p.up ? `data-a="sdPickUp" data-v="${esc(p.art)}"` : `data-a="sdPick" data-v="${esc(p.id)}"`} style="${N.sceneArt(p)};${p.place?'background-size:420% auto':''}"><span>${esc(p.title)}<small>${esc(p.sub||'')}</small></span>${isOn(p)?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
+        <div class="thumbs">${pics.map(p => `<button type="button" class="thumb${isOn(p)?' on':''}" ${p.up ? `data-a="sdPickUp" data-v="${esc(p.art)}"` : `data-a="sdPick" data-v="${esc(p.id)}"`} style="${N.sceneArt(p)};${p.place?'background-size:420% auto':''}">${N.scenePic(p)}<span>${esc(p.title)}<small>${esc(p.sub||'')}</small></span>${isOn(p)?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
           ${tab==='pics'?`<button type="button" class="thumb up" data-a="sdUpload"><span>${IC('upload')}Upload a picture</span></button>`:''}
           ${tab==='recent' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Scenes you set show up here for one-tap reuse.</p>' : ''}
-          ${tab==='maps' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No places on the maps yet.</p>' : ''}</div></div>
+          ${tab==='maps' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No places on the maps yet.</p>' : ''}</div>
+          ${d.art && !d.place ? `<div style="margin-top:10px"><button type="button" class="btn sm ghost fr-adj" data-a="sdFrame">${IC('fit')}Adjust framing</button></div>` : ''}</div>
       <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
         <label class="field"><span>Scene name</span><input class="inp" id="sdt-${v.id}" data-i="sd" data-k="title" value="${esc(d.title)}" placeholder="e.g. A quiet back room"></label>
         <label class="field"><span>Where</span><input class="inp" id="sdw-${v.id}" data-i="sd" data-k="where" value="${esc(d.where)}" placeholder="Town or region"></label>
@@ -181,10 +182,10 @@ N.sheetHtml = function(v){
   case 'myFace': {
     const c = N.charOf(v.role); if (!c) return '';
     const cur = c.portrait, own = cur && !PORTRAITS.includes(cur) ? N.faceUrl(cur) : null;
-    const face = (src, on, attrs, label) => `<button type="button" ${attrs} aria-pressed="${on}"${label ? ` aria-label="${label}"` : ''}><span class="av" style="--c:var(--gold)"><img src="${esc(src)}" alt="" loading="lazy"></span></button>`;
+    const face = (src, on, attrs, label, css='') => `<button type="button" ${attrs} aria-pressed="${on}"${label ? ` aria-label="${label}"` : ''}><span class="av" style="--c:var(--gold)"><img src="${esc(src)}" alt="" loading="lazy" style="${css}"></span></button>`;
     return sheet('Your picture', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Shown next to everything ${esc(c.short)} says and on your card. Pick one or upload your own.</p>
-      <div class="facegrid">${own ? face(own, true, 'data-a="closeSheet"', 'Your current picture') : ''}${PORTRAITS.map(p => face(N.FACE(p), cur === p, `data-a="myFace" data-v="${p}"`, '')).join('')}<button type="button" data-a="myFaceUp" class="up"><span class="av">${IC('upload')}</span><span>Upload</span></button></div>`,
-      `${cur ? `<button type="button" class="btn ghost" data-a="myFaceNone">${IC('trash')}No picture</button>` : ''}<button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+      <div class="facegrid">${own ? face(own, true, 'data-a="closeSheet"', 'Your current picture', N.frameCss(cur)) : ''}${PORTRAITS.map(p => face(N.FACE(p), cur === p, `data-a="myFace" data-v="${p}"`, '')).join('')}<button type="button" data-a="myFaceUp" class="up"><span class="av">${IC('upload')}</span><span>Upload</span></button></div>`,
+      `${cur ? `<button type="button" class="btn ghost" data-a="myFaceNone">${IC('trash')}No picture</button>` : ''}${own ? `<button type="button" class="btn ghost" data-a="myFaceFrame">${IC('fit')}Adjust</button>` : ''}<button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
   }
   case 'pcDel': {
     const c = g.chars[arg];
@@ -215,7 +216,7 @@ N.sheetHtml = function(v){
         <label class="field"><span>Category</span><select class="inp" id="wdc-${v.id}" data-i="wd" data-k="cat">${[...new Set([...N.catNames(g.wiki), d.cat])].filter(Boolean).map(c => `<option ${d.cat===c?'selected':''}>${esc(c)}</option>`).join('')}</select></label></div>
       <label class="field"><span>One-line summary</span><input class="inp" id="wds-${v.id}" data-i="wd" data-k="summary" value="${esc(d.summary)}" placeholder="Shown in lists and at the top"></label>
       <label class="field"><span>Facts box, one per line as “Label: value”</span><textarea class="inp" id="wdi-${v.id}" data-i="wd" data-k="info" rows="3" placeholder="Ruler: …">${esc(d.info)}</textarea></label>
-      <div><h4>Pictures · a flag, a portrait, a sketch</h4><div class="wpics">${d.imgs.map((p, i) => `<div class="wpic"><img src="${esc(N.imgUrl(p.src))}" alt=""><input class="inp" id="wdp${i}-${v.id}" data-i="wd" data-k="cap" data-n="${i}" value="${esc(p.cap || '')}" placeholder="Caption (optional)" aria-label="Caption"><button type="button" class="ibtn" data-a="wdImgDel" data-v="${i}" aria-label="Remove this picture">${IC('trash')}</button></div>`).join('')}
+      <div><h4>Pictures · a flag, a portrait, a sketch</h4><div class="wpics">${d.imgs.map((p, i) => `<div class="wpic"><button type="button" class="wpth" data-a="wdImgFrame" data-v="${i}" aria-label="Adjust framing" title="Adjust framing">${N.wikiImg(p.src)}<span>${IC('fit')}</span></button><input class="inp" id="wdp${i}-${v.id}" data-i="wd" data-k="cap" data-n="${i}" value="${esc(p.cap || '')}" placeholder="Caption (optional)" aria-label="Caption"><button type="button" class="ibtn" data-a="wdImgDel" data-v="${i}" aria-label="Remove this picture">${IC('trash')}</button></div>`).join('')}
         <button type="button" class="btn" data-a="wdImgAdd" style="justify-self:start">${IC('upload')}Add a picture from your device</button></div></div>
       <label class="field"><span>Text · blank line between paragraphs · link entries with [[Title]]</span><textarea class="inp" id="wdb-${v.id}" data-i="wd" data-k="body" rows="8">${esc(d.body)}</textarea></label>
       <label class="field"><span>${lockIc}Secret notes, only you see these</span><textarea class="inp" id="wdx-${v.id}" data-i="wd" data-k="secret" rows="3" placeholder="What the players don’t know yet">${esc(d.secret)}</textarea></label>
@@ -320,7 +321,9 @@ function fzPick(v){
 }
 function portraitPick(sel, act, up){
   const custom = sel && !PORTRAITS.includes(sel) ? N.faceUrl(sel) : null;
-  return `<div class="who-row">${custom ? `<button type="button" aria-pressed="true"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${esc(custom)}" alt=""></span><span>Yours</span></button>` : ''}${PORTRAITS.map(p => `<button type="button" data-a="${act}" data-v="${p}" aria-pressed="${sel===p}"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${N.FACE(p)}" alt="" loading="lazy"></span></button>`).join('')}<button type="button" data-a="${up}"><span class="av" style="--s:52px;--c:var(--line-3);background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2)">${IC('upload').replace('<svg','<svg style="width:20px;height:20px"')}</span><span>Upload</span></button></div>`;
+  /* Upload and your own picture come first, so the new picture is in view right after the framing editor closes;
+     tapping your own picture opens the framing editor again */
+  return `<div class="who-row"><button type="button" data-a="${up}"><span class="av" style="--s:52px;--c:var(--line-3);background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2)">${IC('upload').replace('<svg','<svg style="width:20px;height:20px"')}</span><span>Upload</span></button>${custom ? `<button type="button" aria-pressed="true" data-a="${up.replace('Upload', 'Frame')}" title="Adjust framing"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${esc(custom)}" alt="" style="${N.frameCss(sel)}"></span><span>Adjust</span></button>` : ''}${PORTRAITS.map(p => `<button type="button" data-a="${act}" data-v="${p}" aria-pressed="${sel===p}"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${N.FACE(p)}" alt="" loading="lazy"></span></button>`).join('')}</div>`;
 }
 /* a skill ladder editor: rungs from top to bottom, each with a cap (or none) */
 function skillLadder(v, d, sel, del, rungs){

@@ -11,6 +11,7 @@ It runs on GitHub Pages and keeps everything in Firebase (Google sign-in + Fires
   - `js/core.js` holds the shared state and the Fate rules (ladder, dice, stress, combat helpers).
   - `js/views.js`, `js/combat.js` and `js/sheets.js` draw the screens, the fight board and the pop-up sheets.
   - `js/fx.js` plays the attack animations on the fight board (sword, bow or magic bolt, and the result over the target).
+  - `js/framer.js` is the framing editor every uploaded picture opens in (drag to move, pinch, scroll or slider to zoom); the frame is saved on the picture's name, so Adjust can change it later.
   - `js/app.js` handles taps, typing and drags. `js/sync.js` signs people in and keeps Firestore in step.
   - `css/app.css` is every style (night and day themes; phone and desktop layouts by container query).
   - `art/` holds the scene backdrops and portraits, `img/` small decorations, `maps/` the atlas images.

@@ -173,8 +173,8 @@ N.shrink = (img, max, limit=900000) => {
 };
 /* custom emoji: the whole picture fitted in a small square, transparent edges kept */
 N.shrinkEmoji = img => {
-  const S = 96, c = document.createElement('canvas'); c.width = c.height = S;
-  const k = S / Math.max(img.naturalWidth, img.naturalHeight), w = img.naturalWidth * k, h = img.naturalHeight * k;
+  const S = 96, c = document.createElement('canvas'), iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height; c.width = c.height = S;
+  const k = S / Math.max(iw, ih), w = iw * k, h = ih * k;
   c.getContext('2d').drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
   const png = c.toDataURL('image/png');
   return png.length < 24000 ? png : c.toDataURL('image/webp', .9).startsWith('data:image/webp') ? c.toDataURL('image/webp', .9) : png;
@@ -200,7 +200,8 @@ N.storeImg = (data, vis) => {
 };
 /* a deleted map takes its picture with it */
 N.dropImg = src => {
-  if (!F || !String(src || '').startsWith('fs:')) return;
+  src = N.picBase(src);
+  if (!F || !src.startsWith('fs:')) return;
   const id = src.slice(3); MIMG.delete(id); MVIS.delete(id);
   track(F.deleteDoc(dref('mapimgs/' + id)));
 };
@@ -244,7 +245,7 @@ function syncNow(){
       /* pictures in a wiki entry can be read by the same people as the entry */
       for (const e of g.wiki) for (const p of N.wikiPics(e)) {
         if (!p.src?.startsWith('fs:')) continue;
-        const id = p.src.slice(3), a = N.audOf(e, 'wiki'), vis = a === '*', aud = Array.isArray(a) ? a : [], k = visKey(vis, aud);
+        const id = N.picBase(p.src).slice(3), a = N.audOf(e, 'wiki'), vis = a === '*', aud = Array.isArray(a) ? a : [], k = visKey(vis, aud);
         if (MVIS.get(id) !== k) { MVIS.set(id, k); track(F.setDoc(dref('mapimgs/' + id), {vis, aud}, {merge:true})); }
       }
       writeUnits('gm/wiki', asUnits(g.wiki));

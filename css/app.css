@@ -486,6 +486,10 @@
 .app .rollsum{font:600 12.5px/1.3 var(--f-ui);color:var(--ink-3);text-align:center;margin-top:-4px}
 
 /* scene picker */
+/* a framed background picture: its own layer, so zooming it never zooms what sits on top */
+.app .pic{position:absolute;inset:0;z-index:-1;background:center/cover no-repeat;pointer-events:none;border-radius:inherit}
+.app .board .bg,.app .scene .art,.app .fightcard .art{overflow:hidden}
+.app .scenem .th{position:relative;overflow:hidden;isolation:isolate;flex:none}
 .app .thumbs{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .app .thumb{position:relative;aspect-ratio:16/10;border-radius:16px;overflow:hidden;background:var(--sunk) center/cover;text-align:left;box-shadow:0 0 0 1px var(--line-2);isolation:isolate;max-width:100%}
 .app .thumb::after{content:"";position:absolute;inset:0;z-index:0;background:linear-gradient(0deg,rgba(6,6,20,.85),transparent 60%)}
@@ -832,6 +836,16 @@
 .app .wpics{display:grid;gap:8px}
 .app .wpic{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;align-items:center}
 .app .wpic img{width:64px;height:48px;object-fit:contain;border-radius:8px;background:#fff;box-shadow:0 0 0 1px var(--line-2)}
+.app .wfr{display:block;aspect-ratio:var(--r);width:min(100%,calc(320px * var(--r)));overflow:hidden;margin:0 auto}
+.app .wfigs.many .wfr{width:min(100%,calc(220px * var(--r)))}
+.app .wfig .wfr img{width:100%;height:100%;max-height:none;object-fit:cover}
+/* the wiki editor's thumbnail is also the way back into the framing editor */
+.app .wpth{position:relative;width:64px;height:48px;display:grid;place-items:center;border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 0 0 1px var(--line-2)}
+.app .wpic .wpth img{width:100%;height:100%;box-shadow:none;border-radius:0}
+.app .wpth .wfr{width:auto;height:100%;max-width:100%;aspect-ratio:var(--r)}
+.app .wpth .wfr img{width:100%;height:100%;object-fit:cover}
+.app .wpth>span:last-child{position:absolute;right:3px;bottom:3px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:var(--gold-ink)}
+.app .wpth>span:last-child svg{width:12px;height:12px}
 .app .wfig figcaption{padding:8px 12px;font:600 12px/1.3 var(--f-ui);color:var(--ink-3);background:var(--raise)}
 .app .secret{position:relative;padding:14px 16px 14px 58px;border-radius:16px;background:repeating-linear-gradient(135deg,var(--sunk) 0 12px,color-mix(in srgb,var(--sunk) 70%,var(--accent-soft)) 12px 24px);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent)}
 .app .secret .seal{position:absolute;left:12px;top:12px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 30%,#b9a7ff,#5b47d6);color:#fff;box-shadow:0 4px 10px -4px var(--accent-glow)}
@@ -1927,3 +1941,26 @@
 .app .oppd .od{display:inline-flex;gap:3px}
 .app .roll .oppd .od span{translate:none;rotate:none;margin:0;width:16px;height:16px;border-radius:4px;display:grid;place-items:center;background:#e9e0c6;color:#2a2418;font:800 11px/1 var(--f-ui)}
 .app .oppd .od span.op{color:#1f7a4c}.app .oppd .od span.om{color:#b23b2a}
+
+/* ---------- framing editor (js/framer.js): drag, pinch, wheel or slider to fit an uploaded picture to its box ---------- */
+.app.frhost{position:absolute;inset:0;z-index:90;background:none;pointer-events:auto}
+.app.frhost .scrim{z-index:0}
+.app.frhost .sheet{z-index:1;max-height:94%}
+.app .framer .sh-b{gap:12px}
+.app .fr-shapes{justify-self:center;flex-wrap:wrap;justify-content:center}
+.app .fr-stage{position:relative;height:min(46vh,380px);min-height:220px;border-radius:18px;overflow:hidden;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none;
+  background:repeating-conic-gradient(var(--sunk) 0 25%,color-mix(in srgb,var(--sunk) 80%,var(--line-2)) 0 50%) 0 0/18px 18px;box-shadow:inset 0 0 0 1px var(--line-2)}
+.app .fr-stage:active{cursor:grabbing}
+.app .fr-stage:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.app .fr-img{position:absolute;max-width:none;pointer-events:none;-webkit-user-drag:none}
+.app .fr-win{position:absolute;pointer-events:none;border-radius:6px;box-shadow:0 0 0 2px var(--gold),0 0 0 9999px rgba(4,5,18,.62)}
+.app .fr-win.round{border-radius:50%}
+.app .fr-zoom{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px}
+.app .fr-zoom input{width:100%;accent-color:var(--gold);min-height:32px}
+.app .fr-hint{margin:0;font:600 12.5px/1.4 var(--f-ui);color:var(--ink-3);text-align:center}
+.app .fr-prev{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;font:700 10.5px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.app .fr-prev .av img{object-fit:cover}
+.app .fr-ban{position:relative;width:min(260px,58%);aspect-ratio:3.6;border-radius:10px;overflow:hidden;isolation:isolate;box-shadow:0 0 0 1px var(--line-2)}
+.app .fr-chip{position:relative;width:34px;height:34px;border-radius:50%;overflow:hidden;isolation:isolate;box-shadow:0 0 0 2px var(--gold-soft)}
+.app .fr-adj svg{width:16px;height:16px}
+@container dev (min-width: 760px){ .app .framer{width:min(640px,92%)} .app .fr-stage{height:min(52vh,420px)} }
