@@ -243,7 +243,9 @@ function bind(v){
   /* phones: swipes that follow the finger (see "swipes" below).
      In from the left edge, or across a page that has its own back arrow: one step back. At the top of a chat: the chat list,
      and pushing the list left puts it away. With a fight in this chat, swipe left for combat and right for roleplay. */
-  const NOSWIPE = HS + ',input,textarea,select,.tok,[data-rs],[data-zl],[data-mapcv],.pop,.sheet';
+  /* things that are dragged themselves (the map, the fight board, the picture framer) never start a swipe, not even at the edge */
+  const DRAGS = 'input,textarea,select,.tok,[data-rs],[data-zl],[data-mapcv],.fr-stage';
+  const NOSWIPE = HS + ',' + DRAGS + ',.pop,.sheet';
   let sw = null;
   root.addEventListener('touchstart', e => {
     if (swBusy(v)) return;
@@ -253,9 +255,9 @@ function bind(v){
     const fa = ui.tab === 'chat' && N.fightAvail(v), inFight = fa && ui.fightPane === 'fight';
     const s = {x:t.clientX, y:t.clientY, pts:[[t.clientX, e.timeStamp]]};
     if (ui.shelf) { if (e.target.closest('.shelf,.shelf-scrim')) sw = Object.assign(s, {k:'shelf'}); return; }
-    if (t.clientX < SW_EDGE && !inFight && !e.target.closest('input,textarea,select,[data-mapcv]')) { sw = Object.assign(s, {k:'back', edge:true}); return; }
+    if (t.clientX < SW_EDGE && !inFight && !e.target.closest(DRAGS)) { sw = Object.assign(s, {k:'back', edge:true}); return; }
     if (ui.sheet || ui.pop || e.target.closest(NOSWIPE)) return;
-    if (!fa) { if (ui.tab !== 'map' && pageBack(v)) sw = Object.assign(s, {k:'back'}); return; }
+    if (!fa) { if (ui.tab !== 'map' && pageBack(v) && !hScroll(e.target, root)) sw = Object.assign(s, {k:'back'}); return; }
     /* the GM drawing zones drags on the board, so the board doesn't swipe then */
     if (inFight && isGM(v) && ui.cbTool === 'zone' && e.target.closest('[data-board]')) return;
     sw = Object.assign(s, {k:'pane'});
@@ -292,6 +294,8 @@ function bind(v){
 const SW_EDGE = 32;
 /* while a swipe is under way, redraws wait for it to end (a stuck one stops counting after a few seconds) */
 const swBusy = v => !!v.swiping && performance.now() - v.swiping < 3000;
+/* a wide table or picture row that scrolls sideways keeps its own swipe */
+const hScroll = (el, root) => { for (let e = el; e && e !== root; e = e.parentElement) if (e.scrollWidth > e.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(e).overflowX)) return true; return false; };
 const pageBack = v => v.root.querySelector('.page [data-a][aria-label^="Back"]');
 function swStart(v, s, dx){
   const ui = v.ui, root = v.root;
@@ -1517,7 +1521,8 @@ N.kbInit = function(){
     const snap = !cur || calm.matches || !TOUCH.matches || window.innerWidth !== wide;
     wide = window.innerWidth;
     if (snap) { setH(h); tuck = kb ? 1 : 0; pin(); settle(); return; }
-    tw = {h0:cur, h1:h, u0:tuck, u1:kb ? 1 : 0, t0:performance.now(), dur:kb ? 260 : 240};
+    /* a small change (Android can resize in several steps while its keyboard slides) glides for less time */
+    tw = {h0:cur, h1:h, u0:tuck, u1:kb ? 1 : 0, t0:performance.now(), dur:clamp(Math.abs(h - cur) * .85, 100, kb ? 260 : 240)};
     tuckBars(); tw.raf = requestAnimationFrame(step);
   };
   const apply = () => { raf = 0;
