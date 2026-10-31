@@ -14,17 +14,19 @@ N.myTok = v => isGM(v) ? null : G().combat.tokens.find(t => N.isMine(t, v.role))
 
 function tokHtml(v, t, size){
   const g = G(), cb = g.combat, o = N.tokObj(t), st = N.tokStress(t), cur = N.curTok(), name = N.tokName(t);
+  /* while an attack on them plays (js/fx.js) they stand as they were until the blow lands */
+  const hold = N.fxHold && N.fxHold(v, t), out = t.out && !(hold && hold.up), on = i => st.s[i] && !(hold && hold.off === i);
   const cls = ['tok'];
   if (cb.state === 'live' && cur === t) cls.push('now');
   if (v.ui.tokSel === t.id || v.ui.placing === t.id) cls.push('sel');
-  if (t.out) cls.push('out');
+  if (out) cls.push('out');
   const actor = N.actorTok(v) || (isGM(v) && v.ui.targeting ? cur : null);
   if (v.ui.targeting === 'attack' && actor && t !== actor && !t.out) cls.push(actor.zone === t.zone && N.sideOf(t) !== N.sideOf(actor) ? 'target' : 'nope');
   const p = cb.pending;
   const hit = p && (p.def === t.id) ? ' style="--ring:var(--ember)"' : '';
   const mine = N.isMine(t, v.role);
   if (mine) cls.push('me');
-  return `<button type="button" class="${cls.join(' ')}" data-tok="${t.id}" aria-label="${esc(name)}${t.out?' (taken out)':''}"${hit}>${N.av(o, size)}<span class="nm">${mine?'You':esc(name)}</span>${t.out?'':`<span class="st">${st.v.map((x,i)=>`<i class="${st.s[i]?'on':''}"></i>`).join('')}</span>`}${t.kind==='npc'&&t.side==='ally'?`<span class="ji" title="Ally">${IC('heart')}</span>`:''}</button>`;
+  return `<button type="button" class="${cls.join(' ')}" data-tok="${t.id}" aria-label="${esc(name)}${out?' (taken out)':''}"${hit}>${N.av(o, size)}<span class="nm">${mine?'You':esc(name)}</span>${out?'':`<span class="st">${st.v.map((x,i)=>`<i class="${on(i)?'on':''}"></i>`).join('')}</span>`}${t.kind==='npc'&&t.side==='ally'?`<span class="ji" title="Ally">${IC('heart')}</span>`:''}</button>`;
 }
 N.tokHtml = tokHtml;
 
@@ -33,16 +35,19 @@ function boardHtml(v){
   const tool = gm ? (v.ui.cbTool || 'move') : 'move';
   const actor = N.actorTok(v) || (gm && v.ui.targeting ? N.curTok() : null);
   const edit = gm && tool === 'zone';
+  if (N.fxTrack) N.fxTrack(v);
+  /* in a zone with both sides in it, players and allies line up on the left edge and foes on the right */
+  const grp = (arr, c) => `<div class="zs ${c}" style="--cols:${arr.length > 6 ? 3 : arr.length > 2 ? 2 : 1}">${arr.map(t => tokHtml(v, t)).join('')}</div>`;
   const zones = cb.zones.map(z => {
     const cls = ['zone'];
     if (v.ui.targeting === 'attack' && actor) cls.push(z.id === actor.zone ? 'reach' : 'dim');
     if (v.ui.targeting === 'move' && actor) cls.push(z.id === actor.zone ? 'sel' : 'reach');
     if (v.ui.placing) cls.push('reach');
     if (gm && v.ui.zoneSel === z.id && edit) cls.push('sel');
-    const toks = cb.tokens.filter(t => t.zone === z.id);
+    const toks = cb.tokens.filter(t => t.zone === z.id), L = toks.filter(t => N.sideOf(t) !== 'foe'), R = toks.filter(t => N.sideOf(t) === 'foe');
     return `<div class="${cls.join(' ')}" data-zone="${z.id}" style="left:${z.x}%;top:${z.y}%;width:${z.w}%;height:${z.h}%;--zc:${z.col}">
-      <span class="zl" data-zl="${z.id}">${esc(z.name)}${toks.length?` <i>${toks.filter(t=>!t.out).length}</i>`:''}</span>
-      <div class="ztoks">${toks.map(t => tokHtml(v, t)).join('')}</div>
+      <span class="zl" data-zl="${z.id}">${esc(z.name)}${toks.length?` <i>${toks.filter(t=>!t.out || N.fxHold?.(v, t)?.up).length}</i>`:''}</span>
+      ${L.length && R.length ? `<div class="ztoks sides">${grp(L, 'l')}${grp(R, 'r')}</div>` : `<div class="ztoks">${toks.map(t => tokHtml(v, t)).join('')}</div>`}
       ${z.aspect ? `<div class="za"><span class="icard" style="--rot:-1deg">${esc(z.aspect)}${z.free?`<span class="fi">${'<i></i>'.repeat(z.free)}</span>`:''}</span></div>` : ''}
       ${edit ? `<span class="rs" data-rs="${z.id}" aria-label="Resize ${esc(z.name)}"></span>` : ''}
     </div>`;
@@ -56,13 +61,13 @@ function boardHtml(v){
   const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.left!=null?` · ${a.left>0?a.left+' left':'last action'}`:''}</span>`:''}${esc(a.t || 'Unnamed boost')}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
   return `<div class="boardwrap"><div class="board${edit?' edit drawing':''}" data-board="1" aria-label="Battlefield: ${esc(cb.title)}">
     <div class="bg" style="background-image:url(${esc(N.imgUrl(cb.bg) || N.FIGHTBG)})"></div>
-    ${zones}${sasp}${hint}${diceFx(v)}
+    <div class="cam">${zones}</div>${sasp}${hint}${diceFx(v)}
   </div></div>`;
 }
 
 /* the newest roll in the fight tumbles across the board on every screen, once, as it arrives.
    Each redraw restarts the animation with a negative delay, so it carries on where it was. */
-const FX_MS = 2600;
+const FX_MS = N.FX_MS = 2600;
 function diceFx(v){
   const g = G(), cb = g.combat, ch = N.fightCh();
   if (cb.state !== 'live') return '';
@@ -527,21 +532,24 @@ N.cbResolve = function(again){
   const wpn = sh > 0 ? N.tokGear(a, 'gearAtk') : 0, arm = sh > 0 ? N.tokGear(d, 'gearDef') : 0;
   const dmg = Math.max(0, sh + wpn - arm - (p.boosted ? 2 : 0)), fx = p.fx = p.fx || {};
   const boost = (o, on) => { (fx.boosts = fx.boosts || []).push(N.addBoost(o, on).id); };
-  let out, after, calc = null;
+  let out, after, calc = null, fo;
   if (sh > 0) {
     if (wpn || arm || p.boosted) calc = `Hit by ${sh}${wpn ? ` · weapon +${wpn}` : ''}${arm ? ` · armor −${arm}` : ''}${p.boosted ? ' · traded −2 for a boost' : ''} = ${dmg} shift${dmg===1?'':'s'}`;
     const style = sh >= 3 && dmg > 0 && !p.boosted;
     out = {k:'hit', t:dmg ? `Hit${style ? ' with style' : ''} · ${dmg} shift${dmg>1?'s':''}` : 'Hit · armor holds'};
-    if (!dmg) { after = `${dn}’s armor takes the whole blow. No harm done.`; N.cbSettled(p); }
-    else if (style) { p.stage = 'style'; p.dmg = dmg; after = `${N.gmName()} picks: the full ${dmg} shift${dmg>1?'s':''}, or ${Math.max(0, dmg - 2)} and a boost on ${dn}.`; }
-    else if (d.kind === 'npc') { after = N.applyHit(d, dmg, fx); N.cbSettled(p); }
-    else { p.stage = 'absorb'; p.shifts = dmg; after = `${dn} must soak ${dmg} shift${dmg>1?'s':''}: check a stress box or take a consequence.`; }
-  } else if (sh === 0) { out = {k:'tie', t:'Tie'}; after = `No harm done. ${an} gets a boost on ${dn}.`; N.cbSettled(p); boost(a, d); }
-  else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ` and gets a boost on ${an}` : ''}. No harm done.`; N.cbSettled(p); if (sh <= -3) boost(d, a); }
+    if (!dmg) { after = `${dn}’s armor takes the whole blow. No harm done.`; N.cbSettled(p); fo = 'armor'; }
+    else if (style) { p.stage = 'style'; p.dmg = dmg; after = `${N.gmName()} picks: the full ${dmg} shift${dmg>1?'s':''}, or ${Math.max(0, dmg - 2)} and a boost on ${dn}.`; fo = 'style'; }
+    else if (d.kind === 'npc') { after = N.applyHit(d, dmg, fx); N.cbSettled(p); fo = fx.out ? 'out' : 'hit'; }
+    else { p.stage = 'absorb'; p.shifts = dmg; after = `${dn} must soak ${dmg} shift${dmg>1?'s':''}: check a stress box or take a consequence.`; fo = 'hit'; }
+  } else if (sh === 0) { out = {k:'tie', t:'Tie'}; after = `No harm done. ${an} gets a boost on ${dn}.`; N.cbSettled(p); boost(a, d); fo = 'tie'; }
+  else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ` and gets a boost on ${an}` : ''}. No harm done.`; N.cbSettled(p); if (sh <= -3) boost(d, a); fo = sh <= -3 ? 'bstyle' : 'block'; }
   const att = am ? rollLine(an, am.roll) : {n:an, sk:p.skill, b:0, g:0, tot:p.total}; att.tot = p.total;
   const title = `${an} attacks ${dn}${again ? ', after invokes' : ''}`;
   const res = {k:'clash', title, rows:[att, rollLine(dn, dm.roll)], out, after};
   if (calc) res.calc = calc;
+  /* what every screen's board plays (js/fx.js): the weapon from the attack skill, the outcome, and the box the hit checked */
+  res.anim = {att:a.id, def:d.id, wpn:N.fxWeapon ? N.fxWeapon(p.skill) : 'sword', out:fo, dmg};
+  if (fx.box != null) res.anim.box = fx.box;
   N.push({ch:N.fightCh(), kind:'sys', by:g.role, text:`${title}: ${sgn(p.total)} against ${sgn(dt)}. ${calc ? calc + '. ' : ''}${out.t}. ${after}`, res});
 };
 /* the GM's pick after an attack with style: the full damage, or 2 less and a boost on the defender */
