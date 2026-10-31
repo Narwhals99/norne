@@ -490,7 +490,8 @@ N.creditsHtml = () => `<div class="note">${IC('heart')}Everything here is free t
     ['game-icons.net','Combat, item and category icons, and the triquetra on the Parchment & Wax seal · by Lorc, Delapouite and others','CC BY 3.0'],
     ['Phosphor Icons','Interface icons','MIT'],
     ['Nörne maps and lore','Maps and wiki text','The GM’s own campaign notes'],
-    ['Fonts','Cinzel, Fraunces, Nunito Sans, IM Fell English, IM Fell DW Pica, Alegreya, UnifrakturMaguntia','SIL Open Font License · Google Fonts'],
+    ['Kenney UI Pack: Adventure','Frames, buttons, the ribbon, rings and the star of the Oak & Iron style, some recoloured · by Kenney','CC0 (public domain) · kenney.nl'],
+    ['Fonts','Cinzel, Fraunces, Nunito Sans, Nunito, IM Fell English, IM Fell DW Pica, Alegreya, UnifrakturMaguntia, Vollkorn, Grenze, Grenze Gotisch','SIL Open Font License · Google Fonts'],
     ['Parchment & Wax textures','Papyrus, vellum and the wax seal were drawn for Norne','Free to use'],
   ].map(([a,b,c]) => `<div class="mem" style="grid-template-columns:1fr"><span><b>${a}</b><small>${b}</small><small style="display:block;color:var(--gold-tx)">${c}</small></span></div>`).join('')}</div>`;
 })();

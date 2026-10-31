@@ -25,7 +25,10 @@ const STYLES = [
     day:{bg:'#f1e9d0', card:'#fffcf2', ink:'#27301b', acc:'#5e8a2e', hi:'#d29b2a'}},
   {id:'parchment', name:'Parchment & Wax', sub:'Papyrus, old ink and red sealing wax',
     night:{bg:'#1b130c url(art/ui/vellum-night.jpg) 0 0/180px', card:'#3b2d1f', ink:'#f0e2c4', acc:'#b8322b', hi:'#e0b263'},
-    day:{bg:'#dcc79d url(art/ui/parchment.jpg) 0 0/180px', card:'#fbf4e1', ink:'#2a1c0f', acc:'#9b2320', hi:'#9a6a1c'}}
+    day:{bg:'#dcc79d url(art/ui/parchment.jpg) 0 0/180px', card:'#fbf4e1', ink:'#2a1c0f', acc:'#9b2320', hi:'#9a6a1c'}},
+  {id:'oak', name:'Oak & Iron', sub:'Wooden frames, iron corners and red ribbons',
+    night:{bg:'#1e2733 url(art/ui/oak/stripes-night.svg) 0 0/24px', card:'#3a2919', ink:'#fff1d2', acc:'#b5483f', hi:'#f0bd55'},
+    day:{bg:'#aabdcc url(art/ui/oak/stripes-day.svg) 0 0/24px', card:'#fff1d2', ink:'#3a2513', acc:'#c6594f', hi:'#d9a03a'}}
 ];
 N.STYLES = STYLES;
 N.styleOk = id => STYLES.some(s => s.id === id) ? id : 'storybook';
