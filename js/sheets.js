@@ -115,6 +115,7 @@ N.sheetHtml = function(v){
     const pending = N.MEMBERS.filter(m => m.role === 'pending').length, my = N.me();
     const body = `<div class="prof">${N.av(me,56)}<span><b>${esc(my?.name || me.name)}</b><small>${gm?'Game master':'Player'} · ${esc(my?.email || 'signed in with Google')}</small></span></div>
       <div><h4>Appearance</h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="night" aria-pressed="${v.theme==='night'}">${IC('moon')}Night</button><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="day" aria-pressed="${v.theme==='day'}">${IC('sun')}Day</button></div></div>
+      <div><h4>Style</h4>${stylePick(v)}</div>
       <div><h4>Notifications</h4>${notifyToggle()}</div>
       <div class="menu">
         ${gm ? `<button type="button" data-a="sheet" data-v="players">${IC('userplus')}<span>Players and sign-ins<small>Let people in, rename or remove them</small></span><span class="end">${pending?`<span class="badge">${pending}</span>`:IC('right')}</span></button>
@@ -279,6 +280,12 @@ function notifyToggle(){
     blocked:'Your browser blocks them for this site. Allow notifications in its site settings, then try again.', install:'On iPhone, add Norne to your home screen first (Share > Add to Home Screen), then turn this on there.', none:'This browser can’t show notifications.'}[st];
   return `<button type="button" class="toggle" data-a="notify" aria-pressed="${st==='on'}">${IC(st==='on'?'herald':'clock')}<span>Notifications on this device<small>${sub}</small></span><span class="sw"></span></button>`;
 }
+/* every style as a card: a little Night and Day picture of it, its name, and a tick on the one in use */
+function stylePick(v){
+  const sw = t => `<i style="--sw-bg:${t.bg};--sw-card:${t.card};--sw-ink:${t.ink};--sw-acc:${t.acc};--sw-hi:${t.hi}"><b></b><b></b><em></em></i>`;
+  return `<div class="stylepick">${N.STYLES.map(s => `<button type="button" class="stc" data-a="style" data-v="${s.id}" aria-pressed="${v.style===s.id}">
+    <span class="sw" aria-hidden="true">${sw(s.night)}${sw(s.day)}</span><span class="t"><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span>${v.style===s.id?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}</div>`;
+}
 function portraitPick(sel, act, up){
   const custom = sel && !PORTRAITS.includes(sel) ? N.faceUrl(sel) : null;
   return `<div class="who-row">${custom ? `<button type="button" aria-pressed="true"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${esc(custom)}" alt=""></span><span>Yours</span></button>` : ''}${PORTRAITS.map(p => `<button type="button" data-a="${act}" data-v="${p}" aria-pressed="${sel===p}"><span class="av" style="--s:52px;--c:var(--gold)"><img src="${N.FACE(p)}" alt="" loading="lazy"></span></button>`).join('')}<button type="button" data-a="${up}"><span class="av" style="--s:52px;--c:var(--line-3);background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2)">${IC('upload').replace('<svg','<svg style="width:20px;height:20px"')}</span><span>Upload</span></button></div>`;
@@ -412,9 +419,10 @@ N.creditsHtml = () => `<div class="note">${IC('heart')}Everything here is free t
     ['Battle for Wesnoth art','Portraits and scene backdrops','GNU GPL 2.0 or later · wesnoth.org'],
     ['WTactics card art','Scene backdrops · by Santiago Iborra and others (edges trimmed)','CC BY-SA 4.0 · wtactics.org'],
     ['Flare game art','Backdrops','CC BY-SA 3.0 · flarerpg.org'],
-    ['game-icons.net','Combat, item and category icons · by Lorc, Delapouite and others','CC BY 3.0'],
+    ['game-icons.net','Combat, item and category icons, and the triquetra on the Parchment & Wax seal · by Lorc, Delapouite and others','CC BY 3.0'],
     ['Phosphor Icons','Interface icons','MIT'],
     ['Nörne maps and lore','Maps and wiki text','The GM’s own campaign notes'],
-    ['Fonts','Cinzel, Fraunces, Nunito Sans, IM Fell English, UnifrakturMaguntia','SIL Open Font License · Google Fonts'],
+    ['Fonts','Cinzel, Fraunces, Nunito Sans, IM Fell English, IM Fell DW Pica, Alegreya, UnifrakturMaguntia','SIL Open Font License · Google Fonts'],
+    ['Parchment & Wax textures','Papyrus, vellum and the wax seal were drawn for Norne','Free to use'],
   ].map(([a,b,c]) => `<div class="mem" style="grid-template-columns:1fr"><span><b>${a}</b><small>${b}</small><small style="display:block;color:var(--gold)">${c}</small></span></div>`).join('')}</div>`;
 })();
