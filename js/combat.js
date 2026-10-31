@@ -141,7 +141,7 @@ function nowState(v){
       return {tok:pd, tone:'alert', eye:'Soak the hit', title:`${N.tokName(pd)} takes ${p.shifts} shift${pl(p.shifts)}`, sub:`Pick how ${N.tokName(pd)} soaks it. An invoke on the defense roll can still lower it.`,
         acts:soakBtns(g.chars[pd.ref], p) + `<button type="button" class="btn sm ghost" data-a="cbDrop">Settle it by hand</button>`};
     if (cur) return {tok:cur, tone:'turn', eye:cb.acted ? 'You act for · action done' : 'You act for', title:N.tokName(cur),
-      acts:cb.acted ? moveBtn(v) : actBar(v, cur), end:nextBtn('Next turn', cb.acted)};
+      acts:cb.acted ? moveBtn(v) + evBtn('btn sm') : actBar(v, cur), end:nextBtn('Next turn', cb.acted)};
     return {tone:'wait', eye:'Waiting', title:'Nobody on the board', sub:'Add someone and place them in a zone.'};
   }
   if (cb.phase) return {tone:'wait', eye:'The fight is on', title:'Rolling for turn order', sub:`${gmN} rolls Notice for everyone.`};
@@ -188,10 +188,12 @@ function latestHtml(v){
   const rh = roll ? N.rRoll(v, roll) : ''; v._lastRoll = keep;
   return `<div class="fight-latest"><span class="eyebrow">Last in the fight<button type="button" class="lnk" data-a="pane" data-v="chat">Whole chat${IC('right')}</button></span>${res && (!roll || res.t > roll.t) ? N.resCard(res.res) + rh : rh + (res ? N.resCard(res.res) : '')}</div>`;
 }
+/* a GM's secret custom event in this fight: it lives in GM notes (players never get it) but shows in the GM's fight log */
+const secretEv = (m, cid) => m.ch === 'gm' && m.kind === 'roll' && !!m.roll.cid && m.roll.cid === cid;
 /* GM, phones: everything that happened in this fight as small lines in their own scroll, newest at the bottom */
 function feedHtml(v){
   const g = G(), ch = N.fightCh(), cb = g.combat, start = g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cb.id);
-  const ms = g.msgs.filter(m => m.ch === ch && (!start || m.t >= start.t));
+  const ms = g.msgs.filter(m => (m.ch === ch || secretEv(m, cb.id)) && (!start || m.t >= start.t));
   const last = ms.findLast(m => m.kind === 'roll'), p = cb.pending;
   const live = m => isGM(v) && (m === last || (p && (m.id === p.msgId || m.id === p.defMsg)));
   /* only the fight: its rolls, results, notices and fight chat. Roleplay talk stays in the roleplay chat */
@@ -203,7 +205,7 @@ function feedHtml(v){
    rolls, results and notices. They are left out of the chat, so they show here as full cards (the newest roll open, with Invoke) */
 function recentHtml(v, mode){
   const g = G(), cb = g.combat, start = mode === 'cb' && g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cb.id);
-  const ms = g.msgs.filter(m => m.ch === v.ui.ch && (mode === 'cb' ? N.isFightAct(m) && (!m.fc || m.fc === cb.id) && (!start || m.t >= start.t) : N.isAction(m) && !N.isFightAct(m))).slice(-60);
+  const ms = g.msgs.filter(m => (m.ch === v.ui.ch || (mode === 'cb' && secretEv(m, cb.id))) && (mode === 'cb' ? N.isFightAct(m) && (!m.fc || m.fc === cb.id) && (!start || m.t >= start.t) : N.isAction(m) && !N.isFightAct(m))).slice(-60);
   const rows = actRows(v, ms);
   return `<div class="ff-list scroll" data-sk="recent-${mode}" data-bottom="1">${rows || `<p class="muted">${mode === 'cb' ? 'Rolls and results in this fight show up here.' : 'Rolls, stress, inventory and other notes from this chat show up here.'}</p>`}</div>`;
 }
@@ -224,7 +226,7 @@ function actRows(v, ms, past){
 N.fightMsgs = cid => {
   const g = G(), st = g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cid); if (!st) return [];
   const end = g.msgs.find(m => m.fightEnd === cid);
-  return g.msgs.filter(m => m.ch === st.ch && m.t >= st.t && (!end || m.t <= end.t) && (m === st || (N.isFightAct(m) && (!m.fc || m.fc === cid))));
+  return g.msgs.filter(m => (m.ch === st.ch || secretEv(m, cid)) && m.t >= st.t && (!end || m.t <= end.t) && (m === st || (N.isFightAct(m) && (!m.fc || m.fc === cid))));
 };
 N.fightRecHtml = (v, cid) => `<div class="ff-list fight-rec">${actRows(v, N.fightMsgs(cid), true) || '<p class="muted">Nothing was rolled in this fight.</p>'}</div>`;
 N.recentHtml = recentHtml;
@@ -233,6 +235,8 @@ function feedRow(m, live){
   if (m.kind === 'roll') {
     const r = m.roll, tot = N.rollTotal(r), dice = r.dice.map(d => `<i class="${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':''}</i>`).join('');
     const inv = r.invokes.length ? ` · ${r.invokes.length} invoke${pl(r.invokes.length)}` : '';
+    if (r.event) return line(`<span class="ffd">${dice}</span>`, `<b>${esc(r.who)}</b> ${esc(r.skill)} event${N.evText(r) ? `: ${esc(N.evText(r))}` : ''}${r.vs ? ` against ${esc(r.vs.name || r.vs.skill)}` : ''}${m.ch === 'gm' ? ' · secret' : ''}${inv}`, ' roll ev',
+      `<b class="ffv">${sgn(tot)}${r.opp != null ? `<small> vs ${sgn(r.opp)}</small>` : ''}</b>${live && m.ch !== 'gm' ? `<button type="button" class="ffb" data-a="invoke" data-id="${m.id}">${IC('cards')}Invoke</button>` : ''}`);
     return line(`<span class="ffd">${dice}</span>`, `<b>${esc(r.who)}</b> ${esc(r.skill)} ${esc(r.action.toLowerCase())}${r.target ? ` ${r.action === 'Defend' ? 'against' : 'on'} ${esc(r.target)}` : ''}${inv}`, ' roll',
       `<b class="ffv">${sgn(tot)}</b>${live && m.ch !== 'gm' ? `<button type="button" class="ffb" data-a="invoke" data-id="${m.id}">${IC('cards')}Invoke</button>` : ''}`);
   }
@@ -250,6 +254,8 @@ function feedRow(m, live){
 function moveBtn(v){
   return G().combat.moved ? '' : `<button type="button" class="btn sm" data-a="cbAct" data-v="move" aria-pressed="${v.ui.targeting==='move'}">${IC('boots')}Move</button>`;
 }
+/* GM only: a roll the four actions don't cover, like mind magic. Built like a roleplay roll, it lands in the fight log */
+const evBtn = cls => `<button type="button" class="${cls} ev" data-a="cbAct" data-v="event" title="Custom event: a skill roll like mind magic">${IC('magic')}${cls === 'abtn' ? 'Event' : 'Custom event'}</button>`;
 function actBar(v, t){
   const cb = G().combat, inZone = N.foesOf(t).length, owed = cb.pending;
   const tg = v.ui.targeting;
@@ -258,6 +264,7 @@ function actBar(v, t){
     <button type="button" class="abtn" data-a="cbAct" data-v="advantage">${IC('advantage')}Advantage</button>
     <button type="button" class="abtn" data-a="cbAct" data-v="overcome">${IC('overcome')}Overcome</button>
     <button type="button" class="abtn" data-a="cbAct" data-v="move" aria-pressed="${tg==='move'}" ${cb.moved?'disabled title="Already moved this turn"':''}>${IC('boots')}Move</button>
+    ${evBtn('abtn')}
   </div>`;
 }
 function gmRow(v){

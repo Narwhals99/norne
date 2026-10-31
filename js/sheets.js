@@ -31,6 +31,18 @@ N.rollers = v => {
   out.push({key:'other', name:'Someone else', color:'var(--line-3)', skills:{}, other:true});
   return out;
 };
+/* who a roll can be against. In a custom fight event, everyone else on the board first, then the NPC cards not on it;
+   anywhere else, the NPC cards. Ids are 'tok:<token>' for the board and the NPC card's own id otherwise */
+N.vsCands = (v, r) => {
+  const g = G(), cb = g.combat;
+  const cards = g.npcs.map(n => ({id:n.id, name:n.name, portrait:n.portrait, color:'var(--c-npc)', skills:n.skills || {}}));
+  if (!(r.event && r.ctx === 'cb' && cb.state === 'live')) return cards.filter(n => 'npc:' + n.id !== r.who);
+  const self = r.who.startsWith('tok:') ? r.who.slice(4) : r.who.startsWith('pc:') ? (cb.tokens.find(t => t.kind === 'pc' && t.ref === r.who.slice(3)) || {}).id : null;
+  const toks = cb.tokens.filter(t => t.zone && !t.out && t.id !== self);
+  return [...toks.map(t => ({id:'tok:' + t.id, ...N.tokObj(t), name:N.tokName(t), skills:N.tokSkills(t), board:true})),
+    ...cards.filter(n => 'npc:' + n.id !== r.who && !toks.some(t => t.kind === 'npc' && t.ref === n.id))];
+};
+N.vsFind = (v, r, id) => id ? N.vsCands(v, r).find(n => n.id === id) || null : null;
 N.rollerOf = (v, key) => N.rollers(v).find(r => r.key === key) || N.rollers(v)[0];
 
 N.sheetHtml = function(v){
@@ -50,33 +62,35 @@ N.sheetHtml = function(v){
     const fightAtk = r.action === 'attack' && inFight;
     /* out of a fight the GM can roll against one of their NPC cards: pick the skill it's rolled against, then the NPC,
        and the difficulty becomes that NPC's rating in it (still changeable). No NPC means the GM sets the difficulty. */
-    const rp = gm && !fightAtk && r.ctx !== 'cb';
-    const vsN = rp && r.vsNpc ? g.npcs.find(n => n.id === r.vsNpc) : null, vsVal = vsN && r.vsSkill ? (vsN.skills[r.vsSkill] || 0) : null;
-    const oppList = [null,0,1,2,3,4,5,6]; if (r.opp != null && !oppList.includes(r.opp)) oppList.push(r.opp);
+    const ev = gm && r.event && r.ctx === 'cb' && cb.state === 'live';
+    const rp = gm && !fightAtk && (r.ctx !== 'cb' || ev);
+    const vsN = rp ? N.vsFind(v, r, r.vsNpc) : null, vsVal = vsN && r.vsSkill ? (vsN.skills[r.vsSkill] || 0) : null;
+    const oppList = [null,0,1,2,3,4,5,6,7,8,9]; if (r.opp != null && !oppList.includes(r.opp)) oppList.push(r.opp);
     const oppChips = `<div class="ladder-chips">${oppList.map(x => `<button type="button" class="lchip" data-a="rollOpp" data-v="${x}" aria-pressed="${r.opp===x}"><b>${x==null?'—':sgn(x)}</b>${x==null?'No target':ladderWord(x)}</button>`).join('')}</div>`;
-    const vsNpcs = rp ? g.npcs.filter(n => 'npc:' + n.id !== who.key) : [];
+    const vsNpcs = rp ? N.vsCands(v, r) : [];
     const vsHtml = rp ? `<div class="vsbox"><h4>Rolled against</h4>
         <div class="vssk">${N.MUNDANE.map(k => `<button type="button" data-a="rollVsSkill" data-v="${k}" aria-pressed="${r.vsSkill===k}">${k}${vsN ? `<b>${sgn(vsN.skills[k] || 0)}</b>` : ''}</button>`).join('')}</div>
-        ${vsNpcs.length ? `<h4>NPC (optional)</h4><div class="who-row vsnpc"><button type="button" data-a="rollVsNpc" data-v="" aria-pressed="${!vsN}"><span class="av" style="--s:44px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('x').replace('<svg','<svg style="width:18px;height:18px"')}</span><span>No NPC</span></button>${vsNpcs.map(n => `<button type="button" data-a="rollVsNpc" data-v="${n.id}" aria-pressed="${vsN===n}">${N.av({name:n.name, portrait:n.portrait, color:'var(--c-npc)'},44)}<span>${esc(n.name)}</span></button>`).join('')}</div>` : ''}
+        ${vsNpcs.length ? `<h4>${ev ? 'Against someone (optional)' : 'NPC (optional)'}</h4><div class="who-row vsnpc"><button type="button" data-a="rollVsNpc" data-v="" aria-pressed="${!vsN}"><span class="av" style="--s:44px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('x').replace('<svg','<svg style="width:18px;height:18px"')}</span><span>${ev ? 'No one' : 'No NPC'}</span></button>${vsNpcs.map(n => `<button type="button" data-a="rollVsNpc" data-v="${n.id}" aria-pressed="${!!vsN && vsN.id===n.id}">${N.av(n,44)}<span>${esc(n.name)}</span></button>`).join('')}</div>` : ''}
         <h4>${vsN ? 'Difficulty' : 'Set a difficulty'}</h4>${oppChips}
-        ${r.opp != null ? `<button type="button" class="toggle" data-a="rollPassive" aria-pressed="${r.passive !== false}">${IC('defend')}<span>Passive<small>${r.passive !== false ? `${vsN ? esc(vsN.name) : 'The other side'} doesn’t roll. You roll against ${sgn(r.opp)}.` : `${vsN ? esc(vsN.name) : 'The other side'} rolls 4 Fate dice ${sgn(r.opp)} too, and you roll against their total.`}</small></span><span class="sw"></span></button>` : ''}
+        <button type="button" class="toggle" data-a="rollPassive" aria-pressed="${r.passive !== false}">${IC('defend')}<span>Passive<small>${r.opp == null ? `Pick a difficulty above. On, ${vsN ? esc(vsN.name) : 'the other side'} doesn’t roll; off, they roll 4 Fate dice on top of it.` : r.passive !== false ? `${vsN ? esc(vsN.name) : 'The other side'} doesn’t roll. You roll against ${sgn(r.opp)}.` : `${vsN ? esc(vsN.name) : 'The other side'} rolls 4 Fate dice ${sgn(r.opp)} too, and you roll against their total.`}</small></span><span class="sw"></span></button>
         ${vsN ? `<p class="vsnote">${!r.vsSkill ? `Pick the skill ${esc(vsN.name)} rolls against and the difficulty follows it.` : r.opp === vsVal ? `${esc(vsN.name)}’s ${esc(r.vsSkill)} is ${sgn(vsVal)}, so that’s ${r.passive !== false ? 'the difficulty' : 'what they roll'}.` : `Set by hand. ${esc(vsN.name)}’s ${esc(r.vsSkill)} is ${sgn(vsVal)}.`}</p>` : ''}</div>` : '';
     const whoAv = o => o.other ? `<span class="av" style="--s:44px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('person-plus').replace('<svg','<svg style="width:20px;height:20px"')}</span>` : N.av(o,44);
     const body = `
       ${gm ? `<div><h4>Who rolls</h4><div class="who-row">${N.rollers(v).map(o => `<button type="button" data-a="rollWho" data-v="${o.key}" aria-pressed="${o.key===who.key}">${whoAv(o)}<span>${esc(o.name)}</span></button>`).join('')}</div></div>` : ''}
       ${other ? `<div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))"><label class="field"><span>Name</span><input class="inp" id="rother-${v.id}" data-i="rollOther" value="${esc(r.otherName)}" placeholder="e.g. City watch guard"></label>
         <div class="field"><span>Bonus</span><div class="seg" style="justify-content:space-between;width:100%"><button type="button" data-a="rollBonus" data-d="-1" aria-label="Less">${IC('minus')}</button><b style="align-self:center;font:700 18px/1 var(--f-display)">${sgn(bonus)}</b><button type="button" data-a="rollBonus" data-d="1" aria-label="More">${IC('plus')}</button></div></div></div>` : ''}
-      <div><h4>What are you doing?</h4><div class="acts">${N.ACTIONS.map(([l,k]) => `<button type="button" class="act" data-a="rollAct" data-v="${k}" aria-pressed="${r.action===k}">${IC(k)}${l.replace('Create an advantage','Advantage')}</button>`).join('')}</div></div>
+      ${ev ? `<label class="field"><span>What’s happening</span><input class="inp" id="rev-${v.id}" data-i="rollEv" value="${esc(r.evText||'')}" placeholder="e.g. Mind magic: reaches into the guard’s thoughts"></label>` : ''}
+      <div><h4>What are you doing?</h4><div class="acts">${N.ACTIONS.filter(a => !ev || a[1] !== 'attack').map(([l,k]) => `<button type="button" class="act" data-a="rollAct" data-v="${k}" aria-pressed="${r.action===k}">${IC(k)}${l.replace('Create an advantage','Advantage')}</button>`).join('')}</div></div>
       ${r.action === 'attack' && inFight ? `<div><h4>Target · same zone only</h4>${targets.length ? `<div class="tgts">${targets.map(t => `<button type="button" class="tgt" data-a="rollTgt" data-v="${t.id}" aria-pressed="${r.target===t.id}">${N.av(N.tokObj(t),32)}${esc(N.tokName(t))}</button>`).join('')}</div>` : `<div class="note">${IC('info')}Nobody to attack in ${esc(N.zoneOf(tokOfWho)?.name||'this zone')}. Move first.</div>`}</div>` : ''}
       ${r.action === 'advantage' ? `<label class="field"><span>Aspect you’re creating</span><input class="inp" id="rasp-${v.id}" data-i="rollAsp" value="${esc(r.aspect||'')}" placeholder="e.g. Blinded by Spilled Ale"></label>` : ''}
       ${other ? '' : `<div><h4>Skill</h4><div class="skills">${skills.map(([n,x]) => `<button type="button" class="sk" data-a="rollSkill" data-v="${esc(n)}" aria-pressed="${r.skill===n}"><span><b>${esc(n)}</b><small>${ladderWord(x)}</small></span><span class="v">${sgn(x)}</span></button>`).join('')}
         ${r.all || !skills.length ? rest.map(n => `<button type="button" class="sk" data-a="rollSkill" data-v="${n}" aria-pressed="${r.skill===n}"><span><b>${n}</b><small>Mediocre</small></span><span class="v">+0</span></button>`).join('') : ''}</div>
         ${r.all || !skills.length ? '' : `<button type="button" class="btn sm ghost" data-a="rollAll" style="margin-top:8px">Show every skill (${rest.length} more at +0)</button>`}</div>`}
       ${fightAtk ? `<div class="note">${IC('defend')}Your target rolls to defend right after you. The result shows in the chat once both rolls are in.</div>` : rp ? vsHtml : `<div><h4>Against ${r.action==='attack'||r.action==='defend'?'(the other side rolls)':'(optional)'}</h4>${oppChips}</div>`}
-      ${gm ? `<button type="button" class="toggle" data-a="rollSecret" aria-pressed="${!!r.secret}">${IC('eyeoff')}<span>Secret roll<small>Only you see it, in GM notes.</small></span><span class="sw"></span></button>` : ''}
+      ${gm ? `<button type="button" class="toggle" data-a="rollSecret" aria-pressed="${!!r.secret}">${IC('eyeoff')}<span>Secret roll<small>${ev ? 'Only you see it, in your fight log. Players don’t.' : 'Only you see it, in GM notes.'}</small></span><span class="sw"></span></button>` : ''}
       <p class="rollsum">4 Fate dice + ${other ? 'bonus' : esc(r.skill)} ${sgn(bonus)}.${fightAtk && tokOfWho && N.tokGear(tokOfWho, 'gearAtk') ? ` A hit gets +${N.tokGear(tokOfWho, 'gearAtk')} shifts from the weapon.` : ''} After you see the roll you can invoke aspects for +2 or a reroll.</p>`;
     const dis = r.action === 'attack' && inFight && !r.target;
-    return sheet('Roll the dice', body, `<button type="button" class="btn gold lg" data-a="doRoll" ${dis?'disabled':''}>${N.fateDie}Roll ${other ? '' : esc(r.skill) + ' '}${sgn(bonus)}</button>`, {lead:other ? '' : N.av(who,36)});
+    return sheet(ev ? 'Custom event' : 'Roll the dice', body, `<button type="button" class="btn gold lg" data-a="doRoll" ${dis?'disabled':''}>${N.fateDie}Roll ${other ? '' : esc(r.skill) + ' '}${sgn(bonus)}</button>`, {lead:other ? '' : N.av(who,36)});
   }
   /* ---------------- invoke ---------------- */
   case 'invoke': {
@@ -427,7 +441,7 @@ const hhmm = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-
 function rollText(r){
   const tot = N.rollTotal(r), o = N.outcome(r);
   const pl = N.plusInvokes(r), rr = r.invokes.filter(i => i.reroll);
-  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''} (${r.action}${r.target?` on ${r.target}`:''}${r.oppDice?`, opposed roll ${r.oppDice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')} ${sgn(r.oppBase)}`:''}${r.vs?` against ${r.vs.name ? r.vs.name + (r.vs.skill ? `’s ${r.vs.skill}` : '') : r.vs.skill}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll).map(i => '“' + i.aspect + '”').join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”').join(', ')}`:''} → ${sgn(tot)} (${ladderWord(tot)})${o?` vs ${sgn(r.opp)} (${ladderWord(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
+  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''} (${r.event ? `event${typeof r.event === 'string' ? ` “${r.event}”` : ''}, ` : ''}${r.action}${r.target?` on ${r.target}`:''}${r.oppDice?`, opposed roll ${r.oppDice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')} ${sgn(r.oppBase)}`:''}${r.vs?` against ${r.vs.name ? r.vs.name + (r.vs.skill ? `’s ${r.vs.skill}` : '') : r.vs.skill}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll).map(i => '“' + i.aspect + '”').join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”').join(', ')}`:''} → ${sgn(tot)} (${ladderWord(tot)})${o?` vs ${sgn(r.opp)} (${ladderWord(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
 }
 function exLine(m){
   const t = `[${hhmm(m.t)}]`;
