@@ -1,7 +1,7 @@
 /* Norne: the controller. The screen is one "view" (who is looking, on what device); actions change N.G
    and sync.js writes the changed parts to Firestore a moment later. */
 (function(){
-const N = window.N, {clamp, uid, sgn, ladderWord} = N;
+const N = window.N, {clamp, uid, sgn, ladderWord, IC} = N;
 const G = () => N.G;
 const isGM = v => v.role === 'gm';
 const views = N.views = [];
@@ -117,6 +117,7 @@ function render(v){
   if (v.ui.tab === 'map') applyMap(v);
   if (v.ui.fresh) setTimeout(() => { v.ui.fresh = null; }, 900);
   if (N.onRender) N.onRender(v);
+  syncBack();
 }
 N.render = render;
 const renderAll = N.renderAll = () => views.forEach(render);
@@ -240,20 +241,41 @@ function bind(v){
   root.addEventListener('touchstart', e => {
     sw = null;
     const ui = v.ui, t = e.touches[0];
-    if (v.dev !== 'phone' || ui.tab !== 'chat' || ui.sheet || ui.pop || e.touches.length > 1) return;
-    const fa = N.fightAvail(v), inFight = fa && ui.fightPane === 'fight';
+    if (v.dev !== 'phone' || e.touches.length > 1) return;
+    const fa = ui.tab === 'chat' && N.fightAvail(v), inFight = fa && ui.fightPane === 'fight';
     if (ui.shelf) { if (e.target.closest('.shelf,.shelf-scrim')) sw = {x:t.clientX, y:t.clientY, k:'shelf'}; return; }
-    if (t.clientX < 24 && !inFight) { sw = {x:t.clientX, y:t.clientY, k:'shelf'}; return; }
+    /* in from the left edge: one step back (wiki entry, then its category…), or the chat list at the top of a chat.
+       In a fight the pane swipe below already goes back to the chat. */
+    if (t.clientX < 24 && !inFight && !e.target.closest('input,textarea,select,[data-mapcv]')) { sw = {x:t.clientX, y:t.clientY, k:'edge'}; return; }
+    if (ui.tab !== 'chat' || ui.sheet || ui.pop) return;
     if (!fa || e.target.closest(NOSWIPE)) return;
     /* the GM drawing zones drags on the board, so the board doesn't swipe then */
     if (inFight && isGM(v) && ui.cbTool === 'zone' && e.target.closest('[data-board]')) return;
     sw = {x:t.clientX, y:t.clientY, k:'pane'};
   }, {passive:true});
+  /* while the edge swipe is under way a round arrow follows the finger in, and lights up once letting go would go back */
+  const hint = () => root.querySelector('.backhint');
+  const dropHint = () => { const h = hint(); if (h) h.remove(); };
+  root.addEventListener('touchmove', e => {
+    if (sw?.k !== 'edge') return;
+    const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
+    if (dx < 8 || Math.abs(dy) > dx * .7) { dropHint(); return; }
+    let h = hint();
+    if (!h) { h = document.createElement('div'); h.className = 'backhint'; h.setAttribute('aria-hidden', 'true'); h.innerHTML = IC(backStep(v) || v.ui.tab !== 'chat' ? 'left' : 'list'); root.appendChild(h); }
+    h.style.top = t.clientY + 'px'; h.style.setProperty('--p', Math.min(dx / 50, 1).toFixed(2)); h.classList.toggle('go', dx >= 50);
+  }, {passive:true});
+  root.addEventListener('touchcancel', () => { sw = null; dropHint(); }, {passive:true});
   root.addEventListener('touchend', e => {
+    dropHint();
     if (!sw) return;
     const t = e.changedTouches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y, k = sw.k; sw = null;
     if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx) * .7 || v.suppress) return;
     const ui = v.ui;
+    if (k === 'edge') {
+      if (dx < 0) return;
+      if (!goBack(v)) if (ui.tab === 'chat') { ui.shelf = true; render(v); }
+      return;
+    }
     if (k === 'shelf') {
       if (!ui.shelf && dx > 0) { ui.shelf = true; render(v); }
       else if (ui.shelf && dx < 0) { ui.shelf = false; render(v); }
@@ -265,6 +287,46 @@ function bind(v){
     render(v); ui.slide = null;
   }, {passive:true});
 }
+
+/* ---------------- going back ----------------
+   Phones step back one level at a time with a swipe in from the left edge or the Android back button:
+   the chat list, a popup or sheet, a pick in the fight, the open page (wiki entry, category, news issue, cast card…),
+   the fight pane, a map place. The back button alone then returns any other tab to Chat. */
+function backStep(v, home){
+  const ui = v.ui;
+  if (ui.shelf) return () => { ui.shelf = false; };
+  if (ui.pop) return () => { ui.pop = null; };
+  if (ui.sheet) return () => { ui.sheet = null; };
+  if (ui.tab === 'chat' && (ui.targeting || ui.placing)) return () => { ui.targeting = null; ui.placing = null; };
+  /* any page with its own back arrow (wiki, news, cast card, inventory) goes back the way that arrow does */
+  const b = v.root.querySelector('.page [data-a][aria-label^="Back"]');
+  if (b) return () => act(v, b.dataset.a, b);
+  if (ui.tab === 'chat' && N.fightAvail(v) && ui.fightPane === 'fight') return () => { ui.fightPane = 'chat'; ui.targeting = null; ui.slide = 'r'; ui.stick = true; };
+  if (ui.tab === 'map' && ui.pinSel) return () => { ui.pinSel = null; };
+  if (home && ui.tab !== 'chat') return () => { ui.tab = 'chat'; ui.stick = true; };
+  return null;
+}
+function goBack(v, home){
+  const f = backStep(v, home); if (!f) return false;
+  f(); render(v); v.ui.slide = null;
+  return true;
+}
+/* the browser and Android's back button walk the same steps: while there is a step to go back, one extra
+   history entry is kept for them to use up; when there is none it is dropped, so back leaves the app as usual */
+const phoneView = () => views.find(x => x.dev === 'phone' && x.root.isConnected);
+let backEntry = false, dropping = false;
+function syncBack(){
+  const v = phoneView(); if (!v || dropping || !v.role || N.gated) return;
+  const need = !!backStep(v, true);
+  if (need && !backEntry) { history.pushState({norne:'back'}, ''); backEntry = true; }
+  else if (!need && backEntry && history.state?.norne === 'back') { backEntry = false; dropping = true; history.back(); }
+}
+window.addEventListener('popstate', () => {
+  if (dropping) { dropping = false; syncBack(); return; }
+  backEntry = false;
+  const v = phoneView(); if (!v) return;
+  if (!goBack(v, true)) syncBack();
+});
 
 /* ---------------- inputs ---------------- */
 function input(v, el){
@@ -723,7 +785,7 @@ function act(v, a, el, e){
   case 'signIn': N.signIn(); return;
   case 'signOut': N.signOut(); return;
   /* navigation */
-  case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; } if (val === 'world' && v.dev === 'phone') ui.wikiSel = null; if (val === 'news') newsTab(v); break;
+  case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
   case 'heroInv': ui.heroInv = !!val; break;
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
@@ -886,9 +948,12 @@ function act(v, a, el, e){
   case 'pinVis': { const m = curMap(v), p = m.pins.find(x => x.id === ui.pinSel); if (!p) break; p.vis = !p.vis; if (p.vis) tell(m, 'map', `${N.gmName()} revealed ${p.label} on the ${m.name.replace(/ \(.*\)$/, '')} map.`); renderAll(); return; }
   case 'pinDel': { const m = curMap(v), i = m.pins.findIndex(x => x.id === ui.pinSel), p = m.pins[i]; if (!p) break; m.pins.splice(i, 1); ui.pinSel = null; toast(v, `Removed ${p.label}.`, () => m.pins.splice(i, 0, p)); renderAll(); return; }
   /* world */
-  case 'wiki': { const en = g.wiki.find(x => x.id === val); if (!en || (!gm && en.gm)) break; close(); ui.tab = 'world'; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
+  case 'wiki': { const en = g.wiki.find(x => x.id === val); if (!en || (!gm && en.gm)) break; close();
+    /* phones remember the entries a link was followed from, so back returns to them one by one */
+    ui.wikiPrev = v.dev === 'phone' && ui.tab === 'world' && ui.wikiSel && ui.wikiSel !== val ? [...(ui.wikiPrev || []), ui.wikiSel] : [];
+    ui.tab = 'world'; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
   case 'wCat': ui.wikiCat = ui.wikiCat === val ? null : val; if (v.dev === 'phone') ui.wikiSel = null; break;
-  case 'wBack': if (ui.wikiSel) ui.wikiSel = null; else ui.wikiCat = null; break;
+  case 'wBack': if (ui.wikiSel && ui.wikiPrev?.length) { ui.wikiSel = ui.wikiPrev.pop(); const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; } else if (ui.wikiSel) ui.wikiSel = null; else ui.wikiCat = null; break;
   case 'wNew': openSheet(v, 'wEdit', {}); break;
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
   case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;
