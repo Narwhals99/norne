@@ -95,13 +95,21 @@ N.sheetHtml = function(v){
   /* ---------------- invoke ---------------- */
   case 'invoke': {
     const m = g.msgs.find(x => x.id === arg); if (!m) return '';
-    const opts = N.invokeOptions(v, m);
-    const c = N.charOf(v.role);
-    const r = m.roll, tot = N.rollTotal(r);
-    const body = `<div class="note">${IC('cards')}Pick an aspect that helps, then take +2 or reroll all four dice. Free invokes cost nothing, the rest cost a fate point${gm?' from your own pool':` (you have ${c ? c.fp : 0})`}.</div>
-      <p class="rollsum" style="margin:0">Now ${sgn(tot)} ${ladderWord(tot)}. +2 makes it ${sgn(tot + 2)} ${ladderWord(tot + 2)}. A reroll keeps ${esc(r.skill)} ${sgn(r.bonus)}${N.plusInvokes(r)?` and the +${2*N.plusInvokes(r)} already invoked`:''} and rolls the dice again (they show ${sgn(N.diceSum(r))} now).</p>
-      <div style="display:grid;gap:8px">${opts.map((o,i) => { const dis = (!o.free && !gm && (!c || c.fp < 1)) ? 'disabled' : ''; return `<div class="invopt"><span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(o.t)}</span><span class="cost">${o.free ? `<b style="color:var(--gold-tx)">Free</b><small>${o.free} left · ${esc(o.from)}</small>` : `<b>1 fate point</b><small>${esc(o.from)}</small>`}</span><span class="how"><button type="button" class="btn sm gold" data-a="doInvoke" data-i="${i}" data-how="plus" ${dis}>+2</button><button type="button" class="btn sm" data-a="doInvoke" data-i="${i}" data-how="reroll" ${dis}>${N.fateDie}Reroll</button></span></div>`; }).join('') || '<p class="muted">No aspects to invoke here yet.</p>'}</div>`;
-    return sheet('Invoke an aspect', body);
+    const x = N.invokeCtx(v, m), opts = N.invokeOptions(v, m, x), sd = x.sides, pay = x.pay;
+    const r = x.onto.roll, tot = N.rollTotal(r), mine = !sd || x.by === sd.me;
+    const fpOf = t => { const p = N.invokePayer(v, m.roll, t); return p ? `<small class="ifp">${p.o.fp || 0} FP</small>` : ''; };
+    const pick = sd && sd.opp ? `<div><h4>Who is invoking</h4><div class="forwho invwho" role="group" aria-label="Who is invoking">${[sd.me, sd.opp].map(t =>
+        `<button type="button" data-a="invBy" data-v="${t.id}" aria-pressed="${x.by === t}" ${t === sd.opp && sd.wait ? 'disabled' : ''}>${N.av(N.tokObj(t), 28)}${esc(N.tokName(t))}${fpOf(t)}</button>`).join('')}</div>
+      <p class="muted invwhere">${sd.wait ? `${esc(N.tokName(sd.opp))} can invoke once they have rolled to defend. ` : ''}${mine ? `Goes on ${esc(N.tokName(sd.me))}’s ${esc(r.action.toLowerCase())} roll.` : x.against ? `Adds +2 to what ${esc(N.tokName(sd.me))} has to beat. A reroll isn’t possible, ${esc(N.tokName(x.by))} has no roll of their own here.` : `Goes on ${esc(N.tokName(x.by))}’s ${esc(r.action.toLowerCase())} roll, against ${esc(N.tokName(sd.me))}.`}</p></div>` : '';
+    const who = pay ? (pay.o === N.charOf(v.role) ? 'your' : `${esc(pay.name)}’s`) : '';
+    const cost = pay ? `the rest cost one of ${who} fate points (${pay.o.fp || 0} left)` : gm ? `${x.by ? esc(N.tokName(x.by)) + ' keeps' : 'this roll keeps'} no fate points, so the rest are free too` : 'the rest cost a fate point (you have none)';
+    const sum = x.against ? `${esc(N.tokName(sd.me))} has to beat ${sgn(r.opp)} ${ladderWord(r.opp)}. +2 makes it ${sgn(r.opp + 2)} ${ladderWord(r.opp + 2)}.`
+      : `Now ${sgn(tot)} ${ladderWord(tot)}. +2 makes it ${sgn(tot + 2)} ${ladderWord(tot + 2)}. A reroll keeps ${esc(r.skill)} ${sgn(r.bonus)}${N.plusInvokes(r)?` and the +${2*N.plusInvokes(r)} already invoked`:''} and rolls the dice again (they show ${sgn(N.diceSum(r))} now).`;
+    const body = `${pick}<div class="note">${IC('cards')}Pick an aspect that helps, then take +2${x.against ? '' : ' or reroll all four dice'}. Free invokes cost nothing, ${cost}.</div>
+      <p class="rollsum" style="margin:0">${sum}</p>
+      <div style="display:grid;gap:8px">${opts.map((o,i) => { const dis = (!o.free && (pay ? (pay.o.fp || 0) < 1 : !gm)) ? 'disabled' : ''; return `<div class="invopt"><span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(o.t)}</span><span class="cost">${o.free ? `<b style="color:var(--gold-tx)">Free</b><small>${o.free} left · ${esc(o.from)}</small>` : `<b>${pay || !gm ? '1 fate point' : 'No cost'}</b><small>${esc(o.from)}</small>`}</span><span class="how"><button type="button" class="btn sm gold" data-a="doInvoke" data-i="${i}" data-how="plus" ${dis}>+2</button>${x.against ? '' : `<button type="button" class="btn sm" data-a="doInvoke" data-i="${i}" data-how="reroll" ${dis}>${N.fateDie}Reroll</button>`}</span></div>`; }).join('') || '<p class="muted">No aspects to invoke here yet.</p>'}</div>`;
+    const addAsp = gm && g.combat.state === 'live' && m.ch === N.fightCh() ? `<button type="button" class="btn ghost" data-a="invAsp">${IC('plus')}Add situation aspect</button>` : '';
+    return sheet('Invoke an aspect', body, addAsp);
   }
   /* ---------------- scene picker (GM) ---------------- */
   case 'scene': {
@@ -222,11 +230,11 @@ N.sheetHtml = function(v){
       `<button type="button" class="btn ghost" data-a="closeSheet">Keep fighting</button><button type="button" class="btn danger" data-a="cbEndGo">${IC('stop')}End the fight</button>`);
   case 'addFoe': return sheet('Add to the fight', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${g.combat.zones.length?'They appear in the first zone. Drag them where they belong.':'Draw a zone first, then place them.'}</p>${N.foeList(true)}
       <button type="button" class="btn block ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>`);
-  case 'cbAspect': return sheet('Fight aspect', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Shown on the board for everyone. Anyone can invoke it.</p>
-      <div class="icards">${g.combat.aspects.map((a,i)=>`<button type="button" class="icard" data-a="cbAspDel" data-i="${i}" title="Tap to remove">${esc(a.t)}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</button>`).join('')}</div>
+  case 'cbAspect': return sheet('Situation aspects', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Something true about this fight, like the weather, the ground or a fire. Shown on the board for everyone, and anyone can invoke it.${g.combat.aspects.some(a => !a.boost) ? ' Tap one to remove it.' : ''}</p>
+      <div class="icards">${g.combat.aspects.map((a,i)=>a.boost ? '' : `<button type="button" class="icard" data-a="cbAspDel" data-i="${i}" title="Tap to remove">${esc(a.t)}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</button>`).join('')}</div>
       <label class="field"><span>New aspect</span><input class="inp" id="cba-${v.id}" data-i="cbAsp" value="${esc(v.ui.cbAsp||'')}" placeholder="e.g. Fog Off the River"></label>
       <div class="seg"><button type="button" data-a="cbAspFree" data-v="0" aria-pressed="${!v.ui.cbAspFree}">No free invoke</button><button type="button" data-a="cbAspFree" data-v="1" aria-pressed="${v.ui.cbAspFree==1}">1 free</button><button type="button" data-a="cbAspFree" data-v="2" aria-pressed="${v.ui.cbAspFree==2}">2 free</button></div>`,
-      `<button type="button" class="btn primary" data-a="cbAspAdd">${IC('plus')}Add aspect</button>`);
+      `<button type="button" class="btn primary" data-a="cbAspAdd">${IC('plus')}Add situation aspect</button>`);
   /* ---------------- character editor (GM) ---------------- */
   case 'pcEdit': return sheet(v.ui.pd.isNew ? `Make ${esc(pName(v.ui.pd.player))}’s card` : `Edit ${esc(v.ui.pd.short)}’s card`, pcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="pcSave" ${v.ui.pd.name.trim()?'':'disabled'}>${IC('check')}${v.ui.pd.isNew?'Save and send to '+esc(pName(v.ui.pd.player)):'Save card'}</button>`, {wide:true});
   case 'npcNew': return sheet(v.ui.nd.edit ? `Edit ${esc(v.ui.nd.name || 'NPC')}` : 'New NPC', npcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="npcSave" ${v.ui.nd.name.trim()?'':'disabled'}>${IC('check')}Save NPC</button>`, {wide:true});
@@ -420,31 +428,69 @@ function npcEditor(v){
     <label class="field"><span>${lockIc}GM notes</span><textarea class="inp" id="ndx-${v.id}" data-i="nd" data-k="notes" rows="2" placeholder="Only you see these">${esc(d.notes||'')}</textarea></label>`;
 }
 
-/* what can be invoked on a roll */
-N.invokeOptions = function(v, m){
-  const g = G(), out = [], gm = isGM(v);
+/* Who invokes on a fight roll. The GM picks (v.ui.invBy) the fighter who rolled or the one they face, and each side's
+   invoke lands on its own roll: the defender's on the defense roll, the attacker's on the attack roll. Facing a roll
+   with nothing rolled on the other side (a difficulty, an NPC's passive skill), the other side's invoke adds +2 to what
+   has to be beaten (iv.opp) and can't reroll. Before the defense is rolled only the attacker can invoke.
+   null outside a live fight or for players (they only invoke on their own rolls). */
+N.invokeSides = function(v, m){
+  const g = G(), cb = g.combat, r = m.roll;
+  if (!isGM(v) || cb.state !== 'live' || m.ch !== N.fightCh()) return null;
+  const me = N.tokOfKey(r.whoKey); if (!me) return null;
+  let opp = null, link = null, wait = false;
+  const q = [cb.pending, cb.last].find(p => p && (p.msgId === m.id || p.defMsg === m.id));
+  if (q && q.msgId === m.id) { opp = N.tokById(q.def); link = q.defMsg && g.msgs.find(x => x.id === q.defMsg); wait = !link; }
+  else if (q) { opp = N.tokById(q.att); link = g.msgs.find(x => x.id === q.msgId); }
+  else if (r.opp != null) { const nm = r.target || r.vs?.name; opp = nm ? cb.tokens.find(t => t !== me && N.tokName(t) === nm) : null; }
+  return {me, opp:opp || null, link:link || null, wait};
+};
+/* by: who invokes; faces: who they are up against; onto: the roll message the invoke changes; pay: whose fate points */
+N.invokeCtx = function(v, m){
+  const sd = N.invokeSides(v, m);
+  const by = !sd ? null : sd.opp && !sd.wait && v.ui.invBy === sd.opp.id ? sd.opp : sd.me;
+  const theirs = !!sd && by !== sd.me;
+  return {sides:sd, by, faces:!sd ? null : theirs ? sd.me : sd.opp, onto:theirs && sd.link ? sd.link : m, against:theirs && !sd.link, pay:N.invokePayer(v, m.roll, by)};
+};
+/* whose fate point a paid invoke costs: a player's own; in the GM's hands, the invoker's character card or named NPC card.
+   null when nobody's pool is kept (nameless NPCs, someone typed in by hand) */
+N.invokePayer = function(v, r, by){
+  const g = G(), pc = id => { const c = g.chars[id]; return c ? {o:c, name:c.short} : null; }, npc = id => { const n = g.npcs.find(x => x.id === id); return n ? {o:n, name:n.name} : null; };
+  if (!isGM(v)) { const c = N.charOf(v.role); return c ? {o:c, name:c.short} : null; }
+  if (by) return by.kind === 'pc' ? pc(by.ref) : by.type !== 'nameless' ? npc(by.ref) : null;
+  const k = r.whoKey || '';
+  if (k.startsWith('pc:')) return pc(k.slice(3));
+  if (k.startsWith('npc:')) return npc(k.slice(4));
+  const t = N.tokOfKey(k); return t ? N.invokePayer(v, r, t) : null;
+};
+/* what can be invoked on a roll: scene and fight aspects, the invoker's own boosts and aspects, and consequences
+   (they are aspects too) on the invoker and on whoever they face */
+N.invokeOptions = function(v, m, x = N.invokeCtx(v, m)){
+  const g = G(), out = [], gm = isGM(v), r = m.roll;
   const sc = g.scenes[m.ch];
   if (sc) (sc.aspects || []).forEach((a,i) => out.push({t:a.t, free:N.sceneFreeLeft(sc, i), from:'Scene', ref:`scene:${sc.msg}:${i}`}));
-  const cb = g.combat;
+  const cb = g.combat, me = x.by || (cb.state === 'live' && m.ch === N.fightCh() ? N.tokOfKey(r.whoKey) : null);
   if (cb.state === 'live' && m.ch === N.fightCh()) {
     /* a boost can only be invoked by its owner, for free */
-    const rk = m.roll.whoKey || '', rt = rk.startsWith('tok:') ? rk.slice(4) : (cb.tokens.find(t => t.kind === 'pc' && 'pc:' + t.ref === rk) || {}).id;
-    cb.aspects.forEach((a,i) => { if (a.boost && (a.tok !== rt || !a.free)) return; out.push({t:a.t || 'Unnamed boost', free:a.free || 0, from:a.boost ? `${a.by}’s boost` : 'Fight', kind:'cb', i}); });
+    cb.aspects.forEach((a,i) => { if (a.boost && (!me || a.tok !== me.id || !a.free)) return; out.push({t:a.t || 'Unnamed boost', free:a.free || 0, from:a.boost ? `${a.by}’s boost` : 'Fight', kind:'cb', i}); });
     cb.zones.filter(z => z.aspect).forEach(z => out.push({t:z.aspect, free:z.free || 0, from:z.name, kind:'zone', z:z.id}));
   }
-  const k = m.roll.whoKey || '';
-  if (k.startsWith('pc:')) { const c = g.chars[k.slice(3)]; if (c) [c.hc, c.trouble, ...c.aspects].filter(Boolean).forEach(a => out.push({t:a, free:0, from:gm ? `${c.short}’s aspect` : 'Your aspect'})); }
+  const pcAsp = c => [c.hc, c.trouble, ...c.aspects].filter(Boolean).forEach(a => out.push({t:a, free:0, from:gm ? `${c.short}’s aspect` : 'Your aspect'}));
+  const k = r.whoKey || '';
+  if (x.by) { if (x.by.kind === 'pc') { const c = g.chars[x.by.ref]; if (c) pcAsp(c); } else (x.by.aspects || []).filter(Boolean).forEach(a => out.push({t:a, free:0, from:`${x.by.name}’s aspect`})); }
+  else if (k.startsWith('pc:')) { const c = g.chars[k.slice(3)]; if (c) pcAsp(c); }
   else if (gm && k.startsWith('tok:')) { const t = N.tokById(k.slice(4)); (t?.aspects || []).filter(Boolean).forEach(a => out.push({t:a, free:0, from:'NPC aspect'})); }
   else if (gm && k.startsWith('npc:')) { const n = g.npcs.find(x => x.id === k.slice(4)); if (n) [n.hc, n.trouble, ...n.aspects].filter(Boolean).forEach(a => out.push({t:a, free:0, from:'NPC aspect'})); }
-  return out.filter(o => !m.roll.invokes.some(i => i.aspect === o.t));
+  if (me) [me, x.faces].forEach(t => t && N.tokCons(t).filter(c => c.v).forEach(c => out.push({t:c.v, free:0, from:`${N.tokName(t)}’s ${c.l.toLowerCase()} consequence`})));
+  const seen = new Set(x.onto.roll.invokes.map(i => i.aspect));
+  return out.filter(o => !seen.has(o.t) && (seen.add(o.t), true));
 };
 
 /* ---------------- the log as text ---------------- */
 const hhmm = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
 function rollText(r){
   const tot = N.rollTotal(r), o = N.outcome(r);
-  const pl = N.plusInvokes(r), rr = r.invokes.filter(i => i.reroll);
-  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''} (${r.event ? `event${typeof r.event === 'string' ? ` “${r.event}”` : ''}, ` : ''}${r.action}${r.target?` on ${r.target}`:''}${r.oppDice?`, opposed roll ${r.oppDice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')} ${sgn(r.oppBase)}`:''}${r.vs?` against ${r.vs.name ? r.vs.name + (r.vs.skill ? `’s ${r.vs.skill}` : '') : r.vs.skill}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll).map(i => '“' + i.aspect + '”').join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”').join(', ')}`:''} → ${sgn(tot)} (${ladderWord(tot)})${o?` vs ${sgn(r.opp)} (${ladderWord(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
+  const pl = N.plusInvokes(r), rr = r.invokes.filter(i => i.reroll), ag = r.invokes.filter(i => i.opp), by = i => i.by ? ` by ${i.by}` : '';
+  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''} (${r.event ? `event${typeof r.event === 'string' ? ` “${r.event}”` : ''}, ` : ''}${r.action}${r.target?` on ${r.target}`:''}${r.oppDice?`, opposed roll ${r.oppDice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')} ${sgn(r.oppBase)}`:''}${r.vs?` against ${r.vs.name ? r.vs.name + (r.vs.skill ? `’s ${r.vs.skill}` : '') : r.vs.skill}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll && !i.opp).map(i => '“' + i.aspect + '”' + by(i)).join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”' + by(i)).join(', ')}`:''}${ag.length?`, the other side invoked ${ag.map(i => '“' + i.aspect + '”' + by(i)).join(', ')} (+${2*ag.length} to beat)`:''} → ${sgn(tot)} (${ladderWord(tot)})${o?` vs ${sgn(r.opp)} (${ladderWord(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
 }
 function exLine(m){
   const t = `[${hhmm(m.t)}]`;
@@ -462,7 +508,7 @@ function exLine(m){
    results and notices. A fight's own chat (fc) is never exported. */
 function exEntry(m){
   const t = new Date(m.t).toISOString();
-  if (m.kind === 'roll') { const r = m.roll, o = N.outcome(r); return {t, type:'roll', who:r.who, action:r.action, skill:r.skill, skillBonus:r.bonus - (r.gear||0), gear:r.gear || 0, target:r.target || null, vs:r.vs || null, opposedDice:r.oppDice || null, opposedBonus:r.oppDice ? r.oppBase : null, dice:r.dice, invokes:r.invokes.map(i => ({aspect:i.aspect, reroll:!!i.reroll})), total:N.rollTotal(r), ladder:ladderWord(N.rollTotal(r)), against:r.opp ?? null, outcome:o ? o.t : null, shifts:o ? o.sh : null, secret:m.ch === 'gm'}; }
+  if (m.kind === 'roll') { const r = m.roll, o = N.outcome(r); return {t, type:'roll', who:r.who, action:r.action, skill:r.skill, skillBonus:r.bonus - (r.gear||0), gear:r.gear || 0, target:r.target || null, vs:r.vs || null, opposedDice:r.oppDice || null, opposedBonus:r.oppDice ? r.oppBase : null, dice:r.dice, invokes:r.invokes.map(i => ({aspect:i.aspect, reroll:!!i.reroll, ...(i.opp ? {againstRoll:true} : {}), ...(i.by ? {by:i.by} : {})})), total:N.rollTotal(r), ladder:ladderWord(N.rollTotal(r)), against:r.opp ?? null, outcome:o ? o.t : null, shifts:o ? o.sh : null, secret:m.ch === 'gm'}; }
   if (m.kind === 'sys' && m.res && m.res.k === 'order') return {t, type:'turn_order', order:(m.res.rows || []).map(x => ({name:x.n, notice:x.sk, total:x.tot}))};
   if (m.kind === 'sys' && m.res) { const [a, d] = m.res.rows || [], side = x => x && {name:x.n, skill:x.sk, skillBonus:x.b - (x.g||0), gear:x.g || 0, total:x.tot}; return {t, type:'attack_result', title:m.res.title, attack:side(a), defense:side(d), damage:m.res.calc || null, outcome:m.res.out?.t || null, after:m.res.after || null}; }
   if (m.kind === 'sys') return {t, type:'note', text:m.text};
@@ -487,7 +533,7 @@ function buildJson(sel){
     if (entries.length) chats.push({chat:N.chName(c, 'gm'), entries});
   }
   return JSON.stringify({format:'norne-log', version:1, campaign:'Nörne', exported:new Date().toISOString(),
-    about:'A Fate Core campaign log. Chats are in time order. type "fight" blocks hold that fight\'s rolls (4 Fate dice, -1/0/+1 each, total = dice + skillBonus + gear + 2 per non-reroll invoke), attack results and notices. Typed fight chat is left out.',
+    about:'A Fate Core campaign log. Chats are in time order. type "fight" blocks hold that fight\'s rolls (4 Fate dice, -1/0/+1 each, total = dice + skillBonus + gear + 2 per invoke that is neither a reroll nor againstRoll; an againstRoll invoke is already in "against"), attack results and notices. Typed fight chat is left out.',
     includes:{roleplay:!!sel.rp, rolls:!!sel.roll, outOfCharacter:!!sel.meta}, chats}, null, 2);
 }
 N.buildExport = sel => {

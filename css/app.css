@@ -1994,3 +1994,8 @@
 .app .pcmini .pm-cq .cq{padding:4px 8px;font-size:12.5px}
 .app .nowbar .mine .cqt{padding:3px 8px;border-radius:7px;font:italic 500 12.5px/1.2 var(--f-display);background:var(--card-paper);color:var(--card-ink);box-shadow:inset 3px 0 0 var(--card-rule)}
 .app .tokcard .kv>.kv-w{grid-column:1/-1}
+/* invoke sheet: who is invoking (GM, in a fight) */
+.app .invwho button .ifp{font:700 11px/1 var(--f-ui);color:var(--ink-3);padding:3px 6px;border-radius:999px;background:var(--sunk)}
+.app .invwho button[aria-pressed="true"] .ifp{color:var(--gold-tx)}
+.app .invwho button:disabled{opacity:.5}
+.app .invwhere{margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)}

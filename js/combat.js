@@ -95,7 +95,7 @@ function orderStrip(v, ph){
 function toolList(v){
   const cb = G().combat, tool = v.ui.cbTool || 'move';
   return [[`data-a="cbTool" data-v="move" aria-pressed="${tool==='move'}"`, 'hand', 'Move'], [`data-a="cbTool" data-v="zone" aria-pressed="${tool==='zone'}"`, 'zone', 'Zones'],
-    [`data-a="sheet" data-v="addFoe"`, 'person-plus', 'Add'], [`data-a="sheet" data-v="cbAspect"`, 'cards', 'Aspect'], cb.state === 'live' ? [`data-a="sheet" data-v="cbEnd"`, 'stop', 'End fight', 1] : null].filter(Boolean)
+    [`data-a="sheet" data-v="addFoe"`, 'person-plus', 'Add'], [`data-a="sheet" data-v="cbAspect"`, 'cards', 'Situation aspect'], cb.state === 'live' ? [`data-a="sheet" data-v="cbEnd"`, 'stop', 'End fight', 1] : null].filter(Boolean)
     .map(([a, ic, l, end]) => `${end ? '<span class="sep"></span>' : ''}<button type="button" ${a}${end ? ' class="end"' : ''}>${IC(ic)}<span class="lab">${l}</span></button>`).join('');
 }
 function toolsHtml(v, ph){
@@ -277,7 +277,7 @@ function gmRow(v){
     <button type="button" data-a="cbTool" data-v="move" aria-pressed="${tool==='move'}">${IC('hand')}Move</button>
     <button type="button" data-a="cbTool" data-v="zone" aria-pressed="${tool==='zone'}">${IC('zone')}Zones</button>
     <button type="button" data-a="sheet" data-v="addFoe">${IC('person-plus')}Add</button>
-    <button type="button" data-a="sheet" data-v="cbAspect">${IC('cards')}Aspect</button>
+    <button type="button" data-a="sheet" data-v="cbAspect">${IC('cards')}Situation aspect</button>
     ${cb.state==='live'?`<button type="button" class="end" data-a="sheet" data-v="cbEnd">${IC('stop')}End fight</button>`:''}
   </div>`;
 }
@@ -631,7 +631,8 @@ N.cbReresolve = function(m){
   if (p && p.defMsg && (m.id === p.msgId || m.id === p.defMsg)) q = p;
   else if (!p && l && (m.id === l.msgId || m.id === l.defMsg)) q = l;
   if (!q) return;
-  if (m.id === q.msgId) q.total = N.rollTotal(m.roll);
+  /* the defense roll's card shows the attack it faced: keep it in step */
+  if (m.id === q.msgId) { q.total = N.rollTotal(m.roll); const dm = g.msgs.find(x => x.id === q.defMsg); if (dm) dm.roll.opp = q.total; }
   N.cbUndo(q); cb.pending = q; cb.last = null;
   N.cbResolve(true);
 };
