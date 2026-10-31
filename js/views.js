@@ -322,7 +322,7 @@ function rMsg(v, m, prev, firstNarr){
   if (m.kind === 'gif') {
     const p = N.personObj(m.by), gf = m.gif || {};
     /* GIFs are always table talk: posted as the person, never as a character */
-    return `<div class="m ooc gifm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">OOC</span> ${time}</div><div class="gifbox"><img class="gif" src="${esc(gf.u)}" alt="GIF" loading="lazy" ${gf.w && gf.h ? `style="aspect-ratio:${+gf.w}/${+gf.h}"` : ''}></div></div></div>`;
+    return `<div class="m ooc gifm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><div class="gifbox"><img class="gif" src="${esc(gf.u)}" alt="GIF" loading="lazy" ${gf.w && gf.h ? `style="aspect-ratio:${+gf.w}/${+gf.h}"` : ''}></div></div></div>`;
   }
   if (m.kind === 'ooc' || m.kind === 'meta') {
     const p = N.personObj(m.by);
@@ -332,7 +332,15 @@ function rMsg(v, m, prev, firstNarr){
   const s = N.speakerObj(m);
   if (s.narr) return `<div class="narr${firstNarr?' first':''}"><div class="who">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}Narrator ${time}</div><p>${txt}</p></div>`;
   const gmv = mine && isGM(v) ? ' gmv' : '';
-  return `<div class="m${mine?' mine':''}${gmv}${cont?' cont':''}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${txt}</div></div></div>`;
+  return `<div class="m say${s.npc?' npc':''}${mine?' mine':''}${gmv}${cont?' cont':''}" style="--spk:${s.color}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${N.emoText(sayFmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '')}</div></div></div>`;
+}
+/* roleplay lines: words "in quotes" are spoken and read normally, everything else is description in the story font */
+const QUOTE = /"[^"]*(?:"|$)|“[^”]*(?:”|$)/g;
+function sayFmt(t){
+  const s = String(t ?? ''), act = x => x.trim() ? `<span class="rpd">${fmt(x)}</span>` : fmt(x);
+  let out = '', at = 0;
+  for (const q of s.matchAll(QUOTE)) { out += act(s.slice(at, q.index)) + fmt(q[0]); at = q.index + q[0].length; }
+  return out + act(s.slice(at));
 }
 /* phones: a roll in the roleplay chat is one small line; tapping it opens the full card */
 function rollLine(v, m){
@@ -394,7 +402,7 @@ function fightCard(v, m){
 function composer(v){
   const g = G(), gm = isGM(v), ooc = v.ui.mode === 'ooc';
   let chip, ph;
-  if (ooc) { chip = `<span class="ooc-ic">${IC('chatL')}</span><b><span class="only-dt">Out of character</span><span class="only-ph">OOC</span></b>`; ph = 'Rules talk, questions, snacks…'; }
+  if (ooc) { chip = `<span class="ooc-ic">${IC('chatL')}</span><b>Meta</b>`; ph = 'Rules talk, questions, snacks…'; }
   else if (gm) {
     const n = g.npcs.find(x => x.name === v.ui.voice);
     chip = (v.ui.voice === 'Narrator' ? N.narrAv(30) : N.av({name:v.ui.voice, portrait:n?.portrait, color:'var(--c-npc)'},30)) + `<b class="only-dt">${esc(v.ui.voice)}</b>`;
@@ -410,7 +418,7 @@ function composer(v){
     ${re ? `<div class="replying">${IC('reply')}<span>Replying to <b>${esc(N.msgWho(re))}</b><small>${N.emoText(esc(N.msgSnip(re)))}</small></span><button type="button" class="ibtn sm" data-a="replyOff" aria-label="Stop replying">${IC('x')}</button></div>` : ''}
     <div class="box">
       ${v.ui.ch === 'gm' ? `<span class="voice">${chip}</span>` : gm ? `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`
-        : `<button type="button" class="voice flip" data-a="voice" data-v="__flip" aria-label="${ooc ? 'Speaking out of character. Tap to speak in character' : 'Speaking in character. Tap to speak out of character'}" title="Tap to switch">${chip}${IC('swap','car')}</button>`}
+        : `<button type="button" class="voice flip" data-a="voice" data-v="__flip" aria-label="${ooc ? 'Speaking Meta (out of character). Tap to speak in character' : 'Speaking in character. Tap to switch to Meta'}" title="Tap to switch">${chip}${IC('swap','car')}</button>`}
       <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="${N.enterSends() ? 'send' : 'enter'}">${esc(v.ui.draft)}</textarea>
       <button type="button" class="emob" data-a="pop" data-v="emo" aria-label="Emoji" title="Emoji">${IC('smile')}</button>
       ${isGM(v) ? `<button type="button" class="diceb" data-a="roll" aria-label="Roll the dice" title="Roll">${fateDie}</button>` : ''}
@@ -522,7 +530,7 @@ function popHtml(v){
       const c = N.charOf(v.role), sel = v.ui.mode === 'rp';
       opts += `<button type="button" class="opt" data-a="voice" data-v="__me" aria-selected="${sel}">${N.av({name:c.short,portrait:c.built?c.portrait:null,color:c.color},30)}<span>As ${esc(c.short)}<small>In character</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`;
     }
-    opts += `<div class="sep"></div><button type="button" class="opt" data-a="voice" data-v="__ooc" aria-selected="${v.ui.mode==='ooc'}"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--accent-soft);color:var(--ink-2)">${IC('chatL').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>Out of character<small>Questions and table talk</small></span>${v.ui.mode==='ooc'?`<span class="ck">${IC('check')}</span>`:''}</button>`;
+    opts += `<div class="sep"></div><button type="button" class="opt" data-a="voice" data-v="__ooc" aria-selected="${v.ui.mode==='ooc'}"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--accent-soft);color:var(--ink-2)">${IC('chatL').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>Meta<small>Questions and table talk</small></span>${v.ui.mode==='ooc'?`<span class="ck">${IC('check')}</span>`:''}</button>`;
     return `<div class="pop" style="${pos}" role="listbox" aria-label="Speak as">${opts}</div>`;
   }
   if (p.type === 'msg') {

@@ -147,7 +147,7 @@ N.sheetHtml = function(v){
     const ex = v.ui.exp;
     const out = N.buildExport(ex);
     const body = `<div><h4>Chats</h4><div class="forwho">${N.channelsFor('gm').map(c => `<button type="button" data-a="expCh" data-v="${c}" aria-pressed="${ex.ch.has(c)}">${esc(N.chName(c,'gm'))}</button>`).join('')}</div></div>
-      <div><h4>Include</h4><div class="forwho">${[['rp','Roleplay'],['roll','Rolls'],['meta','Out of character']].map(([k,l]) => `<button type="button" data-a="expKind" data-v="${k}" aria-pressed="${!!ex[k]}">${l}</button>`).join('')}</div></div>
+      <div><h4>Include</h4><div class="forwho">${[['rp','Roleplay'],['roll','Rolls'],['meta','Meta']].map(([k,l]) => `<button type="button" data-a="expKind" data-v="${k}" aria-pressed="${!!ex[k]}">${l}</button>`).join('')}</div></div>
       <div><h4>Format</h4><div class="forwho"><button type="button" data-a="expKind" data-v="json" aria-pressed="${!ex.json}" ${ex.json ? '' : 'disabled'}>Text (.md)</button><button type="button" data-a="expKind" data-v="json" aria-pressed="${!!ex.json}" ${ex.json ? 'disabled' : ''}>Data for an AI (.json)</button></div><small class="muted">The JSON keeps every fight as its own block with its rolls and results. Talk typed in a fight’s chat is never exported.</small></div>
       <div><h4>Preview · for your notes, or to paste into an AI for a session summary</h4><textarea id="exOut" class="inp" readonly rows="10" style="font:500 12.5px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2)">${esc(out)}</textarea></div>`;
     return sheet('Export the log', body, `<button type="button" class="btn ghost" data-a="expCopy">${IC('copy')}Copy</button><button type="button" class="btn primary lg" data-a="expDl">${IC('download')}Download ${ex.json ? '.json' : '.md'}</button>`, {wide:true});
@@ -412,7 +412,7 @@ function rollText(r){
 function exLine(m){
   const t = `[${hhmm(m.t)}]`;
   if (m.kind === 'sys') return `${t} — ${m.text}`;
-  if (m.kind === 'meta' || m.kind === 'ooc') return `${t} (out of character) ${N.personObj(m.by).name}: ${m.text}`;
+  if (m.kind === 'meta' || m.kind === 'ooc') return `${t} (meta) ${N.personObj(m.by).name}: ${m.text}`;
   if (m.kind === 'roll') return `${t} ROLL: ${rollText(m.roll)}`;
   if (m.kind === 'combat' || m.kind === 'fight') return `${t} — A fight begins: ${m.text}`;
   if (m.kind === 'scene') return `\n### ${m.scene.title}${m.scene.where ? ` · ${m.scene.where}` : ''}${m.scene.date ? ` · ${m.scene.date}` : ''}\n`;
@@ -455,7 +455,7 @@ function buildJson(sel){
 }
 N.buildExport = sel => {
   if (sel.json) return buildJson(sel);
-  const kinds = [sel.rp && 'roleplay', sel.roll && 'rolls', sel.meta && 'out-of-character talk'].filter(Boolean);
+  const kinds = [sel.rp && 'roleplay', sel.roll && 'rolls', sel.meta && 'meta talk'].filter(Boolean);
   const out = ['# Nörne: session log', `Exported ${new Date().toLocaleString()} · includes ${kinds.join(', ') || 'nothing'}`];
   for (const c of N.channelsFor('gm')) {
     if (!sel.ch.has(c)) continue;
