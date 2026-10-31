@@ -36,7 +36,7 @@ const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as
 /* a small grey line in the chat; players write their own (the rules only let them post as themselves) */
 const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, text});
 /* a line about the fight goes to the chat the fight lives in */
-const fsys = text => sys(text, N.fightCh());
+const fsys = text => Object.assign(sys(text, N.fightCh()), {fight:true});
 /* tell the players who can see something: in Everyone when it's for all, otherwise in each one's chat with the GM */
 const tell = (x, kind, text, only) => { const a = N.audOf(x, kind); if (a === 'gm') return; if (a === '*' && !only) { sys(text); return; } for (const s of only || a) if (G().P[s]) sys(text, 'dm-' + s); };
 
@@ -50,6 +50,7 @@ const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:n
 N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), fz:N.fzOk(o.fz), ui:newUi(o.role)};
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
+  try { for (const k of ['railW','railWc','rcH','rcHc','shelfW']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1'; } catch(e) {}
   views.push(v); bind(v); render(v);
   return v;
 };
@@ -160,6 +161,28 @@ function bind(v){
     if (!k || !el || !typing() || !e.cancelable || Math.hypot(t.clientX - k.x, t.clientY - k.y) > 10) return;
     e.preventDefault(); v.kb = true; el.click();
   });
+  /* desktop: drag a line between panels to share the room (chat list | page, main panel | side panel, top | bottom of the side panel);
+     double-click a line puts it back */
+  const GRIPS = {
+    railgrip:{box:g => g.closest('.page'), key:b => b.dataset.wk || 'railW', css:'--railw', size:(r, ev) => Math.min(r.width - 380, Math.max(260, r.right - ev.clientX))},
+    rowgrip:{box:g => g.closest('.rail'), key:b => b.closest('.page').dataset.hk || 'rcH', css:'--rch', size:(r, ev) => Math.min(r.height - 140, Math.max(120, r.bottom - ev.clientY))},
+    shelfgrip:{box:g => g.closest('.shelf'), key:() => 'shelfW', css:'--shelfw', host:b => b.closest('.shell'), size:(r, ev) => Math.min(420, Math.max(190, ev.clientX - r.left))}
+  };
+  const gripOf = t => { for (const c in GRIPS) { const g = t.closest('.' + c); if (g) return [g, GRIPS[c]]; } return []; };
+  root.addEventListener('pointerdown', e => {
+    const [grip, G2] = gripOf(e.target), box = grip && G2.box(grip);
+    if (!box || e.button !== 0) return;
+    e.preventDefault(); grip.setPointerCapture(e.pointerId);
+    const page = grip.closest('.page') || grip.closest('.shell'); page.classList.add('resizing'); grip.classList.add('on');
+    const r = box.getBoundingClientRect(), k = G2.key(box), host = G2.host ? G2.host(box) : box;
+    const move = ev => { v.ui[k] = Math.round(G2.size(r, ev)); host.style.setProperty(G2.css, v.ui[k] + 'px'); };
+    const up = () => { grip.removeEventListener('pointermove', move); page.classList.remove('resizing'); grip.classList.remove('on'); try { localStorage.setItem('norne-' + k.toLowerCase(), v.ui[k]); } catch(err) {} };
+    grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up, {once:true}); grip.addEventListener('pointercancel', up, {once:true});
+  });
+  root.addEventListener('dblclick', e => {
+    const [grip, G2] = gripOf(e.target), box = grip && G2.box(grip); if (!box) return;
+    const k = G2.key(box); v.ui[k] = null; try { localStorage.removeItem('norne-' + k.toLowerCase()); } catch(err) {} render(v);
+  });
   /* long-press a message on a phone to react, reply or (GM) edit it; a right-click does the same on a computer */
   let lp = null;
   root.addEventListener('pointerdown', () => { if (!lp) v.lpHold = false; }, true);
@@ -186,7 +209,10 @@ function bind(v){
     if (v.lpHold) { v.lpHold = false; e.preventDefault(); return; }
     const a = e.target.closest('[data-a]');
     if (a && root.contains(a)) {
-      if (a.disabled) return; e.preventDefault(); act(v, a.dataset.a, a, e);
+      if (a.disabled) return; e.preventDefault();
+      /* phones, GM: picking anything in the pulled-up fight controls drops them back down to the board and results */
+      if (v.ui.sheet === 'gmFight' && a.closest('.gmfs')) v.ui.sheet = null;
+      act(v, a.dataset.a, a, e);
       if (v.kb) { v.kb = false; const ta = root.querySelector('.composer textarea'); if (ta && !typing()) ta.focus({preventScroll:true}); }
       return;
     }
@@ -200,6 +226,7 @@ function bind(v){
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
+    if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'fcDraft') { e.preventDefault(); fcSend(v); }
     if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
   root.addEventListener('pointerdown', e => down(v, e));
@@ -207,7 +234,7 @@ function bind(v){
   root.addEventListener('gesturestart', e => { if (e.target.closest('[data-mapcv]')) e.preventDefault(); });
   root.addEventListener('wheel', e => { const cv = e.target.closest('[data-mapcv]'); if (cv) { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(v, Math.exp(-clamp(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY, -120, 120) * (e.ctrlKey ? .01 : .0018)), e.clientX - r.left, e.clientY - r.top); } }, {passive:false});
   /* phones: swipe in from the left edge for the chat list, swipe it back to close.
-     With a fight in this chat, swipe right for the fight and left for the chat, like the Fight | Chat switch. */
+     With a fight in this chat, swipe left for combat and right for roleplay, like the Roleplay | Combat switch. */
   const NOSWIPE = HS + ',input,textarea,select,.tok,[data-rs],[data-zl],[data-mapcv],.pop,.sheet';
   let sw = null;
   root.addEventListener('touchstart', e => {
@@ -232,7 +259,7 @@ function bind(v){
       else if (ui.shelf && dx < 0) { ui.shelf = false; render(v); }
       return;
     }
-    const to = dx > 0 ? 'fight' : 'chat';
+    const to = dx < 0 ? 'fight' : 'chat';
     if (!N.fightAvail(v) || ui.fightPane === to) return;
     ui.fightPane = to; ui.targeting = null; ui.slide = dx < 0 ? 'l' : 'r'; ui.stick = to === 'chat';
     render(v); ui.slide = null;
@@ -244,6 +271,7 @@ function input(v, el){
   const g = G(), i = el.dataset.i, k = el.dataset.k, val = el.value;
   switch (i) {
     case 'draft': v.ui.draft = val; grow(el); return;
+    case 'fcDraft': v.ui.fcDraft = val; return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
     case 'mapQ': v.ui.mapQ = val; render(v); return;
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
@@ -315,6 +343,13 @@ function send(v){
   const ta = v.root.querySelector('.composer textarea'); if (ta) ta.focus({preventScroll:true});
 }
 N.send = send;
+/* the fight's own chat: table talk that stays with the fight (fc = the fight's id) and out of the roleplay chat and exports */
+function fcSend(v){
+  const text = (v.ui.fcDraft || '').trim(), cb = G().combat; if (!text || cb.state !== 'live') return;
+  push({ch:N.fightCh(), kind:'meta', by:v.role, text, fc:cb.id});
+  v.ui.fcDraft = ''; v.ui.stick = true; renderAll();
+  const el = v.root.querySelector(`#fc-${v.id}`); if (el) el.focus({preventScroll:true});
+}
 function sendGif(v, gif){
   const ch = v.ui.ch, m = {kind:'gif', ch, by:v.role, text:'', gif};
   if (v.ui.reply && G().msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
@@ -344,6 +379,7 @@ function gifSearch(v){
 }
 
 function openRoll(v, o={}){
+  if (!isGM(v)) return; /* the GM rolls everything, in a fight and out of one */
   const g = G();
   let who = o.who;
   if (!who) {
@@ -367,10 +403,12 @@ function doRoll(v){
      Players' own rolls never move the fight: the GM rolls for everyone in it. */
   const fight = isGM(v) && g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
   const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : r.opp, dice:N.rollDice(), invokes:[]};
+  if (fight) roll.fight = true;
   const secret = isGM(v) && !fight && (r.secret || v.ui.ch === 'gm');
   const ch = secret ? 'gm' : fight ? N.fightCh() : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
   const m = push({ch, kind:'roll', by:v.role, roll});
   if (isGM(v) && who.portrait) m.pt = who.portrait;
+  if (v.dev === 'phone' && !fight) { v._rfx = {id:m.id, at:Date.now(), own:true}; setTimeout(() => render(v), N.RFX_MS + 60); }
   v.ui.fresh = m.id; v.ui.sheet = null; v.ui.targeting = null; v.ui.stick = true;
   if (fight) afterFightRoll(v, r, m);
   if (secret && v.ui.ch !== 'gm') toast(v, 'Secret roll saved in GM notes.');
@@ -414,7 +452,7 @@ function cbDefend(v){
   N.boostTick(d);
   const [skill, x] = N.defSkill(d);
   const key = d.kind === 'pc' ? 'pc:' + d.ref : 'tok:' + d.id;
-  const roll = {who:N.tokName(d), whoKey:key, skill, bonus:x, action:'Defend', target:N.tokName(a), opp:p.total, dice:N.rollDice(), invokes:[]};
+  const roll = {who:N.tokName(d), whoKey:key, skill, bonus:x, action:'Defend', target:N.tokName(a), opp:p.total, dice:N.rollDice(), invokes:[], fight:true};
   const m = push({ch:N.fightCh(), kind:'roll', by:v.role, roll});
   if (d.kind === 'npc' && d.portrait) m.pt = d.portrait;
   /* defending counts as joining the fight */
@@ -688,6 +726,10 @@ function act(v, a, el, e){
   case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') ui.charSel = null; if (val === 'world' && v.dev === 'phone') ui.wikiSel = null; if (val === 'news') newsTab(v); break;
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
+  case 'mode': if (val === 'cb') { ui.fightOpen = true; ui.fightPane = 'fight'; } else { ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; ui.stick = true; } break;
+  case 'railFold': ui[d.v] = !ui[d.v]; try { localStorage.setItem('norne-' + d.v.toLowerCase(), ui[d.v] ? '1' : '0'); } catch(e) {} break;
+  case 'shelfDt': ui.shelfOff = !ui.shelfOff; try { localStorage.setItem('norne-shelfoff', ui.shelfOff ? '1' : '0'); } catch(e) {} break;
+  case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; openSheet(v, val, d); break;
   case 'closeSheet': ui.sheet = null; break;
@@ -703,6 +745,7 @@ function act(v, a, el, e){
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;
   case 'fold': ui.folded.set(d.id, !d.f); break;
   case 'send': send(v); return;
+  case 'fcSend': fcSend(v); return;
   case 'roll': openRoll(v, {skill:d.skill, who: d.who || (d.c ? 'pc:' + d.c : d.npc ? 'npc:' + d.npc : null), secret:!!d.secret}); break;
   case 'voice': { ui.voiceQ = '';
     if (val === '__ooc') ui.mode = 'ooc';
@@ -800,7 +843,10 @@ function act(v, a, el, e){
   }
   /* GM screen */
   case 'applyScene': { const r = g.recent.find(x => x.id === val); if (!r) break; setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:r.title, where:r.where, art:r.art, place:r.place, aspects:[]}, true); if (ui.sheet === 'gm') ui.sheet = null; renderAll(); return; }
-  case 'stress': { const c = g.chars[d.c]; c.stress[d.k][+d.i] = !c.stress[d.k][+d.i]; renderAll(); return; }
+  case 'stress': { const c = g.chars[d.c], on = c.stress[d.k][+d.i] = !c.stress[d.k][+d.i];
+    /* a box the GM ticks by hand goes in the open chat's actions, so the table can see what happened */
+    sys(`${N.gmName()} ${on ? 'checked' : 'cleared'} ${c.short}’s ${c.stressV[d.k][+d.i]}-point ${d.k === 'phys' ? 'physical' : 'mental'} stress box.`, ui.ch === 'gm' ? 'table' : ui.ch).act = 'stress';
+    renderAll(); return; }
   case 'fp': { const c = g.chars[d.c], before = c.fp; c.fp = clamp(c.fp + (+d.d), 0, 10); if (c.fp !== before) sys(+d.d > 0 ? `${N.gmName()} gave ${c.short} a fate point.` : `${c.short} spent a fate point.`); renderAll(); return; }
   case 'gmFor': ui.ch = val; break;
   case 'mapEditGo': close(); ui.tab = 'map'; ui.mapEdit = true; ui.addPin = false; break;
@@ -981,8 +1027,8 @@ function act(v, a, el, e){
   case 'expDl': {
     const t = v.root.querySelector('#exOut'); if (!t) return;
     const dt = new Date(), p = n => String(n).padStart(2, '0');
-    const url = URL.createObjectURL(new Blob([t.value], {type:'text/markdown'})), aEl = document.createElement('a');
-    aEl.href = url; aEl.download = `norne-log-${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}.md`; document.body.appendChild(aEl); aEl.click(); aEl.remove();
+    const js = !!ui.exp.json, url = URL.createObjectURL(new Blob([t.value], {type:js ? 'application/json' : 'text/markdown'})), aEl = document.createElement('a');
+    aEl.href = url; aEl.download = `norne-log-${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}.${js ? 'json' : 'md'}`; document.body.appendChild(aEl); aEl.click(); aEl.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000); return;
   }
   /* roll sheet */

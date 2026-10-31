@@ -182,11 +182,40 @@ function feedHtml(v){
   const g = G(), ch = N.fightCh(), cb = g.combat, start = g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cb.id);
   const ms = g.msgs.filter(m => m.ch === ch && (!start || m.t >= start.t));
   const last = ms.findLast(m => m.kind === 'roll'), p = cb.pending;
-  const live = m => m === last || (p && (m.id === p.msgId || m.id === p.defMsg));
-  const rows = ms.map(m => feedRow(m, live(m))).filter(Boolean).join('');
-  return `<div class="ffeed"><span class="eyebrow">Fight log<button type="button" class="lnk" data-a="pane" data-v="chat">Whole chat${IC('right')}</button></span>
-    <div class="ff-list scroll" data-sk="ffeed" data-bottom="1">${rows || '<p class="muted">Rolls and results show up here.</p>'}</div></div>`;
+  const live = m => isGM(v) && (m === last || (p && (m.id === p.msgId || m.id === p.defMsg)));
+  const rows = ms.filter(m => !m.fc || m.fc === cb.id).map(m => feedRow(m, live(m))).filter(Boolean).join('');
+  return `<div class="ffeed"><span class="eyebrow">Fight log and chat<button type="button" class="lnk" data-a="pane" data-v="chat">Roleplay${IC('right')}</button></span>
+    <div class="ff-list scroll" data-sk="ffeed" data-bottom="1">${rows || '<p class="muted">Rolls, results and fight chat show up here.</p>'}</div>${N.fightComposer(v)}</div>`;
 }
+/* desktop: the actions panel (B). Roleplay shows the chat's rolls and notices outside fights; combat shows this fight's
+   rolls, results and notices. They are left out of the chat, so they show here as full cards (the newest roll open, with Invoke) */
+function recentHtml(v, mode){
+  const g = G(), cb = g.combat, start = mode === 'cb' && g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cb.id);
+  const ms = g.msgs.filter(m => m.ch === v.ui.ch && (mode === 'cb' ? N.isFightAct(m) && (!m.fc || m.fc === cb.id) && (!start || m.t >= start.t) : N.isAction(m) && !N.isFightAct(m))).slice(-60);
+  const rows = actRows(v, ms);
+  return `<div class="ff-list scroll" data-sk="recent-${mode}" data-bottom="1">${rows || `<p class="muted">${mode === 'cb' ? 'Rolls and results in this fight show up here.' : 'Rolls, stress, inventory and other notes from this chat show up here.'}</p>`}</div>`;
+}
+/* one action as it shows in the side panel or a fight's record: rolls and results as cards, fight chat as small bubbles, the rest as lines */
+function actRows(v, ms, past){
+  const g = G(), cb = g.combat, keep = v._lastRoll; v._lastRoll = past ? null : (ms.findLast(m => m.kind === 'roll') || {}).id;
+  const live = m => (m.kind === 'fight' || m.kind === 'combat') && cb.state !== 'off' && m.cid === cb.id;
+  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll" data-mid="${m.id}"><div class="who">${esc(m.roll.who)}${m.ch === 'gm' ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time></div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
+    : m.kind === 'sys' && m.res ? N.resCard(m.res).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
+    : m.fc ? `<div class="fcm${m.by === v.role ? ' mine' : ''}"><b>${esc(N.personObj(m.by).name)}</b><span>${N.emoText(esc(m.text))}</span><time>${N.hhmm(m.t)}</time></div>`
+    : m.fightEnd ? `<div data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}" title="See what happened" class="go ff end"><span class="ffi">${IC('swords')}</span><span class="fft">${esc(m.text)} <b>See what happened</b></span></div>`
+    : live(m) ? feedRow(m, false).replace('<div class="ff', `<div data-a="mode" data-v="cb" title="Open the fight" class="go ff`)
+    : feedRow(m, false)).join('');
+  v._lastRoll = keep;
+  return rows;
+}
+/* everything that belonged to one fight, from its start card to the note that it ended: rolls, results, notices and its chat */
+N.fightMsgs = cid => {
+  const g = G(), st = g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cid); if (!st) return [];
+  const end = g.msgs.find(m => m.fightEnd === cid);
+  return g.msgs.filter(m => m.ch === st.ch && m.t >= st.t && (!end || m.t <= end.t) && (m === st || (N.isFightAct(m) && (!m.fc || m.fc === cid))));
+};
+N.fightRecHtml = (v, cid) => `<div class="ff-list fight-rec">${actRows(v, N.fightMsgs(cid), true) || '<p class="muted">Nothing was rolled in this fight.</p>'}</div>`;
+N.recentHtml = recentHtml;
 function feedRow(m, live){
   const line = (ic, body, cls='', end='') => `<div class="ff${cls}"><span class="ffi">${ic}</span><span class="fft">${body}</span>${end}</div>`;
   if (m.kind === 'roll') {
@@ -277,12 +306,12 @@ N.fightView = function(v){
   }
   const sel = v.ui.tokSel && N.tokById(v.ui.tokSel);
   if (ph) {
-    const board = boardHtml(v) + (isGM(v) ? gmRow(v) : '');
+    const board = boardHtml(v);
     return `<section class="fight cmd ph" aria-label="Fight on ${esc(cb.title)}">
       <div class="top ph">${N.meBtn(v)}<div style="flex:1;display:flex;justify-content:center">${N.fightSeg(v)}</div>${N.sideBtn(v)}</div>
       ${orderStrip(v, true)}
-      <div class="fight-scroll scroll" data-sk="fightph">${board}${isGM(v) ? feedHtml(v) : latestHtml(v)}</div>
-      ${nowBar(v, true)}
+      <div class="fight-scroll scroll" data-sk="fightph">${board}${feedHtml(v)}</div>
+      ${isGM(v) ? gmBanner(v) : pcMini(v)}
     </section>`;
   }
   return `<section class="fight cmd dt" aria-label="Fight on ${esc(cb.title)}">
@@ -293,6 +322,44 @@ N.fightView = function(v){
     ${nowBar(v, false)}
     ${sel ? `<div class="tokpanel glass" data-sk="tokpanel">${N.tokCard(v, sel)}</div>` : ''}
   </section>`;
+};
+
+/* phones, players: just what matters in a fight, your picture and name, stress and fate points */
+function pcMini(v){
+  const c = N.charOf(v.role); if (!c || !c.built) return '';
+  const boxes = (k, l) => `<span class="pm-st"><small>${l}</small>${c.stressV[k].map((x,i) => `<span class="sbox${c.stress[k][i]?' on':''}">${x}</span>`).join('')}</span>`;
+  return `<div class="pcmini">${N.av(c, 38)}<b>${esc(c.short)}</b>${boxes('phys', 'Phys')}${boxes('ment', 'Mind')}<span class="coins">${N.coinsHtml(c, false)}</span></div>`;
+}
+/* phones, GM: a slim banner says what is up now; tapping it pulls up the fight controls */
+function gmBanner(v){
+  const n = nowState(v), t = n.tok;
+  return `<button type="button" class="gmban ${n.tone}" data-a="sheet" data-v="gmFight">${t ? N.av(N.tokObj(t), 32) : `<span class="av" style="--s:32px;--c:var(--ink-3)">${IC('crown')}</span>`}<span class="t"><small>${esc(n.eye)}</small><b>${esc(n.title)}</b></span><span class="go">Controls${IC('caret').replace('<svg', '<svg style="rotate:180deg"')}</span></button>`;
+}
+/* the controls the banner pulls up: the turn's actions, then the GM tools. Any of them closes the sheet again */
+N.gmFightBody = v => `<div class="gmfs">${nowBar(v, true)}${gmRow(v)}</div>`;
+
+/* ---------- desktop combat screen ----------
+   players: the battlefield big (C), their card (A), the fight results (B).
+   GM: the fight controls big (C), the battlefield (A), the fight results (B). */
+N.combatDesk = function(v){
+  const g = G(), cb = g.combat, gm = isGM(v), sel = v.ui.tokSel && N.tokById(v.ui.tokSel);
+  const head = `<header class="fight-h"><div class="tt"><span class="eyebrow">${IC('swords')}Fight · Exchange ${cb.exchange}</span><h1 class="ttl">${esc(cb.title)}</h1></div>${gm ? '<span style="flex:1"></span>' : orderStrip(v, false)}${N.modeSeg(v)}</header>`;
+  const board = `<div class="fight-mid">${boardHtml(v)}</div>`;
+  if (!gm) return N.deskPage(v, `<section class="fight cmd dt" aria-label="Fight on ${esc(cb.title)}">${head}${board}${nowBar(v, false)}${sel ? `<div class="tokpanel glass" data-sk="tokpanel">${N.tokCard(v, sel)}</div>` : ''}</section>`,
+    `<div class="rail-a scroll" data-sk="rail">${N.heroQuick(v)}</div>`, 'cb');
+  const toks = cb.tokens.filter(t => t.zone).sort((a, b) => (a.kind === 'pc' ? 0 : a.side === 'ally' ? 1 : 2) - (b.kind === 'pc' ? 0 : b.side === 'ally' ? 1 : 2));
+  const fighters = toks.map(t => `<button type="button" class="cm-f${t.out ? ' out' : ''}${sel === t ? ' on' : ''}" data-tok="${t.id}">${N.av(N.tokObj(t), 34)}<span class="nm"><b>${esc(N.tokName(t))}</b><small>${t.kind === 'pc' ? 'Player' : t.side === 'ally' ? 'Ally' : 'Foe'}${t.out ? ' · taken out' : ''}</small></span>${zoneTag(t)}${smallStress(t)}</button>`).join('');
+  const ctl = `<section class="fight cmd dt cm-gm" aria-label="Fight controls">${head}
+    <div class="cm-ctl scroll" data-sk="cmctl">
+      ${orderStrip(v, false)}
+      ${nowBar(v, false)}
+      <div class="cm-cols">
+        <section class="gs-sec"><div class="gs-h"><h3>GM tools</h3></div><div class="fight-tools cm-tools">${toolList(v)}</div>
+          ${sel ? `<div class="cm-tok">${N.tokCard(v, sel)}</div>` : '<p class="muted cm-hint">Click someone on the battlefield or in the list to see their card here.</p>'}</section>
+        <section class="gs-sec"><div class="gs-h"><h3>Fighters</h3></div><div class="cm-fl">${fighters}</div></section>
+      </div>
+    </div></section>`;
+  return N.deskPage(v, ctl, `<div class="rail-a"><section class="fight cmd dt cm-bf" aria-label="Battlefield">${board}</section></div>`, 'cb', 'cm-gmpage');
 };
 
 /* ---------- GM setup panel ---------- */
@@ -337,7 +404,7 @@ function zoneForm(v, z){
 N.zoneForm = zoneForm;
 
 /* ---------- state changes ---------- */
-const sys = text => N.sys(text, N.fightCh());
+const sys = text => Object.assign(N.sys(text, N.fightCh()), {fight:true});
 /* NPC cards and the enemies built in the old "Add enemies" form, ready to drop into a fight */
 N.foeList = place => {
   const g = G(), row = (av, name, sub, a, id) => `<div class="zi" style="padding:5px 5px 5px 6px">${av}<span>${esc(name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span><button type="button" class="btn sm" data-a="${a}" data-v="${id}" data-side="foe"${place?' data-place="1"':''} style="--h:30px">${IC('plus')}Foe</button><button type="button" class="btn sm ghost" data-a="${a}" data-v="${id}" data-side="ally"${place?' data-place="1"':''} style="--h:30px">Ally</button></div>`;
@@ -409,7 +476,8 @@ N.cbNext = function(){
 };
 N.cbEnd = function(){
   const g = G();
-  sys('The fight is over. Stress stays on your cards until the scene ends.');
+  /* the end note stays in the roleplay actions; tapping it opens everything that happened in the fight */
+  const cb = g.combat; Object.assign(N.sys(`The fight on ${cb.title || 'the field'} is over. Stress stays on your cards until the scene ends.`, N.fightCh()), {fightEnd:cb.id});
   g.combat = N.freshCombat();
 };
 N.cbMove = function(t, zid){

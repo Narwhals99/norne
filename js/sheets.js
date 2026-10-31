@@ -148,8 +148,21 @@ N.sheetHtml = function(v){
     const out = N.buildExport(ex);
     const body = `<div><h4>Chats</h4><div class="forwho">${N.channelsFor('gm').map(c => `<button type="button" data-a="expCh" data-v="${c}" aria-pressed="${ex.ch.has(c)}">${esc(N.chName(c,'gm'))}</button>`).join('')}</div></div>
       <div><h4>Include</h4><div class="forwho">${[['rp','Roleplay'],['roll','Rolls'],['meta','Out of character']].map(([k,l]) => `<button type="button" data-a="expKind" data-v="${k}" aria-pressed="${!!ex[k]}">${l}</button>`).join('')}</div></div>
+      <div><h4>Format</h4><div class="forwho"><button type="button" data-a="expKind" data-v="json" aria-pressed="${!ex.json}" ${ex.json ? '' : 'disabled'}>Text (.md)</button><button type="button" data-a="expKind" data-v="json" aria-pressed="${!!ex.json}" ${ex.json ? 'disabled' : ''}>Data for an AI (.json)</button></div><small class="muted">The JSON keeps every fight as its own block with its rolls and results. Talk typed in a fight’s chat is never exported.</small></div>
       <div><h4>Preview · for your notes, or to paste into an AI for a session summary</h4><textarea id="exOut" class="inp" readonly rows="10" style="font:500 12.5px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2)">${esc(out)}</textarea></div>`;
-    return sheet('Export the log', body, `<button type="button" class="btn ghost" data-a="expCopy">${IC('copy')}Copy</button><button type="button" class="btn primary lg" data-a="expDl">${IC('download')}Download .md</button>`, {wide:true});
+    return sheet('Export the log', body, `<button type="button" class="btn ghost" data-a="expCopy">${IC('copy')}Copy</button><button type="button" class="btn primary lg" data-a="expDl">${IC('download')}Download ${ex.json ? '.json' : '.md'}</button>`, {wide:true});
+  }
+  case 'rollCard': {
+    const m = G().msgs.find(x => x.id === arg); if (!m || m.kind !== 'roll') return '';
+    const keep = v._lastRoll; v._lastRoll = m.id; const had = v.ui.folded.has(m.id), was = v.ui.folded.get(m.id); v.ui.folded.delete(m.id);
+    const card = N.rRoll(v, m).replace(/<button type="button" class="ibtn sm" data-a="fold"[\s\S]*?<\/button>/, '');
+    v._lastRoll = keep; if (had) v.ui.folded.set(m.id, was);
+    return sheet(`${esc(m.roll.who)}’s roll`, `<div class="rollcard">${card}</div>`, `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+  }
+  case 'gmFight': return sheet('Fight controls', N.gmFightBody(v), '');
+  case 'fightRec': {
+    const st = G().msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === arg);
+    return sheet(st ? `The fight: ${esc(st.text || '')}` : 'The fight', N.fightRecHtml(v, arg), `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true});
   }
   case 'credits': return sheet('Art credits', N.creditsHtml(), '', {wide:true});
   case 'myFace': {
@@ -408,12 +421,45 @@ function exLine(m){
   const sp = N.speakerObj(m);
   return sp.narr ? `${t} NARRATOR: ${m.text}` : `${t} ${sp.name}${m.by === 'gm' ? ' (NPC)' : ''}: ${m.text}`;
 }
+/* the same log as data another AI can read: chats in order, and every fight as its own block holding its rolls,
+   results and notices. A fight's own chat (fc) is never exported. */
+function exEntry(m){
+  const t = new Date(m.t).toISOString();
+  if (m.kind === 'roll') { const r = m.roll, o = N.outcome(r); return {t, type:'roll', who:r.who, action:r.action, skill:r.skill, skillBonus:r.bonus - (r.gear||0), gear:r.gear || 0, target:r.target || null, dice:r.dice, invokes:r.invokes.map(i => ({aspect:i.aspect, reroll:!!i.reroll})), total:N.rollTotal(r), ladder:ladderWord(N.rollTotal(r)), against:r.opp ?? null, outcome:o ? o.t : null, shifts:o ? o.sh : null, secret:m.ch === 'gm'}; }
+  if (m.kind === 'sys' && m.res && m.res.k === 'order') return {t, type:'turn_order', order:(m.res.rows || []).map(x => ({name:x.n, notice:x.sk, total:x.tot}))};
+  if (m.kind === 'sys' && m.res) { const [a, d] = m.res.rows || [], side = x => x && {name:x.n, skill:x.sk, skillBonus:x.b - (x.g||0), gear:x.g || 0, total:x.tot}; return {t, type:'attack_result', title:m.res.title, attack:side(a), defense:side(d), damage:m.res.calc || null, outcome:m.res.out?.t || null, after:m.res.after || null}; }
+  if (m.kind === 'sys') return {t, type:'note', text:m.text};
+  if (m.kind === 'meta' || m.kind === 'ooc') return {t, type:'out_of_character', who:N.personObj(m.by).name, text:m.text};
+  if (m.kind === 'scene') return {t, type:'scene', title:m.scene.title, where:m.scene.where || null, date:m.scene.date || null};
+  if (m.kind === 'news') return {t, type:'news', title:m.text};
+  if (m.kind === 'note') return {t, type:'gm_note', text:m.text};
+  const sp = N.speakerObj(m);
+  return sp.narr ? {t, type:'narration', text:m.text} : {t, type:'speech', speaker:sp.name, npc:m.by === 'gm', text:m.text};
+}
+function buildJson(sel){
+  const keep = m => !m.fc && !(m.kind === 'scene' && (m.quiet || !m.scene)) && (((m.kind === 'rp' || m.kind === 'sys' || m.kind === 'scene' || m.kind === 'combat' || m.kind === 'fight' || m.kind === 'news' || m.kind === 'note') && sel.rp) || (m.kind === 'roll' && sel.roll) || ((m.kind === 'meta' || m.kind === 'ooc') && sel.meta));
+  const chats = [];
+  for (const c of N.channelsFor('gm')) {
+    if (!sel.ch.has(c)) continue;
+    const entries = []; let fight = null;
+    for (const m of G().msgs.filter(x => x.ch === c && keep(x))) {
+      if (m.kind === 'combat' || m.kind === 'fight') { fight = {t:new Date(m.t).toISOString(), type:'fight', title:m.text || '', ended:null, entries:[]}; entries.push(fight); continue; }
+      if (m.fightEnd && fight) { fight.ended = new Date(m.t).toISOString(); fight = null; continue; }
+      (fight && N.isFightAct(m) ? fight.entries : entries).push(exEntry(m));
+    }
+    if (entries.length) chats.push({chat:N.chName(c, 'gm'), entries});
+  }
+  return JSON.stringify({format:'norne-log', version:1, campaign:'Nörne', exported:new Date().toISOString(),
+    about:'A Fate Core campaign log. Chats are in time order. type "fight" blocks hold that fight\'s rolls (4 Fate dice, -1/0/+1 each, total = dice + skillBonus + gear + 2 per non-reroll invoke), attack results and notices. Typed fight chat is left out.',
+    includes:{roleplay:!!sel.rp, rolls:!!sel.roll, outOfCharacter:!!sel.meta}, chats}, null, 2);
+}
 N.buildExport = sel => {
+  if (sel.json) return buildJson(sel);
   const kinds = [sel.rp && 'roleplay', sel.roll && 'rolls', sel.meta && 'out-of-character talk'].filter(Boolean);
   const out = ['# Nörne: session log', `Exported ${new Date().toLocaleString()} · includes ${kinds.join(', ') || 'nothing'}`];
   for (const c of N.channelsFor('gm')) {
     if (!sel.ch.has(c)) continue;
-    const ms = G().msgs.filter(m => m.ch === c && !(m.kind === 'scene' && (m.quiet || !m.scene)) && (((m.kind === 'rp' || m.kind === 'sys' || m.kind === 'scene' || m.kind === 'combat' || m.kind === 'fight' || m.kind === 'news' || m.kind === 'note') && sel.rp) || (m.kind === 'roll' && sel.roll) || ((m.kind === 'meta' || m.kind === 'ooc') && sel.meta)));
+    const ms = G().msgs.filter(m => m.ch === c && !m.fc && !(m.kind === 'scene' && (m.quiet || !m.scene)) && (((m.kind === 'rp' || m.kind === 'sys' || m.kind === 'scene' || m.kind === 'combat' || m.kind === 'fight' || m.kind === 'news' || m.kind === 'note') && sel.rp) || (m.kind === 'roll' && sel.roll) || ((m.kind === 'meta' || m.kind === 'ooc') && sel.meta)));
     if (!ms.length) continue;
     out.push('', `## ${N.chName(c, 'gm')}`, '', ms.map(exLine).join('\n\n'));
   }
