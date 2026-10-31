@@ -131,7 +131,7 @@ function chatPage(v){
   return `<main class="page with-rail"${v.ui.railW ? ` style="--railw:${v.ui.railW}px"` : ''}>${chatView(v)}<aside class="rail${off ? ' rc-off' : ''}">
     <div class="railgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the side panel" title="Drag to resize"></div>
     <div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>
-    <section class="recent"><button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC('dice')}<b>Recent actions</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
+    <section class="rcnt"><button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC('dice')}<b>Recent actions</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
       ${off ? '' : N.recentHtml(v)}</section>
   </aside></main>`;
 }
@@ -161,7 +161,7 @@ function chatView(v, side){
   return `<section class="chat" aria-label="${esc(N.chName(ch, v.role))}">
     ${side ? '' : topPh}${chipRow}${topDt}
     ${side ? '' : sceneBanner(v, sc, ch)}
-    <div class="msgs scroll" id="msgs-${v.id}" data-sk="msgs" data-bottom="1">${fightbar && side ? '' : ''}${renderMsgs(v)}</div>
+    <div class="msgs scroll" id="msgs-${v.id}" data-sk="msgs" data-bottom="1">${fightbar && side ? '' : ''}${renderMsgs(v, side)}</div>
     ${fightbar && !side ? '' : ''}
     ${composer(v)}
   </section>`.replace('<div class="msgs', (!side ? owedBar || fightbar : '') + '<div class="msgs');
@@ -195,8 +195,15 @@ function sceneBanner(v, sc, ch){
     <div class="ctl">${gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Change scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
   </section>`;
 }
-function renderMsgs(v){
-  const g = G(), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)));
+/* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */
+function isAction(m){
+  return m.kind === 'sys' || m.kind === 'fight' || m.kind === 'combat' || (m.kind === 'roll' && !!(m.roll.fight || m.roll.target || m.roll.action === 'Attack' || m.roll.action === 'Defend'));
+}
+/* the actions leave the chat only while Recent actions is there to show them */
+const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'chat' && railShown(v) && !v.ui.recentOff;
+N.isAction = isAction; N.hhmm = hhmm;
+function renderMsgs(v, side){
+  const g = G(), out1 = actionsOut(v, side), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)) && !(out1 && isAction(m)));
   if (!ms.length) return `<div class="quiet"><div class="art"></div><p>${v.ui.ch.startsWith('dm-') ? 'Nothing here yet. Anything said here stays between you two.' : 'Nothing here yet.'}</p></div>`;
   let out = '', prev = null, firstNarr = true;
   /* only the newest roll in a chat starts open; a roll someone opened or closed by hand stays that way */
