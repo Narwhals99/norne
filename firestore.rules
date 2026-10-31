@@ -68,10 +68,18 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['c']);
     }
 
-    // Group chats the GM makes: a name and the seats in it. Players read only the groups they are in.
+    // Group chats the GM makes: a name and the seats in it (party: true for a party). Players read only the groups they are in.
     match /groups/{id} {
       allow read: if isGM() || (isPlayer() && seat() in resource.data.seats);
       allow write: if isGM();
+    }
+    // The character cards of a party's players (parties/<group id>), kept out of game/chars so other parties never get them.
+    // A player in the party may change only their own card.
+    match /parties/{id} {
+      allow read: if isGM() || (isPlayer() && inGroup(id));
+      allow write: if isGM();
+      allow update: if isPlayer() && inGroup(id)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([seat().replace('p', 'pc')]);
     }
 
     // Chat messages. aud says who may read one: '*' is everyone at the table,

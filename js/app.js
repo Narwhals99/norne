@@ -91,6 +91,8 @@ function render(v){
   root.dataset.theme = v.theme; root.dataset.style = v.style; root.dataset.dev = v.dev; root.dataset.role = v.role || '';
   fzSet(v);
   if (N.gated || !v.role) { root.innerHTML = N.gateHtml(N.gated || '<p>Opening the campaign…</p>'); fzInline(v); return; }
+  /* a chat this person can't see (a deleted group, Everyone for someone in a party) falls back to their first chat */
+  { const chs = N.channelsFor(v.role); if (v.ui.ch !== 'gm' && !chs.includes(v.ui.ch) && !(v.role === 'gm' && v.ui.ch === N.fightCh())) v.ui.ch = chs[0]; }
   const sk = {};
   root.querySelectorAll('[data-sk]').forEach(e => { sk[e.dataset.sk] = {t:e.scrollTop, l:e.scrollLeft, bottom:e.scrollHeight - e.scrollTop - e.clientHeight < 60}; });
   const hs = [...root.querySelectorAll(HS)].map(e => e.scrollLeft);
@@ -1019,7 +1021,7 @@ function act(v, a, el, e){
     if (n.see?.length) issue.see = [...n.see];
     g.news.issues.push(issue); (g.news.seen.gm = g.news.seen.gm || []).push(issue.id);
     const to = N.audOf(issue, 'news');
-    for (const ch of to === '*' ? ['table'] : to.map(s => 'dm-' + s)) push({ch, kind:'news', by:'gm', text:issue.headline, nid:issue.id});
+    for (const ch of to === '*' ? ['table', ...g.groups.filter(x => x.party).map(x => 'grp-' + x.id)] : to.map(s => 'dm-' + s)) push({ch, kind:'news', by:'gm', text:issue.headline, nid:issue.id});
     ui.newsEdit = null; ui.paper = N.paperName(issue); ui.newsSel = issue.id; toast(v, to === '*' ? 'Published. Everyone got a note in chat.' : `Published for ${N.audLabel(issue, 'news').replace(/^Only /, '')}. They got a note.`); renderAll(); return;
   }
   case 'ndAud': N.audSet(ui.newsEdit, 'news', val); break;
@@ -1035,13 +1037,16 @@ function act(v, a, el, e){
   case 'emoMore': if (ui.pop) ui.pop.all = !ui.pop.all; break;
   case 'emoTab': ui.emoTab = val; if (val === 'gif' && !ui.gifRes && g.gifKey) gifSearch(v); break;
   /* group chats: the GM makes, renames, fills and deletes them */
-  case 'grpNew': if (!gm) break; openSheet(v, 'grpEdit'); break;
+  case 'grpNew': if (!gm) break; openSheet(v, 'grpEdit', {party:d.party === '1'}); break;
   case 'grpEdit': if (!gm) break; openSheet(v, 'grpEdit', {v:val}); break;
+  case 'gdParty': ui.gd.party = val === '1'; break;
   case 'gdSeat': { const ss = ui.gd.seats, i = ss.indexOf(val); if (i < 0) ss.push(val); else ss.splice(i, 1); break; }
   case 'gdSave': {
     const d = ui.gd, name = d.name.trim(); if (!gm || !name || !d.seats.length) break;
     const old = d.id && g.groups.find(x => x.id === d.id), seats = N.seats().filter(s => d.seats.includes(s));
-    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now()};
+    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {})};
+    /* a player is in one party at a time: putting them in this one takes them out of any other */
+    if (gr.party) for (const o of g.groups.filter(x => x.party && x.id !== gr.id && x.seats.some(s => seats.includes(s)))) { const was = [...o.seats]; N.saveGroup({...o, seats:o.seats.filter(s => !seats.includes(s))}, was); }
     N.saveGroup(gr, old ? old.seats : null);
     if (!old) sys(`${N.gmName()} made this group chat for ${N.namesOf(seats)}.`, 'grp-' + gr.id);
     else { const added = seats.filter(s => !old.seats.includes(s)); if (added.length) sys(`${N.gmName()} added ${N.namesOf(added)} to the chat.`, 'grp-' + gr.id); }
@@ -1110,7 +1115,7 @@ function act(v, a, el, e){
     /* a box the GM ticks by hand goes in the open chat's actions, so the table can see what happened */
     sys(`${N.gmName()} ${on ? 'checked' : 'cleared'} ${c.short}’s ${c.stressV[d.k][+d.i]}-point ${d.k === 'phys' ? 'physical' : 'mental'} stress box.`, ui.ch === 'gm' ? 'table' : ui.ch).act = 'stress';
     renderAll(); return; }
-  case 'fp': { const c = g.chars[d.c], before = c.fp; c.fp = clamp(c.fp + (+d.d), 0, 10); if (c.fp !== before) sys(+d.d > 0 ? `${N.gmName()} gave ${c.short} a fate point.` : `${c.short} spent a fate point.`); renderAll(); return; }
+  case 'fp': { const c = g.chars[d.c], before = c.fp; c.fp = clamp(c.fp + (+d.d), 0, 10); if (c.fp !== before) sys(+d.d > 0 ? `${N.gmName()} gave ${c.short} a fate point.` : `${c.short} spent a fate point.`, N.homeCh(c.player)); renderAll(); return; }
   case 'gmFor': ui.ch = val; break;
   case 'mapEditGo': close(); ui.tab = 'map'; ui.mapEdit = true; ui.addPin = false; break;
   case 'castNpcs': close(); ui.tab = 'cast'; ui.castSeg = 'npcs'; ui.castSel = null; break;
@@ -1425,7 +1430,7 @@ function act(v, a, el, e){
 function openSheet(v, s, d={}){
   const g = G(), ui = v.ui;
   ui.sheet = s; ui.sheetArg = d.c || d.v || null;
-  if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats]} : {id:null, name:'', seats:[]}; }
+  if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats], party:!!gr.party} : {id:null, name:'', seats:[], party:!!d.party}; }
   if (s === 'scene') {
     const ch = ui.ch === 'gm' ? 'table' : ui.ch, cur = g.scenes[ch];
     ui.sd = cur ? {ch, title:cur.title, where:cur.where || '', date:cur.date || '', art:cur.art || null, place:cur.place || null, aspects:(cur.aspects||[]).map(a => ({...a})), post:true, tab:g.recent.length ? 'recent' : 'pics', newAsp:''}

@@ -287,6 +287,10 @@ N.seats = () => Object.keys(N.G.P).filter(k => k !== 'gm').sort((a,b) => a.slice
 N.gmName = () => N.G.P.gm.name;
 /* ---------- group chats: the GM puts several players in one chat (groups/<id>, chat id "grp-<id>") ---------- */
 N.grpOf = ch => /^grp-/.test(ch || '') ? (N.G.groups || []).find(x => x.id === ch.slice(4)) || null : null;
+/* a party is a group chat marked party: its players see only each other's characters, and its chat stands in for Everyone */
+N.partyOf = seat => (N.G.groups || []).find(x => x.party && (x.seats || []).includes(seat)) || null;
+/* where table-wide notes about a player's character go: their party's chat, or Everyone */
+N.homeCh = seat => { const pt = N.partyOf(seat); return pt ? 'grp-' + pt.id : 'table'; };
 N.grpsFor = role => (N.G.groups || []).filter(x => role === 'gm' || (x.seats || []).includes(role)).sort((a, b) => (a.t || 0) - (b.t || 0));
 /* "Mia and Theo", "Jack, Mia and Theo" */
 N.namesOf = (seats, skip) => { const ns = seats.filter(s => s !== skip).map(s => N.G.P[s]?.name || 'a former player'); return ns.length > 1 ? ns.slice(0, -1).join(', ') + ' and ' + ns[ns.length - 1] : ns[0] || 'nobody yet'; };
@@ -301,7 +305,12 @@ N.chName = (id, role) => {
   return role === 'gm' ? (N.G.P[pr]?.name || 'A former player') : `${N.gmName()} · GM`;
 };
 N.chSub = (id, role) => id.startsWith('grp-') ? grpSub(N.grpOf(id)?.seats || [], role) : id === 'table' ? 'The whole table sees this chat' : id === 'gm' ? 'Only you see this. Secret rolls land here.' : role === 'gm' ? `Only you and ${N.G.P[id.slice(3)]?.name || 'them'} see this` : 'Only you and the GM see this';
-N.channelsFor = role => { const gs = N.grpsFor(role).map(x => 'grp-' + x.id); return role === 'gm' ? ['table', ...N.seats().map(s => 'dm-' + s), ...gs, 'gm'] : ['table', 'dm-' + role, ...gs]; };
+N.channelsFor = role => {
+  const grs = N.grpsFor(role), pts = grs.filter(x => x.party).map(x => 'grp-' + x.id), gs = grs.filter(x => !x.party).map(x => 'grp-' + x.id);
+  if (role === 'gm') return ['table', ...pts, ...N.seats().map(s => 'dm-' + s), ...gs, 'gm'];
+  /* a player in a party has their party's chat instead of Everyone */
+  return [...(pts.length ? pts : ['table']), 'dm-' + role, ...gs];
+};
 N.unread = (role, ch) => { const s = (N.G.seen[role] || {})[ch] || 0; let n = 0; for (const m of N.G.msgs) if (m.ch === ch && m.by !== role && m.t > s && !(m.kind === 'scene' && m.quiet)) n++; return n; };
 
 /* the characters of the people seated now, in seat order */

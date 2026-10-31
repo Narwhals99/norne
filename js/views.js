@@ -55,7 +55,7 @@ function chanIcon(v, c){
   const g = G();
   if (c === 'table') return `<span class="cic">${IC('users')}</span>`;
   if (c === 'gm') return `<span class="cic">${IC('lock')}</span>`;
-  if (c.startsWith('grp-')) return `<span class="cic grp">${IC('whisper')}</span>`;
+  if (c.startsWith('grp-')) return `<span class="cic grp">${IC(N.grpOf(c)?.party ? 'banner' : 'whisper')}</span>`;
   if (isGM(v)) return N.av(g.P[c.slice(3)] ? N.personObj(c.slice(3)) : {name:'?'}, 24);
   return N.av(N.personObj('gm'), 24);
 }
@@ -95,10 +95,11 @@ function shelfHtml(v){
   return `<aside class="shelf${ph?' drawer':''}${mini?' mini':''}" aria-label="Chats">
     <header class="shh">${STAR.replace('<svg','<svg class="st"')}<h2>Chats</h2>${ph ? `<button type="button" class="ibtn" data-a="shelf" aria-label="Close the chat list">${IC('x')}</button>` : `<button type="button" class="ibtn sm shx" data-a="shelfDt" aria-label="Hide the chat list" title="Hide the chat list">${IC('left')}</button>`}</header>
     <div class="shl scroll" data-sk="shelf">
-      ${group('The table', chs.filter(c => c === 'table'))}
+      ${group(gm ? 'The table' : chs.includes('table') ? 'The table' : 'Your party', chs.filter(c => c === 'table' || (!gm && N.grpOf(c)?.party)))}
+      ${gm ? group('Parties', chs.filter(c => N.grpOf(c)?.party)) : ''}
       ${group(gm ? 'Private chats' : 'Just you and the GM', chs.filter(c => c.startsWith('dm-')))}
-      ${group('Group chats', chs.filter(c => c.startsWith('grp-')))}
-      ${gm ? `<button type="button" class="shr shnew" data-a="grpNew" title="New group chat"><span class="cic">${IC('plus')}</span><span class="t"><b>New group chat</b><small>Put a few players in one chat</small></span></button>` : ''}
+      ${group('Group chats', chs.filter(c => c.startsWith('grp-') && !N.grpOf(c)?.party))}
+      ${gm ? `<button type="button" class="shr shnew" data-a="grpNew" title="New group chat"><span class="cic">${IC('plus')}</span><span class="t"><b>New group chat</b><small>A few players in one chat, or a party</small></span></button>` : ''}
       ${group('Only you', chs.filter(c => c === 'gm'))}
     </div>
     ${ph ? `<button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>` : mini ? '' : '<div class="shelfgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the chat list" title="Drag to resize"></div>'}
@@ -460,7 +461,7 @@ function composer(v){
 function gmScreen(v){
   const g = G(), ch = v.ui.ch, here = ch === 'gm' ? 'table' : ch, fights = N.allFights();
   /* one fight per chat: every running fight gets a button, and the open chat can start one if it has none */
-  const where = c => c === 'table' ? 'Everyone' : c.startsWith('grp-') ? `the group chat ${esc(N.chName(c,'gm'))}` : `your chat with ${esc(N.chName(c,'gm'))}`;
+  const where = c => c === 'table' ? 'Everyone' : c.startsWith('grp-') ? `${N.grpOf(c)?.party ? 'the party' : 'the group chat'} ${esc(N.chName(c,'gm'))}` : `your chat with ${esc(N.chName(c,'gm'))}`;
   const fight = Object.entries(fights).sort(([a],[b]) => (a !== 'table') - (b !== 'table') || a.localeCompare(b)).map(([c, cb]) => {
     const o = N.order(cb), cur = cb.state === 'live' && cb.phase !== 'notice' && o.length ? o[cb.turn % o.length] : null;
     return `<button type="button" class="bigcta" data-a="openFight" data-v="${c}"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>In ${where(c)} · ${cb.state==='setup'?'Not started yet. Players can’t see it.':`Exchange ${cb.exchange}${cur ? ` · ${esc(N.tokName(cur))}’s turn` : ''}`}</small></span></button>`;

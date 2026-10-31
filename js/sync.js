@@ -143,15 +143,32 @@ N.wipeChat = ch => {
 };
 
 /* ---------- group chats: one document each (groups/<id>: name, seats). Players see only the groups they are in. ---------- */
-let GROUPS_OK = false;
+let GROUPS_OK = false, GROUPS_DONE = false;
+/* characters arrive from game/chars plus each party document this person can read */
+const CH = {base:{}, party:{}};
+function mergeChars(){
+  const all = {...CH.base}; for (const u of Object.values(CH.party)) Object.assign(all, u);
+  G().chars = Object.fromEntries(Object.entries(all).map(([k, j]) => [k, N.decorate(JSON.parse(j))]));
+}
+function listenParty(id){
+  const path = 'parties/' + id;
+  if (PARTY_ON.has(path)) return; PARTY_ON.add(path);
+  listenDoc(path, u => { if (!G().groups.some(x => x.id === id && x.party)) return; CH.party[id] = u; mergeChars(); ensureChars(); }, true).then(() => { if (isGM()) queueSync(); });
+}
+const PARTY_ON = new Set();
+/* the GM writes character cards only once it knows every party and has read every party's document,
+   so a card is never written to the wrong place or made again from blank */
+const charsReady = () => LOADED.has('game/chars') && GROUPS_DONE && G().groups.filter(x => x.party).every(x => LOADED.has('parties/' + x.id));
 function listenGroups(){
   const role = G().role, q = isGM() ? F.collection(db, 'groups') : F.query(F.collection(db, 'groups'), F.where('seats', 'array-contains', role));
   return new Promise(res => F.onSnapshot(q, snap => {
-    GROUPS_OK = true;
-    G().groups = snap.docs.map(d => ({id:d.id, name:d.data().name || 'Group chat', seats:d.data().seats || [], t:d.data().t || 0}));
-    for (const gr of G().groups) listenFight(gr.id);
-    setCombat(); if (live) changed(); res();
-  }, err => { console.warn('groups', err?.code); res(); }));
+    GROUPS_OK = GROUPS_DONE = true;
+    G().groups = snap.docs.map(d => ({id:d.id, name:d.data().name || 'Group chat', seats:d.data().seats || [], t:d.data().t || 0, ...(d.data().party ? {party:true} : {})}));
+    for (const gr of G().groups) { listenFight(gr.id); if (gr.party) listenParty(gr.id); }
+    /* a party this person is no longer in takes its cards with it */
+    let gone = false; for (const id of Object.keys(CH.party)) if (!G().groups.some(x => x.id === id && x.party)) { delete CH.party[id]; gone = true; }
+    if (gone) mergeChars(); setCombat(); if (live) changed(); res();
+  }, err => { console.warn('groups', err?.code); GROUPS_DONE = true; res(); }));
 }
 /* the rules that guard groups/<id> have to be published before the GM can make one */
 N.groupsReady = () => GROUPS_OK;
@@ -159,7 +176,8 @@ N.groupsReady = () => GROUPS_OK;
 N.saveGroup = (gr, before) => {
   if (!isGM()) return;
   const g = G(), i = g.groups.findIndex(x => x.id === gr.id); if (i < 0) g.groups.push(gr); else g.groups[i] = gr;
-  track(F.setDoc(dref('groups/' + gr.id), {name:gr.name, seats:gr.seats, t:gr.t || Date.now()}));
+  track(F.setDoc(dref('groups/' + gr.id), {name:gr.name, seats:gr.seats, t:gr.t || Date.now(), party:!!gr.party}));
+  if (gr.party) listenParty(gr.id);
   if (before && before.join() !== gr.seats.join()) for (const m of g.msgs) if (m.ch === 'grp-' + gr.id && MKNOWN.has(m.id)) track(F.updateDoc(dref('msgs/' + m.id), {aud:audOf(m.ch)}));
 };
 /* deleting a group deletes its messages and its fight document too */
@@ -167,7 +185,9 @@ N.dropGroup = id => {
   if (!isGM()) return;
   const g = G(); g.groups = g.groups.filter(x => x.id !== id);
   for (const m of [...g.msgs]) if (m.ch === 'grp-' + id) N.delMsg(m.id);
-  track(F.deleteDoc(dref('groups/' + id))); track(F.deleteDoc(dref('fights/' + id)));
+  /* a deleted party's cards go back to game/chars on the next save */
+  const was = CH.party[id]; delete CH.party[id]; if (was) { KNOWN.delete('parties/' + id); LOADED.delete('parties/' + id); }
+  track(F.deleteDoc(dref('groups/' + id))); track(F.deleteDoc(dref('fights/' + id))); track(F.deleteDoc(dref('parties/' + id)));
 };
 
 /* ---------- push addresses: one document per phone or computer that has notifications on ---------- */
@@ -253,7 +273,12 @@ function syncNow(){
   saveLocal();
   const g = G();
   if (isGM()) {
-    writeUnits('game/chars', g.chars);
+    /* characters of players in a party live in that party's document (parties/<id>), so other parties never receive them */
+    if (charsReady()) {
+      const inParty = new Set(g.groups.filter(x => x.party).flatMap(x => x.seats));
+      writeUnits('game/chars', Object.fromEntries(Object.entries(g.chars).filter(([, c]) => !inParty.has(c.player))));
+      for (const pt of g.groups.filter(x => x.party)) writeUnits('parties/' + pt.id, Object.fromEntries(Object.entries(g.chars).filter(([, c]) => pt.seats.includes(c.player))));
+    }
     /* fights being set up and fights in private chats stay in gm/combat, one unit per chat */
     const all = N.allFights(), mine = Object.fromEntries(Object.entries(all).filter(([ch, cb]) => cb.state === 'setup' || (cb.state === 'live' && N.chKey(ch))));
     writeUnits('gm/combat', Object.fromEntries(Object.entries(mine).map(([ch, cb]) => [ch, combatOut(cb)])));
@@ -313,7 +338,8 @@ function syncNow(){
     }
   } else {
     const mine = g.P[g.role]?.char;
-    if (mine && g.chars[mine]) writeUnits('game/chars', {[mine]:g.chars[mine]}, true);
+    const pt = N.partyOf(g.role);
+    if (mine && g.chars[mine]) writeUnits(pt ? 'parties/' + pt.id : 'game/chars', {[mine]:g.chars[mine]}, true);
     for (const [ch, cb] of Object.entries(N.allFights())) if (cb.state === 'live') { const s = N.chKey(ch); writeUnits(s ? 'fights/' + s : 'game/combat', {c:combatOut(cb)}); }
   }
   syncMsgs();
@@ -451,7 +477,7 @@ function applyMembers(list){
 /* every seated player gets an empty character card, made on the GM's device */
 function ensureChars(){
   const g = G();
-  if (!isGM() || !LOADED.has('game/chars')) return;
+  if (!isGM() || !charsReady()) return;
   let add = false;
   for (const s of N.seats()) { const id = g.P[s].char; if (!g.chars[id]) { g.chars[id] = N.decorate(N.blankChar(id, s)); add = true; } }
   if (add) queueSync();
@@ -499,7 +525,7 @@ async function start(role){
     ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','game/news','gm/news','game/maps','game/wiki','game/meta','game/emoji']
     : ['game/chars','game/combat','game/maps','game/wiki','game/news','game/meta','game/emoji'];
   const APPLY = {
-    'game/chars': u => { g.chars = Object.fromEntries(Object.entries(u).map(([k,j]) => [k, N.decorate(JSON.parse(j))])); ensureChars(); },
+    'game/chars': u => { CH.base = u; mergeChars(); ensureChars(); },
     'game/combat': u => { GC = u.c ? JSON.parse(u.c) : null; setCombat(); },
     /* one unit per chat; c is where the one fight lived before there could be several */
     'gm/combat': u => { SC = {}; for (const j of Object.values(u)) { const x = JSON.parse(j); if (x) SC[x.ch || 'table'] = x; } setCombat(); },
