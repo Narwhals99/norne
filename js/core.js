@@ -28,6 +28,11 @@ const STYLES = [
 ];
 N.STYLES = STYLES;
 N.styleOk = id => STYLES.some(s => s.id === id) ? id : 'storybook';
+/* text sizes under Profile > Text size, saved per device like the style; k multiplies every font size */
+const FONT_SIZES = [{id:'s', name:'Small', k:.9}, {id:'m', name:'Normal', k:1}, {id:'l', name:'Large', k:1.12}, {id:'xl', name:'Larger', k:1.25}, {id:'xxl', name:'Largest', k:1.4}];
+N.FONT_SIZES = FONT_SIZES;
+N.fzOk = id => FONT_SIZES.some(f => f.id === id) ? id : 'm';
+N.fzK = id => (FONT_SIZES.find(f => f.id === id) || FONT_SIZES[1]).k;
 
 /* ---------- Fate on the Nörne ladder ---------- */
 const LADDER = {8:'Mythic',7:'Legendary',6:'Renowned',5:'Expert',4:'Great',3:'Good',2:'Fair',1:'Average',0:'Mediocre','-1':'Poor','-2':'Terrible'};
