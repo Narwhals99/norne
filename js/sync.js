@@ -21,7 +21,7 @@ const FB = {
 const GM_EMAIL = 'theusualsuspect41995@gmail.com'.toLowerCase();
 const EMU = /[?&]emu=1\b/.test(location.search);
 const isSeat = r => /^p\d+$/.test(r || '');
-let F = null, db = null, auth = null, ME = null, started = false, live = false, V = null;
+let F = null, db = null, auth = null, ME = null, started = false, live = false, V = null, CACHED = false;
 N.me = () => ME;
 N.MEMBERS = [];
 const isGM = () => G().role === 'gm';
@@ -36,15 +36,15 @@ N.gateHtml = body => `<div class="stars" aria-hidden="true"></div><div class="ga
 const outBtn = '<button type="button" class="btn ghost" data-a="signOut">Sign out</button>';
 const signInGate = (err='') => gate(`<p>Sign in to join the table.</p><button type="button" class="btn gold lg" data-a="signIn">Sign in with Google</button>${err?`<p class="fine" role="alert">${esc(err)}</p>`:''}<p class="fine">New players wait here until the GM lets them in.</p>`);
 /* while a player switches character the old seat's listeners and saves are refused on purpose; stay quiet until the reload */
-let SWITCHING = false;
+let SWITCHING = false, OUT = false;
 function fail(err){
-  if (SWITCHING) { console.warn('switching', err?.code); return; }
+  if (SWITCHING || OUT) { console.warn('switching', err?.code); return; }
   console.error(err);
   const why = err?.code === 'permission-denied' ? 'The campaign’s database refused the request. If you set Norne up, check that the security rules are published.' : 'Something went wrong while opening the campaign. Check your connection and reload the page.';
   if (started) return syncErr(why);
   gate(`<p>${esc(why)}</p>${outBtn}`);
 }
-function syncErr(t){ if (SWITCHING) return; if (V) N.toast(V, t); N.renderAll(); }
+function syncErr(t){ if (SWITCHING || OUT) return; if (V) N.toast(V, t); N.renderAll(); }
 
 /* ---------- documents made of units ---------- */
 const KNOWN = new Map(), LOADED = new Set();
@@ -61,16 +61,33 @@ function writeUnits(path, units, partial){
 /* listen to a document; apply(units) runs only when it really changed.
    soft: a refusal (security rules not published yet) leaves it unloaded instead of stopping the app */
 const DENIED = new Set();
+/* Start-up reads the copy this device kept from last time (fast), then the server's newer copy follows.
+   STALE holds what hasn't heard from the server yet since the page opened; until it is empty the app
+   saves nothing but chat messages, so an old copy never overwrites a change made on another device. */
+const STALE = new Set(), MD = {includeMetadataChanges:true};
+function heard(key, fromCache){
+  if (fromCache && !SERVED.has(key)) { STALE.add(key); return; }
+  SERVED.add(key);
+  if (STALE.delete(key) && !STALE.size && live) { queueSync(); changed(); warmed(); }
+}
+function warmed(){ if (live && !STALE.size && CACHED) try { localStorage.setItem(WKEY(), '1'); } catch(e) {} }
+const SERVED = new Set();
+/* WARM: this device has a copy from an earlier visit (set once everything has come from the server) */
+let WARM = false;
+const WKEY = () => 'norne-warm-' + ME.uid;
 function listenDoc(path, apply, soft){
   return new Promise(res => {
-    F.onSnapshot(dref(path), snap => {
+    F.onSnapshot(dref(path), MD, snap => {
+      heard(path, snap.metadata.fromCache);
+      /* a device that has kept nothing yet waits for the server rather than start from nothing */
+      if (snap.metadata.fromCache && !WARM && !LOADED.has(path)) return;
       const units = {}; for (const [key, j] of Object.entries(snap.data() || {})) if (typeof j === 'string') units[key] = j;
       const prev = KNOWN.get(path), same = prev && Object.keys(prev.units).length === Object.keys(units).length && Object.entries(units).every(([key, j]) => prev.units[key] === j);
       KNOWN.set(path, {units:{...units}});
       const first = !LOADED.has(path); LOADED.add(path);
       if (first || !same) { apply(units); if (!first) changed(); }
       res();
-    }, err => { if (soft) { console.warn(path, err?.code); DENIED.add(path); res(); } else { fail(err); res(); } });
+    }, err => { heard(path, false); if (soft) { console.warn(path, err?.code); DENIED.add(path); LOADED.delete(path); res(); } else { fail(err); res(); } });
   });
 }
 const vals = u => Object.values(u).map(j => JSON.parse(j));
@@ -111,14 +128,20 @@ function listenMsgs(){
   const role = G().role;
   const qs = isGM() ? [F.collection(db, 'msgs')] : [F.query(F.collection(db, 'msgs'), F.where('aud', 'array-contains', '*')), F.query(F.collection(db, 'msgs'), F.where('aud', 'array-contains', role))];
   let waiting = qs.length;
-  return new Promise(res => qs.forEach(q => F.onSnapshot(q, snap => {
+  return new Promise(res => qs.forEach((q, n) => { let first = true; F.onSnapshot(q, MD, snap => {
+    const key = 'msgs' + n, cached = snap.metadata.fromCache;
+    /* messages that arrive with the server's first answer came while this device was away: no pings for them */
+    const quiet = !SERVED.has(key);
+    heard(key, cached);
+    if (cached && !WARM && quiet) return;
+    if (!first && !snap.docChanges().length) return;
     const ids = [], removed = [];
-    const fresh = LOADED.has('msgs') ? snap.docChanges().filter(c => c.type === 'added' && !MKNOWN.has(c.doc.id)).map(c => c.doc.id) : [];
+    const news = LOADED.has('msgs') && !quiet ? snap.docChanges().filter(c => c.type === 'added' && !MKNOWN.has(c.doc.id)).map(c => c.doc.id) : [];
     snap.docChanges().forEach(c => { if (c.type === 'removed') { MDOCS.delete(c.doc.id); removed.push(c.doc.id); } else { MDOCS.set(c.doc.id, c.doc.data()); ids.push(c.doc.id); } });
     if (ids.length || removed.length) applyMsgDocs(ids, removed);
-    if (fresh.length && N.notifyMsgs) N.notifyMsgs(fresh.map(id => G().msgs.find(m => m.id === id)).filter(Boolean));
-    if (waiting > 0 && --waiting === 0) { LOADED.add('msgs'); res(); } else if (ids.length || removed.length) changed();
-  }, err => { fail(err); res(); })));
+    if (news.length && N.notifyMsgs) N.notifyMsgs(news.map(id => G().msgs.find(m => m.id === id)).filter(Boolean));
+    if (first && (first = false, --waiting === 0)) { LOADED.add('msgs'); res(); } else if (ids.length || removed.length) changed();
+  }, err => { heard('msgs' + n, false); fail(err); res(); }); }));
 }
 /* each person's reactions on a message are their own field (rx.<seat>), so two people reacting at once both count */
 N.saveRx = (m, who) => {
@@ -165,14 +188,17 @@ const PARTY_ON = new Set();
 const charsReady = () => LOADED.has('game/chars') && GROUPS_DONE && G().groups.filter(x => x.party).every(x => LOADED.has('parties/' + x.id));
 function listenGroups(){
   const role = G().role, q = isGM() ? F.collection(db, 'groups') : F.query(F.collection(db, 'groups'), F.where('seats', 'array-contains', role));
-  return new Promise(res => F.onSnapshot(q, snap => {
+  return new Promise(res => F.onSnapshot(q, MD, snap => {
+    heard('groups', snap.metadata.fromCache);
+    if (snap.metadata.fromCache && !WARM && !SERVED.has('groups')) return;
+    if (GROUPS_OK && !snap.docChanges().length) { res(); return; }
     GROUPS_OK = GROUPS_DONE = true;
     G().groups = snap.docs.map(d => ({id:d.id, name:d.data().name || 'Group chat', seats:d.data().seats || [], t:d.data().t || 0, ...(d.data().party ? {party:true} : {})}));
     for (const gr of G().groups) { listenFight(gr.id); if (gr.party) listenParty(gr.id); }
     /* a party this person is no longer in takes its cards with it */
     let gone = false; for (const id of Object.keys(CH.party)) if (!G().groups.some(x => x.id === id && x.party)) { delete CH.party[id]; gone = true; }
     if (gone) mergeChars(); setCombat(); if (live) changed(); res();
-  }, err => { console.warn('groups', err?.code); GROUPS_DONE = true; res(); }));
+  }, err => { heard('groups', false); console.warn('groups', err?.code); GROUPS_DONE = true; res(); }));
 }
 /* the rules that guard groups/<id> have to be published before the GM can make one */
 N.groupsReady = () => GROUPS_OK;
@@ -217,8 +243,12 @@ N.loadImg = id => {
   let e = MIMG.get(id);
   if (!e) {
     e = {url:'', p:null}; MIMG.set(id, e);
-    if (F) e.p = F.getDoc(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (!d || !d.data) throw new Error('no image'); e.url = d.data; MVIS.set(id, visKey(d.vis, d.aud)); N.renderAll(); })
-      .catch(() => { setTimeout(() => MIMG.delete(id), 15000); });
+    if (F) {
+      /* the device's copy shows at once; the server's copy (who may see it) follows */
+      F.getDocFromCache(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (d?.data && !e.url) { e.url = d.data; N.renderAll(); } }).catch(() => {});
+      e.p = F.getDoc(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (!d || !d.data) throw new Error('no image'); const was = e.url; e.url = d.data; MVIS.set(id, visKey(d.vis, d.aud)); if (was !== e.url) N.renderAll(); })
+        .catch(() => { e.url = ''; setTimeout(() => MIMG.delete(id), 15000); });
+    }
   }
   return e.url;
 };
@@ -275,6 +305,7 @@ const pinOut = (m, p) => ({...p, x:Math.round((p.rx ?? 0) * m.w), y:Math.round((
 function syncNow(){
   clearTimeout(_sq); if (!started) return;
   saveLocal();
+  if (STALE.size) { syncMsgs(); return; }
   const g = G();
   if (isGM()) {
     /* characters of players in a party live in that party's document (parties/<id>), so other parties never receive them */
@@ -508,23 +539,35 @@ async function boot(view){
   V = view;
   gate('<p class="fine">Opening the campaign book…</p>');
   try { F = await import('../vendor/firebase.js'); } catch(e) { gate('<p>Norne couldn’t load. Check your connection, then reload the page.</p>'); return; }
-  const app = F.initializeApp(FB); auth = F.getAuth(app); db = F.initializeFirestore(app, {ignoreUndefinedProperties:true});
+  const app = F.initializeApp(FB); auth = F.getAuth(app);
+  /* keep a copy of the campaign on this device, so the next start shows it at once and only fetches what changed */
+  try { db = F.initializeFirestore(app, {ignoreUndefinedProperties:true, localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})}); CACHED = true; }
+  catch(e) { console.warn('no device copy', e); db = F.initializeFirestore(app, {ignoreUndefinedProperties:true}); }
   if (EMU) {
     F.connectAuthEmulator(auth, 'http://127.0.0.1:9099', {disableWarnings:true}); F.connectFirestoreEmulator(db, '127.0.0.1', 8080);
     window.__emu = {F, db};
     window.__emuSignIn = (email, name) => F.signInWithCredential(auth, F.GoogleAuthProvider.credential(JSON.stringify({sub:email, email, name, email_verified:true})));
   }
-  F.onAuthStateChanged(auth, u => { if (started) { location.reload(); return; } if (u) enter(u).catch(fail); else signInGate(); });
+  F.onAuthStateChanged(auth, u => { if (started) { if (!OUT) location.reload(); return; } if (u) enter(u).catch(fail); else signInGate(); });
 }
 N.boot = boot;
 async function enter(u){
   const email = (u.email || '').toLowerCase(), mref = dref('members/' + u.uid), gm = email === GM_EMAIL;
   gate('<p class="fine">Opening the campaign book…</p>');
-  const snap = await F.getDoc(mref);
-  if (!snap.exists()) await F.setDoc(mref, {name:u.displayName || email.split('@')[0], email, role:gm ? 'gm' : 'pending', t:Date.now()});
-  else if (gm && snap.data().role !== 'gm') await F.updateDoc(mref, {role:'gm'});
-  F.onSnapshot(mref, s => {
-    const d = s.data(); if (!d || s.metadata.hasPendingWrites) return;
+  try { WARM = CACHED && localStorage.getItem('norne-warm-' + u.uid) === '1'; } catch(e) {}
+  /* the member document says which seat this person plays; the device's copy of it is enough to start */
+  let made = false, last = '';
+  F.onSnapshot(mref, MD, s => {
+    if (s.metadata.hasPendingWrites) return;
+    const server = !s.metadata.fromCache;
+    if (!server && !WARM) return;
+    if (!s.exists()) {
+      if (server && !made) { made = true; F.setDoc(mref, {name:u.displayName || email.split('@')[0], email, role:gm ? 'gm' : 'pending', t:Date.now()}).catch(fail); }
+      return;
+    }
+    const d = s.data();
+    if (gm && d.role !== 'gm') { if (server && !made) { made = true; F.updateDoc(mref, {role:'gm'}).catch(fail); } return; }
+    const j = JSON.stringify(d); if (j === last) return; last = j;
     ME = {uid:u.uid, email, name:d.name, role:d.role, seats:d.seats || []};
     if (started) { if (d.role !== G().role) location.reload(); else N.renderAll(); return; }
     if (d.role === 'gm' || isSeat(d.role)) start(d.role).catch(fail);
@@ -532,6 +575,7 @@ async function enter(u){
     else gate(`<p>Hi ${esc(d.name)}, you’re signed in.</p><p class="fine">The GM still needs to let you in. Ask them to open <b>Players and sign-ins</b> in their menu. This page opens by itself once they do.</p>${outBtn}`);
   }, fail);
 }
+let MEMJ = false;
 async function start(role){
   started = true;
   const g = G(); g.role = role; V.role = role; V.ui = N.newUi(role); g.me = ME;
@@ -555,29 +599,40 @@ async function start(role){
     'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; g.gifKey = u.gif ? JSON.parse(u.gif) : ''; g.gmPic = u.gmpic ? JSON.parse(u.gmpic) : null; },
     'game/emoji': u => { g.emoji = vals(u).sort(byO); },
   };
-  await new Promise(res => F.onSnapshot(F.collection(db, 'members'), snap => { applyMembers(snap.docs.map(d => ({uid:d.id, ...d.data()}))); changed(); res(); }, err => { fail(err); res(); }));
-  await Promise.all([...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs(), listenGroups(), isGM() ? null : listenDoc('only/' + role, setMine, true), ...(isGM() ? N.seats() : [role]).map(listenFight)]);
+  /* everything is asked for at once; the GM's private fights need the seat list from members first */
+  const members = new Promise(res => F.onSnapshot(F.collection(db, 'members'), MD, snap => {
+    heard('members', snap.metadata.fromCache);
+    if (snap.metadata.fromCache && !WARM && !SERVED.has('members')) return;
+    if (MEMJ && !snap.docChanges().length) { res(); return; }
+    MEMJ = true; applyMembers(snap.docs.map(d => ({uid:d.id, ...d.data()}))); changed(); res();
+  }, err => { fail(err); res(); }));
+  await Promise.all([members.then(() => Promise.all((isGM() ? N.seats() : [role]).map(listenFight))), ...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs(), listenGroups(), isGM() ? null : listenDoc('only/' + role, setMine, true)]);
   ensureChars();
   for (const t of ['click','change','input','submit','keydown','pointerup']) document.addEventListener(t, queueSync);
   window.addEventListener('pagehide', syncNow);
   document.addEventListener('visibilitychange', () => { if (document.hidden) syncNow(); });
-  live = true;
+  live = true; warmed();
   listenPush();
   if (N.notifyStart) N.notifyStart();
   if (g.maps[0]) V.ui.mapId = (g.maps.find(m => m.id === 'norne') || g.maps.find(m => isGM() || m.vis !== false) || g.maps[0]).id;
   if (readyCheck()) N.renderAll();
-  if (isGM() && !g.wiki.length && !g.maps.length) { V.ui.sheet = 'import'; N.renderAll(); }
+  if (isGM() && !g.wiki.length && !g.maps.length && !STALE.size) { V.ui.sheet = 'import'; N.renderAll(); }
 }
 /* a new player waits for the GM's device to lay out their character card */
 function readyCheck(){
   const g = G();
   if (isGM() || g.chars[g.P[g.role]?.char]) { if (N.gated) gate(null); return true; }
-  gate(`<p>You’re in. Your character card appears as soon as the GM has Norne open.</p>${outBtn}`); return false;
+  gate(STALE.size ? '<p class="fine">Opening the campaign book…</p>' : `<p>You’re in. Your character card appears as soon as the GM has Norne open.</p>${outBtn}`); return false;
 }
 
 /* ---------- account actions ---------- */
 N.signIn = () => F.signInWithPopup(auth, new F.GoogleAuthProvider()).catch(e => { if (!/popup-closed|cancelled-popup/.test(e?.code || '')) signInGate(e?.code === 'auth/popup-blocked' ? 'Your browser blocked the sign-in window. Allow pop-ups for this page and try again.' : 'Sign-in didn’t work. Try again.'); });
-N.signOut = () => { syncNow(); F.signOut(auth).then(() => location.reload()); };
+/* signing out also forgets this device's copy of the campaign */
+N.signOut = () => {
+  syncNow(); OUT = true;
+  try { localStorage.removeItem(WKEY()); } catch(e) {}
+  F.signOut(auth).then(() => F.terminate(db)).then(() => F.clearIndexedDbPersistence(db)).catch(e => console.warn('clear copy', e)).then(() => location.reload());
+};
 N.admit = id => {
   const m = N.MEMBERS.find(x => x.uid === id); if (!m) return;
   const used = [...N.MEMBERS.map(x => +(x.seat || x.role).slice(1) || 0), ...Object.keys(G().chars).map(k => +k.slice(2) || 0)];

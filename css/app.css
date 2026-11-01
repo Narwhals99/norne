@@ -252,6 +252,10 @@
 .app .msgs>:first-child{margin-top:auto}
 .app .day-div{display:flex;align-items:center;gap:12px;margin:10px 0 12px;color:var(--ink-3);font:700 11px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase}
 .app .day-div::before,.app .day-div::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line-2),transparent)}
+/* a long chat draws only its newest messages; this pill at the top draws more */
+.app .more-msgs{display:block;margin:4px auto 14px;padding:8px 16px;border-radius:999px;border:1px solid var(--line-2);background:var(--raise);color:var(--ink-2);font:700 12px/1.2 var(--f-ui);letter-spacing:.04em;cursor:pointer}
+.app .more-msgs small{font-weight:600;color:var(--ink-3);font-size:11px}
+.app .more-msgs:hover{border-color:var(--line-3);color:var(--ink)}
 .app .m{display:flex;gap:9px;align-items:flex-end;max-width:100%;margin-top:10px}
 .app .m.cont{margin-top:3px}
 .app .m .av{--s:32px;margin-bottom:2px}

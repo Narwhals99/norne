@@ -1070,7 +1070,16 @@ function act(v, a, el, e){
     ui.pop = null; if (N.saveRx) N.saveRx(m, v.role); renderAll(); return; }
   case 'reply': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m) break; ui.reply = m.id; if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; render(v); const ta = v.root.querySelector('.composer textarea'); if (ta) ta.focus({preventScroll:true}); return; }
   case 'replyOff': ui.reply = null; break;
-  case 'jumpMsg': { const w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`); if (!w) { toast(v, 'That message isn’t in this chat any more.'); break; }
+  case 'moreMsgs': {
+    /* draw more of the chat's history, keeping the view where it was */
+    const box = el.closest('.msgs'), h0 = box ? box.scrollHeight : 0, t0 = box ? box.scrollTop : 0;
+    (ui.more = ui.more || {})[ui.ch] = N.msgWin(v) + 200; render(v);
+    const nb = v.root.querySelector(`#${CSS.escape(box?.id || 'none')}`); if (nb) nb.scrollTop = t0 + nb.scrollHeight - h0;
+    return; }
+  case 'jumpMsg': { let w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`);
+    /* an answered message older than what is drawn: draw back to it first */
+    if (!w && g.msgs.some(m => m.id === val && m.ch === ui.ch)) { const i = g.msgs.filter(m => m.ch === ui.ch).findIndex(m => m.id === val), n = g.msgs.filter(m => m.ch === ui.ch).length; (ui.more = ui.more || {})[ui.ch] = Math.max(N.msgWin(v), n - i + 20); render(v); w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`); }
+    if (!w) { toast(v, 'That message isn’t in this chat any more.'); break; }
     w.scrollIntoView({block:'center', behavior:'smooth'}); w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash'); setTimeout(() => w.classList.remove('flash'), 1600); return; }
   case 'emoIns': { const ta = v.root.querySelector('.composer textarea'), t = val.startsWith(':') ? val + ' ' : val;
     const a = ta ? ta.selectionStart ?? ui.draft.length : ui.draft.length, b = ta ? ta.selectionEnd ?? a : a;
