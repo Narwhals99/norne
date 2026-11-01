@@ -258,6 +258,9 @@ function inOldFight(m){
 /* on desktop the actions always live in Recent actions, folded or not; they never spill into the chat */
 const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'chat' && railShown(v);
 N.isAction = isAction; N.isFightAct = isFightAct; N.hhmm = hhmm;
+/* how many of a chat's newest messages are drawn; "Show earlier messages" adds more */
+N.MSGWIN = 150;
+N.msgWin = v => (v.ui.more || {})[v.ui.ch] || N.MSGWIN;
 function renderMsgs(v, side){
   const g = G(), out1 = actionsOut(v, side), ms = g.msgs.filter(m => m.ch === v.ui.ch && !(m.kind === 'scene' && (m.quiet || !m.scene)) && !m.fc && !(out1 && isAction(m)) && !(v.dev === 'phone' && isFightAct(m)));
   if (!ms.length) return `<div class="quiet"><div class="art"></div><p>${v.ui.ch.startsWith('dm-') ? 'Nothing here yet. Anything said here stays between you two.' : v.ui.ch.startsWith('grp-') ? 'Nothing here yet. Only the people in this group see what’s said here.' : 'Nothing here yet.'}</p></div>`;
@@ -265,7 +268,11 @@ function renderMsgs(v, side){
   /* only the newest roll in a chat starts open; a roll someone opened or closed by hand stays that way */
   v._lastRoll = (ms.findLast(m => m.kind === 'roll') || {}).id;
   const seen = (g.seen[v.role] || {})[v.ui.ch] || 0; let divDone = false;
-  for (const m of ms) {
+  /* a long chat draws only its newest messages (drawing hundreds made every start and every new line slow); older ones on request */
+  const cut = Math.max(0, ms.length - N.msgWin(v));
+  if (cut) out += `<button type="button" class="more-msgs" data-a="moreMsgs">Show earlier messages <small>(${cut})</small></button>`;
+  for (const [i, m] of ms.entries()) {
+    if (i < cut) { if (m.kind === 'rp' && m.by === 'gm' && m.as === 'Narrator') firstNarr = false; if (m.kind === 'scene') firstNarr = true; prev = m; continue; }
     if (!divDone && m.by !== v.role && m.t > seen && seen > 0 && v.ui.showNew) { out += `<div class="day-div" style="color:var(--ember)">New</div>`; divDone = true; }
     const h = rMsg(v, m, m.re ? null : prev, firstNarr);
     out += h ? msgWrap(v, m, h) : h;

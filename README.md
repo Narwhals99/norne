@@ -18,7 +18,9 @@ It runs on GitHub Pages and keeps everything in Firebase (Google sign-in + Fires
     (Oak's frames and buttons are in `art/ui/oak/`). Before adding or changing a look,
     read [docs/THEMES.md](docs/THEMES.md): the rules, tokens and checks every style needs.
   - `art/` holds the scene backdrops and portraits, `img/` small decorations, `maps/` the atlas images.
-- `vendor/firebase.js` is the Firebase SDK (13.0.0) bundled into one file.
+- `vendor/firebase.js` is the Firebase SDK (13.0.0) bundled into one file; `vendor/firebase-entry.js` lists what it exports and how to rebuild it.
+- Each device keeps a copy of the campaign (Firestore's offline cache), so a start shows that copy at once and only fetches what changed.
+  Nothing but chat messages is saved until the server has answered every read, so an old copy never overwrites newer work. Signing out deletes the copy.
 - The GM's device keeps the full campaign in `gm/*` documents and writes a player-safe copy to `game/*`.
   Players can only read `game/*`, their own private chat, and the maps the GM has shared.
   Wiki entries, maps and news editions the GM shares with only some players go to `only/<seat>` instead,
