@@ -35,13 +35,16 @@ N.gateHtml = body => `<div class="stars" aria-hidden="true"></div><div class="ga
   <div class="gcard"><div class="gmark">${N.MARK}</div><h1 id="gateT">N<small>ORNE</small></h1>${body}</div></div>`;
 const outBtn = '<button type="button" class="btn ghost" data-a="signOut">Sign out</button>';
 const signInGate = (err='') => gate(`<p>Sign in to join the table.</p><button type="button" class="btn gold lg" data-a="signIn">Sign in with Google</button>${err?`<p class="fine" role="alert">${esc(err)}</p>`:''}<p class="fine">New players wait here until the GM lets them in.</p>`);
+/* while a player switches character the old seat's listeners and saves are refused on purpose; stay quiet until the reload */
+let SWITCHING = false;
 function fail(err){
+  if (SWITCHING) { console.warn('switching', err?.code); return; }
   console.error(err);
   const why = err?.code === 'permission-denied' ? 'The campaign’s database refused the request. If you set Norne up, check that the security rules are published.' : 'Something went wrong while opening the campaign. Check your connection and reload the page.';
   if (started) return syncErr(why);
   gate(`<p>${esc(why)}</p>${outBtn}`);
 }
-function syncErr(t){ if (V) N.toast(V, t); N.renderAll(); }
+function syncErr(t){ if (SWITCHING) return; if (V) N.toast(V, t); N.renderAll(); }
 
 /* ---------- documents made of units ---------- */
 const KNOWN = new Map(), LOADED = new Set();
@@ -598,7 +601,10 @@ N.dropSeat = (id, seat) => {
 /* a player switches character: the app reloads as that seat, with its own chats and memory */
 N.switchSeat = seat => {
   if (!ME || !N.seatsOf(ME).includes(seat) || seat === ME.role) return;
-  track(F.updateDoc(dref('members/' + ME.uid), {role:seat}));
+  /* save this character's unsaved changes first, then switch; reload once the database has the new seat */
+  syncNow();
+  SWITCHING = true;
+  F.updateDoc(dref('members/' + ME.uid), {role:seat}).then(() => location.reload(), err => { SWITCHING = false; track(Promise.reject(err)); });
 };
 N.kick = id => { const m = N.MEMBERS.find(x => x.uid === id); if (m) track(F.updateDoc(dref('members/' + m.uid), {role:'removed'})); return m; };
 N.renameMember = (id, name) => { name = name.trim(); if (name) track(F.updateDoc(dref('members/' + id), {name})); };
