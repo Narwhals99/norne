@@ -518,7 +518,8 @@ function send(v){
   let m;
   if (ch === 'gm') m = {kind:'note'};
   /* emoji on their own are table talk, never part of the story */
-  else if (v.ui.mode === 'ooc' || N.emojiOnly(text)) m = {kind:'meta'};
+  /* Everyone is Meta only: whatever the toggle says, it goes out as the person, not their character */
+  else if (v.ui.mode === 'ooc' || N.metaOnly(ch) || N.emojiOnly(text)) m = {kind:'meta'};
   else if (gm) { const n = N.npcByName(v.ui.voice); m = {kind:'rp', as:v.ui.voice}; if (n?.portrait) m.pt = n.portrait; }
   else m = {kind:'rp', as:c && c.built ? c.short : g.P[v.role].name};
   if (v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
@@ -1027,7 +1028,7 @@ function act(v, a, el, e){
     if (n.see?.length) issue.see = [...n.see];
     g.news.issues.push(issue); (g.news.seen.gm = g.news.seen.gm || []).push(issue.id);
     const to = N.audOf(issue, 'news');
-    for (const ch of to === '*' ? ['table', ...g.groups.filter(x => x.party).map(x => 'grp-' + x.id)] : to.map(s => 'dm-' + s)) push({ch, kind:'news', by:'gm', text:issue.headline, nid:issue.id});
+    for (const ch of to === '*' ? ['table'] : to.map(s => 'dm-' + s)) push({ch, kind:'news', by:'gm', text:issue.headline, nid:issue.id});
     ui.newsEdit = null; ui.paper = N.paperName(issue); ui.newsSel = issue.id; toast(v, to === '*' ? 'Published. Everyone got a note in chat.' : `Published for ${N.audLabel(issue, 'news').replace(/^Only /, '')}. They got a note.`); renderAll(); return;
   }
   case 'ndAud': N.audSet(ui.newsEdit, 'news', val); break;
@@ -1368,7 +1369,7 @@ function act(v, a, el, e){
   case 'sdApply': { const s = ui.sd; if (s.cast.length) g.casts[s.ch] = [...s.cast]; else delete g.casts[s.ch]; setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects}, s.post); ui.sheet = null; renderAll(); return; }
   case 'sdClear': { const ch = ui.sd.ch; delete g.casts[ch]; const m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true}); ui.sheet = null; toast(v, 'Scene cleared.', () => N.delMsg(m.id)); renderAll(); return; }
   /* fight */
-  case 'cbBegin': N.cbBegin(val || ui.ch); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
+  case 'cbBegin': if (N.metaOnly(val || ui.ch)) { toast(v, 'No fights in Everyone. Open a party, group or private chat to begin one.'); break; } N.cbBegin(val || ui.ch); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
   case 'openFight': close(); ui.tab = 'chat'; ui.ch = val || N.fightCh(); focusFight(v); ui.fightOpen = true; ui.fightPane = 'fight'; break;
   case 'closeFight': ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; break;
   case 'pane': ui.fightPane = val; ui.targeting = null; break;
