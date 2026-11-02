@@ -58,7 +58,7 @@ function boardHtml(v){
   else if (v.ui.placing) hint = `<div class="hint-chip">${IC('pinL')}Tap a zone to place ${esc(N.tokName(N.tokById(v.ui.placing)))}<button type="button" class="btn sm ghost" data-a="cbCancel" style="--h:26px">Cancel</button></div>`;
   else if (edit && !cb.zones.length) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag on the map to draw a zone</div>`;
   else if (edit) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag to draw · drag a name to move · corner to resize</div>`;
-  const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.left!=null?` · ${a.left>0?a.left+' left':'last action'}`:''}</span>`:''}${esc(a.t || 'Unnamed boost')}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
+  const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.left!=null?` · ${a.left>0?a.left+' left':'last action'}`:''}</span>`:a.on?`<span class="k">On ${esc(a.on)}</span>`:''}${esc(a.t || 'Unnamed boost')}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
   return `<div class="boardwrap"><div class="board${edit?' edit drawing':''}" data-board="1" aria-label="Battlefield: ${esc(cb.title)}">
     <div class="bg">${N.bgPic(N.imgUrl(cb.bg) ? cb.bg : N.FIGHTBG)}</div>
     <div class="cam">${zones}</div>${sasp}${hint}${diceFx(v)}
@@ -314,6 +314,9 @@ N.tokCard = function(v, t){
   return `<div class="tokcard">
     <div class="hd">${N.av(o,54)}<span style="flex:1;min-width:0"><b>${esc(N.tokName(t))}</b><small>${role} · ${z?esc(z.name):'Not placed'}${t.out?' · taken out':''}</small></span>${gm?`<button type="button" class="btn sm ghost tok-rm" data-a="sheet" data-v="tokRm" data-c="${t.id}" title="Take ${esc(N.tokName(t))} out of this fight">${IC('trash')}Remove</button>`:''}${v.dev==='desktop'?`<button type="button" class="ibtn sm" data-a="tokClose" aria-label="Close">${IC('x')}</button>`:''}</div>
     ${asp.filter(Boolean).length ? `<div class="icards">${asp.filter(Boolean).map((a,i)=>`<span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(a)}</span>`).join('')}</div>` : ''}
+    ${(() => { /* situation aspects the GM pinned on this fighter, and boosts others put on them */
+      const on = g.combat.aspects.filter(a => a.onTok === t.id || (a.boost && a.on && a.on === N.tokName(t)));
+      return on.length ? `<div class="icards tok-on"><span class="tok-on-l">On them</span>${on.map((a,i)=>`<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.6:-.6}deg"><span class="k">${a.boost ? `Boost · ${esc(a.by)}` : 'Situation'}</span>${esc(a.t || 'Unnamed boost')}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : ''; })()}
     <div class="kv"><span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
       ${(() => {
         /* the same pool an invoke spends (N.invokePayer): the PC's character card or the named NPC's card */
@@ -498,7 +501,7 @@ N.cbRemove = function(id){
   }
   const p = cb.pending; if (p && (p.att === id || p.def === id)) cb.pending = null;
   const l = cb.last; if (l && (l.att === id || l.def === id)) cb.last = null;
-  cb.aspects = cb.aspects.filter(a => !(a.boost && a.tok === id));
+  cb.aspects = cb.aspects.filter(a => !(a.boost && a.tok === id) && a.onTok !== id);
   if (t.kind === 'pc') cb.invited = (cb.invited || []).filter(r => r !== t.ref);
   if (cb.state === 'live') {
     sys(`${N.tokName(t)} is removed from the fight.`);

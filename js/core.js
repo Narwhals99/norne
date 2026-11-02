@@ -221,7 +221,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null,
+  chars:{}, npcs:[], quick:[], casts:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null,
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -316,6 +316,16 @@ N.unread = (role, ch) => { const s = (N.G.seen[role] || {})[ch] || 0; let n = 0;
 /* the characters of the people seated now, in seat order */
 N.pcs = () => N.seats().map(s => N.G.chars[N.G.P[s].char]).filter(Boolean);
 /* names the GM can speak as: NPC cards first, then quick voices without a card */
+/* the NPCs the GM said are in a chat's scene (GM only, kept in gm/misc): Speak as lists them first. null = no list for that chat */
+N.castOf = ch => { const c = N.G.casts && N.G.casts[ch]; return Array.isArray(c) && c.length ? c : null; };
+/* Speak as for a chat: the scene's NPCs, the NPCs on the board of a fight in that chat, and whoever is picked now.
+   rest: everyone else (null when the chat has no scene list, so every voice is shown as before) */
+N.voicesFor = (ch, cur) => {
+  const all = N.voices(), cast = N.castOf(ch); if (!cast) return {here:all, rest:null};
+  const cb = N.G.combat, fight = cb && cb.state === 'live' && N.fightCh() === ch ? cb.tokens.filter(t => t.kind === 'npc' && !t.out).map(t => t.name.replace(/ \d+$/, '')) : [];
+  const here = all.filter(n => cast.includes(n) || fight.includes(n) || n === cur);
+  return {here, rest:all.filter(n => !here.includes(n))};
+};
 N.voices = () => { const names = N.G.npcs.map(n => n.name.trim()).filter(Boolean); return [...new Set([...names, ...N.G.quick.filter(Boolean)])]; };
 N.npcSub = n => n ? [n.race, n.job].filter(Boolean).join(' · ') : 'Quick voice';
 

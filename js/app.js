@@ -45,7 +45,7 @@ const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:n
   fightPane:'fight', fightOpen:true, watching:false, cbTool:'move', tokSel:null, targeting:null, placing:null, zoneSel:null,
   mapId:null, mapType:'all', mapQ:'', pinSel:null, mapEdit:false, addPin:false, mapT:null,
   wikiQ:'', wikiCat:null, wikiSel:null, paper:null, newsEdit:null, newsSel:null, charSel:null, castSeg:'players', castSel:null, npcQ:'',
-  roll:null, sd:null, pd:null, nd:null, wd:null, exp:null, cbAsp:'', cbAspFree:0});
+  roll:null, sd:null, pd:null, nd:null, wd:null, exp:null, cbAsp:'', cbAspFree:0, cbAspOn:null});
 
 /* ---------------- mount + render ---------------- */
 N.mount = function(root, o){
@@ -458,6 +458,7 @@ function input(v, el){
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
+    case 'castQ': v.ui.sd.castQ = val; render(v); return;
     case 'gdName': { v.ui.gd.name = val; const b = v.root.querySelector('[data-a="gdSave"]'); if (b) b.disabled = !val.trim() || !v.ui.gd.seats.length || !N.groupsReady(); return; }
     case 'news': { const d = v.ui.newsEdit, n = +el.dataset.n; if (k === 'stt' || k === 'stb') d.stories[n][k === 'stt' ? 'title' : 'body'] = val; else if (k === 'cap') { if (n < 0) d.lcap = val; else d.stories[n].cap = val; } else d[k] = val; render(v); return; }
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
@@ -604,7 +605,7 @@ function doRoll(v){
   if (fight) roll.fight = true;
   /* a custom event (mind magic, a spell, anything the four actions don't cover) is a fight roll built like a roleplay roll:
      a skill against a skill and/or someone, a difficulty, passive or not, and it can be secret */
-  const ev = fight && r.event, rp = isGM(v) && (ev || (!fight && r.ctx !== 'cb'));
+  const ev = fight && r.event, rp = isGM(v) && (ev || (!fight && r.ctx !== 'cb') || (fight && r.ctx === 'cb' && r.action !== 'attack'));
   if (ev) roll.event = (r.evText || '').trim() || true;
   if (rp && (r.vsSkill || r.vsNpc)) { const n = N.vsFind(v, r, r.vsNpc); roll.vs = {name:n ? n.name : null, skill:r.vsSkill || null}; }
   /* not passive: the other side rolls 4dF on top of the difficulty / the NPC's skill, and that total is what you beat */
@@ -633,19 +634,23 @@ function afterFightRoll(v, r, m){
     fsys(`${N.tokName(a)} attacks ${d ? N.tokName(d) : 'someone'} with ${m.roll.skill}: ${sgn(tot)} ${ladderWord(tot)}. ${d ? N.tokName(d) : 'They'} rolls to defend next.`);
     return;
   }
+  /* m.roll.opp, not r.opp: when the other side rolled too (not passive) it holds their total */
   if (r.action === 'advantage') {
-    const opp = r.opp ?? 2; m.roll.opp = opp;
+    const opp = m.roll.opp ?? 2; m.roll.opp = opp;
     const sh = tot - opp, name = (r.aspect || '').trim() || 'An Opening';
+    /* made against someone on the board: the aspect (or the boost) is put on them */
+    const on = r.vsNpc && r.vsNpc.startsWith('tok:') ? N.tokById(r.vsNpc.slice(4)) : null;
     if (sh === 0) {
-      N.addBoost(a, null, name);
-      fsys(`${N.tokName(a)} ties: not a lasting aspect, but they get a boost, “${name}”, good for one free invoke.`);
+      N.addBoost(a, on, name);
+      fsys(`${N.tokName(a)} ties: not a lasting aspect, but they get a boost, “${name}”${on ? ` on ${N.tokName(on)}` : ''}, good for one free invoke.`);
     } else if (sh > 0) {
       const z = N.zoneOf(a), free = sh >= 3 ? 2 : 1;
-      if (z && !z.aspect) { z.aspect = name; z.free = free; } else cb.aspects.push({t:name, free});
-      fsys(`${N.tokName(a)} creates “${name}” with ${free} free invoke${free>1?'s':''}.`);
-    } else fsys(`${N.tokName(a)} tries to create “${name}”, but it doesn’t come together.`);
+      if (on) cb.aspects.push({t:name, free, onTok:on.id, on:N.tokName(on)});
+      else if (z && !z.aspect) { z.aspect = name; z.free = free; } else cb.aspects.push({t:name, free});
+      fsys(`${N.tokName(a)} creates “${name}”${on ? ` on ${N.tokName(on)}` : ''} with ${free} free invoke${free>1?'s':''}.`);
+    } else fsys(`${N.tokName(a)} tries to create “${name}”${on ? ` on ${N.tokName(on)}` : ''}, but it doesn’t come together.`);
   }
-  if (r.action === 'overcome' && !r.event) { const opp = r.opp ?? 2; m.roll.opp = opp; }
+  if (r.action === 'overcome' && !r.event) { const opp = m.roll.opp ?? 2; m.roll.opp = opp; }
   cb.acted = true;
 }
 function cbDefend(v){
@@ -959,7 +964,8 @@ function act(v, a, el, e){
   case 'send': send(v); return;
   case 'fcSend': fcSend(v); return;
   case 'roll': openRoll(v, {skill:d.skill, who: d.who || (d.c ? 'pc:' + d.c : d.npc ? 'npc:' + d.npc : null), secret:!!d.secret}); break;
-  case 'voice': { ui.voiceQ = '';
+  case 'voiceAll': ui.voiceAll = !ui.voiceAll; return render(v);
+  case 'voice': { ui.voiceQ = ''; ui.voiceAll = false;
     if (val === '__ooc') ui.mode = 'ooc';
     else if (val === '__me') ui.mode = 'rp';
     else if (val === '__flip') ui.mode = ui.mode === 'ooc' ? 'rp' : 'ooc';
@@ -1339,7 +1345,7 @@ function act(v, a, el, e){
   case 'rollBonus': ui.roll.otherBonus = clamp((+ui.roll.otherBonus || 0) + (+d.d), -4, 10); break;
   case 'doRoll': doRoll(v); return;
   /* scene sheet */
-  case 'sdFor': ui.sd.ch = val; { const s = g.scenes[val]; if (s && !ui.sd.touched) Object.assign(ui.sd, {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, aspects:(s.aspects||[]).map(a => ({...a}))}); } break;
+  case 'sdFor': ui.sd.ch = val; ui.sd.cast = [...(N.castOf(val) || [])]; { const s = g.scenes[val]; if (s && !ui.sd.touched) Object.assign(ui.sd, {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, aspects:(s.aspects||[]).map(a => ({...a}))}); } break;
   case 'sdTab': ui.sd.tab = val; break;
   case 'sdPick': {
     let p = null;
@@ -1356,9 +1362,11 @@ function act(v, a, el, e){
   case 'sdAspAdd': { const t = (ui.sd.newAsp || '').trim(); if (t) { ui.sd.aspects.push({t, free:0}); ui.sd.newAsp = ''; } break; }
   case 'sdAspFree': { const a = ui.sd.aspects[+d.i]; a.free = ((a.free || 0) + 1) % 3; break; }
   case 'sdAspDel': ui.sd.aspects.splice(+d.i, 1); break;
+  case 'sdCast': { const c = ui.sd.cast, i = c.indexOf(val); if (i >= 0) c.splice(i, 1); else c.push(val); break; }
+  case 'sdCastNone': ui.sd.cast = []; break;
   case 'sdPost': ui.sd.post = !ui.sd.post; break;
-  case 'sdApply': { const s = ui.sd; setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects}, s.post); ui.sheet = null; renderAll(); return; }
-  case 'sdClear': { const ch = ui.sd.ch, m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true}); ui.sheet = null; toast(v, 'Scene cleared.', () => N.delMsg(m.id)); renderAll(); return; }
+  case 'sdApply': { const s = ui.sd; if (s.cast.length) g.casts[s.ch] = [...s.cast]; else delete g.casts[s.ch]; setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects}, s.post); ui.sheet = null; renderAll(); return; }
+  case 'sdClear': { const ch = ui.sd.ch; delete g.casts[ch]; const m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true}); ui.sheet = null; toast(v, 'Scene cleared.', () => N.delMsg(m.id)); renderAll(); return; }
   /* fight */
   case 'cbBegin': N.cbBegin(ui.ch); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
   case 'openFight': close(); ui.tab = 'chat'; ui.ch = val || N.fightCh(); focusFight(v); ui.fightOpen = true; ui.fightPane = 'fight'; break;
@@ -1433,9 +1441,12 @@ function act(v, a, el, e){
   case 'cbStart': if (N.fightBlocked && N.fightBlocked(cb.ch)) { toast(v, 'To run a fight in a private chat, publish the new security rules first: paste firestore.rules into Firebase > Firestore > Rules, press Publish, then reload.'); break; } N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, 'The fight is on. Roll Notice to see who goes first.'); renderAll(); return;
   case 'cbCancelSetup': g.combat = N.freshCombat(); ui.fightPane = 'chat'; ui.fightOpen = true; ui.zoneSel = null; toast(v, 'Fight setup thrown away.'); renderAll(); return;
   case 'cbEndGo': N.cbEnd(); ui.sheet = null; ui.tokSel = null; ui.targeting = null; ui.watching = false; renderAll(); return;
-  case 'cbAspAdd': { const t = (ui.cbAsp || '').trim(); if (t) { cb.aspects.push({t, free:+ui.cbAspFree || 0}); fsys(`${N.gmName()} adds a situation aspect: “${t}”${ui.cbAspFree ? `, ${ui.cbAspFree} free invoke${ui.cbAspFree > 1 ? 's' : ''}` : ''}.`); ui.cbAsp = ''; ui.cbAspFree = 0; if (ui.invBack) { ui.sheet = 'invoke'; ui.sheetArg = ui.invBack; ui.invBack = null; } else ui.sheet = null; renderAll(); return; } break; }
+  case 'cbAspAdd': { const t = (ui.cbAsp || '').trim(); if (t) { const on = ui.cbAspOn && N.tokById(ui.cbAspOn);
+    cb.aspects.push(Object.assign({t, free:+ui.cbAspFree || 0}, on ? {onTok:on.id, on:N.tokName(on)} : {}));
+    fsys(`${N.gmName()} adds a situation aspect${on ? ` on ${N.tokName(on)}` : ''}: “${t}”${ui.cbAspFree ? `, ${ui.cbAspFree} free invoke${ui.cbAspFree > 1 ? 's' : ''}` : ''}.`); ui.cbAsp = ''; ui.cbAspFree = 0; ui.cbAspOn = null; if (ui.invBack) { ui.sheet = 'invoke'; ui.sheetArg = ui.invBack; ui.invBack = null; } else ui.sheet = null; renderAll(); return; } break; }
   case 'cbAspDel': cb.aspects.splice(+d.i, 1); renderAll(); return;
   case 'cbAspFree': ui.cbAspFree = +val; break;
+  case 'cbAspOn': ui.cbAspOn = val || null; break;
   }
   render(v);
 }
@@ -1448,6 +1459,7 @@ function openSheet(v, s, d={}){
     const ch = ui.ch === 'gm' ? 'table' : ui.ch, cur = g.scenes[ch];
     ui.sd = cur ? {ch, title:cur.title, where:cur.where || '', date:cur.date || '', art:cur.art || null, place:cur.place || null, aspects:(cur.aspects||[]).map(a => ({...a})), post:true, tab:g.recent.length ? 'recent' : 'pics', newAsp:''}
                 : {ch, title:'', where:'', date:'', art:null, place:null, aspects:[], post:true, tab:g.recent.length ? 'recent' : 'pics', newAsp:''};
+    ui.sd.cast = [...(N.castOf(ch) || [])]; ui.sd.castQ = '';
   }
   if (s === 'pcEdit') {
     const c = g.chars[d.v];
@@ -1526,7 +1538,7 @@ function saveNpc(v){
   } else { n = N.npcCard(base); g.npcs.push(n); }
   g.npcs.sort((a,b) => a.name.localeCompare(b.name));
   v.ui.sheet = null;
-  if (d.from === 'voice') { v.ui.voice = n.name; v.ui.mode = 'rp'; }
+  if (d.from === 'voice') { v.ui.voice = n.name; v.ui.mode = 'rp'; const cast = N.castOf(v.ui.ch === 'gm' ? 'table' : v.ui.ch); if (cast && !cast.includes(n.name)) cast.push(n.name); }
   toast(v, old ? 'NPC saved.' : `${n.name} saved. Pick them in “Speak as”.`); renderAll();
 }
 function doInvoke(v, i, reroll){
