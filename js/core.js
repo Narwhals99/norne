@@ -304,13 +304,19 @@ N.chName = (id, role) => {
   const pr = id.slice(3);
   return role === 'gm' ? (N.G.P[pr]?.name || 'A former player') : `${N.gmName()} · GM`;
 };
-N.chSub = (id, role) => id.startsWith('grp-') ? grpSub(N.grpOf(id)?.seats || [], role) : id === 'table' ? 'The whole table sees this chat' : id === 'gm' ? 'Only you see this. Secret rolls land here.' : role === 'gm' ? `Only you and ${N.G.P[id.slice(3)]?.name || 'them'} see this` : 'Only you and the GM see this';
+N.chSub = (id, role) => id.startsWith('grp-') ? grpSub(N.grpOf(id)?.seats || [], role) : id === 'table' ? 'Everyone at the table, Meta only' : id === 'gm' ? 'Only you see this. Secret rolls land here.' : role === 'gm' ? `Only you and ${N.G.P[id.slice(3)]?.name || 'them'} see this` : 'Only you and the GM see this';
 N.channelsFor = role => {
   const grs = N.grpsFor(role), pts = grs.filter(x => x.party).map(x => 'grp-' + x.id), gs = grs.filter(x => !x.party).map(x => 'grp-' + x.id);
   if (role === 'gm') return ['table', ...pts, ...N.seats().map(s => 'dm-' + s), ...gs, 'gm'];
-  /* a player in a party has their party's chat instead of Everyone */
-  return [...(pts.length ? pts : ['table']), 'dm-' + role, ...gs];
+  /* Everyone is the Meta chat: every player has it on every character, party or not */
+  return ['table', ...pts, 'dm-' + role, ...gs];
 };
+/* Everyone is table talk only: no speaking in character and no fights there */
+N.metaOnly = ch => ch === 'table';
+/* in a Meta-only chat a person shows by their own name, not "Jack · Brann" */
+N.metaName = by => { const p = N.G.P[by]; return by !== 'gm' && p?.who ? p.who : N.personObj(by).name; };
+/* the same person on another of their characters counts as "you" in Everyone */
+N.sameUser = (a, b) => a === b || (a !== 'gm' && b !== 'gm' && !!N.G.P[a]?.uid && N.G.P[a]?.uid === N.G.P[b]?.uid);
 N.unread = (role, ch) => { const s = (N.G.seen[role] || {})[ch] || 0; let n = 0; for (const m of N.G.msgs) if (m.ch === ch && m.by !== role && m.t > s && !(m.kind === 'scene' && m.quiet)) n++; return n; };
 
 /* the characters of the people seated now, in seat order */

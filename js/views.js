@@ -73,14 +73,18 @@ function chanLast(v, c){
     if (m.kind === 'scene') return 'New scene: ' + m.scene.title;
     if (m.kind === 'roll') return `${m.roll.who} rolled`;
     if (m.kind === 'fight' || m.kind === 'combat') return 'A fight';
-    if (m.kind === 'pic') return `${m.by === v.role ? 'You' : N.personObj(m.by).name} sent a picture`;
+    if (m.kind === 'pic') return `${isMe(v, m) ? 'You' : metaObj(m).name} sent a picture`;
     if (m.kind === 'news') return 'New edition of the paper';
     if (m.kind === 'sys') return m.text || '';
-    const who = m.by === v.role ? 'You' : m.kind === 'ooc' || m.kind === 'meta' ? N.personObj(m.by).name : N.speakerObj(m).name;
+    const who = isMe(v, m) ? 'You' : m.kind === 'ooc' || m.kind === 'meta' ? metaObj(m).name : N.speakerObj(m).name;
     return `${who}: ${(m.text || '').replace(/\*\*/g, '')}`;
   }
   return N.chSub(c, v.role);
 }
+/* a person out of character; in Everyone they show by their own name on every character */
+const metaObj = m => N.metaOnly(m.ch) ? {...N.personObj(m.by), name:N.metaName(m.by)} : N.personObj(m.by);
+/* in Everyone, what you wrote on another of your characters is still yours */
+const isMe = (v, m) => m.by === v.role || (N.metaOnly(m.ch) && N.sameUser(m.by, v.role));
 function shelfRow(v, c){
   const n = N.unread(v.role, c), cur = v.ui.ch === c, cb = N.fightIn(c), fight = !!cb && (cb.state === 'live' || (isGM(v) && cb.state === 'setup'));
   return `<button type="button" class="shr${n&&!cur?' new':''}" data-a="ch" data-v="${c}" title="${esc(N.chName(c, v.role))}" ${cur?'aria-current="true"':''}>${chanIcon(v,c)}<span class="t"><b>${esc(N.chName(c, v.role))}</b><small>${esc(chanLast(v, c).replace(/\s+/g, ' ').slice(0, 90))}</small></span>${fight?`<span class="tag ember">${IC('swords')}</span>`:''}${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
@@ -95,7 +99,8 @@ function shelfHtml(v){
   return `<aside class="shelf${ph?' drawer':''}${mini?' mini':''}" aria-label="Chats">
     <header class="shh">${STAR.replace('<svg','<svg class="st"')}<h2>Chats</h2>${ph ? `<button type="button" class="ibtn" data-a="shelf" aria-label="Close the chat list">${IC('x')}</button>` : `<button type="button" class="ibtn sm shx" data-a="shelfDt" aria-label="Hide the chat list" title="Hide the chat list">${IC('left')}</button>`}</header>
     <div class="shl scroll" data-sk="shelf">
-      ${group(gm ? 'The table' : chs.includes('table') ? 'The table' : 'Your party', chs.filter(c => c === 'table' || (!gm && N.grpOf(c)?.party)))}
+      ${group('The table', chs.filter(c => c === 'table'))}
+      ${gm ? '' : group('Your party', chs.filter(c => N.grpOf(c)?.party))}
       ${gm ? group('Parties', chs.filter(c => N.grpOf(c)?.party)) : ''}
       ${group(gm ? 'Private chats' : 'Just you and the GM', chs.filter(c => c.startsWith('dm-')))}
       ${group('Group chats', chs.filter(c => c.startsWith('grp-') && !N.grpOf(c)?.party))}
@@ -287,7 +292,7 @@ function renderMsgs(v, side){
 function msgWrap(v, m, h){
   const social = N.msgSocial(m), gm = isGM(v);
   if (!social && !gm) return h;
-  const narr = m.kind === 'rp' && !!N.speakerObj(m).narr, mine = m.by === v.role && !narr;
+  const narr = m.kind === 'rp' && !!N.speakerObj(m).narr, mine = isMe(v, m) && !narr;
   const tools = `<span class="mtools">${social ? `<button type="button" data-a="msgMenu" data-v="${m.id}" data-emo="1" aria-label="React" title="React">${IC('smile')}</button><button type="button" data-a="reply" data-v="${m.id}" aria-label="Reply" title="Reply">${IC('reply')}</button>` : ''}${gm || N.canEdit(v, m) ? `<button type="button" class="mdots" data-a="msgMenu" data-v="${m.id}" aria-label="${gm ? 'Edit or delete this message' : 'Edit this message'}" title="More">${IC('dots')}</button>` : ''}</span>`;
   /* the hover buttons sit beside the message itself where there is one, otherwise at the row's corner */
   const rx = social ? rxPill(v, m) : '', ins = (s, at, x) => s.slice(0, at) + x + s.slice(at);
@@ -322,7 +327,7 @@ function rxPill(v, m){
   return `<button type="button" class="rxp${me ? ' me' : ''}${fresh ? ' rxnew' : ''}" data-a="msgMenu" data-v="${m.id}" title="${esc(who)}" aria-label="Reactions: ${esc(who)}">${order.slice(0, 3).map(e => `<span>${N.emj(e)}</span>`).join('')}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
 }
 function rMsg(v, m, prev, firstNarr){
-  const g = G(), mine = m.by === v.role, time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
+  const g = G(), mine = isMe(v, m), time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
   if (m.kind === 'sys') return m.res ? resCard(m.res) : m.fightEnd ? `<button type="button" class="sysm fend" data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}">${IC('swords')}<span>${esc(m.text)}</span><b>See what happened</b></button>` : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
   if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
@@ -336,17 +341,17 @@ function rMsg(v, m, prev, firstNarr){
   }
   const cont = prev && prev.by === m.by && prev.kind === m.kind && (prev.as||'') === (m.as||'') && m.t - prev.t < 180000 && m.kind !== 'scene';
   if (m.kind === 'gif') {
-    const p = N.personObj(m.by), gf = m.gif || {};
+    const p = metaObj(m), gf = m.gif || {};
     /* GIFs are always table talk: posted as the person, never as a character */
     return `<div class="m ooc gifm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><div class="gifbox"><img class="gif" src="${esc(gf.u)}" alt="GIF" loading="lazy" ${gf.w && gf.h ? `style="aspect-ratio:${+gf.w}/${+gf.h}"` : ''}></div></div></div>`;
   }
   if (m.kind === 'pic') {
-    const p = N.personObj(m.by), pc = m.pic || {};
+    const p = metaObj(m), pc = m.pic || {};
     /* a picture someone sent: tap it to see it big */
     return `<div class="m ooc gifm picm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><button type="button" class="gifbox" data-a="picView" data-v="${m.id}" aria-label="Open the picture"><img class="gif" src="${esc(pc.u)}" alt="${esc(m.text || 'Picture')}" loading="lazy" ${pc.w && pc.h ? `style="aspect-ratio:${+pc.w}/${+pc.h}"` : ''}></button>${m.text ? `<div class="bub">${N.emoText(fmt(m.text))}${m.ed ? ' <span class="ed">edited</span>' : ''}</div>` : ''}</div></div>`;
   }
   if (m.kind === 'ooc' || m.kind === 'meta') {
-    const p = N.personObj(m.by);
+    const p = metaObj(m);
     const big = N.emojiOnly(m.text);
     return `<div class="m ${big ? 'emom' : 'ooc'}${mine?' mine':''}${cont?' cont':''}">${N.av(p,32)}<div class="body">${cont?'':`<div class="who" style="--who:var(--ink-3)">${esc(p.name)} ${time}</div>`}<div class="${big ? 'bigemo' : 'bub'}">${txt}</div></div></div>`;
   }
@@ -435,7 +440,7 @@ function fightCard(v, m){
   </div></div>`;
 }
 function composer(v){
-  const g = G(), gm = isGM(v), ooc = v.ui.mode === 'ooc';
+  const g = G(), gm = isGM(v), meta = N.metaOnly(v.ui.ch), ooc = v.ui.mode === 'ooc' || meta;
   let chip, ph;
   if (ooc) { chip = `<span class="ooc-ic">${IC('chatL')}</span><b>Meta</b>`; ph = 'Rules talk, questions, snacks…'; }
   else if (gm) {
@@ -452,7 +457,7 @@ function composer(v){
   return `<form class="composer${ooc?' ooc':''}" data-f="send" onsubmit="return false">
     ${re ? `<div class="replying">${IC('reply')}<span>Replying to <b>${esc(N.msgWho(re))}</b><small>${N.emoText(esc(N.msgSnip(re)))}</small></span><button type="button" class="ibtn sm" data-a="replyOff" aria-label="Stop replying">${IC('x')}</button></div>` : ''}
     <div class="box">
-      ${v.ui.ch === 'gm' ? `<span class="voice">${chip}</span>` : gm ? `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`
+      ${v.ui.ch === 'gm' || meta ? `<span class="voice"${meta ? ' title="Everyone is Meta only: you show by your own name"' : ''}>${chip}</span>` : gm ? `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`
         : `<button type="button" class="voice flip" data-a="voice" data-v="__flip" aria-label="${ooc ? 'Speaking Meta (out of character). Tap to speak in character' : 'Speaking in character. Tap to switch to Meta'}" title="Tap to switch">${chip}${IC('swap','car')}</button>`}
       <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="${N.enterSends() ? 'send' : 'enter'}">${esc(v.ui.draft)}</textarea>
       <button type="button" class="emob picb" data-a="picSend" aria-label="Send a picture" title="Send a picture">${IC('image')}</button>
@@ -472,7 +477,7 @@ function gmScreen(v){
   const fight = Object.entries(fights).sort(([a],[b]) => (a !== 'table') - (b !== 'table') || a.localeCompare(b)).map(([c, cb]) => {
     const o = N.order(cb), cur = cb.state === 'live' && cb.phase !== 'notice' && o.length ? o[cb.turn % o.length] : null;
     return `<button type="button" class="bigcta" data-a="openFight" data-v="${c}"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>In ${where(c)} · ${cb.state==='setup'?(c === 'gm' ? 'Not started yet. Only you see it.' : 'Not started yet. Players can’t see it.'):`Exchange ${cb.exchange}${cur ? ` · ${esc(N.tokName(cur))}’s turn` : ''}`}</small></span></button>`;
-  }).join('') + (fights[here] ? '' : `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>${Object.keys(fights).length ? 'Begin another fight' : 'Begin a fight'}</b><small>In ${where(here)}. ${here === 'gm' ? 'A fight only you see, even once it starts. Add NPCs on both sides.' : 'Draw zones and add enemies. Players see nothing until you start.'}</small></span></button>`)
+  }).join('') + (fights[here] ? '' : N.metaOnly(here) ? `<p class="muted gm-nofight">${IC('swords')}No fights in Everyone, it’s Meta only. Open a party, group or private chat to begin one.</p>` : `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>${Object.keys(fights).length ? 'Begin another fight' : 'Begin a fight'}</b><small>In ${where(here)}. ${here === 'gm' ? 'A fight only you see, even once it starts. Add NPCs on both sides.' : 'Draw zones and add enemies. Players see nothing until you start.'}</small></span></button>`)
     /* a fight only the GM sees: practice runs and fights the players aren't part of */
     + (here === 'gm' || fights.gm ? '' : `<button type="button" class="btn sm ghost block gm-solo" data-a="cbBegin" data-v="gm">${IC('lock')}Begin a fight in GM notes · only you see it</button>`);
   const pcs = N.pcs(), npc1 = g.npcs[0], waiting = N.MEMBERS.filter(m => m.role === 'pending').length;

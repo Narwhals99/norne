@@ -1535,7 +1535,7 @@
 @container dev (min-width: 760px){
   .app .gm-page{max-width:1080px;margin:0 auto;width:100%;padding:0 22px 40px}
   .app .gm-page .gs{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 26px;padding-inline:0}
-  .app .gm-page .gs>.bigcta,.app .gm-page .gs>.gm-solo,.app .gm-page .gs>.gs-tools,.app .gm-page .gs>.gm-for{grid-column:1/-1}
+  .app .gm-page .gs>.bigcta,.app .gm-page .gs>.gm-solo,.app .gm-page .gs>.gm-nofight,.app .gm-page .gs>.gs-tools,.app .gm-page .gs>.gm-for{grid-column:1/-1}
   .app .gm-page .gs-tools .tools{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 }
 /* phones, live fight: the GM tools sit under the board as a five-slot bar, every one visible at once */
@@ -2094,3 +2094,5 @@
 .app .tokcard .tok-on{align-items:center}
 .app .tokcard .tok-on-l{flex:0 0 100%;font:700 11px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
 .app .gm-solo{justify-content:center;margin-top:-4px}
+.app .gm-nofight{display:flex;gap:8px;align-items:center;margin:0;padding:10px 12px;border-radius:10px;border:1px dashed var(--line-2);font:600 13px/1.4 var(--f-ui)}
+.app .gm-nofight svg{width:16px;height:16px;flex:0 0 auto;opacity:.7}
