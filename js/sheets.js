@@ -394,7 +394,7 @@ N.sheetHtml = function(v){
   case 'newsSet': {
     const i = g.news.issues.find(x => x.id === arg); if (!i) return '';
     return sheet(`No. ${esc(i.no)} · ${esc(i.headline)}`, `<div><h4>Who can read this edition</h4>${N.audPick('newsAud', i, 'news')}</div>
-      <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Players you add get a note in their chat with you.</p>`,
+      <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Players you add get a note in their chat with you, only the first time. Edits never send a new note.</p>`,
       `<button type="button" class="btn danger" data-a="sheet" data-v="newsDel" data-c="${esc(i.id)}" style="flex:0 0 auto">${IC('trash')}Delete edition</button><button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
   }
   case 'newsDel': {

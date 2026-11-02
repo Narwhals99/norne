@@ -1027,15 +1027,20 @@ function act(v, a, el, e){
     if (n.see?.length) issue.see = [...n.see];
     g.news.issues.push(issue); (g.news.seen.gm = g.news.seen.gm || []).push(issue.id);
     const to = N.audOf(issue, 'news');
+    /* who has had the "issue delivered" note: later edits or reader changes never ping them again */
+    issue.told = N.audSeats(issue, 'news');
     for (const ch of to === '*' ? ['table', ...g.groups.filter(x => x.party).map(x => 'grp-' + x.id)] : to.map(s => 'dm-' + s)) push({ch, kind:'news', by:'gm', text:issue.headline, nid:issue.id});
     ui.newsEdit = null; ui.paper = N.paperName(issue); ui.newsSel = issue.id; toast(v, to === '*' ? 'Published. Everyone got a note in chat.' : `Published for ${N.audLabel(issue, 'news').replace(/^Only /, '')}. They got a note.`); renderAll(); return;
   }
   case 'ndAud': N.audSet(ui.newsEdit, 'news', val); break;
   case 'newsAud': {
     const i = g.news.issues.find(x => x.id === ui.sheetArg); if (!i) break;
-    const before = N.audSeats(i, 'news'); N.audSet(i, 'news', val);
-    const added = N.audSeats(i, 'news').filter(s => !before.includes(s));
-    for (const s of added) push({ch:'dm-' + s, kind:'news', by:'gm', text:i.headline, nid:i.id});
+    /* only a reader who has never had this issue gets a note; ticking someone off and on again, or
+       switching between readers and Everyone, never sends the same issue twice */
+    const told = new Set(i.told || N.audSeats(i, 'news')); N.audSet(i, 'news', val);
+    const added = N.audSeats(i, 'news').filter(s => !told.has(s));
+    for (const s of added) { push({ch:'dm-' + s, kind:'news', by:'gm', text:i.headline, nid:i.id}); told.add(s); }
+    i.told = [...told].sort((a, b) => a.slice(1) - b.slice(1));
     renderAll(); return;
   }
   /* a message's menu: reactions and reply for everyone, edit and delete for the GM */
