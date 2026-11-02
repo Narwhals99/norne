@@ -2090,3 +2090,6 @@
 .app .wipe-ok[aria-pressed="true"] .bx{background:var(--ember);box-shadow:none}
 .app .btn.danger.solid:not(:disabled){color:var(--ember-ink);background:var(--ember)}
 .app .btn.danger:disabled{opacity:.45;cursor:not-allowed}
+/* aspects pinned on a fighter (situation aspects the GM put on them, boosts put on them) */
+.app .tokcard .tok-on{align-items:center}
+.app .tokcard .tok-on-l{flex:0 0 100%;font:700 11px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}

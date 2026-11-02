@@ -561,10 +561,17 @@ function popHtml(v){
     const gm = isGM(v);
     let opts = '';
     if (gm) {
-      const all = ['Narrator', ...N.voices()], vq = (v.ui.voiceQ || '').trim().toLowerCase();
+      /* a chat whose scene names its NPCs lists only them (and the fight's NPCs); everyone else is one tap or a search away */
+      const vf = N.voicesFor(v.ui.ch === 'gm' ? 'table' : v.ui.ch, v.ui.voice), vq = (v.ui.voiceQ || '').trim().toLowerCase();
+      const all = ['Narrator', ...vf.here, ...(vf.rest || [])];
+      const one = n => { const npc = N.npcByName(n); const sel = v.ui.mode==='rp' && v.ui.voice===n; return `<button type="button" class="opt" data-a="voice" data-v="${esc(n)}" aria-selected="${sel}">${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text, shown as the book':esc(N.npcSub(npc))}</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`; };
       if (all.length > 5) opts += `<div class="pop-find">${IC('search')}<input class="inp" id="vq-${v.id}" data-i="voiceQ" placeholder="Find a voice" value="${esc(v.ui.voiceQ || '')}" autocomplete="off"></div>`;
-      opts += `<div class="lbl">In character</div>` + all.filter(n => !vq || n.toLowerCase().includes(vq)).map(n => { const npc = N.npcByName(n); const sel = v.ui.mode==='rp' && v.ui.voice===n; return `<button type="button" class="opt" data-a="voice" data-v="${esc(n)}" aria-selected="${sel}">${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text, shown as the book':esc(N.npcSub(npc))}</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`; }).join('')
-        + `<button type="button" class="opt" data-a="newVoice"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('plus').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>New NPC voice</span></button>`;
+      if (vq) opts += `<div class="lbl">In character</div>` + all.filter(n => n.toLowerCase().includes(vq)).map(one).join('');
+      else if (!vf.rest) opts += `<div class="lbl">In character</div>` + all.map(one).join('');
+      else opts += `<div class="lbl">In this scene</div>` + ['Narrator', ...vf.here].map(one).join('')
+        + (vf.rest.length ? (v.ui.voiceAll ? `<div class="lbl">Everyone else</div>` + vf.rest.map(one).join('') + `<button type="button" class="opt more" data-a="voiceAll"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('undo').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>Only this scene</span></button>`
+          : `<button type="button" class="opt more" data-a="voiceAll"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('users').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>Everyone else<small>${vf.rest.length} more NPC${vf.rest.length > 1 ? 's' : ''} not in this scene</small></span></button>`) : '');
+      opts += `<button type="button" class="opt" data-a="newVoice"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('plus').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>New NPC voice</span></button>`;
     } else {
       const c = N.charOf(v.role), sel = v.ui.mode === 'rp';
       opts += `<button type="button" class="opt" data-a="voice" data-v="__me" aria-selected="${sel}">${N.av({name:c.short,portrait:c.built?c.portrait:null,color:c.color},30)}<span>As ${esc(c.short)}<small>In character</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`;
