@@ -314,8 +314,8 @@ function syncNow(){
       writeUnits('game/chars', Object.fromEntries(Object.entries(g.chars).filter(([, c]) => !inParty.has(c.player))));
       for (const pt of g.groups.filter(x => x.party)) writeUnits('parties/' + pt.id, Object.fromEntries(Object.entries(g.chars).filter(([, c]) => pt.seats.includes(c.player))));
     }
-    /* fights being set up and fights in private chats stay in gm/combat, one unit per chat */
-    const all = N.allFights(), mine = Object.fromEntries(Object.entries(all).filter(([ch, cb]) => cb.state === 'setup' || (cb.state === 'live' && N.chKey(ch))));
+    /* fights being set up, fights in private chats and fights in GM notes stay in gm/combat, one unit per chat */
+    const all = N.allFights(), mine = Object.fromEntries(Object.entries(all).filter(([ch, cb]) => gmKept(ch, cb)));
     writeUnits('gm/combat', Object.fromEntries(Object.entries(mine).map(([ch, cb]) => [ch, combatOut(cb)])));
     /* what this device just wrote is the newest copy (its own writes don't come back as changes) */
     SC = mine;
@@ -402,6 +402,9 @@ N.syncNow = syncNow;
 
 /* ---------- applying what arrives ---------- */
 let GC = null, SC = {}; const PF = {}, SRC = {};
+/* what the GM keeps in gm/combat: any fight being set up, and live fights outside the table chat.
+   A fight in GM notes lives only there, so players never get it */
+const gmKept = (ch, cb) => cb.state === 'setup' || (cb.state === 'live' && (ch === 'gm' || !!N.chKey(ch)));
 const OLDBG = {forest:'dark-forest', tavern:'town-alley', street:'town-alley', cave:'cave-temple-deep', castle:'castle-ramparts', swamp:'dark-forest', snow:'mountain-pass-raid', ship:'harbor-ship'};
 /* Fights are also written in the old app's shape (bg key, scene, zone color), so rolling the site back keeps them working. */
 const oldBg = src => ({'dark-forest':'forest', 'town-alley':'tavern', 'cave-temple-deep':'cave', 'castle-ramparts':'castle', 'mountain-pass-raid':'snow', 'harbor-ship':'ship'})[(String(src).match(/^art\/bg\/([\w-]+)\.jpg$/) || [])[1]] || 'forest';
@@ -438,7 +441,7 @@ function setCombat(){
   const g = G(), src = {}, cur = N.allFights(), out = {};
   if (isGM()) {
     for (const [ch, x] of Object.entries(SC)) {
-      if (!x?.id || !(x.state === 'setup' || (x.state === 'live' && N.chKey(ch)))) continue;
+      if (!x?.id || !gmKept(ch, x)) continue;
       const p = PF[N.chKey(ch)]; src[ch] = x.state === 'live' && p && p.id === x.id && p.state === 'live' ? p : x;
     }
     if (!src.table && GC?.state === 'live') src.table = GC;

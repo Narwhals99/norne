@@ -1535,7 +1535,7 @@
 @container dev (min-width: 760px){
   .app .gm-page{max-width:1080px;margin:0 auto;width:100%;padding:0 22px 40px}
   .app .gm-page .gs{grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 26px;padding-inline:0}
-  .app .gm-page .gs>.bigcta,.app .gm-page .gs>.gs-tools,.app .gm-page .gs>.gm-for{grid-column:1/-1}
+  .app .gm-page .gs>.bigcta,.app .gm-page .gs>.gm-solo,.app .gm-page .gs>.gs-tools,.app .gm-page .gs>.gm-for{grid-column:1/-1}
   .app .gm-page .gs-tools .tools{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 }
 /* phones, live fight: the GM tools sit under the board as a five-slot bar, every one visible at once */
@@ -2093,3 +2093,4 @@
 /* aspects pinned on a fighter (situation aspects the GM put on them, boosts put on them) */
 .app .tokcard .tok-on{align-items:center}
 .app .tokcard .tok-on-l{flex:0 0 100%;font:700 11px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.app .gm-solo{justify-content:center;margin-top:-4px}

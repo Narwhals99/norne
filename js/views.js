@@ -466,13 +466,15 @@ function composer(v){
 
 /* ================= side panels ================= */
 function gmScreen(v){
-  const g = G(), ch = v.ui.ch, here = ch === 'gm' ? 'table' : ch, fights = N.allFights();
+  const g = G(), ch = v.ui.ch, here = ch, fights = N.allFights();
   /* one fight per chat: every running fight gets a button, and the open chat can start one if it has none */
-  const where = c => c === 'table' ? 'Everyone' : c.startsWith('grp-') ? `${N.grpOf(c)?.party ? 'the party' : 'the group chat'} ${esc(N.chName(c,'gm'))}` : `your chat with ${esc(N.chName(c,'gm'))}`;
+  const where = c => c === 'table' ? 'Everyone' : c === 'gm' ? 'GM notes' : c.startsWith('grp-') ? `${N.grpOf(c)?.party ? 'the party' : 'the group chat'} ${esc(N.chName(c,'gm'))}` : `your chat with ${esc(N.chName(c,'gm'))}`;
   const fight = Object.entries(fights).sort(([a],[b]) => (a !== 'table') - (b !== 'table') || a.localeCompare(b)).map(([c, cb]) => {
     const o = N.order(cb), cur = cb.state === 'live' && cb.phase !== 'notice' && o.length ? o[cb.turn % o.length] : null;
-    return `<button type="button" class="bigcta" data-a="openFight" data-v="${c}"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>In ${where(c)} · ${cb.state==='setup'?'Not started yet. Players can’t see it.':`Exchange ${cb.exchange}${cur ? ` · ${esc(N.tokName(cur))}’s turn` : ''}`}</small></span></button>`;
-  }).join('') + (fights[here] ? '' : `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>${Object.keys(fights).length ? 'Begin another fight' : 'Begin a fight'}</b><small>In ${where(here)}. Draw zones and add enemies. Players see nothing until you start.</small></span></button>`);
+    return `<button type="button" class="bigcta" data-a="openFight" data-v="${c}"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>In ${where(c)} · ${cb.state==='setup'?(c === 'gm' ? 'Not started yet. Only you see it.' : 'Not started yet. Players can’t see it.'):`Exchange ${cb.exchange}${cur ? ` · ${esc(N.tokName(cur))}’s turn` : ''}`}</small></span></button>`;
+  }).join('') + (fights[here] ? '' : `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>${Object.keys(fights).length ? 'Begin another fight' : 'Begin a fight'}</b><small>In ${where(here)}. ${here === 'gm' ? 'A fight only you see, even once it starts. Add NPCs on both sides.' : 'Draw zones and add enemies. Players see nothing until you start.'}</small></span></button>`)
+    /* a fight only the GM sees: practice runs and fights the players aren't part of */
+    + (here === 'gm' || fights.gm ? '' : `<button type="button" class="btn sm ghost block gm-solo" data-a="cbBegin" data-v="gm">${IC('lock')}Begin a fight in GM notes · only you see it</button>`);
   const pcs = N.pcs(), npc1 = g.npcs[0], waiting = N.MEMBERS.filter(m => m.role === 'pending').length;
   const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
     ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
@@ -508,10 +510,10 @@ function picShelf(v){
     </section>`;
 }
 function gmPage(v){
-  const ph = v.dev === 'phone', cur = v.ui.ch === 'gm' ? 'table' : v.ui.ch;
-  const chans = N.channelsFor('gm').filter(c => c !== 'gm');
+  const ph = v.dev === 'phone', cur = v.ui.ch;
+  const chans = N.channelsFor('gm');
   const top = ph ? `<div class="top ph">${meBtn(v)}<h1>GM screen</h1></div>` : `<div class="top dt" style="display:flex"><h1>GM screen</h1></div>`;
-  const forRow = `<section class="gs-sec gm-for"><div class="gs-h"><h3>Working in</h3></div><div class="seg" role="group" aria-label="Chat">${chans.map(c => `<button type="button" data-a="gmFor" data-v="${c}" aria-pressed="${cur===c}">${c === 'table' ? IC('users') : ''}${esc(N.chName(c,'gm'))}</button>`).join('')}</div></section>`;
+  const forRow = `<section class="gs-sec gm-for"><div class="gs-h"><h3>Working in</h3></div><div class="seg" role="group" aria-label="Chat">${chans.map(c => `<button type="button" data-a="gmFor" data-v="${c}" aria-pressed="${cur===c}">${c === 'table' ? IC('users') : c === 'gm' ? IC('lock') : ''}${esc(N.chName(c,'gm'))}</button>`).join('')}</div></section>`;
   return `<div class="scroll" data-sk="gmp" style="min-height:0">${top}<div class="gm-page">${gmScreen(v).replace('<div class="gs">', '<div class="gs">' + forRow)}</div></div>`;
 }
 function coinsHtml(c, edit){
