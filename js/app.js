@@ -1062,7 +1062,7 @@ function act(v, a, el, e){
   /* several characters per player: the GM adds or removes seats, the player switches (a reload, like signing in as someone else) */
   case 'seatAdd': { if (!gm) break; const m = N.MEMBERS.find(x => x.uid === val), s = N.addSeat(val); if (s) toast(v, `${m?.name || 'They'} got another character (seat ${s.slice(1)}). Fill in its card in Cast.`); break; }
   case 'seatDrop': if (gm) { N.dropSeat(val, d.s); toast(v, 'Character taken away. Its card stays in Cast.'); } break;
-  case 'seatGo': { const c = g.chars[g.P[val]?.char || 'pc' + String(val).slice(1)]; toast(v, `Switching to ${c?.built ? c.short : 'your other character'}…`); N.switchSeat(val); return; }
+  case 'seatGo': { const c = g.chars[g.P[val]?.char || 'pc' + String(val).slice(1)], k = c?.built ? c : N.seatCard(val); toast(v, `Switching to ${k?.short || 'your other character'}…`); N.switchSeat(val); return; }
   case 'picSend': sendPic(v); return;
   case 'picView': openSheet(v, 'picView', {v:val}); break;
   case 'gifSend': { const r = (ui.gifRes || [])[+d.i]; if (r) sendGif(v, {u:r.u, w:r.w, h:r.h}); return; }
