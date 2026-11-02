@@ -175,8 +175,18 @@ const CH = {base:{}, party:{}};
 function mergeChars(){
   const all = {...CH.base}; for (const u of Object.values(CH.party)) Object.assign(all, u);
   G().chars = Object.fromEntries(Object.entries(all).map(([k, j]) => [k, N.decorate(JSON.parse(j))]));
-  nameSeats();
+  nameSeats(); keepSeatCard();
 }
+/* a player's other characters can sit in a party this seat can't read, so this device remembers the name and face
+   of each character it has played; the character picker shows them instead of "New character" */
+const SCKEY = s => 'norne-seatcard-' + ME?.uid + '-' + s;
+function keepSeatCard(){
+  const g = G(), s = g.role; if (!ME || !isSeat(s) || N.seatsOf(ME).length < 2) return;
+  const c = g.chars['pc' + s.slice(1)]; if (!c || !c.built) return;
+  const portrait = typeof c.portrait === 'string' && c.portrait.length < 400000 ? c.portrait : null;
+  try { localStorage.setItem(SCKEY(s), JSON.stringify({short:c.short, portrait})); } catch(e) {}
+}
+N.seatCard = s => { try { return JSON.parse(localStorage.getItem(SCKEY(s)) || 'null'); } catch(e) { return null; } };
 function listenParty(id){
   const path = 'parties/' + id;
   if (PARTY_ON.has(path)) return; PARTY_ON.add(path);

@@ -434,8 +434,12 @@ function mySeats(v){
   const my = N.me(); if (!my || isGM(v)) return '';
   const ss = N.seatsOf(my); if (ss.length < 2) return '';
   const g = G();
-  return `<div><h4>Your characters<small>Each has its own chats, party and memory. Switching reloads Norne.</small></h4><div class="seatpick">${ss.map(s => { const c = g.chars[g.P[s]?.char || 'pc' + s.slice(1)], cur = s === v.role;
-    return `<button type="button" class="seatb" data-a="seatGo" data-v="${s}" aria-pressed="${cur}" ${cur ? 'disabled' : ''}>${N.av({name:c?.built ? c.short : '?', portrait:c?.built ? c.portrait : null, color:g.P[s]?.color}, 40)}<span><b>${esc(c?.built ? c.short : 'New character')}</b><small>${cur ? 'Playing now' : c?.built ? 'Tap to switch' : 'No card yet · tap to switch'}</small></span>${cur ? IC('check') : IC('swap')}</button>`; }).join('')}</div></div>`;
+  return `<div><h4>Your characters<small>Each has its own chats, party and memory. Switching reloads Norne.</small></h4><div class="seatpick">${ss.map(s => {
+    const c = g.chars[g.P[s]?.char || 'pc' + s.slice(1)], cur = s === v.role;
+    /* a character in a party this seat can't read: use what this device remembers from playing it */
+    const k = c?.built ? {short:c.short, portrait:c.portrait} : N.seatCard(s);
+    const sub = cur ? 'Playing now' : k ? 'Tap to switch' : c ? 'No card yet · tap to switch' : 'Tap to switch';
+    return `<button type="button" class="seatb" data-a="seatGo" data-v="${s}" aria-pressed="${cur}" ${cur ? 'disabled' : ''}>${N.av({name:k?.short || '?', portrait:k?.portrait || null, color:g.P[s]?.color}, 40)}<span><b>${esc(k?.short || (c ? 'New character' : 'Your other character'))}</b><small>${sub}</small></span>${cur ? IC('check') : IC('swap')}</button>`; }).join('')}</div></div>`;
 }
 /* a skill ladder editor: rungs from top to bottom, each with a cap (or none) */
 function skillLadder(v, d, sel, del, rungs){
