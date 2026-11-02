@@ -365,7 +365,7 @@ N.pcTag = c => N.pcAspects(c)[0] || '';
 
 /* ---------- combat helpers ---------- */
 N.cb = () => N.G.combat;
-/* a fight lives in the chat it was started in: Everyone, or one player's private chat with the GM */
+/* a fight lives in the chat it was started in: Everyone, a private or group chat, or GM notes (only the GM ever sees that one) */
 N.fightCh = () => N.G.combat.state === 'off' ? N.G.fch : N.G.combat.ch || 'table';
 /* several fights can run at once, one per chat. N.G.combat is always the fight in the chat on screen (N.G.fch),
    so the fight code only ever deals with one; the others wait in N.G.fights until their chat is opened. */
@@ -373,7 +373,7 @@ N.G.fights = {}; N.G.fch = 'table';
 N.allFights = () => { const g = N.G, all = {...g.fights}; delete all[g.fch]; if (g.combat.state !== 'off') all[g.fch] = g.combat; return all; };
 N.fightIn = ch => N.allFights()[ch] || null;
 N.focusFight = ch => {
-  const g = N.G; if (!ch || ch === 'gm' || ch === g.fch) return;
+  const g = N.G; if (!ch || ch === g.fch) return;
   g.fights = N.allFights(); g.fch = ch;
   g.combat = g.fights[ch] || Object.assign(freshCombat(), {ch});
 };
@@ -382,8 +382,8 @@ N.chSeat = ch => /^dm-p\d+$/.test(ch || '') ? ch.slice(3) : null;
 N.chKey = ch => N.chSeat(ch) || (N.grpOf(ch) ? ch.slice(4) : null);
 /* the seats that can read a chat, or null for the whole table */
 N.chSeats = ch => { const s = N.chSeat(ch); if (s) return [s]; const gr = N.grpOf(ch); return gr ? (gr.seats || []) : null; };
-/* the characters whose players can see a chat */
-N.pcsIn = ch => { const ss = N.chSeats(ch); return N.pcs().filter(c => !ss || ss.includes(c.player)); };
+/* the characters whose players can see a chat (none for GM notes: a fight there is the GM's own, players are never in it) */
+N.pcsIn = ch => { if (ch === 'gm') return []; const ss = N.chSeats(ch); return N.pcs().filter(c => !ss || ss.includes(c.player)); };
 N.tokById = id => N.G.combat.tokens.find(t => t.id === id);
 /* the fighter behind a roll's whoKey ('tok:<id>' or 'pc:<char id>'), if they are in this fight */
 N.tokOfKey = (key = '') => key.startsWith('tok:') ? N.tokById(key.slice(4)) : key.startsWith('pc:') ? N.G.combat.tokens.find(t => t.kind === 'pc' && t.ref === key.slice(3)) : null;

@@ -195,6 +195,8 @@ function latestHtml(v){
   return `<div class="fight-latest"><span class="eyebrow">Last in the fight<button type="button" class="lnk" data-a="pane" data-v="chat">Whole chat${IC('right')}</button></span>${res && (!roll || res.t > roll.t) ? N.resCard(res.res) + rh : rh + (res ? N.resCard(res.res) : '')}</div>`;
 }
 /* a GM's secret custom event in this fight: it lives in GM notes (players never get it) but shows in the GM's fight log */
+/* a roll in GM notes is a secret one, unless the fight itself is in GM notes */
+const secretM = m => m.ch === 'gm' && N.fightCh() !== 'gm';
 const secretEv = (m, cid) => m.ch === 'gm' && m.kind === 'roll' && !!m.roll.cid && m.roll.cid === cid;
 /* GM, phones: everything that happened in this fight as small lines in their own scroll, newest at the bottom */
 function feedHtml(v){
@@ -219,7 +221,7 @@ function recentHtml(v, mode){
 function actRows(v, ms, past){
   const g = G(), cb = g.combat, keep = v._lastRoll; v._lastRoll = past ? null : (ms.findLast(m => m.kind === 'roll') || {}).id;
   const live = m => (m.kind === 'fight' || m.kind === 'combat') && cb.state !== 'off' && m.cid === cb.id;
-  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll" data-mid="${m.id}"><div class="who">${esc(m.roll.who)}${m.ch === 'gm' ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time></div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
+  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll" data-mid="${m.id}"><div class="who">${esc(m.roll.who)}${secretM(m) ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time></div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
     : m.kind === 'sys' && m.res ? N.resCard(m.res).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
     : m.fc ? `<div class="fcm${m.by === v.role ? ' mine' : ''}"><b>${esc(N.personObj(m.by).name)}</b><span>${N.emoText(esc(m.text))}</span><time>${N.hhmm(m.t)}</time></div>`
     : m.fightEnd ? `<div data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}" title="See what happened" class="go ff end"><span class="ffi">${IC('swords')}</span><span class="fft">${esc(m.text)} <b>See what happened</b></span></div>`
@@ -241,10 +243,10 @@ function feedRow(m, live){
   if (m.kind === 'roll') {
     const r = m.roll, tot = N.rollTotal(r), dice = r.dice.map(d => `<i class="${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':''}</i>`).join('');
     const inv = r.invokes.length ? ` · ${r.invokes.length} invoke${pl(r.invokes.length)}` : '';
-    if (r.event) return line(`<span class="ffd">${dice}</span>`, `<b>${esc(r.who)}</b> ${esc(r.skill)} event${N.evText(r) ? `: ${esc(N.evText(r))}` : ''}${r.vs ? ` against ${esc(r.vs.name || r.vs.skill)}` : ''}${m.ch === 'gm' ? ' · secret' : ''}${inv}`, ' roll ev',
-      `<b class="ffv">${sgn(tot)}${r.opp != null ? `<small> vs ${sgn(r.opp)}</small>` : ''}</b>${live && m.ch !== 'gm' ? `<button type="button" class="ffb" data-a="invoke" data-id="${m.id}">${IC('cards')}Invoke</button>` : ''}`);
+    if (r.event) return line(`<span class="ffd">${dice}</span>`, `<b>${esc(r.who)}</b> ${esc(r.skill)} event${N.evText(r) ? `: ${esc(N.evText(r))}` : ''}${r.vs ? ` against ${esc(r.vs.name || r.vs.skill)}` : ''}${secretM(m) ? ' · secret' : ''}${inv}`, ' roll ev',
+      `<b class="ffv">${sgn(tot)}${r.opp != null ? `<small> vs ${sgn(r.opp)}</small>` : ''}</b>${live && !secretM(m) ? `<button type="button" class="ffb" data-a="invoke" data-id="${m.id}">${IC('cards')}Invoke</button>` : ''}`);
     return line(`<span class="ffd">${dice}</span>`, `<b>${esc(r.who)}</b> ${esc(r.skill)} ${esc(r.action.toLowerCase())}${r.target ? ` ${r.action === 'Defend' ? 'against' : 'on'} ${esc(r.target)}` : ''}${inv}`, ' roll',
-      `<b class="ffv">${sgn(tot)}</b>${live && m.ch !== 'gm' ? `<button type="button" class="ffb" data-a="invoke" data-id="${m.id}">${IC('cards')}Invoke</button>` : ''}`);
+      `<b class="ffv">${sgn(tot)}</b>${live && !secretM(m) ? `<button type="button" class="ffb" data-a="invoke" data-id="${m.id}">${IC('cards')}Invoke</button>` : ''}`);
   }
   if (m.kind === 'sys' && m.res && m.res.k === 'clash') return line(IC('swords'), `<b>${esc(m.res.out?.t || '')}</b> ${esc(m.res.after || '')}`, ` res ${m.res.out?.k || ''}`);
   if (m.kind === 'sys' && m.res && m.res.k === 'order') return line(IC('clock'), `<b>Turn order</b> ${(m.res.rows || []).map(x => `${esc(x.n)} ${sgn(x.tot)}`).join(' · ')}`);
@@ -346,7 +348,7 @@ N.fightView = function(v){
   const g = G(), cb = g.combat, gm = isGM(v), ph = v.dev === 'phone';
   if (cb.state === 'setup') {
     const top = ph ? `<div class="top ph">${N.meBtn(v)}<h1>Fight setup</h1><button type="button" class="btn sm" data-a="pane" data-v="chat">${IC('chatL')}Chat</button></div>` : '';
-    return `<section class="fight setup-mode" aria-label="Fight setup">${top}<div class="setup-head">${!ph?`<div><span class="eyebrow" style="color:var(--ember)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px;display:inline;vertical-align:-1px;margin-right:5px"')}Only you see this until you start</span><h1 class="ttl" style="font-size:24px">${esc(cb.title)}</h1></div><span style="flex:1"></span>${gmRow(v)}<button type="button" class="btn sm ghost" data-a="closeFight">${IC('chatL')}Back to chat</button>`:''}</div>${boardHtml(v)}${ph ? `<div class="dock scroll setup-dock" data-sk="setupph"><div style="padding:0 12px">${gmRow(v)}</div>${N.setupPanel(v)}</div>` : ''}</section>`;
+    return `<section class="fight setup-mode" aria-label="Fight setup">${top}<div class="setup-head">${!ph?`<div><span class="eyebrow" style="color:var(--ember)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px;display:inline;vertical-align:-1px;margin-right:5px"')}${cb.ch === 'gm' ? 'GM notes fight · only you see it' : 'Only you see this until you start'}</span><h1 class="ttl" style="font-size:24px">${esc(cb.title)}</h1></div><span style="flex:1"></span>${gmRow(v)}<button type="button" class="btn sm ghost" data-a="closeFight">${IC('chatL')}Back to chat</button>`:''}</div>${boardHtml(v)}${ph ? `<div class="dock scroll setup-dock" data-sk="setupph"><div style="padding:0 12px">${gmRow(v)}</div>${N.setupPanel(v)}</div>` : ''}</section>`;
   }
   const sel = v.ui.tokSel && N.tokById(v.ui.tokSel);
   if (ph) {
@@ -418,9 +420,9 @@ N.setupPanel = function(v){
   const step = (n, done, title, body) => `<div class="step${done?' done':''}"><span class="n">${done?IC('check'):n}</span><b>${title}</b><div class="c">${body}</div></div>`;
   const zs = v.ui.zoneSel && cb.zones.find(z => z.id === v.ui.zoneSel);
   return `<div class="setup">
-    ${v.dev==='phone' ? `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui);display:flex;gap:6px;align-items:center">${IC('lock').replace('<svg','<svg style="width:14px;height:14px;flex:none"')}Players see nothing until you press Start.</p>` : ''}
+    ${v.dev==='phone' ? `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui);display:flex;gap:6px;align-items:center">${IC('lock').replace('<svg','<svg style="width:14px;height:14px;flex:none"')}${cb.ch === 'gm' ? 'A GM notes fight: only you ever see it.' : 'Players see nothing until you press Start.'}</p>` : ''}
     <div class="steps">
-      ${step(1, cb.invited.length > 0, 'Players', `<div class="inv-chips">${pcs.map(c => c.built
+      ${cb.ch === 'gm' ? step(1, true, 'Only you', `<small>This fight stays in GM notes from start to finish. No player is in it and nobody else sees the board, the rolls or the results. Put NPCs on both sides in step 4.</small>`) : step(1, cb.invited.length > 0, 'Players', `<div class="inv-chips">${pcs.map(c => c.built
           ? `<button type="button" data-a="cbInvite" data-v="${c.id}" aria-pressed="${cb.invited.includes(c.id)}">${N.av(c,30)}${esc(c.short)}${cb.invited.includes(c.id)?IC('check'):''}</button>`
           : `<button type="button" disabled style="opacity:.55">${N.av({name:g.P[c.player]?.name||'?',color:c.color},30)}${esc(g.P[c.player]?.name||'?')} · no card</button>`).join('') || '<span class="muted" style="font:600 13px/1.4 var(--f-ui)">Nobody has a seat yet.</span>'}</div>
           <small>They stand in the first zone you draw. You roll for everyone; players watch.</small>`)}
@@ -431,7 +433,7 @@ N.setupPanel = function(v){
         ${zs && v.dev==='desktop' ? zoneForm(v, zs) : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm ${(v.ui.cbTool||'move')==='zone'?'primary':''}" data-a="cbTool" data-v="${(v.ui.cbTool||'move')==='zone'?'move':'zone'}">${IC('zone')}${(v.ui.cbTool||'move')==='zone'?'Done drawing':'Draw zones'}</button>${cb.zones.length?'':`<button type="button" class="btn sm ghost" data-a="cbQuickZones">${IC('sparkle')}Quick: 3 zones</button>`}</div>`)}
       ${step(4, cb.tokens.some(t => t.kind === 'npc'), 'Enemies and allies', `${N.foeList(false)}<button type="button" class="btn sm ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>`)}
-      ${step(5, tray.length === 0 && placed.length > 0, 'Place everyone', `<small>${tray.length ? 'Drag onto a zone, or tap a token and then a zone.' : placed.length ? 'Everyone is on the board. Drag tokens to rearrange.' : 'Invite players or add foes first.'}</small>
+      ${step(5, tray.length === 0 && placed.length > 0, 'Place everyone', `<small>${tray.length ? 'Drag onto a zone, or tap a token and then a zone.' : placed.length ? 'Everyone is on the board. Drag tokens to rearrange.' : (cb.ch === 'gm' ? 'Add NPCs first.' : 'Invite players or add foes first.')}</small>
         <div class="tray" data-tray="1">${tray.length ? tray.map(t => tokHtml(v, t)).join('') : '<span class="empty">Nobody waiting</span>'}</div>`)}
     </div>
     <div style="display:grid;gap:8px;position:sticky;bottom:0;padding:12px 0 2px;background:linear-gradient(0deg,var(--page-solid) 70%,transparent)">
@@ -459,7 +461,7 @@ N.foeList = place => {
   return list.length ? `<div class="zlist">${list.join('')}</div>` : '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No NPC cards yet.</p>';
 };
 N.cbBegin = function(ch){
-  ch = ch && ch !== 'gm' ? ch : 'table'; N.focusFight(ch);
+  ch = ch || 'table'; N.focusFight(ch);
   const g = G(), cb = g.combat = N.freshCombat();
   cb.state = 'setup'; cb.id = N.uid('f'); cb.ch = ch;
   const built = N.pcsIn(cb.ch).filter(c => c.built);
