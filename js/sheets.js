@@ -394,7 +394,7 @@ N.sheetHtml = function(v){
   case 'newsSet': {
     const i = g.news.issues.find(x => x.id === arg); if (!i) return '';
     return sheet(`No. ${esc(i.no)} · ${esc(i.headline)}`, `<div><h4>Who can read this edition</h4>${N.audPick('newsAud', i, 'news')}</div>
-      <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Players you add get a note in their chat with you.</p>`,
+      <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Players you add get a note in their chat with you, only the first time. Edits never send a new note.</p>`,
       `<button type="button" class="btn danger" data-a="sheet" data-v="newsDel" data-c="${esc(i.id)}" style="flex:0 0 auto">${IC('trash')}Delete edition</button><button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
   }
   case 'newsDel': {
@@ -434,8 +434,12 @@ function mySeats(v){
   const my = N.me(); if (!my || isGM(v)) return '';
   const ss = N.seatsOf(my); if (ss.length < 2) return '';
   const g = G();
-  return `<div><h4>Your characters<small>Each has its own chats, party and memory. Switching reloads Norne.</small></h4><div class="seatpick">${ss.map(s => { const c = g.chars[g.P[s]?.char || 'pc' + s.slice(1)], cur = s === v.role;
-    return `<button type="button" class="seatb" data-a="seatGo" data-v="${s}" aria-pressed="${cur}" ${cur ? 'disabled' : ''}>${N.av({name:c?.built ? c.short : '?', portrait:c?.built ? c.portrait : null, color:g.P[s]?.color}, 40)}<span><b>${esc(c?.built ? c.short : 'New character')}</b><small>${cur ? 'Playing now' : c?.built ? 'Tap to switch' : 'No card yet · tap to switch'}</small></span>${cur ? IC('check') : IC('swap')}</button>`; }).join('')}</div></div>`;
+  return `<div><h4>Your characters<small>Each has its own chats, party and memory. Switching reloads Norne.</small></h4><div class="seatpick">${ss.map(s => {
+    const c = g.chars[g.P[s]?.char || 'pc' + s.slice(1)], cur = s === v.role;
+    /* a character in a party this seat can't read: use what this device remembers from playing it */
+    const k = c?.built ? {short:c.short, portrait:c.portrait} : N.seatCard(s);
+    const sub = cur ? 'Playing now' : k ? 'Tap to switch' : c ? 'No card yet · tap to switch' : 'Tap to switch';
+    return `<button type="button" class="seatb" data-a="seatGo" data-v="${s}" aria-pressed="${cur}" ${cur ? 'disabled' : ''}>${N.av({name:k?.short || '?', portrait:k?.portrait || null, color:g.P[s]?.color}, 40)}<span><b>${esc(k?.short || (c ? 'New character' : 'Your other character'))}</b><small>${sub}</small></span>${cur ? IC('check') : IC('swap')}</button>`; }).join('')}</div></div>`;
 }
 /* a skill ladder editor: rungs from top to bottom, each with a cap (or none) */
 function skillLadder(v, d, sel, del, rungs){
