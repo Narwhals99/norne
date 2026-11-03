@@ -27,22 +27,28 @@ N.rollers = v => {
   const out = [];
   if (g.combat.state === 'live') g.combat.tokens.filter(t => t.kind === 'npc' && !t.out).forEach(t => out.push({key:'tok:'+t.id, name:t.name, portrait:t.portrait, color:t.side==='ally'?'var(--c-npc)':'var(--c-foe)', skills:t.skills || {}}));
   g.npcs.forEach(n => out.push({key:'npc:'+n.id, name:n.name, portrait:n.portrait, color:'var(--c-npc)', skills:n.skills}));
+  N.extrasOf(v.ui.ch === 'gm' ? 'table' : v.ui.ch).forEach(x => out.push({key:'one:'+x.id, name:x.name, color:'var(--c-npc)', skills:x.skills || {}}));
   N.pcs().filter(c => c.built).forEach(c => out.push({key:'pc:'+c.id, name:c.short, portrait:c.portrait, color:c.color, skills:c.skills}));
   out.push({key:'other', name:'Someone else', color:'var(--line-3)', skills:{}, other:true});
   return out;
 };
-/* who a roll can be against. In a live fight (a custom event, or an overcome / advantage rolled from the fight), everyone else
-   on the board first, then the cards not on it; anywhere else, the player characters and the NPC cards (the scene's NPCs first).
+/* who a roll can be against. In a live fight: an overcome / advantage rolled from the fight lists only the others on the board;
+   a custom event lists them first, then the cards not on it; anywhere else, the player characters and the NPC cards (the scene's NPCs first).
    Ids are 'tok:<token>' for the board, 'pc:<id>' for a player character and the NPC card's own id otherwise */
 N.vsCands = (v, r) => {
   const g = G(), cb = g.combat, cast = N.castOf(v.ui.ch === 'gm' ? 'table' : v.ui.ch) || [];
   const pcs = N.pcs().filter(c => c.built).map(c => ({id:'pc:' + c.id, name:c.short, portrait:c.portrait, color:c.color, skills:c.skills || {}, pc:true}));
   const cards = g.npcs.map(n => ({id:n.id, name:n.name, portrait:n.portrait, color:'var(--c-npc)', skills:n.skills || {}}))
     .sort((a, b) => cast.includes(b.name) - cast.includes(a.name));
-  if (!(r.ctx === 'cb' && cb.state === 'live')) return [...pcs.filter(c => c.id !== r.who), ...cards.filter(n => 'npc:' + n.id !== r.who)];
+  const once = N.extrasOf(v.ui.ch === 'gm' ? 'table' : v.ui.ch).map(x => ({id:'one:' + x.id, name:x.name, color:'var(--c-npc)', skills:x.skills || {}}));
+  if (!(r.ctx === 'cb' && cb.state === 'live')) return [...pcs.filter(c => c.id !== r.who), ...once.filter(n => n.id !== r.who), ...cards.filter(n => 'npc:' + n.id !== r.who)];
+  /* an overcome or advantage in the fight is only ever against someone in that fight */
+  const onlyBoard = !r.event;
   const self = r.who.startsWith('tok:') ? r.who.slice(4) : r.who.startsWith('pc:') ? (cb.tokens.find(t => t.kind === 'pc' && t.ref === r.who.slice(3)) || {}).id : null;
   const toks = cb.tokens.filter(t => t.zone && !t.out && t.id !== self);
-  return [...toks.map(t => ({id:'tok:' + t.id, ...N.tokObj(t), name:N.tokName(t), skills:N.tokSkills(t), board:true})),
+  const board = toks.map(t => ({id:'tok:' + t.id, ...N.tokObj(t), name:N.tokName(t), skills:N.tokSkills(t), board:true}));
+  if (onlyBoard) return board;
+  return [...board,
     ...pcs.filter(c => c.id !== r.who && !cb.tokens.some(t => t.kind === 'pc' && 'pc:' + t.ref === c.id)),
     ...cards.filter(n => 'npc:' + n.id !== r.who && !cb.tokens.some(t => t.zone && !t.out && t.kind === 'npc' && t.ref === n.id))];
 };
@@ -71,7 +77,7 @@ N.sheetHtml = function(v){
     const cbVs = gm && r.ctx === 'cb' && cb.state === 'live' && r.action !== 'attack';
     const rp = gm && !fightAtk && (r.ctx !== 'cb' || ev || cbVs);
     const vsN = rp ? N.vsFind(v, r, r.vsNpc) : null, vsVal = vsN && r.vsSkill ? (vsN.skills[r.vsSkill] || 0) : null;
-    const oppList = [null,0,1,2,3,4,5,6,7,8,9,10,11,12]; if (r.opp != null && !oppList.includes(r.opp)) oppList.push(r.opp);
+    const oppList = [null,-1,0,1,2,3,4,5,6,7,8,9,10,11,12]; if (r.opp != null && !oppList.includes(r.opp)) oppList.push(r.opp);
     const oppChips = `<div class="ladder-chips">${oppList.map(x => `<button type="button" class="lchip" data-a="rollOpp" data-v="${x}" aria-pressed="${r.opp===x}"><b>${x==null?'—':sgn(x)}</b>${x==null?'No target':ladderWord(x)}</button>`).join('')}</div>`;
     const vsNpcs = rp ? N.vsCands(v, r) : [];
     const vsHtml = rp ? `<div class="vsbox"><h4>Rolled against</h4>
@@ -126,8 +132,10 @@ N.sheetHtml = function(v){
       : tab === 'maps' ? pins.map(p => ({id:`pl:${p.map}:${p.id}`, title:p.label, sub:p.sub, place:{map:p.map, rx:p.rx, ry:p.ry}}))
       : [...g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your picture', up:true})), ...N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Picture'}))];
     const isOn = p => p.place ? (d.place && d.place.map === p.place.map && d.place.rx === p.place.rx && d.place.ry === p.place.ry) : (d.art && d.art === p.art);
-    const forwho = N.channelsFor('gm').filter(c => c !== 'gm');
+    const forwho = N.channelsFor('gm').filter(c => c !== 'gm'), has = g.scenes[d.ch], edit = has && d.mode === 'edit';
     const body = `
+      ${has ? `<div class="seg sdmode" role="group" aria-label="Edit or start new"><button type="button" data-a="sdMode" data-v="edit" aria-pressed="${edit}">${IC('pen')}Edit this scene</button><button type="button" data-a="sdMode" data-v="new" aria-pressed="${!edit}">${IC('plus')}Start a new scene</button></div>
+        <p class="muted" style="margin:-6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${edit ? `Changes fix up “${esc(has.title)}” in place. No new scene line in the chat, and free invokes already spent stay spent.` : `“${esc(has.title)}” ends and a fresh scene starts in this chat.`}</p>` : ''}
       <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:c.startsWith('grp-')?`<span class="cic">${IC('whisper')}</span>${esc(N.chName(c,'gm'))}`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
       <div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">Picture</h4><div class="seg"><button type="button" data-a="sdTab" data-v="recent" aria-pressed="${tab==='recent'}">Recent</button><button type="button" data-a="sdTab" data-v="pics" aria-pressed="${tab==='pics'}">Pictures</button><button type="button" data-a="sdTab" data-v="maps" aria-pressed="${tab==='maps'}">Map places</button></div></div>
         <div class="thumbs">${pics.map(p => `<button type="button" class="thumb${isOn(p)?' on':''}" ${p.up ? `data-a="sdPickUp" data-v="${esc(p.art)}"` : `data-a="sdPick" data-v="${esc(p.id)}"`} style="${N.sceneArt(p)};${p.place?'background-size:420% auto':''}">${N.scenePic(p)}<span>${esc(p.title)}<small>${esc(p.sub||'')}</small></span>${isOn(p)?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
@@ -148,10 +156,25 @@ N.sheetHtml = function(v){
         return `<div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">NPCs in this scene${d.cast.length ? ` · ${d.cast.length}` : ''}</h4>${d.cast.length ? `<button type="button" class="btn sm ghost" data-a="sdCastNone">Clear</button>` : ''}</div>
           ${all.length > 10 ? `<div class="pop-find sd-find">${IC('search')}<input class="inp" id="sdcq-${v.id}" data-i="castQ" placeholder="Find an NPC" value="${esc(d.castQ || '')}" autocomplete="off"></div>` : ''}
           <div class="forwho sdcast" role="group" aria-label="NPCs in this scene">${shown.map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="sdCast" data-v="${esc(n)}" aria-pressed="${d.cast.includes(n)}">${N.av({name:n, portrait:npc?.portrait, color:'var(--c-npc)'}, 28)}${esc(n)}</button>`; }).join('') || '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No NPC by that name.</p>'}</div>
-          <p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${d.cast.length ? `Speak as in this chat lists only ${d.cast.length === 1 ? 'this NPC' : `these ${d.cast.length}`} and the Narrator. Everyone else is one tap away. Players don’t see this list.` : 'Pick who is here and Speak as lists only them. None picked lists every NPC.'}</p></div>`; })()}
-      <button type="button" class="toggle" data-a="sdPost" aria-pressed="${d.post}">${IC('scroll')}<span>Mark it in the chat<small>Adds a small “New scene” line so the log reads like chapters.</small></span><span class="sw"></span></button>`;
-    const has = g.scenes[d.ch];
-    return sheet(has ? 'Change the scene' : 'Set the scene', body, `${has?`<button type="button" class="btn ghost" data-a="sdClear" style="flex:0 0 auto">Clear</button>`:''}<button type="button" class="btn primary lg" data-a="sdApply" ${d.title.trim() && (d.art||d.place) ? '' : 'disabled'}>${IC('image')}Change scene for ${d.ch==='table'?'everyone':esc(pName(d.ch.slice(3)))}</button>`, {wide:true});
+          <p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${d.cast.length ? `Speak as in this chat lists only ${d.cast.length === 1 ? 'this NPC' : `these ${d.cast.length}`} and the Narrator. Everyone else is one tap away. Players don’t see this list.` : 'Pick who is here and Speak as lists only them. None picked lists no NPC cards; everyone else is still one tap away.'}</p></div>`; })()}
+      <div><h4>One-off NPCs · only for this scene${d.extras.length ? ` · ${d.extras.length}` : ''}</h4>
+        ${d.extras.length ? `<div class="sdones">${d.extras.map((x, i) => `<span class="sdone">${N.av({name:x.name, color:'var(--c-npc)'}, 28)}<span><b>${esc(x.name)}</b><small>${Object.entries(x.skills || {}).map(([k, n]) => `${esc(k)} ${sgn(n)}`).join(' · ') || 'No skills'}</small></span><button type="button" class="xb" data-a="sdOneDel" data-v="${i}" aria-label="Remove ${esc(x.name)}">${IC('x')}</button></span>`).join('')}</div>` : ''}
+        <div class="sdone-add"><input class="inp" id="sdon-${v.id}" data-i="sd" data-k="oneName" value="${esc(d.oneName || '')}" placeholder="Name, e.g. The innkeeper" aria-label="One-off NPC name">
+          <select class="inp" id="sdos-${v.id}" data-i="sd" data-k="oneSkill" aria-label="Skill"><option value="">No skill</option>${N.MUNDANE.map(k => `<option ${d.oneSkill === k ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>
+          <select class="inp" id="sdor-${v.id}" data-i="sd" data-k="oneRate" aria-label="Rating">${[-1,0,1,2,3,4,5,6,7,8].map(n => `<option value="${n}" ${(+d.oneRate || 0) === n ? 'selected' : ''}>${sgn(n)} ${ladderWord(n)}</option>`).join('')}</select>
+          <button type="button" class="btn sm" data-a="sdOneAdd">${IC('plus')}Add</button></div>
+        <p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">They show in Speak as and can roll or be rolled against in this chat. No NPC card is made, and they’re gone when the scene ends. Add the same name again to give them another skill.</p></div>
+      ${edit ? '' : `<button type="button" class="toggle" data-a="sdPost" aria-pressed="${d.post}">${IC('scroll')}<span>Mark it in the chat<small>Adds a small “New scene” line so the log reads like chapters.</small></span><span class="sw"></span></button>`}`;
+    const ok = d.title.trim() && (d.art || d.place), forName = d.ch === 'table' ? 'everyone' : esc(N.chName(d.ch, 'gm'));
+    return sheet(edit ? 'Edit the scene' : has ? 'Start a new scene' : 'Set the scene', body,
+      edit ? `<button type="button" class="btn danger" data-a="sheet" data-v="sceneEnd" style="flex:0 0 auto">${IC('stop')}End scene</button><button type="button" class="btn primary lg" data-a="sdSave" ${ok ? '' : 'disabled'}>${IC('check')}Save changes</button>`
+           : `<button type="button" class="btn primary lg" data-a="sdApply" ${ok ? '' : 'disabled'}>${IC('image')}Start scene for ${forName}</button>`, {wide:true});
+  }
+  case 'sceneEnd': {
+    const ch = v.ui.sd?.ch || (v.ui.ch === 'gm' ? 'table' : v.ui.ch), sc = g.scenes[ch]; if (!sc) return '';
+    const n = N.extrasOf(ch).length;
+    return sheet(`End “${esc(sc.title)}”?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The scene banner comes down in ${ch === 'table' ? 'Everyone' : esc(N.chName(ch, 'gm'))} and its aspects go with it.${n ? ` Its ${n === 1 ? 'one-off NPC is' : `${n} one-off NPCs are`} removed.` : ''} The chat itself stays. You can undo it for a few seconds.</p>`,
+      `<button type="button" class="btn ghost" data-a="sheet" data-v="scene">Keep it</button><button type="button" class="btn danger" data-a="sdEnd" data-v="${esc(ch)}">${IC('stop')}End scene</button>`);
   }
   /* ---------------- GM screen / my hero on phones ---------------- */
   case 'gm': return sheet('GM screen', N.gmScreen(v).replace('<div class="gs">','<div class="gs" style="padding:0">'), '', {lead:`<span class="av narrav" style="--s:34px">${N.STAR}</span>`});
@@ -270,6 +293,12 @@ N.sheetHtml = function(v){
       <div><h4>Pictures · a flag, a portrait, a sketch</h4><div class="wpics">${d.imgs.map((p, i) => `<div class="wpic"><button type="button" class="wpth" data-a="wdImgFrame" data-v="${i}" aria-label="Adjust framing" title="Adjust framing">${N.wikiImg(p.src)}<span>${IC('fit')}</span></button><input class="inp" id="wdp${i}-${v.id}" data-i="wd" data-k="cap" data-n="${i}" value="${esc(p.cap || '')}" placeholder="Caption (optional)" aria-label="Caption"><button type="button" class="ibtn" data-a="wdImgDel" data-v="${i}" aria-label="Remove this picture">${IC('trash')}</button></div>`).join('')}
         <button type="button" class="btn" data-a="wdImgAdd" style="justify-self:start">${IC('upload')}Add a picture from your device</button></div></div>
       <label class="field"><span>Text · blank line between paragraphs · link entries with [[Title]]</span><textarea class="inp" id="wdb-${v.id}" data-i="wd" data-k="body" rows="8">${esc(d.body)}</textarea></label>
+      <div class="wparts"><h4>Sections only some players read</h4>${(d.parts || []).map((p, i) => `<div class="wpart">
+          <div class="wpart-h"><input class="inp" id="wdph${i}-${v.id}" data-i="wd" data-k="ph" data-n="${i}" value="${esc(p.h)}" placeholder="Heading, e.g. What Mara remembers" aria-label="Section heading"><button type="button" class="ibtn" data-a="wdPartDel" data-v="${i}" aria-label="Remove this section">${IC('trash')}</button></div>
+          <textarea class="inp" id="wdpt${i}-${v.id}" data-i="wd" data-k="pt" data-n="${i}" rows="4" placeholder="Only the players you pick below can read this" aria-label="Section text">${esc(p.text)}</textarea>
+          <div class="forwho" role="group" aria-label="Who reads this section">${N.seats().map(st => `<button type="button" data-a="wdPartWho" data-n="${i}" data-v="${st}" aria-pressed="${p.see.includes(st)}">${N.av(N.personObj(st),28)}${esc(pName(st))}</button>`).join('')}</div>
+          <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">${p.see.length ? `Only ${esc(N.namesList(p.see))} ${p.see.length > 1 ? 'see' : 'sees'} this section. Everyone else reading the entry never gets it.` : 'Nobody picked yet, so only you see it.'}</p></div>`).join('')}
+        <button type="button" class="btn" data-a="wdPartAdd" style="justify-self:start">${IC('plus')}Add a section for some players</button></div>
       <label class="field"><span>${lockIc}Secret notes, only you see these</span><textarea class="inp" id="wdx-${v.id}" data-i="wd" data-k="secret" rows="3" placeholder="What the players don’t know yet">${esc(d.secret)}</textarea></label>
       <div><h4>Who can read it · secret notes always stay with you</h4>${N.audPick('wdAud', d, 'wiki')}</div>`,
       `${d.id ? `<button type="button" class="btn danger" data-a="sheet" data-v="wDel" data-c="${esc(d.id)}" style="flex:0 0 auto" aria-label="Delete this entry">${IC('trash')}<span class="only-dt">Delete</span></button>` : ''}<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="wSave" ${d.title.trim()?'':'disabled'}>${IC('check')}Save entry</button>`, {wide:true});
@@ -555,7 +584,7 @@ N.invokePayer = function(v, r, by){
 N.invokeOptions = function(v, m, x = N.invokeCtx(v, m)){
   const g = G(), out = [], gm = isGM(v), r = m.roll;
   const sc = g.scenes[m.ch];
-  if (sc) (sc.aspects || []).forEach((a,i) => out.push({t:a.t, free:N.sceneFreeLeft(sc, i), from:'Scene', ref:`scene:${sc.msg}:${i}`}));
+  if (sc) (sc.aspects || []).forEach((a,i) => out.push({t:a.t, free:N.sceneFreeLeft(sc, i), from:'Scene', ref:N.sceneRef(sc, i)}));
   const cb = g.combat, me = x.by || (cb.state === 'live' && m.ch === N.fightCh() ? N.tokOfKey(r.whoKey) : null);
   if (cb.state === 'live' && m.ch === N.fightCh()) {
     /* a boost is its owner's free invoke. A player only sees their own; the GM sees every boost on the board, because

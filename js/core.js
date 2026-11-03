@@ -191,6 +191,8 @@ N.audSet = (x, kind, val) => {
 };
 /* the seats that can see it right now */
 N.audSeats = (x, kind) => { const a = N.audOf(x, kind); return a === 'gm' ? [] : a === '*' ? N.seats() : a.filter(s => N.G.P[s]); };
+/* "Mara", "Mara and Bryn", "Mara, Bryn and Tor" from seats */
+N.namesList = seats => { const names = seats.map(s => N.G.P[s]?.name || 'a former player'); return names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0] || ''; };
 N.audLabel = (x, kind) => {
   const a = N.audOf(x, kind);
   if (a === 'gm') return 'Only you';
@@ -221,7 +223,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null,
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null,
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -274,10 +276,12 @@ Object.defineProperty(N.G, 'party', {get(){
   return {map:null};
 }});
 
-/* free invokes on a scene aspect are spent by the rolls that used them */
+/* free invokes on a scene aspect are spent by the rolls that used them. An aspect keeps its key (k) when the scene is edited,
+   so its spent invokes stay spent; older aspects without one are known by their place in the list */
+N.sceneRef = (sc, i) => `scene:${sc.msg}:${sc.aspects[i]?.k ?? i}`;
 N.sceneFreeLeft = (sc, i) => {
   const a = sc.aspects[i]; if (!a || !a.free) return 0;
-  const ref = `scene:${sc.msg}:${i}`;
+  const ref = N.sceneRef(sc, i);
   let used = 0; for (const m of N.G.msgs) if (m.kind === 'roll') for (const iv of (m.roll.invokes||[])) if (iv.ref === ref) used++;
   return Math.max(0, a.free - used);
 };
@@ -326,10 +330,15 @@ N.pcs = () => N.seats().map(s => N.G.chars[N.G.P[s].char]).filter(Boolean);
 N.castOf = ch => { const c = N.G.casts && N.G.casts[ch]; return Array.isArray(c) && c.length ? c : null; };
 /* Speak as for a chat: the scene's NPCs, the NPCs on the board of a fight in that chat, and whoever is picked now.
    rest: everyone else (null when the chat has no scene list, so every voice is shown as before) */
+/* one-off NPCs: made in the scene sheet for one chat's scene only, never a card; gone when that scene ends. {ch:[{id,name,skills}]} in gm/misc */
+N.extrasOf = ch => { const x = N.G.extras && N.G.extras[ch]; return Array.isArray(x) ? x : []; };
+N.extraByName = (ch, name) => N.extrasOf(ch).find(x => x.name === name) || null;
+/* Speak as for a chat lists only who is in its scene: the NPCs the GM picked, its one-off NPCs, the NPCs on the board of a fight
+   in that chat, and whoever is picked now. None picked lists none of them. rest: every other NPC, one tap away */
 N.voicesFor = (ch, cur) => {
-  const all = N.voices(), cast = N.castOf(ch); if (!cast) return {here:all, rest:null};
+  const all = N.voices(), cast = N.castOf(ch) || [], once = N.extrasOf(ch).map(x => x.name);
   const cb = N.G.combat, fight = cb && cb.state === 'live' && N.fightCh() === ch ? cb.tokens.filter(t => t.kind === 'npc' && !t.out).map(t => t.name.replace(/ \d+$/, '')) : [];
-  const here = all.filter(n => cast.includes(n) || fight.includes(n) || n === cur);
+  const here = [...new Set([...all.filter(n => cast.includes(n) || fight.includes(n) || n === cur), ...once])];
   return {here, rest:all.filter(n => !here.includes(n))};
 };
 N.voices = () => { const names = N.G.npcs.map(n => n.name.trim()).filter(Boolean); return [...new Set([...names, ...N.G.quick.filter(Boolean)])]; };
