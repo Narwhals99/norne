@@ -58,7 +58,7 @@ function boardHtml(v){
   else if (v.ui.placing) hint = `<div class="hint-chip">${IC('pinL')}Tap a zone to place ${esc(N.tokName(N.tokById(v.ui.placing)))}<button type="button" class="btn sm ghost" data-a="cbCancel" style="--h:26px">Cancel</button></div>`;
   else if (edit && !cb.zones.length) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag on the map to draw a zone</div>`;
   else if (edit) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag to draw · drag a name to move · corner to resize</div>`;
-  const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.left!=null?` · ${a.left>0?a.left+' left':'last action'}`:''}</span>`:a.on?`<span class="k">On ${esc(a.on)}</span>`:''}${esc(a.t || 'Unnamed boost')}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
+  const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.left!=null?` · ${a.left>0?`for ${a.left} roll${a.left>1?'s':''}`:'last roll'}`:''}</span>`:a.on?`<span class="k">On ${esc(a.on)}</span>`:''}${esc(a.t || 'Unnamed boost')}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
   return `<div class="boardwrap"><div class="board${edit?' edit drawing':''}" data-board="1" aria-label="Battlefield: ${esc(cb.title)}">
     <div class="bg">${N.bgPic(N.imgUrl(cb.bg) ? cb.bg : N.FIGHTBG)}</div>
     <div class="cam">${zones}</div>${sasp}${hint}${diceFx(v)}

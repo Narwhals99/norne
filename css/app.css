@@ -655,6 +655,8 @@
 .app .board .sasp{position:absolute;right:8px;top:8px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;z-index:3;max-width:45%}
 .app .board .sasp .icard{font-size:11px;padding:4px 8px 5px}
 .app .board .sasp .icard::before{top:11px}
+.app .board .sasp .icard{max-width:100%}
+.app .board .sasp .icard .k{white-space:normal;line-height:1.3}
 .app .gmtools{position:absolute;left:8px;top:50%;translate:0 -50%;z-index:6;display:grid;gap:4px;padding:5px;border-radius:18px;background:color-mix(in srgb,var(--page-solid) 88%,transparent);box-shadow:var(--shadow-2);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
 .app .gmtools button{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;color:var(--ink-2);position:relative}
 .app .gmtools button svg{width:21px;height:21px}
@@ -851,6 +853,14 @@
 .app .wfig img{display:block;max-width:100%;max-height:320px;width:auto;height:auto;margin:0 auto}
 .app .wfigs.many .wfig img{max-height:220px}
 .app .wpics{display:grid;gap:8px}
+/* wiki sections only some players read: a ribbon-edged card in the article, a card per section in the editor */
+.app .wsect{display:grid;gap:8px;padding:12px 16px 14px;border-radius:14px;background:var(--sunk);box-shadow:inset 3px 0 0 var(--gold),inset 0 0 0 1px var(--line)}
+.app .wsect .eyebrow{display:flex;align-items:center;gap:6px;color:var(--gold-tx)}
+.app .wsect h3{margin:0}
+.app .wparts{display:grid;gap:10px}
+.app .wparts h4{margin:0}
+.app .wpart{display:grid;gap:8px;padding:10px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .wpart-h{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
 .app .wpic{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;align-items:center}
 .app .wpic img{width:64px;height:48px;object-fit:contain;border-radius:8px;background:#fff;box-shadow:0 0 0 1px var(--line-2)}
 .app .wfr{display:block;aspect-ratio:var(--r);width:min(100%,calc(320px * var(--r)));overflow:hidden;margin:0 auto}
@@ -2096,3 +2106,16 @@
 .app .gm-solo{justify-content:center;margin-top:-4px}
 .app .gm-nofight{display:flex;gap:8px;align-items:center;margin:0;padding:10px 12px;border-radius:10px;border:1px dashed var(--line-2);font:600 13px/1.4 var(--f-ui)}
 .app .gm-nofight svg{width:16px;height:16px;flex:0 0 auto;opacity:.7}
+/* scene sheet: edit-or-new switch, one-off NPCs */
+.app .sdmode{display:flex;width:100%}
+.app .sdmode button{flex:1;justify-content:center}
+.app .sdones{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.app .sdone{display:inline-flex;align-items:center;gap:8px;padding:4px 6px 4px 4px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);max-width:100%;min-width:0}
+.app .sdone>span:not(.av){display:grid;min-width:0}
+.app .sdone b{font:700 13.5px/1.2 var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .sdone small{font:600 11.5px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .sdone .xb{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;color:var(--ink-3)}
+.app .sdone .xb svg{width:14px;height:14px}
+.app .sdone-add{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto;gap:6px;align-items:center}
+.app .sdone-add .inp{min-height:38px;padding:6px 10px}
+@media (max-width:620px){.app .sdone-add{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.app .sdone-add>input{grid-column:1/-1}.app .sdone-add>.btn{grid-column:1/-1;justify-self:start}}

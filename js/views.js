@@ -230,7 +230,7 @@ function sceneBanner(v, sc, ch){
       <span class="where">${esc(sc.where||'')}</span>
       ${sc.aspects?.length ? `<div class="icards">${sc.aspects.map((a,i)=>{ const f = N.sceneFreeLeft(sc, i); return `<span class="icard" style="--rot:${i%2?.8:-.9}deg">${esc(a.t)}${f?`<span class="fi">${'<i></i>'.repeat(f)}</span>`:''}</span>`; }).join('')}</div>` : ''}
     </div>
-    <div class="ctl">${gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Change scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
+    <div class="ctl">${gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Edit scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
   </section>`;
 }
 /* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */
@@ -499,7 +499,7 @@ function gmScreen(v){
         : `<div class="pcrow" style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)">${N.av({name:pn(c),color:c.color},40)}<span><b>${esc(pn(c))}</b><small>No card yet</small></span><button type="button" class="btn sm primary" data-a="pcEdit" data-v="${c.id}">Make card</button></div>`).join('')}
     </section>
     <section class="gs-sec"><div class="gs-h"><h3>Speak as</h3><button type="button" class="btn sm" data-a="castNpcs">NPCs</button></div>
-      <div class="voices">${['Narrator', ...N.voices()].map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="voice" data-v="${esc(n)}" ${v.ui.voice===n&&v.ui.mode==='rp'?'style="background:var(--accent-soft)"':''}>${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text':esc(N.npcSub(npc))}</small></span>${v.ui.voice===n&&v.ui.mode==='rp'?`<span class="go" style="color:var(--gold-tx)">${IC('check')}</span>`:''}</button>`; }).join('')}</div>
+      ${(() => { const vf = N.voicesFor(v.ui.ch === 'gm' ? 'table' : v.ui.ch, v.ui.voice); return `<div class="voices">${['Narrator', ...vf.here].map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="voice" data-v="${esc(n)}" ${v.ui.voice===n&&v.ui.mode==='rp'?'style="background:var(--accent-soft)"':''}>${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text':esc(N.npcSub(npc))}</small></span>${v.ui.voice===n&&v.ui.mode==='rp'?`<span class="go" style="color:var(--gold-tx)">${IC('check')}</span>`:''}</button>`; }).join('')}</div>${vf.rest.length ? `<p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${vf.here.length ? 'Only this scene’s NPCs are listed.' : 'No NPCs picked for this scene.'} The other ${vf.rest.length} are in Speak as under Everyone else.</p>` : ''}`; })()}
     </section>
     ${picShelf(v)}
   </div>`;
@@ -569,9 +569,9 @@ function popHtml(v){
     let opts = '';
     if (gm) {
       /* a chat whose scene names its NPCs lists only them (and the fight's NPCs); everyone else is one tap or a search away */
-      const vf = N.voicesFor(v.ui.ch === 'gm' ? 'table' : v.ui.ch, v.ui.voice), vq = (v.ui.voiceQ || '').trim().toLowerCase();
+      const vch = v.ui.ch === 'gm' ? 'table' : v.ui.ch, vf = N.voicesFor(vch, v.ui.voice), vq = (v.ui.voiceQ || '').trim().toLowerCase();
       const all = ['Narrator', ...vf.here, ...(vf.rest || [])];
-      const one = n => { const npc = N.npcByName(n); const sel = v.ui.mode==='rp' && v.ui.voice===n; return `<button type="button" class="opt" data-a="voice" data-v="${esc(n)}" aria-selected="${sel}">${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text, shown as the book':esc(N.npcSub(npc))}</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`; };
+      const one = n => { const npc = N.npcByName(n); const sel = v.ui.mode==='rp' && v.ui.voice===n; return `<button type="button" class="opt" data-a="voice" data-v="${esc(n)}" aria-selected="${sel}">${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text, shown as the book':!npc && N.extraByName(vch, n)?'One-off, only in this scene':esc(N.npcSub(npc))}</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`; };
       if (all.length > 5) opts += `<div class="pop-find">${IC('search')}<input class="inp" id="vq-${v.id}" data-i="voiceQ" placeholder="Find a voice" value="${esc(v.ui.voiceQ || '')}" autocomplete="off"></div>`;
       if (vq) opts += `<div class="lbl">In character</div>` + all.filter(n => n.toLowerCase().includes(vq)).map(one).join('');
       else if (!vf.rest) opts += `<div class="lbl">In character</div>` + all.map(one).join('');
@@ -709,6 +709,7 @@ function articleHtml(v, e){
     ${e.info?.length ? `<dl class="facts">${e.info.map(([k,x]) => `<dt>${esc(k)}</dt><dd>${links(x)}</dd>`).join('')}</dl>` : ''}
     ${(e.body||[]).map(block).join('')}
     ${e.soon || !(e.body||[]).length ? '<p class="muted" style="font-weight:700;font-size:13px">More coming soon.</p>' : ''}
+    ${(e.parts || []).map(p => `<section class="wsect"><span class="eyebrow">${IC('eye').replace('<svg','<svg style="width:13px;height:13px"')}${gm ? (p.see?.length ? `Only ${esc(N.namesList(p.see))}` : 'Nobody picked yet') : 'Not every player can read this'}</span>${p.h ? `<h3>${links(p.h)}</h3>` : ''}${(p.text || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).map(block).join('')}</section>`).join('')}
     ${gm && e.secret ? `<div class="secret"><span class="seal">${IC('lock')}</span><b>GM only · players never see this</b>${e.secret.split(/\n\s*\n/).map(p => `<p>${links(p)}</p>`).join('')}</div>` : ''}
     ${backs.length ? `<p class="backs"><span class="eyebrow" style="margin-right:8px">Linked from</span>${backs.map(b => `<a class="wl" data-a="wiki" data-v="${b.id}" style="color:var(--link);cursor:pointer">${esc(b.title)}</a>`).join(', ')}</p>` : ''}
     ${e.src ? `<p class="src">From the lore notes: ${esc(e.src)}</p>` : ''}

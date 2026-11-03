@@ -359,10 +359,15 @@ function syncNow(){
         if (MVIS.get(id) !== k) { MVIS.set(id, k); track(F.setDoc(dref('mapimgs/' + id), {vis, aud}, {merge:true})); }
       }
       writeUnits('gm/wiki', asUnits(g.wiki));
-      writeUnits('game/wiki', asUnits(g.wiki, (e,i) => { const {secret, ...pub} = e; return share(e, 'wiki', 'w:' + e.id, {...pub, o:i}); }));
+      writeUnits('game/wiki', asUnits(g.wiki, (e,i) => { const {secret, parts, ...pub} = e; return share(e, 'wiki', 'w:' + e.id, {...pub, o:i}); }));
+      /* sections of an entry for some players only: each of them gets just the sections picked for them, in their own only/<seat> */
+      for (const e of g.wiki) if (e.parts?.length) for (const st of N.audSeats(e, 'wiki')) {
+        const mine = e.parts.filter(p => (p.see || []).includes(st)).map(p => ({id:p.id, h:p.h || '', text:p.text || ''}));
+        if (mine.length && only[st]) only[st]['p:' + e.id] = mine;
+      }
     }
     writeUnits('gm/npcs', asUnits(g.npcs.map(n => ({...n, occ:n.job || ''}))));
-    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts});
+    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras});
     if (LOADED.has('gm/news')) {
       /* pictures in an issue can be read by the same people as the issue */
       for (const i of g.news.issues) for (const src of N.newsPics(i)) {
@@ -480,14 +485,17 @@ function normMap(m){
 function setMaps(u){ G().maps = vals(u).sort(byO).map(normMap); }
 /* a player's view: what everyone sees plus what the GM shared with them alone (only/<seat>, keys w: m: n:) */
 const PUB = {wiki:{}, maps:{}, news:{}}, MINE = {wiki:{}, maps:{}, news:{}}, GMNEWS = {};
+let MINEP = {};
 const KIND = {w:'wiki', m:'maps', n:'news'};
 function mergeView(){
   const g = G(), all = k => vals({...PUB[k], ...MINE[k]});
-  if (!isGM()) { g.wiki = all('wiki').sort(byO); g.maps = all('maps').sort(byO).map(normMap); }
+  if (!isGM()) { g.wiki = all('wiki').sort(byO).map(e => MINEP[e.id] ? {...e, parts:JSON.parse(MINEP[e.id])} : e); g.maps = all('maps').sort(byO).map(normMap); }
   g.news.issues = vals(isGM() ? {...PUB.news, ...GMNEWS} : {...PUB.news, ...MINE.news}).sort((a,b) => (+a.no || 0) - (+b.no || 0));
 }
 function setMine(u){
   for (const k of Object.values(KIND)) MINE[k] = {};
+  MINEP = {};
+  for (const [key, j] of Object.entries(u)) if (key.startsWith('p:')) MINEP[key.slice(2)] = j;
   for (const [key, j] of Object.entries(u)) { const k = KIND[key[0]]; if (k && key[1] === ':') MINE[k][key.slice(2)] = j; }
   mergeView();
 }
@@ -604,7 +612,7 @@ async function start(role){
     'gm/maps': setMaps,
     'gm/wiki': u => { g.wiki = vals(u).sort(byO); },
     'gm/npcs': u => { g.npcs = vals(u).map(normNpc).sort((a,b) => a.name.localeCompare(b.name)); },
-    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; },
+    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; },
     'game/news': u => { PUB.news = u; mergeView(); },
     'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
     'game/maps': u => { PUB.maps = u; mergeView(); },
@@ -683,7 +691,7 @@ N.importLore = file => file.text().then(txt => {
   if (d.kind !== 'norne-lore' || !Array.isArray(d.wiki) || !Array.isArray(d.maps)) throw new Error('not lore');
   const g = G();
   /* pictures the GM added to an entry stay when the lore file replaces its text */
-  for (const e of d.wiki) { const i = g.wiki.findIndex(x => x.id === e.id); if (i >= 0) { const was = g.wiki[i]; if (was.imgs && !e.imgs) { e.imgs = was.imgs; delete e.img; } g.wiki[i] = e; } else g.wiki.push(e); }
+  for (const e of d.wiki) { const i = g.wiki.findIndex(x => x.id === e.id); if (i >= 0) { const was = g.wiki[i]; if (was.imgs && !e.imgs) { e.imgs = was.imgs; delete e.img; } if (was.parts && !e.parts) e.parts = was.parts; g.wiki[i] = e; } else g.wiki.push(e); }
   for (const m0 of d.maps) { const m = normMap(m0), i = g.maps.findIndex(x => x.id === m.id); if (i >= 0) g.maps[i] = m; else g.maps.push(m); }
   return Promise.all(Object.entries(d.mapimgs || {}).map(([id, data]) => { const v = g.maps.find(m => m.src === 'fs:' + id)?.vis !== false; MIMG.set(id, {url:data, p:null}); MVIS.set(id, v); return F.setDoc(dref('mapimgs/' + id), {data, vis:v}); }))
     .then(() => { syncNow(); return d; });

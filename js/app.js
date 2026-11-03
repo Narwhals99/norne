@@ -490,7 +490,7 @@ function input(v, el){
       if (k === 'asp') d.aspects[n] = val; else if (k === 'stn') d.stunts[n][0] = val; else if (k === 'std') d.stunts[n][1] = val; else d[k] = val;
       if (k === 'name') render(v); return;
     }
-    case 'wd': if (k === 'cap') { v.ui.wd.imgs[+el.dataset.n].cap = val; return; } v.ui.wd[k] = val; if (k === 'title') render(v); return;
+    case 'wd': if (k === 'cap') { v.ui.wd.imgs[+el.dataset.n].cap = val; return; } if (k === 'ph' || k === 'pt') { v.ui.wd.parts[+el.dataset.n][k === 'ph' ? 'h' : 'text'] = val; return; } v.ui.wd[k] = val; if (k === 'title') render(v); return;
     case 'cd': v.ui.cd[+el.dataset.n].name = val; return;
     case 'mapName': { const m = G().maps.find(x => x.id === el.dataset.v); if (m) m.name = val; return; }
     case 'npcNotes': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n[k || 'notes'] = val; return; }
@@ -583,7 +583,7 @@ function openRoll(v, o={}){
   let who = o.who;
   if (!who) {
     if (!isGM(v)) who = 'pc:' + g.P[v.role].char;
-    else { const n = N.npcByName(v.ui.voice); who = n ? 'npc:' + n.id : (N.rollers(v)[0] || {}).key; }
+    else { const n = N.npcByName(v.ui.voice), x = !n && N.extraByName(v.ui.ch === 'gm' ? 'table' : v.ui.ch, v.ui.voice); who = n ? 'npc:' + n.id : x ? 'one:' + x.id : (N.rollers(v)[0] || {}).key; }
   }
   const r = N.rollerOf(v, who);
   const best = r ? Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] : 'Notice';
@@ -1190,6 +1190,10 @@ function act(v, a, el, e){
   case 'wNew': openSheet(v, 'wEdit', {}); break;
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
   case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;
+  /* sections only some players read */
+  case 'wdPartAdd': ui.wd.parts.push({id:uid('s'), h:'', text:'', see:[]}); break;
+  case 'wdPartDel': ui.wd.parts.splice(+val, 1); break;
+  case 'wdPartWho': { const p = ui.wd.parts[+d.n]; if (!p) break; const i = p.see.indexOf(val); if (i >= 0) p.see.splice(i, 1); else p.see.push(val); p.see.sort((a,b) => a.slice(1) - b.slice(1)); break; }
   /* pictures start as GM only; saving the entry shares them with whoever can read it */
   case 'wdImgAdd': pickFramed(v, 'wiki', (img, f) => { if (!ui.wd) return; ui.wd.imgs.push({src:N.withFrame(N.storeImg(N.shrink(img, 1400, 600000), false), f), cap:''}); render(v); }); return;
   case 'wdImgFrame': { const p = ui.wd?.imgs[+val]; if (p) reframe(v, 'wiki', p.src, nu => { p.src = nu; render(v); }); return; }
@@ -1229,6 +1233,8 @@ function act(v, a, el, e){
     if (!w.gm && w.see?.length) en.see = [...w.see];
     if (old) for (const k of ['src','soon']) if (old[k]) en[k] = old[k];
     /* the lore's own picture joins the list, so it can be captioned or removed like the others */
+    const parts = (w.parts || []).map(p => ({id:p.id, h:(p.h || '').trim(), text:(p.text || '').trim(), see:[...(p.see || [])]})).filter(p => p.h || p.text);
+    if (parts.length) en.parts = parts;
     en.imgs = w.imgs.map(p => { const o = {src:p.src}; if (p.alt) o.alt = p.alt; if (p.cap?.trim()) o.cap = p.cap.trim(); return o; });
     if (old) for (const p of N.wikiPics(old)) if (!en.imgs.some(x => samePic(x.src, p.src))) N.dropImg(p.src);
     const i = g.wiki.findIndex(x => x.id === en.id); if (i >= 0) g.wiki[i] = en; else g.wiki.push(en);
@@ -1354,7 +1360,19 @@ function act(v, a, el, e){
   case 'rollBonus': ui.roll.otherBonus = clamp((+ui.roll.otherBonus || 0) + (+d.d), -4, 10); break;
   case 'doRoll': doRoll(v); return;
   /* scene sheet */
-  case 'sdFor': ui.sd.ch = val; ui.sd.cast = [...(N.castOf(val) || [])]; { const s = g.scenes[val]; if (s && !ui.sd.touched) Object.assign(ui.sd, {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, aspects:(s.aspects||[]).map(a => ({...a}))}); } break;
+  case 'sdFor': { const sd = ui.sd; sd.ch = val;
+    /* another chat: open its scene to edit, unless the GM is already building a new one */
+    if (g.scenes[val] && !(sd.mode === 'new' && sd.touched)) sdLoad(sd, 'edit');
+    else { const keep = {title:sd.title, where:sd.where, date:sd.date, art:sd.art, place:sd.place, aspects:sd.aspects, touched:sd.touched}; sdLoad(sd, 'new'); if (keep.touched) Object.assign(sd, keep); }
+    break; }
+  case 'sdMode': sdLoad(ui.sd, val); break;
+  case 'sdOneAdd': { const sd = ui.sd, name = (sd.oneName || '').trim(); if (!name) { toast(v, 'Give them a name first.'); break; }
+    let x = sd.extras.find(e => e.name.toLowerCase() === name.toLowerCase());
+    if (!x) { if (N.npcByName(name)) { toast(v, `${name} already has an NPC card. Pick them under NPCs in this scene.`); break; } x = {id:uid('o'), name, skills:{}}; sd.extras.push(x); }
+    if (sd.oneSkill) x.skills[sd.oneSkill] = +sd.oneRate || 0;
+    sd.oneName = ''; sd.oneSkill = ''; break; }
+  case 'sdOneDel': ui.sd.extras.splice(+val, 1); break;
+  case 'sdSave': { const s = ui.sd; sdKeep(s); if (!editScene(v, s)) { toast(v, 'That scene has ended. Start a new one instead.'); sdLoad(s, 'new'); break; } ui.sheet = null; renderAll(); return; }
   case 'sdTab': ui.sd.tab = val; break;
   case 'sdPick': {
     let p = null;
@@ -1368,14 +1386,18 @@ function act(v, a, el, e){
   case 'sdPickUp': ui.sd.art = val; ui.sd.place = null; ui.sd.touched = true; break;
   case 'sdFrame': if (ui.sd?.art) reframePic(v, ui.sd.art); return;
   case 'sdUpload': uploadPicture(v, src => { ui.sd.art = src; ui.sd.place = null; ui.sd.touched = true; ui.sd.tab = 'pics'; }); return;
-  case 'sdAspAdd': { const t = (ui.sd.newAsp || '').trim(); if (t) { ui.sd.aspects.push({t, free:0}); ui.sd.newAsp = ''; } break; }
+  case 'sdAspAdd': { const t = (ui.sd.newAsp || '').trim(); if (t) { ui.sd.aspects.push({t, free:0, k:uid('a')}); ui.sd.newAsp = ''; } break; }
   case 'sdAspFree': { const a = ui.sd.aspects[+d.i]; a.free = ((a.free || 0) + 1) % 3; break; }
   case 'sdAspDel': ui.sd.aspects.splice(+d.i, 1); break;
   case 'sdCast': { const c = ui.sd.cast, i = c.indexOf(val); if (i >= 0) c.splice(i, 1); else c.push(val); break; }
   case 'sdCastNone': ui.sd.cast = []; break;
   case 'sdPost': ui.sd.post = !ui.sd.post; break;
-  case 'sdApply': { const s = ui.sd; if (s.cast.length) g.casts[s.ch] = [...s.cast]; else delete g.casts[s.ch]; setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects}, s.post); ui.sheet = null; renderAll(); return; }
-  case 'sdClear': { const ch = ui.sd.ch; delete g.casts[ch]; const m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true}); ui.sheet = null; toast(v, 'Scene cleared.', () => N.delMsg(m.id)); renderAll(); return; }
+  case 'sdApply': { const s = ui.sd; sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects}, s.post); ui.sheet = null; renderAll(); return; }
+  /* ending a scene takes its banner down and lets its one-off NPCs and NPC list go (Undo brings them back) */
+  case 'sdEnd': { const ch = val || ui.sd?.ch; if (!ch || !g.scenes[ch]) { ui.sheet = null; break; }
+    const cast = g.casts[ch], once = g.extras[ch]; delete g.casts[ch]; delete g.extras[ch];
+    const m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true}); ui.sheet = null;
+    toast(v, 'Scene ended.', () => { N.delMsg(m.id); if (cast) g.casts[ch] = cast; if (once) g.extras[ch] = once; N.renderAll(); }); renderAll(); return; }
   /* fight */
   case 'cbBegin': if (N.metaOnly(val || ui.ch)) { toast(v, 'No fights in Everyone. Open a party, group or private chat to begin one.'); break; } N.cbBegin(val || ui.ch); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
   case 'openFight': close(); ui.tab = 'chat'; ui.ch = val || N.fightCh(); focusFight(v); ui.fightOpen = true; ui.fightPane = 'fight'; break;
@@ -1465,10 +1487,9 @@ function openSheet(v, s, d={}){
   ui.sheet = s; ui.sheetArg = d.c || d.v || null;
   if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats], party:!!gr.party} : {id:null, name:'', seats:[], party:!!d.party}; }
   if (s === 'scene') {
-    const ch = ui.ch === 'gm' ? 'table' : ui.ch, cur = g.scenes[ch];
-    ui.sd = cur ? {ch, title:cur.title, where:cur.where || '', date:cur.date || '', art:cur.art || null, place:cur.place || null, aspects:(cur.aspects||[]).map(a => ({...a})), post:true, tab:g.recent.length ? 'recent' : 'pics', newAsp:''}
-                : {ch, title:'', where:'', date:'', art:null, place:null, aspects:[], post:true, tab:g.recent.length ? 'recent' : 'pics', newAsp:''};
-    ui.sd.cast = [...(N.castOf(ch) || [])]; ui.sd.castQ = '';
+    const ch = ui.ch === 'gm' ? 'table' : ui.ch;
+    ui.sd = {ch, post:true, tab:g.recent.length ? 'recent' : 'pics', newAsp:'', castQ:'', oneName:'', oneSkill:'', oneRate:'2'};
+    sdLoad(ui.sd, g.scenes[ch] ? 'edit' : 'new');
   }
   if (s === 'pcEdit') {
     const c = g.chars[d.v];
@@ -1491,8 +1512,8 @@ function openSheet(v, s, d={}){
   }
   if (s === 'wEdit') {
     const e = d.v && g.wiki.find(x => x.id === d.v);
-    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), secret:e.secret || '', gm:!!e.gm, see:[...(e.see || [])], imgs:N.wikiPics(e).map(p => ({...p}))}
-              : {id:null, title:'', cat:ui.wikiCat || (N.cats().find(c => c.name === 'People') || N.cats()[0] || {name:'People'}).name, summary:'', info:'', body:'', secret:'', gm:false, imgs:[]};
+    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), secret:e.secret || '', gm:!!e.gm, see:[...(e.see || [])], imgs:N.wikiPics(e).map(p => ({...p})), parts:(e.parts || []).map(p => ({...p, see:[...(p.see || [])]}))}
+              : {id:null, title:'', cat:ui.wikiCat || (N.cats().find(c => c.name === 'People') || N.cats()[0] || {name:'People'}).name, summary:'', info:'', body:'', secret:'', gm:false, imgs:[], parts:[]};
   }
   if (s === 'wCats') { ui.cd = N.catNames(g.wiki).map(name => ({from:name, name, ic:N.catIcon(name)})); ui.cdIc = null; }
   if (s === 'wipe') ui.wipe = {ch:null, step:1, ok:false, typed:''};
@@ -1502,14 +1523,37 @@ N.openSheet = openSheet;
 /* the typed name has to match the chat's name exactly (any capitals) before a wipe is allowed */
 N.wipeMatch = w => !!(w && w.ch) && (w.typed || '').trim().toLowerCase() === N.chName(w.ch, 'gm').trim().toLowerCase();
 
+/* the scene sheet edits the chat's scene in place (edit) or starts a fresh one (new) */
+function sdLoad(sd, mode){
+  const g = G(), cur = g.scenes[sd.ch];
+  sd.mode = cur ? mode : 'new'; sd.touched = false; sd.autoTitle = false;
+  if (sd.mode === 'edit') Object.assign(sd, {msg:cur.msg, title:cur.title, where:cur.where || '', date:cur.date || '', art:cur.art || null, place:cur.place || null,
+    aspects:(cur.aspects || []).map((a, i) => ({...a, k:a.k ?? String(i)})), cast:[...(N.castOf(sd.ch) || [])], extras:N.extrasOf(sd.ch).map(x => ({...x, skills:{...x.skills}}))});
+  else Object.assign(sd, {msg:null, title:'', where:'', date:'', art:null, place:null, aspects:[], cast:cur ? [] : [...(N.castOf(sd.ch) || [])], extras:cur ? [] : N.extrasOf(sd.ch).map(x => ({...x, skills:{...x.skills}}))});
+}
+function sdKeep(s){
+  const g = G();
+  if (s.cast.length) g.casts[s.ch] = [...s.cast]; else delete g.casts[s.ch];
+  if (s.extras.length) g.extras[s.ch] = s.extras.map(x => ({id:x.id, name:x.name, skills:{...x.skills}})); else delete g.extras[s.ch];
+}
+function sceneRecent(sc){
+  const g = G(); if (!sc.title) return;
+  const key = sc.title.toLowerCase();
+  g.recent = [{id:uid('r'), title:sc.title, where:sc.where, art:sc.art, place:sc.place}, ...g.recent.filter(r => r.title.toLowerCase() !== key)].slice(0, 6);
+}
+/* fixing up a scene changes its own message: no new scene line, nobody is pinged, and spent free invokes stay spent */
+function editScene(v, s){
+  const g = G(), m = g.msgs.find(x => x.id === s.msg && x.kind === 'scene'); if (!m) return false;
+  m.scene = {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art || null, place:s.place || null, aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, k:a.k ?? uid('a')}))};
+  N.invalidateScenes(); sceneRecent(m.scene);
+  toast(v, `Scene updated: ${m.scene.title}`);
+  return true;
+}
 function setScene(v, ch, s, post){
   const g = G();
   const sc = {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, aspects:(s.aspects || []).map(a => ({t:a.t, free:a.free || 0}))};
   const m = push({ch, kind:'scene', by:'gm', scene:sc, quiet:!post});
-  if (sc.title) {
-    const key = sc.title.toLowerCase();
-    g.recent = [{id:uid('r'), title:sc.title, where:sc.where, art:sc.art, place:sc.place}, ...g.recent.filter(r => r.title.toLowerCase() !== key)].slice(0, 6);
-  }
+  sceneRecent(sc);
   const who = ch === 'table' ? 'everyone' : (g.P[ch.slice(3)]?.name || 'them');
   toast(v, `Scene set for ${who}: ${sc.title}`, () => N.delMsg(m.id));
 }
@@ -1547,7 +1591,7 @@ function saveNpc(v){
   } else { n = N.npcCard(base); g.npcs.push(n); }
   g.npcs.sort((a,b) => a.name.localeCompare(b.name));
   v.ui.sheet = null;
-  if (d.from === 'voice') { v.ui.voice = n.name; v.ui.mode = 'rp'; const cast = N.castOf(v.ui.ch === 'gm' ? 'table' : v.ui.ch); if (cast && !cast.includes(n.name)) cast.push(n.name); }
+  if (d.from === 'voice') { v.ui.voice = n.name; v.ui.mode = 'rp'; const ch = v.ui.ch === 'gm' ? 'table' : v.ui.ch, cast = N.castOf(ch) || []; if (!cast.includes(n.name)) g.casts[ch] = [...cast, n.name]; }
   toast(v, old ? 'NPC saved.' : `${n.name} saved. Pick them in “Speak as”.`); renderAll();
 }
 function doInvoke(v, i, reroll){
