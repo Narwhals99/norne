@@ -21,7 +21,7 @@ function tokHtml(v, t, size){
   if (v.ui.tokSel === t.id || v.ui.placing === t.id) cls.push('sel');
   if (out) cls.push('out');
   const actor = N.actorTok(v) || (isGM(v) && v.ui.targeting ? cur : null);
-  if (v.ui.targeting === 'attack' && actor && t !== actor && !t.out) cls.push(actor.zone === t.zone ? (N.sideOf(t) === N.sideOf(actor) ? 'target ff' : 'target') : 'nope');
+  if (v.ui.targeting === 'attack' && actor && t !== actor && !t.out) cls.push('target', ...(N.sideOf(t) === N.sideOf(actor) ? ['ff'] : []), ...(actor.zone !== t.zone ? ['far'] : []));
   const p = cb.pending;
   const hit = p && (p.def === t.id) ? ' style="--ring:var(--ember)"' : '';
   const mine = N.isMine(t, v.role);
@@ -40,7 +40,7 @@ function boardHtml(v){
   const grp = (arr, c) => `<div class="zs ${c}" style="--cols:${arr.length > 6 ? 3 : arr.length > 2 ? 2 : 1}">${arr.map(t => tokHtml(v, t)).join('')}</div>`;
   const zones = cb.zones.map(z => {
     const cls = ['zone'];
-    if (v.ui.targeting === 'attack' && actor) cls.push(z.id === actor.zone ? 'reach' : 'dim');
+    if (v.ui.targeting === 'attack' && actor) cls.push(z.id === actor.zone ? 'reach' : 'far');
     if (v.ui.targeting === 'move' && actor) cls.push(z.id === actor.zone ? 'sel' : 'reach');
     if (v.ui.placing) cls.push('reach');
     if (gm && v.ui.zoneSel === z.id && edit) cls.push('sel');
@@ -53,7 +53,7 @@ function boardHtml(v){
     </div>`;
   }).join('');
   let hint = '';
-  if (v.ui.targeting === 'attack') hint = `<div class="hint-chip">${IC('crosshair')}Pick someone in ${actor?esc(N.zoneOf(actor)?.name||'your zone'):'the same zone'}<button type="button" class="btn sm ghost" data-a="cbCancel" style="--h:26px">Cancel</button></div>`;
+  if (v.ui.targeting === 'attack') hint = `<div class="hint-chip">${IC('crosshair')}Pick who to attack, in any zone<button type="button" class="btn sm ghost" data-a="cbCancel" style="--h:26px">Cancel</button></div>`;
   else if (v.ui.targeting === 'move') hint = `<div class="hint-chip">${IC('boots')}Tap the zone to move to<button type="button" class="btn sm ghost" data-a="cbCancel" style="--h:26px">Cancel</button></div>`;
   else if (v.ui.placing) hint = `<div class="hint-chip">${IC('pinL')}Tap a zone to place ${esc(N.tokName(N.tokById(v.ui.placing)))}<button type="button" class="btn sm ghost" data-a="cbCancel" style="--h:26px">Cancel</button></div>`;
   else if (edit && !cb.zones.length) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag on the map to draw a zone</div>`;
@@ -270,7 +270,7 @@ function actBar(v, t){
   const cb = G().combat, inZone = N.targetsOf(t).length, owed = cb.pending;
   const tg = v.ui.targeting;
   return `<div class="actbar">
-    <button type="button" class="abtn atk" data-a="cbAct" data-v="attack" aria-pressed="${tg==='attack'}" ${owed?'disabled title="Finish the last attack first"':inZone?'':'disabled title="Nobody to attack in this zone"'}>${IC('attack')}Attack</button>
+    <button type="button" class="abtn atk" data-a="cbAct" data-v="attack" aria-pressed="${tg==='attack'}" ${owed?'disabled title="Finish the last attack first"':inZone?'':'disabled title="Nobody to attack"'}>${IC('attack')}Attack</button>
     <button type="button" class="abtn" data-a="cbAct" data-v="advantage">${IC('advantage')}Advantage</button>
     <button type="button" class="abtn" data-a="cbAct" data-v="overcome">${IC('overcome')}Overcome</button>
     <button type="button" class="abtn" data-a="cbAct" data-v="move" aria-pressed="${tg==='move'}" ${cb.moved?'disabled title="Already moved this turn"':''}>${IC('boots')}Move</button>
@@ -580,7 +580,7 @@ N.boostTick = t => {
    plus a boost on the defender (pending.stage 'style', then N.cbStyle).
    Then the GM picks how the defender soaks it: a stress box, a consequence or taken out (pending.stage 'absorb',
    N.cbAbsorb), for player characters and NPCs alike. */
-const rollLine = (name, r) => ({n:name, sk:r.skill, b:r.bonus, g:r.gear || 0, ...(r.gearL ? {gl:r.gearL} : {}), tot:N.rollTotal(r)});
+const rollLine = (name, r) => ({n:name, sk:r.skill, b:r.bonus, g:r.gear || 0, ...(r.gearL ? {gl:r.gearL} : {}), ...(r.dist ? {dist:r.dist} : {}), tot:N.rollTotal(r)});
 N.cbResolve = function(again){
   const g = G(), cb = g.combat, p = cb.pending; if (!p || !p.defMsg) return;
   const a = N.tokById(p.att), d = N.tokById(p.def), am = g.msgs.find(m => m.id === p.msgId), dm = g.msgs.find(m => m.id === p.defMsg);

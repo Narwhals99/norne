@@ -52,6 +52,12 @@ N.vsCands = (v, r) => {
     ...pcs.filter(c => c.id !== r.who && !cb.tokens.some(t => t.kind === 'pc' && 'pc:' + t.ref === c.id)),
     ...cards.filter(n => 'npc:' + n.id !== r.who && !cb.tokens.some(t => t.zone && !t.out && t.kind === 'npc' && t.ref === n.id))];
 };
+/* the fighter in another zone that an attack or a custom event in a live fight is aimed at (they take the distance debuff), or null */
+N.farOf = (v, r) => {
+  const cb = G().combat; if (cb.state !== 'live' || r.ctx !== 'cb' && !(r.action === 'attack' && r.target)) return null;
+  const a = N.tokOfKey(r.who), d = r.event ? (r.vsNpc && r.vsNpc.startsWith('tok:') ? N.tokById(r.vsNpc.slice(4)) : null) : r.action === 'attack' && r.target ? N.tokById(r.target) : null;
+  return N.isFar(a, d) ? d : null;
+};
 N.vsFind = (v, r, id) => id ? N.vsCands(v, r).find(n => n.id === id) || null : null;
 N.rollerOf = (v, key) => N.rollers(v).find(r => r.key === key) || N.rollers(v)[0];
 
@@ -71,6 +77,11 @@ N.sheetHtml = function(v){
     const bonus = other ? (+r.otherBonus || 0) : (who.skills[r.skill] ?? 0);
     const fightAtk = r.action === 'attack' && inFight;
     const fg = fightAtk && !other ? N.atkGear(tokOfWho, r.skill) : {roll:0, hit:0};
+    /* Jake's distance debuff: aimed at someone in another zone, the GM picks how much the distance takes off the roll */
+    const far = gm ? N.farOf(v, r) : null, dist = far ? (+r.dist || 0) : 0;
+    const distHtml = far ? `<div class="distbox"><h4>Distance debuff</h4><p class="vsnote">${esc(N.tokName(far))} is in ${esc(N.zoneOf(far)?.name || 'another zone')}, ${esc(N.zoneOf(tokOfWho)?.name ? 'not ' + N.zoneOf(tokOfWho).name : 'another zone')}. Pick how much the distance takes off the roll.</p>
+        <div class="ladder-chips">${[0,1,2,3,4,5,6].map(x => `<button type="button" class="lchip" data-a="rollDist" data-v="${x}" aria-pressed="${dist===x}"><b>${x ? '−' + x : '0'}</b>${x ? 'off the roll' : 'No drop-off'}</button>`).join('')}</div>
+        ${fightAtk && r.skill === 'Fighting' ? `<p class="vsnote">${IC('info')}Fighting doesn’t reach another zone unless a stunt says so. Your call.</p>` : ''}</div>` : '';
     /* out of a fight the GM can roll against one of their NPC cards: pick the skill it's rolled against, then the NPC,
        and the difficulty becomes that NPC's rating in it (still changeable). No NPC means the GM sets the difficulty. */
     const ev = gm && r.event && r.ctx === 'cb' && cb.state === 'live';
@@ -95,16 +106,17 @@ N.sheetHtml = function(v){
         <div class="field"><span>Bonus</span><div class="seg" style="justify-content:space-between;width:100%"><button type="button" data-a="rollBonus" data-d="-1" aria-label="Less">${IC('minus')}</button><b style="align-self:center;font:700 18px/1 var(--f-display)">${sgn(bonus)}</b><button type="button" data-a="rollBonus" data-d="1" aria-label="More">${IC('plus')}</button></div></div></div>` : ''}
       ${ev ? `<label class="field"><span>What’s happening</span><input class="inp" id="rev-${v.id}" data-i="rollEv" value="${esc(r.evText||'')}" placeholder="e.g. Mind magic: reaches into the guard’s thoughts"></label>` : ''}
       <div><h4>What are you doing?</h4><div class="acts">${N.ACTIONS.filter(a => !ev || a[1] !== 'attack').map(([l,k]) => `<button type="button" class="act" data-a="rollAct" data-v="${k}" aria-pressed="${r.action===k}">${IC(k)}${l.replace('Create an advantage','Advantage')}</button>`).join('')}</div></div>
-      ${r.action === 'attack' && inFight ? `<div><h4>Target · same zone only</h4>${targets.length ? `<div class="tgts">${targets.map(t => `<button type="button" class="tgt" data-a="rollTgt" data-v="${t.id}" aria-pressed="${r.target===t.id}">${N.av(N.tokObj(t),32)}${esc(N.tokName(t))}${N.sideOf(t) === N.sideOf(tokOfWho) ? '<small class="ff">Own side</small>' : ''}</button>`).join('')}</div>` : `<div class="note">${IC('info')}Nobody to attack in ${esc(N.zoneOf(tokOfWho)?.name||'this zone')}. Move first.</div>`}</div>` : ''}
+      ${r.action === 'attack' && inFight ? `<div><h4>Target</h4>${targets.length ? `<div class="tgts">${targets.map(t => { const z = t.zone !== tokOfWho.zone && N.zoneOf(t); return `<button type="button" class="tgt" data-a="rollTgt" data-v="${t.id}" aria-pressed="${r.target===t.id}">${N.av(N.tokObj(t),32)}${esc(N.tokName(t))}${N.sideOf(t) === N.sideOf(tokOfWho) ? '<small class="ff">Own side</small>' : ''}${z ? `<small class="ff fz" style="--zc:${z.col}">${esc(z.name)}</small>` : ''}</button>`; }).join('')}</div>` : `<div class="note">${IC('info')}Nobody else is on the board.</div>`}</div>` : ''}
       ${r.action === 'advantage' ? `<label class="field"><span>Aspect you’re creating</span><input class="inp" id="rasp-${v.id}" data-i="rollAsp" value="${esc(r.aspect||'')}" placeholder="e.g. Blinded by Spilled Ale"></label>` : ''}
       ${other ? '' : `<div><h4>Skill</h4><div class="skills">${skills.map(([n,x]) => `<button type="button" class="sk" data-a="rollSkill" data-v="${esc(n)}" aria-pressed="${r.skill===n}"><span><b>${esc(n)}</b><small>${ladderWord(x)}</small></span><span class="v">${sgn(x)}</span></button>`).join('')}
         ${r.all || !skills.length ? rest.map(n => `<button type="button" class="sk" data-a="rollSkill" data-v="${n}" aria-pressed="${r.skill===n}"><span><b>${n}</b><small>Mediocre</small></span><span class="v">+0</span></button>`).join('') : ''}</div>
         ${r.all || !skills.length ? '' : `<button type="button" class="btn sm ghost" data-a="rollAll" style="margin-top:8px">Show every skill (${rest.length} more at +0)</button>`}</div>`}
       ${fightAtk ? `<div class="note">${IC('defend')}Your target rolls to defend right after you. The result shows in the chat once both rolls are in.</div>` : rp ? vsHtml : `<div><h4>Against ${r.action==='attack'||r.action==='defend'?'(the other side rolls)':'(optional)'}</h4>${oppChips}</div>`}
+      ${distHtml}
       ${gm ? `<button type="button" class="toggle" data-a="rollSecret" aria-pressed="${!!r.secret}">${IC('eyeoff')}<span>Secret roll<small>${ev ? 'Only you see it, in your fight log. Players don’t.' : 'Only you see it, in GM notes.'}</small></span><span class="sw"></span></button>` : ''}
-      <p class="rollsum">4 Fate dice + ${other ? 'bonus' : esc(r.skill)} ${sgn(bonus)}.${fg.roll ? ` Ranged weapon +${fg.roll} goes on the roll.` : ''}${fg.hit ? ` A hit gets +${fg.hit} shifts from the ${fg.hitL}.` : ''} After you see the roll you can invoke aspects for +2 or a reroll.</p>`;
+      <p class="rollsum">4 Fate dice + ${other ? 'bonus' : esc(r.skill)} ${sgn(bonus)}.${fg.roll ? ` Ranged weapon +${fg.roll} goes on the roll.` : ''}${fg.hit ? ` A hit gets +${fg.hit} shifts from the ${fg.hitL}.` : ''}${dist ? ` Distance −${dist} comes off the roll.` : ''} After you see the roll you can invoke aspects for +2 or a reroll.</p>`;
     const dis = r.action === 'attack' && inFight && !r.target;
-    return sheet(ev ? 'Custom event' : 'Roll the dice', body, `<button type="button" class="btn gold lg" data-a="doRoll" ${dis?'disabled':''}>${N.fateDie}Roll ${other ? '' : esc(r.skill) + ' '}${sgn(bonus + fg.roll)}</button>`, {lead:other ? '' : N.av(who,36)});
+    return sheet(ev ? 'Custom event' : 'Roll the dice', body, `<button type="button" class="btn gold lg" data-a="doRoll" ${dis?'disabled':''}>${N.fateDie}Roll ${other ? '' : esc(r.skill) + ' '}${sgn(bonus + fg.roll - dist)}</button>`, {lead:other ? '' : N.av(who,36)});
   }
   /* ---------------- invoke ---------------- */
   case 'invoke': {
@@ -620,7 +632,7 @@ const hhmm = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-
 function rollText(r){
   const tot = N.rollTotal(r), o = N.outcome(r);
   const pl = N.plusInvokes(r), rr = r.invokes.filter(i => i.reroll), ag = r.invokes.filter(i => i.opp), by = i => i.by ? ` by ${i.by}` : '';
-  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''} (${r.event ? `event${typeof r.event === 'string' ? ` “${r.event}”` : ''}, ` : ''}${r.action}${r.target?` on ${r.target}`:''}${r.oppDice?`, opposed roll ${r.oppDice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')} ${sgn(r.oppBase)}`:''}${r.vs?` against ${r.vs.name ? r.vs.name + (r.vs.skill ? `’s ${r.vs.skill}` : '') : r.vs.skill}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll && !i.opp).map(i => '“' + i.aspect + '”' + by(i)).join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”' + by(i)).join(', ')}`:''}${ag.length?`, the other side invoked ${ag.map(i => '“' + i.aspect + '”' + by(i)).join(', ')} (+${2*ag.length} to beat)`:''} → ${sgn(tot)} (${ladderWord(tot)})${o?` vs ${sgn(r.opp)} (${ladderWord(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
+  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''}${r.dist?` incl. distance −${r.dist}`:''} (${r.event ? `event${typeof r.event === 'string' ? ` “${r.event}”` : ''}, ` : ''}${r.action}${r.target?` on ${r.target}`:''}${r.oppDice?`, opposed roll ${r.oppDice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')} ${sgn(r.oppBase)}`:''}${r.vs?` against ${r.vs.name ? r.vs.name + (r.vs.skill ? `’s ${r.vs.skill}` : '') : r.vs.skill}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll && !i.opp).map(i => '“' + i.aspect + '”' + by(i)).join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”' + by(i)).join(', ')}`:''}${ag.length?`, the other side invoked ${ag.map(i => '“' + i.aspect + '”' + by(i)).join(', ')} (+${2*ag.length} to beat)`:''} → ${sgn(tot)} (${ladderWord(tot)})${o?` vs ${sgn(r.opp)} (${ladderWord(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
 }
 function exLine(m){
   const t = `[${hhmm(m.t)}]`;
@@ -638,7 +650,7 @@ function exLine(m){
    results and notices. A fight's own chat (fc) is never exported. */
 function exEntry(m){
   const t = new Date(m.t).toISOString();
-  if (m.kind === 'roll') { const r = m.roll, o = N.outcome(r); return {t, type:'roll', who:r.who, action:r.action, skill:r.skill, skillBonus:r.bonus - (r.gear||0), gear:r.gear || 0, target:r.target || null, vs:r.vs || null, opposedDice:r.oppDice || null, opposedBonus:r.oppDice ? r.oppBase : null, dice:r.dice, invokes:r.invokes.map(i => ({aspect:i.aspect, reroll:!!i.reroll, ...(i.opp ? {againstRoll:true} : {}), ...(i.by ? {by:i.by} : {})})), total:N.rollTotal(r), ladder:ladderWord(N.rollTotal(r)), against:r.opp ?? null, outcome:o ? o.t : null, shifts:o ? o.sh : null, secret:m.ch === 'gm'}; }
+  if (m.kind === 'roll') { const r = m.roll, o = N.outcome(r); return {t, type:'roll', who:r.who, action:r.action, skill:r.skill, skillBonus:r.bonus - (r.gear||0) + (r.dist||0), gear:r.gear || 0, ...(r.dist ? {distance:-r.dist} : {}), target:r.target || null, vs:r.vs || null, opposedDice:r.oppDice || null, opposedBonus:r.oppDice ? r.oppBase : null, dice:r.dice, invokes:r.invokes.map(i => ({aspect:i.aspect, reroll:!!i.reroll, ...(i.opp ? {againstRoll:true} : {}), ...(i.by ? {by:i.by} : {})})), total:N.rollTotal(r), ladder:ladderWord(N.rollTotal(r)), against:r.opp ?? null, outcome:o ? o.t : null, shifts:o ? o.sh : null, secret:m.ch === 'gm'}; }
   if (m.kind === 'sys' && m.res && m.res.k === 'order') return {t, type:'turn_order', order:(m.res.rows || []).map(x => ({name:x.n, notice:x.sk, total:x.tot}))};
   if (m.kind === 'sys' && m.res) { const [a, d] = m.res.rows || [], side = x => x && {name:x.n, skill:x.sk, skillBonus:x.b - (x.g||0), gear:x.g || 0, total:x.tot}; return {t, type:'attack_result', title:m.res.title, attack:side(a), defense:side(d), damage:m.res.calc || null, outcome:m.res.out?.t || null, after:m.res.after || null}; }
   if (m.kind === 'sys') return {t, type:'note', text:m.text};

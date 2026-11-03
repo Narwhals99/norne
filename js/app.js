@@ -587,7 +587,7 @@ function openRoll(v, o={}){
   }
   const r = N.rollerOf(v, who);
   const best = r ? Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] : 'Notice';
-  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:''};
+  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0};
   { const r = v.ui.roll; if (r.skill in vsSkillMem) r.vsSkill = vsSkillMem[r.skill]; }
   v.ui.sheet = 'roll'; v.ui.pop = null;
 }
@@ -607,6 +607,10 @@ function doRoll(v){
   /* a ranged weapon helps the Shooting attack itself: its rating goes on the roll (shown as its own part of the total) */
   const rg = fight && r.action === 'attack' && tgt && !other ? N.atkGear(N.tokOfKey(who.key), skill) : null;
   if (rg && rg.roll) { roll.bonus += rg.roll; roll.gear = rg.roll; roll.gearL = rg.rollL; }
+  /* Jake's distance debuff: an attack or a custom event aimed at someone in another zone loses what the GM picked (r.dist)
+     off the roll, shown as its own part of the total. The pick is remembered for the rest of the fight. */
+  const far = N.farOf(v, r);
+  if (fight && far) { g.combat.distLast = +r.dist || 0; if (r.dist > 0) { roll.bonus -= r.dist; roll.dist = +r.dist; roll.distZ = N.zoneOf(far)?.name || ''; } }
   /* a custom event (mind magic, a spell, anything the four actions don't cover) is a fight roll built like a roleplay roll:
      a skill against a skill and/or someone, a difficulty, passive or not, and it can be secret */
   const ev = fight && r.event, rp = isGM(v) && (ev || (!fight && r.ctx !== 'cb') || (fight && r.ctx === 'cb' && r.action !== 'attack'));
@@ -681,9 +685,9 @@ function tokClick(v, id){
   if (v.ui.targeting === 'attack') {
     const a = N.actorTok(v) || (isGM(v) ? N.curTok() : null);
     if (!a || t === a) return;
-    if (t.zone !== a.zone) { toast(v, `Too far. You can only attack someone in ${N.zoneOf(a)?.name || 'your zone'}.`); render(v); return; }
     if (t.out) return;
-    const best = ['Fighting','Shooting'].map(s => [s, N.tokSkills(a)[s]||0]).sort((x,y)=>y[1]-x[1])[0][0];
+    /* across zones Shooting is the usual reach (Fighting needs a stunt, the GM's call), so it is picked first there */
+    const far = t.zone !== a.zone, best = far ? 'Shooting' : ['Fighting','Shooting'].map(s => [s, N.tokSkills(a)[s]||0]).sort((x,y)=>y[1]-x[1])[0][0];
     openRoll(v, {who: a.kind === 'pc' ? 'pc:' + a.ref : 'tok:' + a.id, action:'attack', target:t.id, skill:best, ctx:'cb'});
     render(v); return;
   }
@@ -1350,6 +1354,7 @@ function act(v, a, el, e){
   case 'rollWho': { ui.roll.who = val; if (ui.roll.vsNpc && 'npc:' + ui.roll.vsNpc === val) ui.roll.vsNpc = null; const r = N.rollerOf(v, val); ui.roll.skill = Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] || 'Notice'; ui.roll.target = null; break; }
   case 'rollAct': ui.roll.action = val; if (val === 'defend') { ui.roll.skill = 'Athletics'; } if (val === 'attack') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Shooting||0) > (r.skills.Fighting||0) ? 'Shooting' : 'Fighting'; } break;
   case 'rollTgt': ui.roll.target = val; ui.roll.ctx = 'cb'; break;
+  case 'rollDist': ui.roll.dist = +val || 0; break;
   case 'rollSkill': { const r = ui.roll; r.skill = val; if (val in vsSkillMem) { r.vsSkill = vsSkillMem[val]; const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; } break; }
   case 'rollAll': ui.roll.all = true; break;
   case 'rollOpp': ui.roll.opp = val === 'null' ? null : +val; break;

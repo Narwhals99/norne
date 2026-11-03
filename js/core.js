@@ -406,9 +406,13 @@ N.zoneOf = t => N.G.combat.zones.find(z => z.id === t.zone);
 N.sideOf = t => t.kind === 'pc' ? 'ally' : (t.side || 'foe');
 N.sameZone = t => N.G.combat.tokens.filter(o => o !== t && !o.out && t.zone && o.zone === t.zone);
 N.foesOf = t => N.sameZone(t).filter(o => N.sideOf(o) !== N.sideOf(t));
-/* who an attack can hit: anyone standing in the same zone, own side too (friendly fire for plot twists, mind control).
-   Foes come first, then the attacker's own side. */
-N.targetsOf = t => { const f = N.foesOf(t); return f.concat(N.sameZone(t).filter(o => !f.includes(o))); };
+/* who an attack can hit: anyone on the board, own side too (friendly fire for plot twists, mind control), and in any zone
+   (Jake's rule: it's the GM who keeps Fighting to the same zone, unless a stunt says otherwise).
+   Same zone first (foes, then own side), then the other zones (foes, then own side). */
+N.targetsOf = t => { if (!t.zone) return []; const all = N.G.combat.tokens.filter(o => o !== t && !o.out && o.zone), near = all.filter(o => o.zone === t.zone), far = all.filter(o => o.zone !== t.zone);
+  const foe = o => N.sideOf(o) !== N.sideOf(t); return [...near.filter(foe), ...near.filter(o => !foe(o)), ...far.filter(foe), ...far.filter(o => !foe(o))]; };
+/* true when a fight roll from a aims at d standing in another zone: the GM can put a distance debuff on it */
+N.isFar = (a, d) => !!(a && d && a.zone && d.zone && a.zone !== d.zone);
 N.tokSkills = t => t.kind === 'pc' ? (N.G.chars[t.ref]?.skills || {}) : (t.skills || {});
 N.tokNotice = t => N.tokSkills(t).Notice || 0;
 /* turn order: the Notice roll made when the fight started (t.init), Notice itself breaks ties.
