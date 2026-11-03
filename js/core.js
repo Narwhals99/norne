@@ -252,7 +252,7 @@ function blankChar(id, player){
 function npcCard(o){
   const str = (o.skills||{}).Strength||0, wil = (o.skills||{}).Will||0, pv = stressVals(str), mv = stressVals(wil);
   return Object.assign({id:uid('n'), name:'', race:'', job:'', age:'', hc:'', trouble:'', aspects:[], skills:{}, disc:{}, magic:'', stunts:[], refresh:3, fp:3, bio:'', notes:'', type:'supporting', portrait:null,
-    stressV:{phys:pv, ment:mv}, stress:{phys:pv.map(()=>false), ment:mv.map(()=>false)}, cons:{mild:'',moderate:'',severe:''}, gearAtk:0, gearDef:0}, o);
+    stressV:{phys:pv, ment:mv}, stress:{phys:pv.map(()=>false), ment:mv.map(()=>false)}, cons:{mild:'',moderate:'',severe:''}, gearAtk:0, gearDef:0, gearRng:0, gearAmmo:0}, o);
 }
 function freshCombat(){
   return {state:'off', id:null, ch:'table', title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, last:null, acted:false, moved:false, phase:null, lead:null};
@@ -412,10 +412,15 @@ N.order = (cb = N.G.combat) => {
   if (i > 0) o.unshift(o.splice(i, 1)[0]);
   return o;
 };
-/* gear ratings (0 to 9): gearAtk is the weapon, gearDef the armor. They never change a roll:
-   the weapon adds shifts to a hit and the armor takes shifts off it (see N.cbResolve).
+/* gear ratings (0 to 9). gearAtk is the melee weapon (the field kept its old name so every card's rating carries over),
+   gearDef the armor, gearAmmo the ranged ammo, gearRng the ranged weapon.
+   Melee weapon (Fighting attacks) and ammo (Shooting attacks) add shifts to a hit, armor takes shifts off it
+   (see N.cbResolve). The ranged weapon is the only one that changes a roll: it is added to a Shooting attack roll.
    NPC tokens carry their own; a player's character card holds theirs. */
 N.tokGear = (t, k) => !t ? 0 : t.kind === 'npc' ? (+t[k] || 0) : (+(N.G.chars[t.ref] || {})[k] || 0);
+/* what an attacker's gear does for an attack with this skill: roll = added to the attack roll, hit = shifts added to a hit */
+N.atkGear = (t, sk) => sk === 'Fighting' ? {roll:0, hit:N.tokGear(t, 'gearAtk'), hitL:'melee weapon'}
+  : sk === 'Shooting' ? {roll:N.tokGear(t, 'gearRng'), rollL:'ranged weapon', hit:N.tokGear(t, 'gearAmmo'), hitL:'ammo'} : {roll:0, hit:0};
 N.curTok = () => { if (N.G.combat.phase === 'notice') return null; const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
 N.tokObj = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref] || {}; const p = N.G.P[c.player]; return {name:c.short || '?', portrait:c.built ? c.portrait : null, color:p?.color || 'var(--accent)'}; }
   return {name:t.name, portrait:t.portrait, color:t.side === 'ally' ? 'var(--c-npc)' : 'var(--c-foe)'}; };
@@ -426,7 +431,7 @@ N.ZCOL = ['#f4c46e','#6fd6c0','#ff9a7e','#a99bff','#9cd36b','#f39ad0'];
 N.tokFromNpc = (n, side, label) => {
   const nameless = n.type === 'nameless', v = nameless ? [1] : stressVals((n.skills||{}).Strength||0);
   return {id:uid('t'), kind:'npc', ref:n.id, name:label || n.name, portrait:n.portrait || null, side, type:n.type || 'supporting', skills:{...(n.skills||{})},
-    aspects:[n.hc, ...(n.aspects||[])].filter(Boolean), stressV:v, stress:v.map(()=>false), cons:{...(n.cons||{})}, zone:null, out:false, gearAtk:+n.gearAtk || 0, gearDef:+n.gearDef || 0};
+    aspects:[n.hc, ...(n.aspects||[])].filter(Boolean), stressV:v, stress:v.map(()=>false), cons:{...(n.cons||{})}, zone:null, out:false, gearAtk:+n.gearAtk || 0, gearDef:+n.gearDef || 0, gearRng:+n.gearRng || 0, gearAmmo:+n.gearAmmo || 0};
 };
 N.tokFromPc = c => ({id:uid('t'), kind:'pc', ref:c.id, zone:null, out:false});
 })();

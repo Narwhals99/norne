@@ -64,6 +64,7 @@ N.sheetHtml = function(v){
     const targets = inFight ? N.targetsOf(tokOfWho) : [];
     const bonus = other ? (+r.otherBonus || 0) : (who.skills[r.skill] ?? 0);
     const fightAtk = r.action === 'attack' && inFight;
+    const fg = fightAtk && !other ? N.atkGear(tokOfWho, r.skill) : {roll:0, hit:0};
     /* out of a fight the GM can roll against one of their NPC cards: pick the skill it's rolled against, then the NPC,
        and the difficulty becomes that NPC's rating in it (still changeable). No NPC means the GM sets the difficulty. */
     const ev = gm && r.event && r.ctx === 'cb' && cb.state === 'live';
@@ -95,9 +96,9 @@ N.sheetHtml = function(v){
         ${r.all || !skills.length ? '' : `<button type="button" class="btn sm ghost" data-a="rollAll" style="margin-top:8px">Show every skill (${rest.length} more at +0)</button>`}</div>`}
       ${fightAtk ? `<div class="note">${IC('defend')}Your target rolls to defend right after you. The result shows in the chat once both rolls are in.</div>` : rp ? vsHtml : `<div><h4>Against ${r.action==='attack'||r.action==='defend'?'(the other side rolls)':'(optional)'}</h4>${oppChips}</div>`}
       ${gm ? `<button type="button" class="toggle" data-a="rollSecret" aria-pressed="${!!r.secret}">${IC('eyeoff')}<span>Secret roll<small>${ev ? 'Only you see it, in your fight log. Players don’t.' : 'Only you see it, in GM notes.'}</small></span><span class="sw"></span></button>` : ''}
-      <p class="rollsum">4 Fate dice + ${other ? 'bonus' : esc(r.skill)} ${sgn(bonus)}.${fightAtk && tokOfWho && N.tokGear(tokOfWho, 'gearAtk') ? ` A hit gets +${N.tokGear(tokOfWho, 'gearAtk')} shifts from the weapon.` : ''} After you see the roll you can invoke aspects for +2 or a reroll.</p>`;
+      <p class="rollsum">4 Fate dice + ${other ? 'bonus' : esc(r.skill)} ${sgn(bonus)}.${fg.roll ? ` Ranged weapon +${fg.roll} goes on the roll.` : ''}${fg.hit ? ` A hit gets +${fg.hit} shifts from the ${fg.hitL}.` : ''} After you see the roll you can invoke aspects for +2 or a reroll.</p>`;
     const dis = r.action === 'attack' && inFight && !r.target;
-    return sheet(ev ? 'Custom event' : 'Roll the dice', body, `<button type="button" class="btn gold lg" data-a="doRoll" ${dis?'disabled':''}>${N.fateDie}Roll ${other ? '' : esc(r.skill) + ' '}${sgn(bonus)}</button>`, {lead:other ? '' : N.av(who,36)});
+    return sheet(ev ? 'Custom event' : 'Roll the dice', body, `<button type="button" class="btn gold lg" data-a="doRoll" ${dis?'disabled':''}>${N.fateDie}Roll ${other ? '' : esc(r.skill) + ' '}${sgn(bonus + fg.roll)}</button>`, {lead:other ? '' : N.av(who,36)});
   }
   /* ---------------- invoke ---------------- */
   case 'invoke': {
@@ -480,7 +481,9 @@ function pcEditor(v){
       ${extra.length ? `<p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">Also: ${extra.map(([k,x]) => `<button type="button" class="btn sm ghost" data-a="pdSkillDel" data-v="${esc(k)}" style="--h:28px">${esc(k)} ${sgn(x)} ${IC('x')}</button>`).join(' ')}</p>` : ''}
       ${discPick(d, 'pdDisc')}</div>
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
-      <label class="field"><span>Weapon rating · shifts added to a hit</span>${N.gearSelect(`pdga-${v.id}`, 'data-i="pd" data-k="gearAtk"', d.gearAtk)}</label>
+      <label class="field"><span>Melee weapon rating · Fighting, shifts added to a hit</span>${N.gearSelect(`pdga-${v.id}`, 'data-i="pd" data-k="gearAtk"', d.gearAtk)}</label>
+      <label class="field"><span>Ranged weapon rating · Shooting, added to the attack roll</span>${N.gearSelect(`pdgr-${v.id}`, 'data-i="pd" data-k="gearRng"', d.gearRng)}</label>
+      <label class="field"><span>Ranged ammo rating · Shooting, shifts added to a hit</span>${N.gearSelect(`pdgm-${v.id}`, 'data-i="pd" data-k="gearAmmo"', d.gearAmmo)}</label>
       <label class="field"><span>Armor rating · shifts taken off a hit</span>${N.gearSelect(`pdgd-${v.id}`, 'data-i="pd" data-k="gearDef"', d.gearDef)}</label>
     </div>
     <div><h4>Stunts</h4>${stunts(v, d, 'pd')}</div>
@@ -505,7 +508,9 @@ function npcEditor(v){
     </div></div>
     <div><h4>Skills</h4>${skillLadder(v, d, 'ndSkill', 'ndSkillDel', RUNGS)}${discPick(d, 'ndDisc')}</div>
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
-      <label class="field"><span>Weapon rating · shifts added to a hit</span>${N.gearSelect(`ndga-${v.id}`, 'data-i="nd" data-k="gearAtk"', d.gearAtk)}</label>
+      <label class="field"><span>Melee weapon rating · Fighting, shifts added to a hit</span>${N.gearSelect(`ndga-${v.id}`, 'data-i="nd" data-k="gearAtk"', d.gearAtk)}</label>
+      <label class="field"><span>Ranged weapon rating · Shooting, added to the attack roll</span>${N.gearSelect(`ndgr-${v.id}`, 'data-i="nd" data-k="gearRng"', d.gearRng)}</label>
+      <label class="field"><span>Ranged ammo rating · Shooting, shifts added to a hit</span>${N.gearSelect(`ndgm-${v.id}`, 'data-i="nd" data-k="gearAmmo"', d.gearAmmo)}</label>
       <label class="field"><span>Armor rating · shifts taken off a hit</span>${N.gearSelect(`ndgd-${v.id}`, 'data-i="nd" data-k="gearDef"', d.gearDef)}</label>
     </div>
     <label class="field"><span>Disciplines</span><textarea class="inp" id="ndm-${v.id}" data-i="nd" data-k="magic" rows="2" placeholder="Notes on their disciplines and anything else they can do">${esc(d.magic||'')}</textarea></label>

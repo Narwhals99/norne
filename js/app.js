@@ -604,6 +604,9 @@ function doRoll(v){
   const fight = isGM(v) && g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
   const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : r.opp, dice:N.rollDice(), invokes:[]};
   if (fight) roll.fight = true;
+  /* a ranged weapon helps the Shooting attack itself: its rating goes on the roll (shown as its own part of the total) */
+  const rg = fight && r.action === 'attack' && tgt && !other ? N.atkGear(N.tokOfKey(who.key), skill) : null;
+  if (rg && rg.roll) { roll.bonus += rg.roll; roll.gear = rg.roll; roll.gearL = rg.rollL; }
   /* a custom event (mind magic, a spell, anything the four actions don't cover) is a fight roll built like a roleplay roll:
      a skill against a skill and/or someone, a difficulty, passive or not, and it can be secret */
   const ev = fight && r.event, rp = isGM(v) && (ev || (!fight && r.ctx !== 'cb') || (fight && r.ctx === 'cb' && r.action !== 'attack'));
@@ -1516,7 +1519,7 @@ function savePc(v){
   const pv = sv(d.skills.Strength || 0), mv = sv(d.skills.Will || 0);
   Object.assign(c, {name:d.name.trim(), short:(d.short.trim() || d.name.trim().split(' ')[0]), portrait:d.portrait || null, hc:'', trouble:'',
     aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), race:(d.race || '').trim(), age:(d.age || '').trim(), bio:d.bio || '', people:d.people || '', invText:d.invText || '', skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), refresh:d.refresh, fp:d.fp, built:true,
-    stressV:{phys:pv, ment:mv}, stress:{phys:pv.map((x,i) => !!c.stress.phys[i]), ment:mv.map((x,i) => !!c.stress.ment[i])}, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0});
+    stressV:{phys:pv, ment:mv}, stress:{phys:pv.map((x,i) => !!c.stress.phys[i]), ment:mv.map((x,i) => !!c.stress.ment[i])}, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0});
   delete c.disc; c.disc = keepDisc(d);
   v.ui.sheet = null;
   if (first) { sys(`${N.gmName()} made your character card: ${c.name}. Open Character to see it.`, 'dm-' + c.player); toast(v, `Saved. ${g.P[c.player]?.name || 'They'} got a note.`); }
@@ -1535,7 +1538,7 @@ function pickDisc(d, k, x){
 function saveNpc(v){
   const g = G(), d = v.ui.nd, old = d.edit && g.npcs.find(x => x.id === d.edit);
   const base = {name:d.name.trim(), race:d.race.trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
-    skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0,
+    skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0,
     inv:(d.inv || []).map(x => [...x])};
   let n;
   if (old) {

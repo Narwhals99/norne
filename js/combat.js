@@ -167,7 +167,9 @@ N.tokConsSrc = t => {
 N.tokCons = t => { const s = N.tokConsSrc(t); return s ? N.consSlots(s.o.skills).map(sl => Object.assign({v:(s.o.cons || {})[sl.k] || ''}, sl)) : []; };
 const smallCons = t => { const cs = N.tokCons(t).filter(x => x.v); return cs.length ? `<small class="cq-ln">${IC('cards')}${cs.map(x => esc(x.v)).join(' · ')}</small>` : ''; };
 const zoneTag = t => { const z = N.zoneOf(t); return z ? `<span class="nb-zt" style="--zc:${z.col}">${esc(z.name)}</span>` : ''; };
-const gearTag = t => (N.tokGear(t, 'gearAtk') || N.tokGear(t, 'gearDef')) ? `<span class="nb-gear" title="Weapon and armor">${IC('sword')}${sgn(N.tokGear(t, 'gearAtk'))} ${IC('shieldU')}${sgn(N.tokGear(t, 'gearDef'))}</span>` : '';
+/* the gear ratings in the order cards show them: [key, label, icon] */
+N.GEARS = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target'],['gearAmmo','Ranged ammo','arrowR'],['gearDef','Armor','shieldU']];
+const gearTag = t => N.GEARS.some(([k]) => N.tokGear(t, k)) ? `<span class="nb-gear" title="Gear">${N.GEARS.filter(([k]) => N.tokGear(t, k) || k === 'gearAtk' || k === 'gearDef').map(([k,,ic]) => `${IC(ic)}${sgn(N.tokGear(t, k))}`).join(' ')}</span>` : '';
 function myStress(v){
   const c = N.charOf(v.role); if (!c || !c.built) return '';
   return `<div class="mine"><span class="lab">Phys</span>${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}${(() => { const f = N.consSlots(c.skills).filter(sl => (c.cons || {})[sl.k]); return f.length ? `<span class="lab">Hurt</span>${f.map(sl => `<span class="cqt" title="${sl.l} consequence">${esc(c.cons[sl.k])}</span>`).join('')}` : ''; })()}<span class="lab">Fate</span><span class="coins">${N.coinsHtml(c,false)}</span></div>`;
@@ -333,7 +335,7 @@ N.tokCard = function(v, t){
       })()}
       ${gm || t.kind==='pc' ? `<span>Skills</span><span>${sk.map(([n,x])=>`${esc(n)} ${sgn(x)}`).join(' · ')}</span>` : ''}
       ${t.init != null ? `<span>Turn roll</span><span>Notice ${sgn(N.tokNotice(t))}, rolled ${sgn(t.init)} ${ladderWord(t.init)}</span>` : ''}
-      ${gm ? `<span>Gear</span><span style="display:flex;gap:8px;flex-wrap:wrap"><label class="field" style="flex:1;min-width:110px"><span>Weapon</span>${N.gearSelect(`tga-${t.id}-${v.id}`, `data-i="tokGear" data-k="gearAtk" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, N.tokGear(t, 'gearAtk'))}</label><label class="field" style="flex:1;min-width:110px"><span>Armor</span>${N.gearSelect(`tgd-${t.id}-${v.id}`, `data-i="tokGear" data-k="gearDef" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, N.tokGear(t, 'gearDef'))}</label></span>` : (N.tokGear(t, 'gearAtk') || N.tokGear(t, 'gearDef')) ? `<span>Gear</span><span>Weapon ${sgn(N.tokGear(t, 'gearAtk'))} · Armor ${sgn(N.tokGear(t, 'gearDef'))}</span>` : ''}
+      ${gm ? `<span>Gear</span><span style="display:flex;gap:8px;flex-wrap:wrap">${N.GEARS.map(([k,l]) => `<label class="field" style="flex:1;min-width:110px"><span>${l}</span>${N.gearSelect(`tg${k}-${t.id}-${v.id}`, `data-i="tokGear" data-k="${k}" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, N.tokGear(t, k))}</label>`).join('')}</span>` : N.GEARS.some(([k]) => N.tokGear(t, k)) ? `<span>Gear</span><span>${N.GEARS.map(([k,l]) => `${l} ${sgn(N.tokGear(t, k))}`).join(' · ')}</span>` : ''}
     </div>
     ${gm ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
       ${t.kind==='npc'?`<button type="button" class="btn sm" data-a="voice" data-v="${esc(t.name.replace(/ \d+$/,''))}" data-go="side">${IC('chatL')}Speak as</button><button type="button" class="btn sm" data-a="roll" data-who="tok:${t.id}">${N.fateDie}Roll</button>`:''}
@@ -486,7 +488,7 @@ N.cbAddNpc = function(nid, side, zone){
 N.cbAddFoe = function(i, side, zone){
   const g = G(), cb = g.combat, f = g.foes[i]; if (!f) return null;
   const same = cb.tokens.filter(t => t.ref === 'foe:' + f.name).length;
-  const t = N.tokFromNpc({id:'foe:' + f.name, name:f.name, type:f.type, skills:f.skills, aspects:f.aspects || [], gearAtk:f.gearAtk, gearDef:f.gearDef}, side, `${f.name} ${same + 1}`);
+  const t = N.tokFromNpc({id:'foe:' + f.name, name:f.name, type:f.type, skills:f.skills, aspects:f.aspects || [], gearAtk:f.gearAtk, gearDef:f.gearDef, gearRng:f.gearRng, gearAmmo:f.gearAmmo}, side, `${f.name} ${same + 1}`);
   t.zone = zone || null; cb.tokens.push(t); N.cbLateInit(t); return t;
 };
 /* the GM takes someone out of the fight (a copy added by mistake, say). Only the fight's token goes: an NPC card stays
@@ -578,18 +580,18 @@ N.boostTick = t => {
    plus a boost on the defender (pending.stage 'style', then N.cbStyle).
    Then the GM picks how the defender soaks it: a stress box, a consequence or taken out (pending.stage 'absorb',
    N.cbAbsorb), for player characters and NPCs alike. */
-const rollLine = (name, r) => ({n:name, sk:r.skill, b:r.bonus, g:r.gear || 0, tot:N.rollTotal(r)});
+const rollLine = (name, r) => ({n:name, sk:r.skill, b:r.bonus, g:r.gear || 0, ...(r.gearL ? {gl:r.gearL} : {}), tot:N.rollTotal(r)});
 N.cbResolve = function(again){
   const g = G(), cb = g.combat, p = cb.pending; if (!p || !p.defMsg) return;
   const a = N.tokById(p.att), d = N.tokById(p.def), am = g.msgs.find(m => m.id === p.msgId), dm = g.msgs.find(m => m.id === p.defMsg);
   if (!a || !d || !dm) { cb.pending = null; return; }
   const an = N.tokName(a), dn = N.tokName(d), dt = N.rollTotal(dm.roll), sh = p.total - dt;
-  const wpn = sh > 0 ? N.tokGear(a, 'gearAtk') : 0, arm = sh > 0 ? N.tokGear(d, 'gearDef') : 0;
+  const wpn = sh > 0 ? N.atkGear(a, p.skill).hit : 0, wpnL = N.atkGear(a, p.skill).hitL, arm = sh > 0 ? N.tokGear(d, 'gearDef') : 0;
   const dmg = Math.max(0, sh + wpn - arm - (p.boosted ? 2 : 0)), fx = p.fx = p.fx || {};
   const boost = (o, on) => { (fx.boosts = fx.boosts || []).push(N.addBoost(o, on).id); };
   let out, after, calc = null, fo;
   if (sh > 0) {
-    if (wpn || arm || p.boosted) calc = `Hit by ${sh}${wpn ? ` · weapon +${wpn}` : ''}${arm ? ` · armor −${arm}` : ''}${p.boosted ? ' · traded −2 for a boost' : ''} = ${dmg} shift${dmg===1?'':'s'}`;
+    if (wpn || arm || p.boosted) calc = `Hit by ${sh}${wpn ? ` · ${wpnL} +${wpn}` : ''}${arm ? ` · armor −${arm}` : ''}${p.boosted ? ' · traded −2 for a boost' : ''} = ${dmg} shift${dmg===1?'':'s'}`;
     const style = sh >= 3 && dmg > 0 && !p.boosted;
     out = {k:'hit', t:dmg ? `Hit${style ? ' with style' : ''} · ${dmg} shift${dmg>1?'s':''}` : 'Hit · armor holds'};
     if (!dmg) { after = `${dn}’s armor takes the whole blow. No harm done.`; N.cbSettled(p); fo = 'armor'; }
