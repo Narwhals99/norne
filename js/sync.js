@@ -553,7 +553,16 @@ function ensureChars(){
 /* each character keeps its own unread marks on this device, as if it were a different person */
 const LKEY = () => 'norne-seen-' + ME.uid + (ME.seats?.length > 1 && isSeat(G().role) ? '-' + G().role : '');
 function loadLocal(){ const g = G(); try { const d = JSON.parse(localStorage.getItem(LKEY()) || '{}'); g.seen[g.role] = d.t || {}; g.news.seen[g.role] = d.n || []; } catch(e) { g.seen[g.role] = {}; g.news.seen[g.role] = []; } }
-function saveLocal(){ const g = G(); try { localStorage.setItem(LKEY(), JSON.stringify({t:g.seen[g.role] || {}, n:g.news.seen[g.role] || []})); } catch(e) {} }
+/* several tabs share these marks: each one keeps the newest of its own and the stored ones, so a tab
+   left open on another screen never brings back the unread dots for chats read in this one */
+function mergeLocal(d){
+  const g = G(), t = g.seen[g.role] || (g.seen[g.role] = {}), n = g.news.seen[g.role] || (g.news.seen[g.role] = []); let more = false;
+  for (const [ch, at] of Object.entries(d?.t || {})) if (typeof at === 'number' && at > (t[ch] || 0)) { t[ch] = at; more = true; }
+  for (const id of d?.n || []) if (!n.includes(id)) { n.push(id); more = true; }
+  return more;
+}
+function saveLocal(){ const g = G(); try { mergeLocal(JSON.parse(localStorage.getItem(LKEY()) || '{}')); localStorage.setItem(LKEY(), JSON.stringify({t:g.seen[g.role] || {}, n:g.news.seen[g.role] || []})); } catch(e) {} }
+addEventListener('storage', e => { if (!started || !ME || e.key !== LKEY()) return; try { if (mergeLocal(JSON.parse(e.newValue || '{}'))) N.renderAll(); } catch(err) {} });
 
 /* ---------- start-up ---------- */
 async function boot(view){

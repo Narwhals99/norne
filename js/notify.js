@@ -60,8 +60,27 @@ function seen(){
   N.pushSeen(devId(), on ? Date.now() : 0).catch(() => {});
   if (on) seenT = setTimeout(seen, SEEN_EVERY);
 }
-document.addEventListener('visibilitychange', seen);
-addEventListener('pagehide', () => { if (pushed && N.pushSeen) N.pushSeen(devId(), 0).catch(() => {}); });
+/* Norne can be open in several tabs or windows of one browser (the chat on one screen, the map on another).
+   They share one push address, so they tell each other when they come and go: a tab that goes to the
+   background or closes says so, and any tab still on screen marks the device as seen again at once. */
+const TAB = N.uid('tab'), TABS = new Map();
+const bc = 'BroadcastChannel' in window ? new BroadcastChannel('norne-tabs') : null;
+const here = () => ({id:TAB, vis:!document.hidden, focus:!document.hidden && document.hasFocus()});
+const tell = (gone) => { if (bc) try { bc.postMessage(gone ? {id:TAB, gone:true} : here()); } catch(e) {} };
+if (bc) bc.onmessage = e => {
+  const d = e.data || {}; if (!d.id || d.id === TAB) return;
+  if (d.ask) { tell(); return; }
+  if (d.gone) TABS.delete(d.id); else TABS.set(d.id, {vis:!!d.vis, focus:!!d.focus});
+  if (!document.hidden && (d.gone || !d.vis)) seen();
+};
+/* true while another Norne tab in this browser is on screen and being used */
+const otherInFront = () => [...TABS.values()].some(t => t.focus);
+const changed = () => { seen(); tell(); };
+document.addEventListener('visibilitychange', changed);
+addEventListener('focus', () => tell()); addEventListener('blur', () => tell());
+addEventListener('pagehide', () => { if (pushed && N.pushSeen) N.pushSeen(devId(), 0).catch(() => {}); tell(true); });
+addEventListener('pageshow', e => { if (e.persisted) tell(); });
+if (bc) try { tell(); bc.postMessage({id:TAB, ask:true}); } catch(e) {}
 async function unsubscribe(){
   pushed = false;
   try { const r = reg && await navigator.serviceWorker.ready, sub = r && await r.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch(e) {}
@@ -119,7 +138,7 @@ const pings = ms => ms.length > 1 ? `${ms[ms.length - 1]} (+${ms.length - 1} mor
 const worth = m => !(m.kind === 'scene' && m.quiet);
 /* without push: ping this device for messages from others while Norne is open but not in front */
 N.notifyMsgs = list => {
-  if (pushed || N.notifyState() !== 'on' || (!document.hidden && document.hasFocus())) return;
+  if (pushed || N.notifyState() !== 'on' || (!document.hidden && document.hasFocus()) || otherInFront()) return;
   const role = G().role;
   const mine = list.filter(m => m.by !== role && worth(m) && N.channelsFor(role).includes(m.ch));
   const byCh = {};
