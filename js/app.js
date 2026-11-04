@@ -508,6 +508,8 @@ function input(v, el){
     case 'wd': if (k === 'cap') { v.ui.wd.imgs[+el.dataset.n].cap = val; return; } if (k === 'ph' || k === 'pt') { v.ui.wd.parts[+el.dataset.n][k === 'ph' ? 'h' : 'text'] = val; return; } v.ui.wd[k] = val; if (k === 'title') render(v); return;
     case 'cd': v.ui.cd[+el.dataset.n].name = val; return;
     case 'mapName': { const m = G().maps.find(x => x.id === el.dataset.v); if (m) m.name = val; return; }
+    case 'mapFolder': { const m = G().maps.find(x => x.id === el.dataset.v); if (!m) return; if (val) m.dir = val; else delete m.dir; N.renderAll(); return; }
+    case 'md': if (v.ui.md) { v.ui.md[k] = val; if (k === 'name') { const b = v.root.querySelector('[data-a="mdSave"]'); if (b) b.disabled = !val.trim(); } else render(v); } return;
     case 'npcNotes': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n[k || 'notes'] = val; return; }
     case 'npcCon': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n.cons[k] = val; return; }
     case 'tokCon': { const t = N.tokById(el.dataset.t); if (t) { t.cons = t.cons || {mild:t.mild || ''}; t.cons[k] = val; } return; }
@@ -987,7 +989,7 @@ function act(v, a, el, e){
   case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); if (val === 'search') { render(v); const f = v.root.querySelector(`#cq-${v.id}`); if (f) { f.focus({preventScroll:true}); f.select(); } return; } break;
   case 'closeSheet': ui.sheet = null; break;
   case 'closePop': ui.pop = null; break;
-  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { openPop(v, val, el);
+  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); openPop(v, val, el);
     /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box */
     if (val === 'emof') { const box = el.closest('.sheet, .page') || v.root, last = v._fld && box.querySelector('#' + CSS.escape(v._fld)); const f = last || box.querySelector('textarea[id], input.inp[id]:not([type]), input.inp[id][type=text]');
       /* where the caret was: the box is drawn again before the emoji is picked, which would lose it */
@@ -1226,6 +1228,30 @@ function act(v, a, el, e){
   /* map */
   case 'mapGo': ui.mapId = val; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break;
   case 'mapEdit': ui.mapEdit = !ui.mapEdit; ui.addPin = false; break;
+  /* map folders: open one in the maps dropdown, make, rename, move or delete one (GM) */
+  case 'mapDirGo': ui.mapDir = N.dirById(val) ? val : null; break;
+  case 'mdOpen': { const dir = N.dirById(val); ui.pop = null; ui.md = dir ? {id:dir.id, name:dir.name, in:N.dirById(dir.in) ? dir.in : ''} : {id:null, name:'', in:d.in || '', map:d.map || ''}; ui.sheet = 'mapDir'; ui.sheetArg = null; break; }
+  case 'mdSave': {
+    const md = ui.md, name = (md?.name || '').trim(); if (!name) break;
+    g.mapDirs = g.mapDirs || [];
+    let dir = md.id && N.dirById(md.id);
+    if (!dir) { dir = {id:uid('dir'), name, in:null}; g.mapDirs.push(dir); }
+    dir.name = name; dir.in = md.in && md.in !== dir.id && !N.dirTree(dir.id).includes(md.in) ? md.in : null;
+    const m = md.map && g.maps.find(x => x.id === md.map);
+    if (m) { m.dir = dir.id; ui.md = null; ui.sheet = 'mapSet'; ui.sheetArg = m.id; }
+    else { ui.md = null; ui.sheet = null; ui.mapDir = dir.id; openPop(v, 'maps', v.root.querySelector('.mapsel') || el); }
+    toast(v, md.id ? `Saved the ${name} folder.` : `Made the ${name} folder.`); renderAll(); return;
+  }
+  case 'mdDel': {
+    /* a deleted folder's maps and folders move up into the folder it sat in */
+    const dir = N.dirById(val); if (!dir) break;
+    const up = N.dirById(dir.in) ? dir.in : null, at = g.mapDirs.indexOf(dir);
+    const maps = g.maps.filter(m => m.dir === dir.id), kids = g.mapDirs.filter(x => x.in === dir.id);
+    maps.forEach(m => { if (up) m.dir = up; else delete m.dir; }); kids.forEach(x => { x.in = up; });
+    g.mapDirs.splice(at, 1); ui.md = null; ui.sheet = null; if (ui.mapDir === dir.id) ui.mapDir = up;
+    toast(v, `Deleted the ${dir.name} folder. What was in it moved up a level.`, () => { g.mapDirs.splice(at, 0, dir); maps.forEach(m => { m.dir = dir.id; }); kids.forEach(x => { x.in = dir.id; }); });
+    renderAll(); return;
+  }
   case 'mapType': ui.mapType = val; break;
   case 'addPin': ui.addPin = !ui.addPin; if (ui.addPin) toast(v, 'Tap the map where the new place goes.'); break;
   case 'mapAud': {
@@ -1246,7 +1272,7 @@ function act(v, a, el, e){
   }
   case 'mapUpload': ui.pop = null; N.pickImage((img, f) => {
       const id = uid('map'), src = N.storeImg(N.shrink(img, 2400), false);
-      g.maps.push({id, name:f.name.replace(/\.[^.]+$/, ''), src, w:img.naturalWidth, h:img.naturalHeight, vis:false, pins:[]});
+      g.maps.push({id, name:f.name.replace(/\.[^.]+$/, ''), src, w:img.naturalWidth, h:img.naturalHeight, vis:false, pins:[], ...(N.dirById(ui.mapDir) ? {dir:ui.mapDir} : {})});
       ui.mapId = id; ui.mapT = null; ui.mapEdit = true; ui.sheet = 'mapSet'; ui.sheetArg = id; toast(v, 'Map added. It stays hidden until you pick who sees it.'); renderAll();
     }); return;
   case 'findParty': ui.mapId = g.party.map; ui.mapT = null; ui.pinSel = '__party'; render(v); return;
@@ -1318,6 +1344,20 @@ function act(v, a, el, e){
   }
   /* character + cast */
   case 'charSel': ui.charSel = val; break;
+  /* sheet reveals (GM) */
+  case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; break;
+  case 'revSeat': ui.revSeat = val; break;
+  case 'revTog': case 'revAll': {
+    const id = ui.sheetArg, st = ui.revSeat; if (!id || !st) break;
+    g.rev = g.rev || {}; const by = g.rev[id] = g.rev[id] || {};
+    const c = g.chars[id], card = c || g.npcs.find(x => x.id === id); if (!card) break;
+    let keys = by[st] || [];
+    if (a === 'revAll') keys = val ? N.revParts(card, !!c).map(p => p.k) : [];
+    else keys = keys.includes(val) ? keys.filter(k => k !== val) : [...keys, val];
+    if (keys.length) by[st] = keys; else delete by[st];
+    if (!Object.keys(by).length) delete g.rev[id];
+    renderAll(); return;
+  }
   case 'castSeg': ui.castSeg = val; ui.castSel = null; break;
   case 'castSel': ui.castSel = val; break;
   case 'castBack': ui.castSel = null; break;

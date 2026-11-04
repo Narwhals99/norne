@@ -623,8 +623,18 @@ function popHtml(v){
     return `<div class="pop" style="${pos}" role="menu" aria-label="New">${row('wNew', 'quill', 'Wiki entry', 'A person, place or rule')}${row('writeNews', 'newsL', 'News edition', 'Players get a ping')}<div class="sep"></div>${row('sheet', 'gear', 'Categories', 'Rename, reorder, icons', 'data-v="wCats"')}</div>`;
   }
   if (p.type === 'maps') {
-    return `<div class="pop" style="${pos}" role="listbox" aria-label="Maps">${g.maps.filter(m=>isGM(v)||m.vis!==false).map(m => `<button type="button" class="opt" data-a="mapGo" data-v="${m.id}" aria-selected="${N.curMap(v)===m}"><span class="av sq" style="--s:40px;box-shadow:none;background:${N.imgUrl(m.src)?`url(${N.imgUrl(m.src)}) center/cover`:'var(--sunk)'}"></span><span>${esc(m.name)}<small>${m.pins.filter(p=>p.type!=='party'&&(isGM(v)||p.vis)).length} places${isGM(v)&&N.audOf(m,'map')!=='*'?' · '+esc(N.audOf(m,'map')==='gm'?'hidden from players':N.audLabel(m,'map')):''}</small></span>${N.curMap(v)===m?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
-      ${isGM(v)?`<div class="sep"></div><button type="button" class="opt" data-a="mapUpload"><span class="av sq" style="--s:40px;box-shadow:inset 0 0 0 1.5px var(--line-2);background:transparent;color:var(--ink-3)">${IC('upload').replace('<svg','<svg style="width:18px;height:18px"')}</span><span>Add a map image</span></button>`:''}</div>`;
+    /* maps sit in folders; the dropdown opens one folder at a time, players only see folders that hold a map they can see */
+    const gm = isGM(v), see = m => gm || m.vis !== false, here = N.dirById(v.ui.mapDir) ? v.ui.mapDir : null;
+    const dirs = N.dirKids(here).map(d => [d, N.dirCount(d.id, see)]).filter(([, n]) => gm || n);
+    const maps = g.maps.filter(m => see(m) && N.mapDirOf(m) === here);
+    const tile = (ic, x = '') => `<span class="av sq" style="--s:40px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)${x}">${IC(ic).replace('<svg','<svg style="width:20px;height:20px"')}</span>`;
+    const up = here ? N.dirById(here).in : null, path = N.dirPath(here);
+    const head = here ? `<div class="mdhead"><button type="button" class="opt" data-a="mapDirGo" data-v="${esc(N.dirById(up) ? up : '')}" aria-label="Back to ${esc(N.dirById(up)?.name || 'all maps')}">${IC('left')}<span><small>${esc(['All maps', ...path.slice(0, -1).map(d => d.name)].join(' › '))}</small>${esc(path[path.length - 1].name)}</span></button>${gm ? `<button type="button" class="ibtn sm" data-a="mdOpen" data-v="${esc(here)}" aria-label="Rename, move or delete this folder" title="Folder settings">${IC('pen')}</button>` : ''}</div><div class="sep"></div>` : '';
+    const dirRow = ([d, n]) => `<button type="button" class="opt" data-a="mapDirGo" data-v="${esc(d.id)}">${tile('folder')}<span>${esc(d.name)}<small>${n} ${n === 1 ? 'map' : 'maps'}${gm && N.dirKids(d.id).length ? ` · ${N.dirKids(d.id).length} ${N.dirKids(d.id).length === 1 ? 'folder' : 'folders'}` : ''}</small></span><span class="ck" style="color:var(--ink-3)">${IC('right')}</span></button>`;
+    const mapRow = m => `<button type="button" class="opt" data-a="mapGo" data-v="${m.id}" aria-selected="${N.curMap(v)===m}"><span class="av sq" style="--s:40px;box-shadow:none;background:${N.imgUrl(m.src)?`url(${N.imgUrl(m.src)}) center/cover`:'var(--sunk)'}"></span><span>${esc(m.name)}<small>${m.pins.filter(p=>p.type!=='party'&&(gm||p.vis)).length} places${gm&&N.audOf(m,'map')!=='*'?' · '+esc(N.audOf(m,'map')==='gm'?'hidden from players':N.audLabel(m,'map')):''}</small></span>${N.curMap(v)===m?`<span class="ck">${IC('check')}</span>`:''}</button>`;
+    const empty = !dirs.length && !maps.length ? `<p class="muted" style="margin:6px 10px 8px;font:600 13px/1.4 var(--f-ui)">${gm ? 'This folder is empty. Move a map in from its settings while editing the map.' : 'No maps here yet.'}</p>` : '';
+    return `<div class="pop mapspop" style="${pos}" role="listbox" aria-label="Maps">${head}${dirs.map(dirRow).join('')}${maps.map(mapRow).join('')}${empty}
+      ${gm?`<div class="sep"></div><button type="button" class="opt" data-a="mdOpen" data-in="${esc(here || '')}">${tile('folder', ';background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2);color:var(--ink-3)')}<span>New folder${here ? ' here' : ''}</span></button><button type="button" class="opt" data-a="mapUpload"><span class="av sq" style="--s:40px;box-shadow:inset 0 0 0 1.5px var(--line-2);background:transparent;color:var(--ink-3)">${IC('upload').replace('<svg','<svg style="width:18px;height:18px"')}</span><span>Add a map image${here ? ' here' : ''}</span></button>`:''}</div>`;
   }
   return '';
 }
@@ -652,7 +662,7 @@ function mapPage(v){
     <div class="mapov">
       <div class="row1">
         ${v.dev==='phone' ? meBtn(v) : ''}
-        <button type="button" class="mapsel glass" data-a="pop" data-v="maps"><span class="th" style="${src ? `background-image:url(${src})` : ''}"></span><span style="min-width:0"><small>Map${gm && N.audOf(m,'map') !== '*' ? ' · ' + (N.audOf(m,'map') === 'gm' ? 'hidden' : esc(N.audLabel(m,'map'))) : ''}</small><b>${esc(m.name)}</b></span>${IC('caret')}</button>
+        <button type="button" class="mapsel glass" data-a="pop" data-v="maps"><span class="th" style="${src ? `background-image:url(${src})` : ''}"></span><span style="min-width:0"><small>${N.mapDirOf(m) ? esc(N.dirName(m.dir)) : 'Map'}${gm && N.audOf(m,'map') !== '*' ? ' · ' + (N.audOf(m,'map') === 'gm' ? 'hidden' : esc(N.audLabel(m,'map'))) : ''}</small><b>${esc(m.name)}</b></span>${IC('caret')}</button>
         <div class="search only-dt" style="width:240px"><svg viewBox="0 0 256 256" fill="currentColor">${(window.ICONS.search||['',''])[1]}</svg><input class="inp glass" id="mapq-${v.id}" data-i="mapQ" placeholder="Find a place" value="${esc(v.ui.mapQ)}" style="border:0"></div>
         <span style="flex:1"></span>
         ${gm ? `<button type="button" class="btn ${v.ui.mapEdit?'primary':'glass'}" data-a="mapEdit">${IC('pen')}<span class="only-dt">${v.ui.mapEdit?'Done editing':'Edit map'}</span><span class="only-ph">${v.ui.mapEdit?'Done':'Edit'}</span></button>` : ''}
@@ -818,17 +828,45 @@ function paperHtml(p, prev){
 
 /* ================= character / cast ================= */
 function heroPage(v){
-  const g = G(), mine = N.charOf(v.role), sel = g.chars[v.ui.charSel] || mine;
-  const others = N.pcs();
-  if (!sel) return `<div class="scroll" data-sk="hero" style="min-height:0">${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>Character</h1></div>` : ''}<div class="quiet"><div class="art"></div><p>No character yet.</p></div></div>`;
-  const bag = N.heroBag(v);
+  const g = G(), mine = N.charOf(v.role);
+  /* other players' cards are hidden: a player sees only what the GM revealed (G.known), and NPCs they were told about */
+  const others = N.pcs(), npcs = Object.values(g.known || {}).filter(k => !k.pc).sort((a, b) => a.name.localeCompare(b.name));
+  const selId = v.ui.charSel && (g.chars[v.ui.charSel] || g.known?.[v.ui.charSel]) ? v.ui.charSel : mine?.id;
+  const sel = g.chars[selId] || null, kn = !sel ? g.known?.[selId] : null;
+  if (!sel && !kn) return `<div class="scroll" data-sk="hero" style="min-height:0">${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>Character</h1></div>` : ''}<div class="quiet"><div class="art"></div><p>No character yet.</p></div></div>`;
+  const own = sel && sel === mine;
+  const bag = N.heroBag(v) && own;
   if (bag && v.ui.heroInv) return heroInv(v, sel, mine);
+  const label = c => c.built ? c.short : pn(c), title = own ? 'My character' : sel ? esc(sel.built ? sel.short : pn(sel)) : esc(kn.name);
+  const chip = (id, avo, b, sm) => `<button type="button" class="pchip" data-a="charSel" data-v="${esc(id)}" aria-current="${id===selId}">${N.av(avo,36)}<span><b>${esc(b)}</b><small>${esc(sm)}</small></span></button>`;
+  const chips = [...[mine, ...others.filter(c => c !== mine)].filter(Boolean).map(c => chip(c.id, {name:label(c), portrait:c.built?c.portrait:null, color:c.color}, c===mine?'You':label(c), c===mine ? (c.built ? N.pcTag(c) : 'No card yet') : revCount(g.known?.[c.id]))),
+    ...npcs.map(k => chip(k.id, {name:k.name, portrait:k.portrait, color:'var(--c-npc)'}, k.name, revCount(k)))];
   return `<div class="scroll" data-sk="hero" style="min-height:0">
-    ${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>${sel===mine?'My character':esc(sel.built?sel.short:pn(sel))}</h1>${bag && sel.built ? `<button type="button" class="btn sm" data-a="heroInv" data-v="1">${IC('bag')}Inventory${sel.inv?.length ? ` <span class="tag" style="height:16px">${sel.inv.length}</span>` : ''}</button>` : ''}</div>` : ''}
+    ${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>${title}</h1>${bag && sel.built ? `<button type="button" class="btn sm" data-a="heroInv" data-v="1">${IC('bag')}Inventory${sel.inv?.length ? ` <span class="tag" style="height:16px">${sel.inv.length}</span>` : ''}</button>` : ''}</div>` : ''}
     <div class="sheetv">
-      ${others.length > 1 ? `<div class="party-row full">${others.map(c => `<button type="button" class="pchip" data-a="charSel" data-v="${c.id}" aria-current="${c===sel}">${N.av({name:c.built?c.short:pn(c),portrait:c.built?c.portrait:null,color:c.color},36)}<span><b>${esc(c===mine?'You':c.built?c.short:pn(c))}</b><small>${c.built?N.emoText(N.marks(esc(N.pcTag(c)))):'No card yet'}</small></span></button>`).join('')}</div>` : ''}
-      ${N.sheetBody(v, sel)}
+      ${chips.length > 1 ? `<div class="party-row full">${chips.join('')}</div>` : ''}
+      ${own ? N.sheetBody(v, sel) : knownBody(v, sel, g.known?.[selId])}
     </div></div>`;
+}
+const revCount = k => { if (!k) return 'Nothing revealed'; const n = (k.aspects?.length || 0) + (k.skills?.length || 0) + (k.stunts?.length || 0) + ['race','bio','people','cons','gear'].filter(x => k[x] != null).length; return n ? `${n} ${n === 1 ? 'thing' : 'things'} known` : 'Nothing revealed'; };
+/* someone else's card as a player sees it: the name and picture, and only the parts the GM revealed to them */
+function knownBody(v, c, k){
+  const name = k?.name || (c ? (c.built ? c.name : pn(c)) : ''), who = c ? `--who:${c.color}` : '--who:var(--c-npc)';
+  const av = N.av({name, portrait:k?.portrait ?? (c?.built ? c.portrait : null), color:c ? c.color : 'var(--c-npc)'}, 84);
+  const sub = [c ? `Played by ${pn(c)}` : 'Someone you know', k?.race, k?.age ? `Age ${k.age}` : ''].filter(Boolean).map(esc).join(' · ');
+  const hero = `<section class="pc-hero full" style="${who}">${av}<div style="min-width:0"><h2>${esc(name)}</h2><div class="by">${sub}</div></div></section>`;
+  const has = k && revCount(k) !== 'Nothing revealed';
+  if (!has) return hero + `<div class="quiet full"><div class="art"></div><p>${esc(N.gmName())} hasn’t shown you anything from ${esc(name)}’s card yet.</p></div>`;
+  const sec = (h, body, full) => `<section class="sec${full ? ' full' : ''}"><h3>${h}</h3>${body}</section>`;
+  const rungs = k.skills ? [...new Set(k.skills.map(x => x[1]))].sort((a, b) => b - a).map(x => [x, k.skills.filter(y => y[1] === x)]) : [];
+  return hero
+    + (k.aspects ? sec('Aspects', `<div class="asps">${asps(k.aspects.map(([i, a]) => [`Aspect ${i + 1}`, a]))}</div>`) : '')
+    + (k.skills ? sec('Skills', `<div class="lad">${rungs.map(([x, ns]) => `<div class="rung${x < 0 ? ' neg' : ''}"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(([n, , d]) => `<button type="button" disabled>${esc(n)}${d?.length ? `<small style="color:var(--ink-3);font-weight:600">${esc(d.join(', '))}</small>` : ''}</button>`).join('')}</span></div>`).join('')}</div>`) : '')
+    + (k.cons ? sec('Consequences', `<div class="cons">${k.cons.map(([l, r, val]) => `<div class="con"><span class="lv"><b>${esc(l)}</b>${esc(r)} shifts</span><span class="slot${val ? ' full' : ''}">${esc(val) || 'Empty'}</span></div>`).join('')}</div>`) : '')
+    + (k.gear ? sec('Weapons and armor', [['sword','Melee weapon'],['target','Ranged weapon'],['arrowR','Ranged ammo'],['shieldU','Armor']].map(([ic, l], i) => `<p class="gearln">${IC(ic)}${l} <b>${sgn(k.gear[i])}</b></p>`).join('')) : '')
+    + (k.stunts ? sec('Stunts', k.stunts.map(([n, d]) => `<div class="stunt"><b>${N.emoText(N.marks(esc(n)))}</b><p>${N.emoText(N.marks(esc(d)))}</p></div>`).join('')) : '')
+    + (k.bio != null ? sec('Bio', k.bio ? `<p style="margin:0;white-space:pre-line">${N.emoText(N.marks(esc(k.bio)))}</p>` : '<p class="muted">Nothing yet.</p>', true) : '')
+    + (k.people != null ? sec('Important people', k.people ? `<p style="margin:0;white-space:pre-line">${N.emoText(N.marks(esc(k.people)))}</p>` : '<p class="muted">Nothing yet.</p>') : '');
 }
 /* phone, player: the sheet's items open in their own view with a way back */
 N.heroBag = v => v.dev === 'phone' && !isGM(v) && v.ui.tab === 'hero';
@@ -852,7 +890,7 @@ N.sheetBody = function(v, c){
   return `<section class="pc-hero full" style="${who}">
       ${mine && !gm ? `<button type="button" class="facebtn" data-a="sheet" data-v="myFace" aria-label="Change my picture">${N.av(c,84)}<span class="badge">${IC('image')}</span></button>` : N.av(c,84)}
       <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${N.emoText(N.marks(esc(N.pcTag(c))))}</div>`:''}</div>
-      <div class="fp"><div><span class="eyebrow">Fate points · refresh ${c.refresh}</span><div class="coins">${coinsHtml(c, gm)}</div></div>${gm?`<div class="gmbar"><button type="button" class="btn sm" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Edit card</button><button type="button" class="btn sm danger" data-a="sheet" data-v="pcDel" data-c="${c.id}">${IC('trash')}Delete</button></div>`:''}</div>
+      <div class="fp"><div><span class="eyebrow">Fate points · refresh ${c.refresh}</span><div class="coins">${coinsHtml(c, gm)}</div></div>${gm?`<div class="gmbar"><button type="button" class="btn sm" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Edit card</button>${revBtn(c.id)}<button type="button" class="btn sm danger" data-a="sheet" data-v="pcDel" data-c="${c.id}">${IC('trash')}Delete</button></div>`:''}</div>
     </section>
     <section class="sec"><h3>Aspects</h3><div class="asps">${asps(N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a])) || '<p class="muted">None yet.</p>'}</div></section>
     <section class="sec"><h3>Skills${canRoll?' · tap one to roll':''}</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung${x < 0 ? ' neg' : ''}"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(n => canRoll ? `<button type="button" data-a="roll" data-skill="${esc(n)}" data-c="${c.id}">${esc(n)}${N.discOf(c, n).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(c, n).join(', '))}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>` : `<button type="button" disabled>${esc(n)}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div></section>
@@ -864,6 +902,8 @@ N.sheetBody = function(v, c){
     <section class="sec"><h3>Important people</h3>${noteBox(v, c, 'people', edit, 'Family, friends, rivals, debts… one per line')}</section>
     ${N.heroBag(v) ? '' : `<section class="sec"><h3>Inventory</h3>${gm || c.invText ? noteBox(v, c, 'invText', gm, 'What they carry. The player can read this.') : ''}${invList(v, c, gm)}</section>`}`;
 };
+/* GM: show single parts of this card to chosen players */
+const revBtn = id => { const n = N.revSeats(id).length; return `<button type="button" class="btn sm" data-a="revOpen" data-v="${esc(id)}">${IC('eye')}Reveal${n ? ` <span class="tag" style="height:16px">${n}</span>` : ''}</button>`; };
 const conLv = sl => `<span class="lv"><b>${sl.l}</b>${sl.lo}–${sl.hi} shifts${sl.only?`<small style="display:block;color:var(--gold-tx);margin-top:2px">${sl.only} only</small>`:''}</span>`;
 N.conLv = conLv;
 /* a free-text box on a card the player and GM can both write in (inventory notes: GM only) */
@@ -929,7 +969,7 @@ function npcBody(v, n){
   const rungs = [8,7,6,5,4,3,2,1,-1].map(x => [x, Object.entries(n.skills).filter(([,y]) => y === x).map(([k]) => k)]).filter(r => r[1].length);
   const trk = (k, l) => `<div class="trk"><span class="eyebrow">${l}</span><div class="boxes">${n.stressV[k].map((x,i)=>`<button type="button" class="sbox${n.stress[k][i]?' on':''}" data-a="npcStress" data-n="${n.id}" data-k="${k}" data-i="${i}" aria-pressed="${!!n.stress[k][i]}" aria-label="${l} ${x}">${x}</button>`).join('')}</div></div>`;
   return `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},84)}<div style="min-width:0"><h2>${esc(n.name)}</h2><div class="by">${esc(N.npcSub(n) || 'NPC')}${n.age?` · Age ${esc(n.age)}`:''} · ${n.type==='nameless'?'Nameless NPC':'Supporting NPC'}</div>${N.pcTag(n)?`<div class="hc">${esc(N.pcTag(n))}</div>`:''}</div>
-    <div class="fp"><div><span class="eyebrow">Fate points · refresh ${n.refresh}</span><div class="coins">${Array.from({length:Math.max(n.fp, n.refresh)}, (_,i) => `<span class="coin${i<n.fp?'':' off'}"></span>`).join('')}<span class="mini"><button type="button" data-a="npcFp" data-n="${n.id}" data-d="-1" aria-label="Take a fate point from ${esc(n.name)}">−</button><button type="button" data-a="npcFp" data-n="${n.id}" data-d="1" aria-label="Give ${esc(n.name)} a fate point">+</button></span></div></div><div class="gmbar"><button type="button" class="btn sm" data-a="npcEdit" data-v="${n.id}">${IC('pen')}Edit</button>${G().combat.state!=='off'?`<button type="button" class="btn sm" data-a="npcToFight" data-v="${n.id}">${IC('swords')}Add to fight</button>`:''}<button type="button" class="btn sm ghost" data-a="npcDup" data-v="${n.id}">${IC('copy')}Duplicate</button><button type="button" class="btn sm danger" data-a="sheet" data-v="npcDel" data-c="${n.id}">${IC('trash')}Delete</button></div></div></section>
+    <div class="fp"><div><span class="eyebrow">Fate points · refresh ${n.refresh}</span><div class="coins">${Array.from({length:Math.max(n.fp, n.refresh)}, (_,i) => `<span class="coin${i<n.fp?'':' off'}"></span>`).join('')}<span class="mini"><button type="button" data-a="npcFp" data-n="${n.id}" data-d="-1" aria-label="Take a fate point from ${esc(n.name)}">−</button><button type="button" data-a="npcFp" data-n="${n.id}" data-d="1" aria-label="Give ${esc(n.name)} a fate point">+</button></span></div></div><div class="gmbar"><button type="button" class="btn sm" data-a="npcEdit" data-v="${n.id}">${IC('pen')}Edit</button>${revBtn(n.id)}${G().combat.state!=='off'?`<button type="button" class="btn sm" data-a="npcToFight" data-v="${n.id}">${IC('swords')}Add to fight</button>`:''}<button type="button" class="btn sm ghost" data-a="npcDup" data-v="${n.id}">${IC('copy')}Duplicate</button><button type="button" class="btn sm danger" data-a="sheet" data-v="npcDel" data-c="${n.id}">${IC('trash')}Delete</button></div></div></section>
     <section class="sec"><h3>Aspects</h3><div class="asps">${asps(N.pcAspects(n).map((a,i)=>[`Aspect ${i+1}`,a])) || '<p class="muted">None yet.</p>'}</div></section>
     <section class="sec"><h3>Skills · tap one to roll</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung${x < 0 ? ' neg' : ''}"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(k => `<button type="button" data-a="roll" data-skill="${esc(k)}" data-npc="${n.id}">${esc(k)}${N.discOf(n, k).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(n, k).join(', '))}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div>
       ${n.magic ? `<p style="margin:10px 0 0"><b>Disciplines.</b> ${N.emoText(N.marks(esc(n.magic)))}</p>` : ''}<button type="button" class="btn sm ghost" data-a="npcEdit" data-v="${n.id}" style="justify-self:start">${IC('pen')}Change skills</button></section>

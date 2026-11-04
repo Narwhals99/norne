@@ -186,6 +186,19 @@ N.WCATS = ['World','Nations','Places','People','Races','Religions','Magic','Fact
 N.CATICON = {'World':'globe','Nations':'flag','Places':'places','People':'person','Races':'races','Religions':'religion','Magic':'magic','Factions':'faction','History':'history','Prophecies':'prophecy','Food & Drink':'drink','Items':'items','Rules':'rules','Storylines':'story'};
 N.CATICONS = ['globe','flag','places','person','races','religion','magic','faction','history','prophecy','drink','items','rules','story','castle','tavern','crown','sword','helm','dwarf','potion','spellbook','skull','coins','scroll','mask','herald','campfire','star','heart'];
 /* the GM can rename, add, remove and reorder categories (game/meta); until then the built-in list is used */
+/* ---------- map folders: the GM sorts maps into folders (folders can sit in folders) ---------- */
+/* G.mapDirs = [{id, name, in}] (in = the folder it sits in, null at the top); a map's folder is m.dir */
+N.dirById = id => (N.G.mapDirs || []).find(d => d.id === id) || null;
+N.mapDirOf = m => (m && N.dirById(m.dir)) ? m.dir : null;
+N.dirKids = id => (N.G.mapDirs || []).filter(d => (N.dirById(d.in) ? d.in : null) === (id || null)).sort((a, b) => a.name.localeCompare(b.name));
+N.dirPath = id => { const out = []; for (let d = N.dirById(id), n = 0; d && n < 20; d = N.dirById(d.in), n++) out.unshift(d); return out; };
+N.dirName = id => N.dirPath(id).map(d => d.name).join(' › ');
+/* the folder and every folder inside it */
+N.dirTree = id => [id, ...N.dirKids(id).flatMap(d => N.dirTree(d.id))];
+/* how many of the maps this person can see sit in the folder or below it */
+N.dirCount = (id, see) => { const ids = new Set(N.dirTree(id)); return N.G.maps.filter(m => see(m) && ids.has(N.mapDirOf(m))).length; };
+/* every folder as [id, "Riverlands › Drinkhold"], for pickers */
+N.dirList = (skip) => { const out = [], walk = (id, d) => { for (const k of N.dirKids(id)) { if (k.id === skip) continue; out.push([k.id, N.dirName(k.id), d]); walk(k.id, d + 1); } }; walk(null, 0); return out; };
 N.cats = () => N.G.cats || N.WCATS.map(name => ({name, ic:N.CATICON[name] || 'globe'}));
 N.catIcon = name => (N.cats().find(c => c.name === name) || {}).ic || N.CATICON[name] || 'globe';
 /* every category with entries in it: the GM's list in order, then any an entry still names */
@@ -240,7 +253,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null,
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], rev:{}, known:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -428,6 +441,38 @@ N.metaPic = role => role === 'gm' ? N.G.gmPic || null : N.charOf(role)?.mpic || 
 
 /* a player card's aspects: older cards kept a high concept and trouble, newer ones just Aspect 1, 2, 3 */
 N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
+/* ---------- sheet reveals: the GM shows single parts of a PC's or NPC's card to chosen players ----------
+   G.rev = {cardId: {seat: [part keys]}} (GM only, gm/misc). Each player gets just what was revealed to them,
+   in their own only/<seat> as unit r:<cardId> (N.revealed), read back into G.known. Keys: a:<n> aspect n,
+   sk:<skill>, st:<stunt name>, about (race and age), bio, people, cons, gear. */
+N.revParts = (c, pc) => {
+  const out = [], add = (k, grp, l, v) => out.push({k, g:grp, l, v});
+  N.pcAspects(c).forEach((a, i) => add('a:' + i, 'Aspects', `Aspect ${i + 1}`, a));
+  Object.entries(c.skills || {}).sort((a, b) => b[1] - a[1]).forEach(([n, x]) => add('sk:' + n, 'Skills', n, sgn(x) + ' ' + ladderWord(x)));
+  (c.stunts || []).filter(([n, d]) => n || d).forEach(([n, d]) => add('st:' + (n || d), 'Stunts', n || 'Unnamed stunt', d));
+  if (c.race || c.age) add('about', 'More', 'Race and age', [c.race, c.age ? 'Age ' + c.age : ''].filter(Boolean).join(' · '));
+  if (c.bio) add('bio', 'More', 'Bio', c.bio);
+  if (pc && c.people) add('people', 'More', 'Important people', c.people);
+  add('cons', 'More', 'Consequences', Object.values(c.cons || {}).filter(Boolean).join(' · ') || 'None right now');
+  add('gear', 'More', 'Weapons and armor', ['gearAtk', 'gearRng', 'gearAmmo', 'gearDef'].map(k => sgn(+c[k] || 0)).join(' / '));
+  return out;
+};
+/* what one player is told about a card: its name and picture, and only the parts in keys */
+N.revealed = (c, pc, keys) => {
+  const has = k => keys.includes(k), r = {id:c.id, pc, name:c.name || c.short || '', portrait:c.portrait || null};
+  if (pc) r.player = c.player;
+  const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
+  const sk = Object.entries(c.skills || {}).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;
+  const st = (c.stunts || []).filter(([n, d]) => has('st:' + (n || d))); if (st.length) r.stunts = st;
+  if (has('about')) { r.race = c.race || ''; r.age = c.age || ''; }
+  if (has('bio')) r.bio = c.bio || '';
+  if (pc && has('people')) r.people = c.people || '';
+  if (has('cons')) r.cons = N.consSlots(c.skills || {}).map(sl => [sl.l, sl.lo + '–' + sl.hi, (c.cons || {})[sl.k] || '']);
+  if (has('gear')) r.gear = ['gearAtk', 'gearRng', 'gearAmmo', 'gearDef'].map(k => +c[k] || 0);
+  return r;
+};
+N.revOf = (id, seat) => ((N.G.rev || {})[id] || {})[seat] || [];
+N.revSeats = id => Object.entries((N.G.rev || {})[id] || {}).filter(([, l]) => l.length).map(([s]) => s);
 N.pcTag = c => N.pcAspects(c)[0] || '';
 
 /* ---------- combat helpers ---------- */
