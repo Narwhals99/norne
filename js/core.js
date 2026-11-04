@@ -318,7 +318,7 @@ N.channelsFor = role => {
 /* Everyone is table talk only: no speaking in character and no fights there */
 N.metaOnly = ch => ch === 'table';
 /* in a Meta-only chat a person shows by their own name, not "Jack · Brann" */
-N.metaName = by => { const p = N.G.P[by]; return by !== 'gm' && p?.who ? p.who : N.personObj(by).name; };
+N.metaName = by => N.metaPerson(by).name;
 /* the same person on another of their characters counts as "you" in Everyone */
 N.sameUser = (a, b) => a === b || (a !== 'gm' && b !== 'gm' && !!N.G.P[a]?.uid && N.G.P[a]?.uid === N.G.P[b]?.uid);
 N.unread = (role, ch) => { const s = (N.G.seen[role] || {})[ch] || 0; let n = 0; for (const m of N.G.msgs) if (m.ch === ch && m.by !== role && m.t > s && !(m.kind === 'scene' && m.quiet)) n++; return n; };
@@ -372,6 +372,16 @@ N.personObj = by => {
   if (!p) return {name:'A former player', color:'var(--ink-3)'};
   const c = G.chars[p.char]; return {name:p.name, portrait:c?.mpic || (c?.built ? c.portrait : null), color:p.color};
 };
+/* in Everyone (Meta only) a person is just themselves: their own name and their Meta picture, never their character's
+   name or portrait, so players whose characters haven't met learn nothing from it. No Meta picture = their initial */
+N.metaPerson = by => {
+  if (by === 'gm') return N.personObj('gm');
+  const p = N.G.P[by]; if (!p) return {name:'A former player', color:'var(--ink-3)'};
+  const c = N.G.chars[p.char]; return {name:p.who || (p.multi ? 'Player' : p.name), portrait:c?.mpic || null, color:p.color};
+};
+/* who wrote a message, as that chat shows them. Older Everyone messages said in character still show as the person */
+N.msgPerson = m => N.metaOnly(m.ch) ? N.metaPerson(m.by) : N.personObj(m.by);
+N.metaRp = m => m.kind === 'rp' && m.by !== 'gm' && N.metaOnly(m.ch);
 N.metaPic = role => role === 'gm' ? N.G.gmPic || null : N.charOf(role)?.mpic || null;
 
 /* a player card's aspects: older cards kept a high concept and trouble, newer ones just Aspect 1, 2, 3 */

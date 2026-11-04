@@ -76,13 +76,13 @@ function chanLast(v, c){
     if (m.kind === 'pic') return `${isMe(v, m) ? 'You' : metaObj(m).name} sent a picture`;
     if (m.kind === 'news') return 'New edition of the paper';
     if (m.kind === 'sys') return m.text || '';
-    const who = isMe(v, m) ? 'You' : m.kind === 'ooc' || m.kind === 'meta' ? metaObj(m).name : N.speakerObj(m).name;
+    const who = isMe(v, m) ? 'You' : m.kind === 'ooc' || m.kind === 'meta' || N.metaRp(m) ? metaObj(m).name : N.speakerObj(m).name;
     return `${who}: ${(m.text || '').replace(/\*\*/g, '')}`;
   }
   return N.chSub(c, v.role);
 }
 /* a person out of character; in Everyone they show by their own name on every character */
-const metaObj = m => N.metaOnly(m.ch) ? {...N.personObj(m.by), name:N.metaName(m.by)} : N.personObj(m.by);
+const metaObj = m => N.msgPerson(m);
 /* in Everyone, what you wrote on another of your characters is still yours */
 const isMe = (v, m) => m.by === v.role || (N.metaOnly(m.ch) && N.sameUser(m.by, v.role));
 function shelfRow(v, c){
@@ -350,7 +350,7 @@ function rMsg(v, m, prev, firstNarr){
     /* a picture someone sent: tap it to see it big */
     return `<div class="m ooc gifm picm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><button type="button" class="gifbox" data-a="picView" data-v="${m.id}" aria-label="Open the picture"><img class="gif" src="${esc(pc.u)}" alt="${esc(m.text || 'Picture')}" loading="lazy" ${pc.w && pc.h ? `style="aspect-ratio:${+pc.w}/${+pc.h}"` : ''}></button>${m.text ? `<div class="bub">${N.emoText(fmt(m.text))}${m.ed ? ' <span class="ed">edited</span>' : ''}</div>` : ''}</div></div>`;
   }
-  if (m.kind === 'ooc' || m.kind === 'meta') {
+  if (m.kind === 'ooc' || m.kind === 'meta' || N.metaRp(m)) {
     const p = metaObj(m);
     const big = N.emojiOnly(m.text);
     return `<div class="m ${big ? 'emom' : 'ooc'}${mine?' mine':''}${cont?' cont':''}">${N.av(p,32)}<div class="body">${cont?'':`<div class="who" style="--who:var(--ink-3)">${esc(p.name)} ${time}</div>`}<div class="${big ? 'bigemo' : 'bub'}">${txt}</div></div></div>`;
@@ -590,7 +590,7 @@ function popHtml(v){
     const m = g.msgs.find(x => x.id === p.mid); if (!m) return '';
     const social = N.msgSocial(m), mine = (m.rx || {})[v.role] || [];
     const quick = social ? `<div class="emo-quick">${N.EMO_QUICK.map(e => `<button type="button" class="emo${mine.includes(e)?' me':''}" data-a="react" data-id="${m.id}" data-v="${e}" aria-label="React ${e}">${e}</button>`).join('')}<button type="button" class="emo more" data-a="emoMore" aria-label="More emoji" aria-expanded="${!!p.all}">${IC(p.all ? 'minus' : 'plus')}</button></div>${p.all ? emoGrid(v, e => `data-a="react" data-id="${m.id}" data-v="${esc(e)}"`, mine) : ''}` : '';
-    const by = {}; for (const [who, l] of Object.entries(m.rx || {})) for (const e of l || []) (by[e] = by[e] || []).push(N.personObj(who).name);
+    const by = {}; for (const [who, l] of Object.entries(m.rx || {})) for (const e of l || []) (by[e] = by[e] || []).push(N.metaOnly(m.ch) ? N.metaName(who) : N.personObj(who).name);
     const whoRx = Object.keys(by).length ? `<div class="rxwho">${Object.entries(by).map(([e, w]) => `<span>${N.emj(e)} ${esc(w.join(', '))}</span>`).join('')}</div>` : '';
     return `<div class="pop msgpop${p.all?' wide':''}" style="${pos}" role="menu" aria-label="Message">${quick}${whoRx}${social ? `<button type="button" class="opt" role="menuitem" data-a="reply" data-v="${m.id}">${IC('reply')}<span>Reply</span></button>` : ''}${N.msgCopyText(m) ? `<button type="button" class="opt" role="menuitem" data-a="copyMsg" data-v="${m.id}">${IC('copy')}<span>${m.kind === 'gif' ? 'Copy GIF link' : 'Copy text'}</span></button>` : ''}${isGM(v) || N.canEdit(v, m) ? `${social ? '<div class="sep"></div>' : ''}${N.canEdit(v, m) ? `<button type="button" class="opt" role="menuitem" data-a="msgEdit" data-v="${m.id}">${IC('pen')}<span>Edit message</span></button>` : ''}${isGM(v) ? `<button type="button" class="opt danger" role="menuitem" data-a="sheet" data-v="msgDel" data-c="${m.id}">${IC('trash')}<span>Delete message</span></button>` : ''}` : ''}</div>`;
   }

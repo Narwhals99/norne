@@ -393,7 +393,7 @@ N.sheetHtml = function(v){
   /* a picture sent in chat, as big as the screen allows */
   case 'picView': {
     const m = g.msgs.find(x => x.id === arg); if (!m || !m.pic) return '';
-    return sheet(`${esc(N.personObj(m.by).name)}’s picture`, `<img class="picbig" src="${esc(m.pic.u)}" alt="${esc(m.text || 'Picture')}">${m.text ? `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">${N.emoText(N.fmt(m.text))}</p>` : ''}`,
+    return sheet(`${esc(N.msgPerson(m).name)}’s picture`, `<img class="picbig" src="${esc(m.pic.u)}" alt="${esc(m.text || 'Picture')}">${m.text ? `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">${N.emoText(N.fmt(m.text))}</p>` : ''}`,
       `<a class="btn ghost" href="${esc(m.pic.u)}" download="norne-picture.jpg">${IC('download')}Save</a><button type="button" class="btn primary" data-a="closeSheet">Close</button>`, {wide:true});
   }
   case 'msgDel': {

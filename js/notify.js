@@ -105,7 +105,7 @@ N.toggleNotify = v => {
 
 /* what a new message says in a notification: short, with the name of whoever sent it */
 function line(m){
-  const who = N.personObj(m.by).name;
+  const who = N.msgPerson(m).name;
   if (m.kind === 'roll') { const r = m.roll || {}; return `${r.who || who} rolled ${N.sgn(N.rollTotal(r))}${r.skill ? ' on ' + r.skill : ''}`; }
   if (m.kind === 'news') { const i = G().news?.issues?.find(i => i.id === m.nid) || {}; return `${i.paper || 'The paper'}${i.no ? ' issue #' + i.no : ''} has been delivered!`; }
   if (m.kind === 'combat') return `${who} just started a combat!`;
