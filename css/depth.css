@@ -1,0 +1,12 @@
+/* Depth (PREVIEW): panels, buttons, avatars and icons look raised, with a contact shadow plus a softer ambient one.
+   Drop-shadows follow each shape, so every style's own frames/rounding stay as they are. Choose with data-depth="soft|strong" on .app. */
+.app{--dp-rgb:var(--vg-rgb,3,4,16)}
+.app[data-depth="soft"]{--dp-c:.22;--dp-a:.26;--dp-y:4px;--dp-b:6px;--dp-ic:.35}
+.app[data-depth="strong"]{--dp-c:.34;--dp-a:.46;--dp-y:9px;--dp-b:11px;--dp-ic:.55}
+.app[data-theme="day"][data-depth="soft"]{--dp-c:.2;--dp-a:.22;--dp-ic:.28}
+.app[data-theme="day"][data-depth="strong"]{--dp-c:.3;--dp-a:.38;--dp-ic:.45}
+.app[data-depth] :is(.btn:not(.ghost):not([disabled]),.icard:not(.add),.roll,.fightcard,.scene,.gs-sec,.pcmini,.cat,.ent,.shelf .who,.m:not(.ooc) .bub,.fi i,.diceb,.nav .ni[aria-current],.tabbar .ti){
+  filter:drop-shadow(0 1px 1px rgba(var(--dp-rgb),var(--dp-c))) drop-shadow(0 var(--dp-y) var(--dp-b) rgba(var(--dp-rgb),var(--dp-a)))}
+.app[data-depth] .av{filter:drop-shadow(0 1px 1px rgba(var(--dp-rgb),var(--dp-c))) drop-shadow(0 calc(var(--dp-y)*.7) var(--dp-b) rgba(var(--dp-rgb),var(--dp-a)))}
+/* icons look pressed into or standing off the surface */
+.app[data-depth] :is(.btn,.tabbar button,.nav .ni) svg{filter:drop-shadow(0 1px 0 rgba(var(--dp-rgb),var(--dp-ic)))}
