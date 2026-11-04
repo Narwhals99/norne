@@ -33,7 +33,10 @@ N.msgCopyText = m => m.kind === 'gif' ? (m.gif?.u || '') : m.kind === 'pic' ? (m
 /* on a computer Enter sends and Shift+Enter starts a new line; on a phone Return starts a new line and the arrow sends */
 const TOUCH = matchMedia('(hover: none) and (pointer: coarse)');
 N.enterSends = () => !TOUCH.matches;
-const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as:''}, o); G().msgs.push(m); return m; };
+const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as:''}, o);
+  /* automatic notes (new card, inventory, news, shared wiki) skip a private chat the GM hasn't opened */
+  if (typeof m.ch === 'string' && m.ch.startsWith('dm-') && !N.dmOn(m.ch.slice(3))) return m;
+  G().msgs.push(m); return m; };
 /* a small grey line in the chat; players write their own (the rules only let them post as themselves) */
 const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, text});
 /* a line about the fight goes to the chat the fight lives in */
@@ -467,6 +470,10 @@ function input(v, el){
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
     case 'castQ': v.ui.sd.castQ = val; render(v); return;
+    case 'expFrom': case 'expTo': { const ex = v.ui.exp; if (!ex) return; ex[i === 'expFrom' ? 'from' : 'to'] = val; ex.when = !ex.from && !ex.to ? 'all' : null;
+      const o = v.root.querySelector('#exOut'), w = v.root.querySelector('#exWhen'); if (o) o.value = N.buildExport(ex); if (w) w.textContent = N.cap1(N.expRangeWords(ex)) + '. Leave a box empty for no limit on that side.';
+      v.root.querySelectorAll('[data-a="expWhen"]').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === ex.when)); return; }
+    case 'chatQ': { v.ui.cq = val; clearTimeout(v._cqT); v._cqT = setTimeout(() => { const r = v.root.querySelector(`#cqr-${v.id}`); if (r) r.innerHTML = N.chatSearchHtml(v); }, 120); return; }
     case 'gdName': { v.ui.gd.name = val; const b = v.root.querySelector('[data-a="gdSave"]'); if (b) b.disabled = !val.trim() || !v.ui.gd.seats.length || !N.groupsReady(); return; }
     case 'news': { const d = v.ui.newsEdit, n = +el.dataset.n; if (k === 'stt' || k === 'stb') d.stories[n][k === 'stt' ? 'title' : 'body'] = val; else if (k === 'cap') { if (n < 0) d.lcap = val; else d.stories[n].cap = val; } else d[k] = val; render(v); return; }
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
@@ -977,7 +984,7 @@ function act(v, a, el, e){
   case 'shelfDt': ui.shelfOff = !ui.shelfOff; try { localStorage.setItem('norne-shelfoff', ui.shelfOff ? '1' : '0'); } catch(e) {} break;
   case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
-  case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); break;
+  case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); if (val === 'search') { render(v); const f = v.root.querySelector(`#cq-${v.id}`); if (f) { f.focus({preventScroll:true}); f.select(); } return; } break;
   case 'closeSheet': ui.sheet = null; break;
   case 'closePop': ui.pop = null; break;
   case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { openPop(v, val, el);
@@ -1083,10 +1090,17 @@ function act(v, a, el, e){
   case 'emoMore': if (ui.pop) ui.pop.all = !ui.pop.all; break;
   case 'emoTab': ui.emoTab = val; if (val === 'gif' && !ui.gifRes && g.gifKey) gifSearch(v); break;
   /* group chats: the GM makes, renames, fills and deletes them */
+  case 'dmSet': {
+    if (!gm || !g.P[val]) break; const on = !N.dmOn(val); N.setDm(val, on);
+    if (on) sys(`${N.gmName()} opened this private chat. Only the two of you can read it.`, 'dm-' + val);
+    else if (ui.ch === 'dm-' + val) ui.ch = 'table';
+    toast(v, on ? `Private chat with ${g.P[val].name} is open.` : `Private chat with ${g.P[val].name} is closed. Its messages are kept.`); renderAll(); return;
+  }
   case 'grpNew': if (!gm) break; openSheet(v, 'grpEdit', {party:d.party === '1'}); break;
   case 'grpEdit': if (!gm) break; openSheet(v, 'grpEdit', {v:val}); break;
   case 'gdParty': ui.gd.party = val === '1'; break;
   case 'gdMeta': ui.gd.meta = val === '1'; break;
+  case 'gdHist': ui.gd.hist = val === '1'; break;
   case 'gdSeat': { const ss = ui.gd.seats, i = ss.indexOf(val); if (i < 0) ss.push(val); else ss.splice(i, 1); break; }
   case 'gdSave': {
     const d = ui.gd, name = d.name.trim(); if (!gm || !name || !d.seats.length) break;
@@ -1094,9 +1108,10 @@ function act(v, a, el, e){
     const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {}), ...(d.meta ? {meta:true} : {})};
     /* a player is in one party at a time: putting them in this one takes them out of any other */
     if (gr.party) for (const o of g.groups.filter(x => x.party && x.id !== gr.id && x.seats.some(s => seats.includes(s)))) { const was = [...o.seats]; N.saveGroup({...o, seats:o.seats.filter(s => !seats.includes(s))}, was); }
-    N.saveGroup(gr, old ? old.seats : null);
+    const added = old ? seats.filter(s => !old.seats.includes(s)) : [], hist = d.hist !== false;
+    N.saveGroup(gr, old ? old.seats : null, hist);
     if (!old) sys(`${N.gmName()} made this group chat for ${N.namesOf(seats)}.`, 'grp-' + gr.id);
-    else { const added = seats.filter(s => !old.seats.includes(s)); if (added.length) sys(`${N.gmName()} added ${N.namesOf(added)} to the chat.`, 'grp-' + gr.id); }
+    else if (added.length) sys(`${N.gmName()} added ${N.namesOf(added)} to the chat${hist ? '' : '. They see only what is said from here on'}.`, 'grp-' + gr.id);
     if (!old ? gr.meta : !!old.meta !== !!gr.meta) sys(gr.meta ? `${N.gmName()} made this chat Meta only: everyone shows as themselves, no characters and no fights.` : `${N.gmName()} turned Meta only off: characters can speak here again.`, 'grp-' + gr.id);
     close(); ui.tab = 'chat'; ui.ch = 'grp-' + gr.id; ui.shelf = false; toast(v, old ? 'Saved.' : `Made ${name}. Only ${N.namesOf(seats)} and you can read it.`); renderAll(); return;
   }
@@ -1124,6 +1139,14 @@ function act(v, a, el, e){
     (ui.more = ui.more || {})[ui.ch] = N.msgWin(v) + 200; render(v);
     const nb = v.root.querySelector(`#${CSS.escape(box?.id || 'none')}`); if (nb) nb.scrollTop = t0 + nb.scrollHeight - h0;
     return; }
+  case 'cqAll': ui.cqAll = val === '1'; render(v); { const f = v.root.querySelector(`#cq-${v.id}`); if (f && v.dev !== 'phone') f.focus({preventScroll:true}); } return;
+  case 'cqGo': {
+    /* a search result: open its chat, close the search and land on the message */
+    const ch = el.dataset.c; if (!N.channelsFor(v.role).includes(ch)) return;
+    if (ui.ch !== ch) { ui.ch = ch; ui.reply = null; }
+    close(); ui.tab = 'chat'; ui.shelf = false; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; renderAll();
+    setTimeout(() => act(v, 'jumpMsg', {dataset:{v:val}}), 60); return;
+  }
   case 'jumpMsg': { let w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`);
     /* an answered message older than what is drawn: draw back to it first */
     if (!w && g.msgs.some(m => m.id === val && m.ch === ui.ch)) { const i = g.msgs.filter(m => m.ch === ui.ch).findIndex(m => m.id === val), n = g.msgs.filter(m => m.ch === ui.ch).length; (ui.more = ui.more || {})[ui.ch] = Math.max(N.msgWin(v), n - i + 20); render(v); w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`); }
@@ -1380,6 +1403,14 @@ function act(v, a, el, e){
   /* export */
   case 'expCh': { const s = ui.exp.ch; s.has(val) ? s.delete(val) : s.add(val); break; }
   case 'expKind': ui.exp[val] = !ui.exp[val]; break;
+  case 'expWhen': {
+    const ex = ui.exp, now = Date.now(); ex.when = val; ex.to = '';
+    if (val === 'all') ex.from = '';
+    else if (val === 'day') ex.from = N.expStamp(now - 864e5);
+    else if (val === 'week') ex.from = N.expStamp(now - 7 * 864e5);
+    else { const sc = [...g.msgs].reverse().find(m => m.kind === 'scene' && m.scene && !m.quiet && ex.ch.has(m.ch)); ex.from = sc ? N.expStamp(sc.t) : ''; if (!sc) toast(v, 'No scene in the picked chats yet, so this is everything.'); }
+    break;
+  }
   case 'copyMsg': {
     const m = g.msgs.find(x => x.id === val); ui.pop = null; render(v); if (!m) return;
     const t = N.msgCopyText(m), old = () => { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0'; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch(err) {} ta.remove(); toast(v, ok ? 'Copied.' : 'Could not copy on this device.'); };
@@ -1543,7 +1574,7 @@ function act(v, a, el, e){
 function openSheet(v, s, d={}){
   const g = G(), ui = v.ui;
   ui.sheet = s; ui.sheetArg = d.c || d.v || null;
-  if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats], party:!!gr.party, meta:!!gr.meta} : {id:null, name:'', seats:[], party:!!d.party, meta:false}; }
+  if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats], party:!!gr.party, meta:!!gr.meta, hist:true} : {id:null, name:'', seats:[], party:!!d.party, meta:false, hist:true}; }
   if (s === 'scene') {
     const ch = ui.ch === 'gm' ? 'table' : ui.ch;
     ui.sd = {ch, post:true, tab:g.recent.length ? 'recent' : 'pics', newAsp:'', castQ:'', oneName:'', oneSkill:'', oneRate:'2'};
@@ -1575,7 +1606,7 @@ function openSheet(v, s, d={}){
   }
   if (s === 'wCats') { ui.cd = N.catNames(g.wiki).map(name => ({from:name, name, ic:N.catIcon(name)})); ui.cdIc = null; }
   if (s === 'wipe') ui.wipe = {ch:null, step:1, ok:false, typed:''};
-  if (s === 'export') ui.exp = {ch:new Set(N.channelsFor('gm').filter(c => c !== 'gm')), rp:true, roll:true, meta:false};
+  if (s === 'export') ui.exp = {ch:new Set(N.channelsFor('gm').filter(c => c !== 'gm')), rp:true, roll:true, meta:false, when:'all', from:'', to:''};
 }
 N.openSheet = openSheet;
 /* the typed name has to match the chat's name exactly (any capitals) before a wipe is allowed */
