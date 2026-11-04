@@ -131,8 +131,8 @@ function line(m){
   if (m.kind === 'scene') return m.scene?.title ? `New scene: ${m.scene.title}` : '';
   if (m.kind === 'sys') return m.text || '';
   if (m.kind === 'gif') return `${who} sent a GIF`;
-  if (m.kind === 'pic') return `${who} sent a picture${m.text ? ': ' + m.text : ''}`;
-  return m.text ? `${who}: ${m.text}` : '';
+  if (m.kind === 'pic') return `${who} sent a picture${m.text ? ': ' + N.plainText(m.text) : ''}`;
+  return m.text ? `${who}: ${N.plainText(m.text)}` : '';
 }
 const pings = ms => ms.length > 1 ? `${ms[ms.length - 1]} (+${ms.length - 1} more)` : ms[0];
 const worth = m => !(m.kind === 'scene' && m.quiet);
