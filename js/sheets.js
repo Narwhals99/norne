@@ -210,6 +210,8 @@ N.sheetHtml = function(v){
       ${mySeats(v)}
       <div><h4>Appearance</h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="night" aria-pressed="${v.theme==='night'}">${IC('moon')}Night</button><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="day" aria-pressed="${v.theme==='day'}">${IC('sun')}Day</button></div></div>
       <div><h4>Style</h4>${stylePick(v)}</div>
+      <div><h4>Edge shading<small>Darkened section edges. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="vg" data-v="on" aria-pressed="${v.vg!==false}">On</button><button type="button" style="flex:1;justify-content:center" data-a="vg" data-v="off" aria-pressed="${v.vg===false}">Off</button></div></div>
+      <div><h4>Depth<small>Raised panels, buttons and icons. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="dp" data-v="on" aria-pressed="${v.dp!==false}">On</button><button type="button" style="flex:1;justify-content:center" data-a="dp" data-v="off" aria-pressed="${v.dp===false}">Off</button></div></div>
       <div><h4>Text size<small>On this device only</small></h4>${fzPick(v)}</div>
       <div><h4>Notifications</h4>${notifyToggle()}</div>
       <div class="menu">
