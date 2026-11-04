@@ -179,9 +179,10 @@ function railShown(v){
 function chatView(v, side){
   const g = G(), gm = isGM(v), ch = v.ui.ch, sc = g.scenes[ch], cb = g.combat;
   const fa = fightAvail(v), grpBtn = gm && !!N.grpOf(ch);
-  const topPh = `<div class="top ph">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${grpBtn && !fa ? `<button type="button" class="ibtn" data-a="grpEdit" data-v="${ch.slice(4)}" aria-label="Edit this group chat" title="Edit this group chat">${IC('gear')}</button>` : ''}${sideBtn(v, 'chat')}</div>`;
+  const topPh = `<div class="top ph">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${grpBtn && !fa ? `<button type="button" class="ibtn" data-a="grpEdit" data-v="${ch.slice(4)}" aria-label="Edit this group chat" title="Edit this group chat">${IC('gear')}</button>` : ''}<button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>${sideBtn(v, 'chat')}</div>`;
   const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
     ${grpBtn ? `<button type="button" class="btn sm" data-a="grpEdit" data-v="${ch.slice(4)}" style="--h:36px">${IC('gear')}Edit group</button>` : ''}
+    <button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
     ${fa ? (cb.state === 'setup' ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}Back to fight setup</button>` : modeSeg(v)) : ''}</header>`;
   const fightbar = (cb.state === 'live' && ch === N.fightCh() && !N.owedTok(v) && !fa) ? (() => {

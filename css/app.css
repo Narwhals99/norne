@@ -522,6 +522,9 @@
 .app .hscroll{display:flex;gap:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
 .app .hscroll .thumb{flex:none;width:156px}
 .app .forwho{display:flex;gap:8px;flex-wrap:wrap}
+.app .exrange{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 6px}
+.app .exrange .inp{min-width:0;width:100%}
+@media (max-width:420px){.app .exrange{grid-template-columns:1fr}}
 .app .forwho button{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 13px 0 4px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 13px/1 var(--f-ui);color:var(--ink-2)}
 .app .forwho button .av{--s:28px;box-shadow:none;font-size:11px}
 .app .forwho button .cic{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--sunk)}
@@ -2124,3 +2127,18 @@
 .app .distbox{display:grid;gap:8px}
 .app .distbox h4,.app .distbox .vsnote{margin:0}
 .app .distbox .vsnote svg{width:14px;height:14px;vertical-align:-2px;margin-right:4px}
+/* chat search */
+.app .srch-top{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.app .srch-q{flex:1 1 240px;position:relative;display:flex;min-width:0}
+.app .srch-q svg{position:absolute;left:11px;top:50%;width:16px;height:16px;transform:translateY(-50%);color:var(--ink-3);pointer-events:none}
+.app .srch-q .inp{width:100%;padding-left:34px;font-size:16px}
+.app .srch-res{display:flex;flex-direction:column;gap:6px;margin-top:4px;min-width:0}
+.app .srch-none,.app .srch-n{margin:4px 0 0;font:600 13px/1.45 var(--f-ui)}
+.app .srch-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.app .srch-list button{display:flex;flex-direction:column;gap:4px;width:100%;text-align:left;padding:10px 12px;border:0;border-radius:10px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink);min-width:0}
+.app .srch-list button:hover{box-shadow:inset 0 0 0 1.5px var(--accent)}
+.app .srch-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font:700 12.5px/1.3 var(--f-ui)}
+.app .srch-h b{color:var(--ink)}
+.app .srch-h time{margin-left:auto;color:var(--ink-3);font-weight:600}
+.app .srch-t{font:400 14.5px/1.45 var(--f-ui);color:var(--ink-2);overflow-wrap:anywhere}
+.app .srch-t mark{background:var(--accent-soft);color:var(--ink);border-radius:3px;padding:0 1px;box-shadow:inset 0 -1.5px 0 var(--accent)}
