@@ -228,14 +228,14 @@ function sceneBanner(v, sc, ch){
       ${min ? `<span class="star4"></span>` : `<span class="eyebrow">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}<span>${priv ? onlyWho : 'Scene'}</span>${sc.date?`<span style="color:var(--ink-3);letter-spacing:.1em">· ${esc(sc.date)}</span>`:''}</span>`}
       <h2>${esc(sc.title)}</h2>
       <span class="where">${esc(sc.where||'')}</span>
-      ${sc.aspects?.length ? `<div class="icards">${sc.aspects.map((a,i)=>{ const f = N.sceneFreeLeft(sc, i); return `<span class="icard" style="--rot:${i%2?.8:-.9}deg">${esc(a.t)}${f?`<span class="fi">${'<i></i>'.repeat(f)}</span>`:''}</span>`; }).join('')}</div>` : ''}
+      ${sc.aspects?.length ? `<div class="icards">${sc.aspects.map((a,i)=>{ const f = N.sceneFreeLeft(sc, i); return `<span class="icard" style="--rot:${i%2?.8:-.9}deg">${a.on?`<span class="k">On ${esc(a.on)}</span>`:''}${esc(a.t)}${f?`<span class="fi">${'<i></i>'.repeat(f)}</span>`:''}</span>`; }).join('')}</div>` : ''}
     </div>
     <div class="ctl">${gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Edit scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
   </section>`;
 }
 /* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */
 function isAction(m){
-  return m.kind === 'sys' || m.kind === 'fight' || m.kind === 'combat' || m.kind === 'roll';
+  return m.kind === 'sys' && !m.sceneEnd || m.kind === 'fight' || m.kind === 'combat' || m.kind === 'roll';
 }
 /* the part of the actions that belongs to a fight: fight rolls, results, and the fight's own notices */
 function isFightAct(m){
@@ -328,6 +328,7 @@ function rxPill(v, m){
 }
 function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = isMe(v, m), time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
+  if (m.kind === 'sys' && m.sceneEnd) return `<div class="scenem end"><span class="th">${IC('stop')}</span><span><span>Scene ended</span><b>${esc(m.sceneTitle || (m.text || '').replace(/^Scene ended:? ?|\.$/g, '') || 'The scene')}</b></span></div>`;
   if (m.kind === 'sys') return m.res ? resCard(m.res) : m.fightEnd ? `<button type="button" class="sysm fend" data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}">${IC('swords')}<span>${esc(m.text)}</span><b>See what happened</b></button>` : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
   if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
@@ -408,13 +409,15 @@ function rRoll(v, m){
   const r = m.roll, tot = rollTotal(r), o = outcome(r), fold = v.ui.folded.has(m.id) ? v.ui.folded.get(m.id) : m.id !== v._lastRoll;
   const dice = r.dice.map(d => `<span class="die ${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':'·'}</span>`).join('');
   const canInv = isGM(v) || (r.whoKey === 'pc:' + (G().P[v.role]||{}).char && m.by === v.role);
-  return `<div class="roll${fold?' folded':''}${m.ch==='gm'?' secret':''}">
+  /* GM notes hold secret rolls, unless the fight itself is kept there (then its rolls are the fight's own and can be invoked on) */
+  const secret = m.ch === 'gm' && N.fightCh() !== 'gm';
+  return `<div class="roll${fold?' folded':''}${secret?' secret':''}">
     <div class="rh"><span class="grow"><b>${esc(r.skill)} ${sgn(r.bonus - (r.gear||0) + (r.dist||0))}</b>${r.gear?` + ${r.gearL || 'gear'} ${sgn(r.gear)}`:''}${r.dist?` − distance ${r.dist}`:''} · ${esc(r.action)}${r.target?` ${r.action==='Defend'?'against':'on'} <b>${esc(r.target)}</b>`:''}${vsLabel(r)}</span>${r.event ? '<span class="tag gold evtag">Event</span>' : ''}${fold?`<span class="mini-tot">${sgn(tot)}${r.opp!=null?` <small>vs</small> ${sgn(r.opp)}`:''}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" data-f="${fold?1:''}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
     ${evText(r) ? `<div class="evt">${IC('magic')}<span>${esc(evText(r))}</span></div>` : ''}
     <div class="rb"><div class="dice${v.ui.fresh===m.id?' fresh':''}">${dice}</div>${r.opp!=null ? `<div class="tot vs"><span class="n"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></span><i>vs</i><span class="n opp"><b>${sgn(r.opp)}</b><span>${ladderWord(r.opp)}</span></span></div>` : `<div class="tot"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></div>`}</div>
     ${r.oppDice ? `<div class="oppd">${esc(r.vs?.name || 'The other side')} rolled <span class="od">${r.oppDice.map(d => `<span class="${d>0?'op':d<0?'om':'oz'}">${d>0?'+':d<0?'−':''}</span>`).join('')}</span> ${sgn(diceSum({dice:r.oppDice}))} on ${r.vs?.skill ? esc(r.vs.skill) + ' ' : ''}${sgn(r.oppBase)}${r.invokes.some(i => i.opp) ? ` + ${2*r.invokes.filter(i => i.opp).length} invoked` : ''} = <b>${sgn(r.opp)}</b></div>` : ''}
     ${r.invokes.length ? `<div class="inv">${r.invokes.map(i => (i.opp ? `+2 to beat from “${esc(i.aspect)}”` : i.reroll ? `Rerolled with “${esc(i.aspect)}” (was ${sgn(i.was ? i.was.reduce((a,b)=>a+b,0) : 0)})` : `+2 from “${esc(i.aspect)}”`) + (i.by ? `, ${esc(i.by)}` : '')).join(' · ')}</div>` : ''}
-    <div class="rf"><span class="math">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${sgn(r.bonus - (r.gear||0) + (r.dist||0))}${r.gear?` · ${r.gearL || 'gear'} ${sgn(r.gear)}`:''}${r.dist?` · <span class="dist">distance −${r.dist}</span>`:''}${N.plusInvokes(r)?` · invokes +${2*N.plusInvokes(r)}`:''}</span>${o?`<span class="out ${o.k}">${o.t}${o.sh?` · ${o.sh>0?'+':'−'}${Math.abs(o.sh)}`:''}</span>`:''}${canInv && m.ch!=='gm' ? `<button type="button" class="btn sm" data-a="invoke" data-id="${m.id}" style="--h:28px">${IC('cards')}Invoke</button>` : ''}</div>
+    <div class="rf"><span class="math">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${sgn(r.bonus - (r.gear||0) + (r.dist||0))}${r.gear?` · ${r.gearL || 'gear'} ${sgn(r.gear)}`:''}${r.dist?` · <span class="dist">distance −${r.dist}</span>`:''}${N.plusInvokes(r)?` · invokes +${2*N.plusInvokes(r)}`:''}</span>${o?`<span class="out ${o.k}">${o.t}${o.sh?` · ${o.sh>0?'+':'−'}${Math.abs(o.sh)}`:''}</span>`:''}${canInv && !secret ? `<button type="button" class="btn sm" data-a="invoke" data-id="${m.id}" style="--h:28px">${IC('cards')}Invoke</button>` : ''}</div>
   </div>`;
 }
 /* the result of a fight step, posted once the dice are in: an attack against a defense, or the turn order */

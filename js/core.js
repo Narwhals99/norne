@@ -341,6 +341,14 @@ N.voicesFor = (ch, cur) => {
   const here = [...new Set([...all.filter(n => cast.includes(n) || fight.includes(n) || n === cur), ...once])];
   return {here, rest:all.filter(n => !here.includes(n))};
 };
+/* the player characters in a chat: a player's own chat has theirs, a group chat or party its players', Everyone and GM notes every one */
+N.chPcs = ch => (ch === 'gm' ? N.pcs() : N.pcsIn(ch)).filter(c => c.built);
+/* who is in a chat's scene: its player characters, plus (while a scene is up) the NPC cards the GM picked for it and its one-off NPCs.
+   With no scene up, only the player characters */
+N.sceneFolk = ch => {
+  const g = N.G, up = !!g.scenes[ch], cast = up ? N.castOf(ch) || [] : [];
+  return {pcs:N.chPcs(ch), npcs:g.npcs.filter(n => cast.includes(n.name)), once:up ? N.extrasOf(ch) : []};
+};
 N.voices = () => { const names = N.G.npcs.map(n => n.name.trim()).filter(Boolean); return [...new Set([...names, ...N.G.quick.filter(Boolean)])]; };
 N.npcSub = n => n ? [n.race, n.job].filter(Boolean).join(' · ') : 'Quick voice';
 
