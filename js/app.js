@@ -25,7 +25,7 @@ N.msgSnip = m => {
   if (m.kind === 'news') return 'News: ' + m.text;
   if (m.kind === 'gif') return 'GIF';
   if (m.kind === 'pic') return m.text ? 'Picture: ' + m.text : 'Picture';
-  const x = String(m.text || '').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
+  const x = N.plainText(m.text || '').replace(/\s+/g, ' ').trim();
   return x.length > 90 ? x.slice(0, 90) + '…' : x;
 };
 /* what Copy puts on the clipboard: typed text as written, a GIF's link, otherwise the one-line summary */
@@ -237,6 +237,7 @@ function bind(v){
     if (e.target.closest('[data-board]') && (v.ui.tokSel || v.ui.zoneSel)) { v.ui.tokSel = null; v.ui.zoneSel = null; render(v); }
   });
   root.addEventListener('input', e => { const el = e.target; if (el.dataset.i) input(v, el); });
+  root.addEventListener('focusin', e => { const el = e.target; if (el.id && el.matches('textarea, input.inp:not([type]), input.inp[type=text]') && el.dataset.i !== 'draft') v._fld = el.id; });
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
@@ -975,7 +976,11 @@ function act(v, a, el, e){
   case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); break;
   case 'closeSheet': ui.sheet = null; break;
   case 'closePop': ui.pop = null; break;
-  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { openPop(v, val, el); if (val === 'emo' && ui.emoTab === 'gif' && !ui.gifRes?.length && g.gifKey) gifSearch(v); } break;
+  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { openPop(v, val, el);
+    /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box */
+    if (val === 'emof') { const box = el.closest('.sheet, .page') || v.root, last = v._fld && box.querySelector('#' + CSS.escape(v._fld)); const f = last || box.querySelector('textarea[id], input.inp[id]:not([type]), input.inp[id][type=text]');
+      /* where the caret was: the box is drawn again before the emoji is picked, which would lose it */
+      ui.pop.fld = f?.id; ui.pop.sel = f && last ? [f.selectionStart ?? f.value.length, f.selectionEnd ?? f.value.length] : f ? [f.value.length, f.value.length] : null; } if (val === 'emo' && ui.emoTab === 'gif' && !ui.gifRes?.length && g.gifKey) gifSearch(v); } break;
   case 'toast': toast(v, val); break;
   case 'undo': if (ui.toast && ui.toast.undo) { ui.toast.undo(); ui.toast = null; renderAll(); return; } break;
   case 'notify': N.toggleNotify(v); return;
@@ -1123,12 +1128,32 @@ function act(v, a, el, e){
     ui.draft = ui.draft.slice(0, a) + t + ui.draft.slice(b); ui.pop = null; render(v);
     const f = v.root.querySelector('.composer textarea'); if (f) { f.focus({preventScroll:true}); f.setSelectionRange(a + t.length, a + t.length); } return; }
   /* the GM's own emoji pictures */
-  case 'emoAdd': if (!gm) break; pickFramed(v, 'emoji', (img, f) => { ui.emoNew = {d:N.shrinkEmoji(N.cropToFrame(img, f)), n:''}; render(v); setTimeout(() => v.root.querySelector(`#emn-${v.id}`)?.focus(), 30); }); return;
+  case 'emoField': { const id = ui.pop?.fld, sel = ui.pop?.sel, t = val.startsWith(':') ? val + ' ' : val; ui.pop = null;
+    const f = id && v.root.querySelector('#' + CSS.escape(id)); if (!f) { render(v); return; }
+    const a = Math.min(sel ? sel[0] : f.value.length, f.value.length), b = Math.min(sel ? sel[1] : a, f.value.length);
+    f.value = f.value.slice(0, a) + t + f.value.slice(b);
+    /* the form keeps its own copy of each box, so it hears about the change the way it hears typing */
+    f.dispatchEvent(new Event('input', {bubbles:true})); f.dispatchEvent(new Event('change', {bubbles:true}));
+    render(v);
+    const g2 = v.root.querySelector('#' + CSS.escape(id)); if (g2) { g2.focus({preventScroll:true}); try { g2.setSelectionRange(a + t.length, a + t.length); } catch(e) {} } return; }
+  case 'emoAdd': if (!gm) break; {
+    const named = () => { render(v); setTimeout(() => v.root.querySelector(`#emn-${v.id}`)?.focus(), 30); };
+    /* a moving GIF/WebP/PNG is kept exactly as it came (redrawing it would freeze it), so it skips the framer */
+    N.pickImage((img, file) => {
+      if (N.isAnimated(img.src)) {
+        if (img.src.length > 900000) { toast(v, 'That animated emoji is too big. Use one under 650 KB (Discord’s are under 256 KB).'); return; }
+        ui.emoNew = {d:img.src, n:N.emoName((file?.name || '').replace(/\.\w+$/, '')) || '', anim:true}; named(); return;
+      }
+      N.frameEdit(v, {url:img.src, kind:'emoji', save:'Use this picture', onSave:f => { ui.emoNew = {d:N.shrinkEmoji(N.cropToFrame(img, f)), n:''}; named(); }});
+    }); return; }
   case 'emoCancel': ui.emoNew = null; break;
   case 'emoSave': { const e = ui.emoNew, n = N.emoName(e?.n); if (!gm || !e || !n || g.emoji.some(x => x.n === n)) break;
-    g.emoji.push({id:n, n, d:e.d}); ui.emoNew = null; toast(v, `Added :${n}:. Everyone can use it now.`); renderAll(); return; }
+    /* animated ones are too big to share one document with the rest, so each goes in the picture store, readable by everyone */
+    g.emoji.push({id:n, n, d:e.anim ? N.storeImg(e.d, true) : e.d, ...(e.anim ? {a:1} : {})}); ui.emoNew = null; toast(v, `Added :${n}:. Everyone can use it now.`); renderAll(); return; }
   case 'emoDel': { const at = g.emoji.findIndex(x => x.n === val); if (!gm || at < 0) break; const x = g.emoji.splice(at, 1)[0];
-    toast(v, `Removed :${x.n}:.`, () => { if (!g.emoji.some(y => y.n === x.n)) g.emoji.splice(at, 0, x); }); renderAll(); return; }
+    /* an animated one's picture goes once the undo has passed */
+    let undone = false; if (x.a) setTimeout(() => { if (!undone && !g.emoji.some(y => y.d === x.d)) N.dropImg(x.d); }, 9000);
+    toast(v, `Removed :${x.n}:.`, () => { undone = true; if (!g.emoji.some(y => y.n === x.n)) g.emoji.splice(at, 0, x); }); renderAll(); return; }
   /* the GM editing or deleting a chat message */
   case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m || !N.canEdit(v, m)) break; ui.med = {id:m.id, text:m.text}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
   case 'msgSave': {
