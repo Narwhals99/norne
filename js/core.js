@@ -169,6 +169,19 @@ N.WCATS = ['World','Nations','Places','People','Races','Religions','Magic','Fact
 N.CATICON = {'World':'globe','Nations':'flag','Places':'places','People':'person','Races':'races','Religions':'religion','Magic':'magic','Factions':'faction','History':'history','Prophecies':'prophecy','Food & Drink':'drink','Items':'items','Rules':'rules','Storylines':'story'};
 N.CATICONS = ['globe','flag','places','person','races','religion','magic','faction','history','prophecy','drink','items','rules','story','castle','tavern','crown','sword','helm','dwarf','potion','spellbook','skull','coins','scroll','mask','herald','campfire','star','heart'];
 /* the GM can rename, add, remove and reorder categories (game/meta); until then the built-in list is used */
+/* ---------- map folders: the GM sorts maps into folders (folders can sit in folders) ---------- */
+/* G.mapDirs = [{id, name, in}] (in = the folder it sits in, null at the top); a map's folder is m.dir */
+N.dirById = id => (N.G.mapDirs || []).find(d => d.id === id) || null;
+N.mapDirOf = m => (m && N.dirById(m.dir)) ? m.dir : null;
+N.dirKids = id => (N.G.mapDirs || []).filter(d => (N.dirById(d.in) ? d.in : null) === (id || null)).sort((a, b) => a.name.localeCompare(b.name));
+N.dirPath = id => { const out = []; for (let d = N.dirById(id), n = 0; d && n < 20; d = N.dirById(d.in), n++) out.unshift(d); return out; };
+N.dirName = id => N.dirPath(id).map(d => d.name).join(' › ');
+/* the folder and every folder inside it */
+N.dirTree = id => [id, ...N.dirKids(id).flatMap(d => N.dirTree(d.id))];
+/* how many of the maps this person can see sit in the folder or below it */
+N.dirCount = (id, see) => { const ids = new Set(N.dirTree(id)); return N.G.maps.filter(m => see(m) && ids.has(N.mapDirOf(m))).length; };
+/* every folder as [id, "Riverlands › Drinkhold"], for pickers */
+N.dirList = (skip) => { const out = [], walk = (id, d) => { for (const k of N.dirKids(id)) { if (k.id === skip) continue; out.push([k.id, N.dirName(k.id), d]); walk(k.id, d + 1); } }; walk(null, 0); return out; };
 N.cats = () => N.G.cats || N.WCATS.map(name => ({name, ic:N.CATICON[name] || 'globe'}));
 N.catIcon = name => (N.cats().find(c => c.name === name) || {}).ic || N.CATICON[name] || 'globe';
 /* every category with entries in it: the GM's list in order, then any an entry still names */
@@ -223,7 +236,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null,
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[],
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];

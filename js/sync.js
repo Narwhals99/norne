@@ -385,7 +385,7 @@ function syncNow(){
       writeUnits('game/news', Object.fromEntries(g.news.issues.map(i => [i.id, share(i, 'news', 'n:' + i.id, i)]).filter(e => e[1])));
     }
     /* wiki categories and the GIF search key; the server copy is read back into g first, so writing it all is safe */
-    { const meta = {}; if (g.cats) meta.cats = g.cats; if (g.gifKey) meta.gif = g.gifKey; if (g.gmPic) meta.gmpic = g.gmPic; writeUnits('game/meta', meta); }
+    { const meta = {}; if (g.cats) meta.cats = g.cats; if (g.gifKey) meta.gif = g.gifKey; if (g.gmPic) meta.gmpic = g.gmPic; if (g.mapDirs?.length) meta.mapdirs = g.mapDirs; writeUnits('game/meta', meta); }
     writeUnits('game/emoji', asUnits(g.emoji));
     for (const [st, units] of Object.entries(only)) {
       const path = 'only/' + st;
@@ -632,7 +632,7 @@ async function start(role){
     'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
     'game/maps': u => { PUB.maps = u; mergeView(); },
     'game/wiki': u => { PUB.wiki = u; mergeView(); },
-    'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; g.gifKey = u.gif ? JSON.parse(u.gif) : ''; g.gmPic = u.gmpic ? JSON.parse(u.gmpic) : null; },
+    'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; g.gifKey = u.gif ? JSON.parse(u.gif) : ''; g.gmPic = u.gmpic ? JSON.parse(u.gmpic) : null; g.mapDirs = u.mapdirs ? JSON.parse(u.mapdirs) : []; },
     'game/emoji': u => { g.emoji = vals(u).sort(byO); },
   };
   /* everything is asked for at once; the GM's private fights need the seat list from members first */
@@ -707,7 +707,7 @@ N.importLore = file => file.text().then(txt => {
   const g = G();
   /* pictures the GM added to an entry stay when the lore file replaces its text */
   for (const e of d.wiki) { const i = g.wiki.findIndex(x => x.id === e.id); if (i >= 0) { const was = g.wiki[i]; if (was.imgs && !e.imgs) { e.imgs = was.imgs; delete e.img; } if (was.parts && !e.parts) e.parts = was.parts; g.wiki[i] = e; } else g.wiki.push(e); }
-  for (const m0 of d.maps) { const m = normMap(m0), i = g.maps.findIndex(x => x.id === m.id); if (i >= 0) g.maps[i] = m; else g.maps.push(m); }
+  for (const m0 of d.maps) { const m = normMap(m0), i = g.maps.findIndex(x => x.id === m.id); if (i >= 0) { if (g.maps[i].dir && !m.dir) m.dir = g.maps[i].dir; g.maps[i] = m; } else g.maps.push(m); }
   return Promise.all(Object.entries(d.mapimgs || {}).map(([id, data]) => { const v = g.maps.find(m => m.src === 'fs:' + id)?.vis !== false; MIMG.set(id, {url:data, p:null}); MVIS.set(id, v); return F.setDoc(dref('mapimgs/' + id), {data, vis:v}); }))
     .then(() => { syncNow(); return d; });
 });

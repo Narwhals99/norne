@@ -342,9 +342,19 @@ N.sheetHtml = function(v){
   case 'mapSet': {
     const m = g.maps.find(x => x.id === arg); if (!m) return '';
     return sheet('Map settings', `<label class="field"><span>Map name</span><input class="inp" id="mpn-${v.id}" data-i="mapName" data-v="${esc(m.id)}" value="${esc(m.name)}"></label>
+      <label class="field"><span>Folder</span><div style="display:flex;gap:8px"><select class="inp" id="mpf-${v.id}" data-i="mapFolder" data-v="${esc(m.id)}" style="flex:1;min-width:0"><option value="">No folder (top of the list)</option>${N.dirList().map(([id, name]) => `<option value="${esc(id)}" ${N.mapDirOf(m) === id ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select><button type="button" class="btn ghost" data-a="mdOpen" data-map="${esc(m.id)}" data-in="${esc(N.mapDirOf(m) || '')}" style="flex:0 0 auto">${IC('plus')}New folder</button></div></label>
       <div><h4>Who sees this map</h4>${N.audPick('mapAud', m, 'map')}</div>
       <div class="note">${IC('info')}Places on the map have their own switch: tap a place while editing to show or hide it.</div>`,
       `<button type="button" class="btn danger" data-a="sheet" data-v="mapDel" data-c="${esc(m.id)}" style="flex:0 0 auto">${IC('trash')}Delete map</button><button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+  }
+  case 'mapDir': {
+    const md = v.ui.md; if (!md) return '';
+    const dir = md.id && N.dirById(md.id), n = dir ? N.dirCount(dir.id, () => true) : 0;
+    const body = `<label class="field"><span>Folder name</span><input class="inp" id="mdn-${v.id}" data-i="md" data-k="name" value="${esc(md.name)}" placeholder="e.g. Riverlands" autocomplete="off"></label>
+      <label class="field"><span>Inside</span><select class="inp" id="mdi-${v.id}" data-i="md" data-k="in"><option value="">Nothing (top of the maps list)</option>${N.dirList(md.id).map(([id, name]) => `<option value="${esc(id)}" ${md.in === id ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>
+      <div class="note">${IC('info')}${md.map ? 'The map goes into the new folder.' : 'Players see a folder only when it holds a map they can see.'}</div>`;
+    return sheet(dir ? `The ${esc(dir.name)} folder` : 'New map folder', body,
+      `${dir ? `<button type="button" class="btn danger" data-a="mdDel" data-v="${esc(dir.id)}" style="flex:0 0 auto" title="${n ? `Its ${n} ${n === 1 ? 'map moves' : 'maps move'} up a level` : ''}">${IC('trash')}Delete</button>` : ''}<button type="button" class="btn ghost" data-a="${md.map ? 'sheet' : 'closeSheet'}" ${md.map ? `data-v="mapSet" data-c="${esc(md.map)}"` : ''}>Cancel</button><button type="button" class="btn primary" data-a="mdSave" ${md.name.trim() ? '' : 'disabled'}>${IC('check')}${dir ? 'Save' : 'Make folder'}</button>`);
   }
   case 'mapDel': {
     const m = g.maps.find(x => x.id === arg); if (!m) return '';

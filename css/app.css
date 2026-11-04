@@ -746,7 +746,7 @@
 .app .mapsel{display:inline-flex;align-items:center;gap:10px;height:46px;padding:0 14px 0 5px;border-radius:999px;min-width:0;max-width:100%}
 .app .mapsel .th{width:36px;height:36px;border-radius:50%;background:center/cover;box-shadow:0 0 0 1.5px var(--gold-soft);flex:none}
 .app .mapsel b{display:block;font:600 15px/1.1 var(--f-display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.app .mapsel small{display:block;font:700 10px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.app .mapsel small{display:block;font:700 10px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .app .mapsel svg{width:14px;height:14px;color:var(--ink-3);flex:none}
 .app .mapov .chips{padding:0;pointer-events:auto;width:max-content;max-width:100%}
 .app .mapov .chips .cchip{padding:0 12px}
@@ -2124,3 +2124,7 @@
 .app .distbox{display:grid;gap:8px}
 .app .distbox h4,.app .distbox .vsnote{margin:0}
 .app .distbox .vsnote svg{width:14px;height:14px;vertical-align:-2px;margin-right:4px}
+/* maps dropdown: the open folder's name with a way back up */
+.app .pop .mdhead{display:flex;align-items:center;gap:4px}
+.app .pop .mdhead .opt{flex:1;min-width:0}
+.app .pop .mdhead .opt>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
