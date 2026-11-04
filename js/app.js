@@ -25,7 +25,7 @@ N.msgSnip = m => {
   if (m.kind === 'news') return 'News: ' + m.text;
   if (m.kind === 'gif') return 'GIF';
   if (m.kind === 'pic') return m.text ? 'Picture: ' + m.text : 'Picture';
-  const x = String(m.text || '').replace(/[*_]/g, '').replace(/\s+/g, ' ').trim();
+  const x = N.plainText(m.text || '').replace(/\s+/g, ' ').trim();
   return x.length > 90 ? x.slice(0, 90) + '…' : x;
 };
 /* what Copy puts on the clipboard: typed text as written, a GIF's link, otherwise the one-line summary */
@@ -50,6 +50,7 @@ const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:n
 /* ---------------- mount + render ---------------- */
 N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), fz:N.fzOk(o.fz), ui:newUi(o.role)};
+  try { v.vg = localStorage.getItem('norne-vg') !== '0'; v.dp = localStorage.getItem('norne-dp') !== '0'; } catch(e) { v.vg = v.dp = true; }
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
   try { for (const k of ['railW','railWc','rcH','rcHc','shelfW']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1'; } catch(e) {}
   views.push(v); bind(v); render(v);
@@ -89,6 +90,8 @@ function render(v){
   if (!root.isConnected) return;
   if (swBusy(v)) { v._later = true; return; }
   root.dataset.theme = v.theme; root.dataset.style = v.style; root.dataset.dev = v.dev; root.dataset.role = v.role || '';
+  /* shading + depth: on by default, strong at night and soft by day (css/vignette.css, css/depth.css) */
+  { const k = v.theme === 'day' ? 'soft' : 'strong'; if (v.vg === false) delete root.dataset.vg; else root.dataset.vg = k; if (v.dp === false) delete root.dataset.depth; else root.dataset.depth = k; }
   fzSet(v);
   if (N.gated || !v.role) { root.innerHTML = N.gateHtml(N.gated || '<p>Opening the campaign…</p>'); fzInline(v); return; }
   /* a chat this person can't see (a deleted group, Everyone for someone in a party) falls back to their first chat */
@@ -237,6 +240,7 @@ function bind(v){
     if (e.target.closest('[data-board]') && (v.ui.tokSel || v.ui.zoneSel)) { v.ui.tokSel = null; v.ui.zoneSel = null; render(v); }
   });
   root.addEventListener('input', e => { const el = e.target; if (el.dataset.i) input(v, el); });
+  root.addEventListener('focusin', e => { const el = e.target; if (el.id && el.matches('textarea, input.inp:not([type]), input.inp[type=text]') && el.dataset.i !== 'draft') v._fld = el.id; });
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
@@ -514,6 +518,7 @@ function change(v, el){
   if (i === 'cdTo') v.ui.cd[+el.dataset.n].to = val;
   if (i === 'mapName') renderAll();
   if (i === 'memName') { N.renameMember(el.dataset.v, val); toast(v, 'Name saved.'); render(v); }
+  if (i === 'sdAspOn') { const a = v.ui.sd.aspects[+el.dataset.n]; if (a) { if (val) a.on = val; else delete a.on; } render(v); }
   if (i === 'invQ') { const n = parseInt(val, 10); v.ui.invQ = n > 0 ? n : 1; }
 }
 
@@ -977,12 +982,18 @@ function act(v, a, el, e){
   case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); break;
   case 'closeSheet': ui.sheet = null; break;
   case 'closePop': ui.pop = null; break;
-  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); openPop(v, val, el); if (val === 'emo' && ui.emoTab === 'gif' && !ui.gifRes?.length && g.gifKey) gifSearch(v); } break;
+  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); openPop(v, val, el);
+    /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box */
+    if (val === 'emof') { const box = el.closest('.sheet, .page') || v.root, last = v._fld && box.querySelector('#' + CSS.escape(v._fld)); const f = last || box.querySelector('textarea[id], input.inp[id]:not([type]), input.inp[id][type=text]');
+      /* where the caret was: the box is drawn again before the emoji is picked, which would lose it */
+      ui.pop.fld = f?.id; ui.pop.sel = f && last ? [f.selectionStart ?? f.value.length, f.selectionEnd ?? f.value.length] : f ? [f.value.length, f.value.length] : null; } if (val === 'emo' && ui.emoTab === 'gif' && !ui.gifRes?.length && g.gifKey) gifSearch(v); } break;
   case 'toast': toast(v, val); break;
   case 'undo': if (ui.toast && ui.toast.undo) { ui.toast.undo(); ui.toast = null; renderAll(); return; } break;
   case 'notify': N.toggleNotify(v); return;
   case 'theme': v.theme = val; try { localStorage.setItem('norne-theme', val); } catch(e) {} if (N.onTheme) N.onTheme(v); break;
   case 'fz': v.fz = N.fzOk(val); try { localStorage.setItem('norne-fz', v.fz); } catch(e) {} break;
+  case 'vg': v.vg = val === 'on'; try { localStorage.setItem('norne-vg', v.vg ? '1' : '0'); } catch(e) {} break;
+  case 'dp': v.dp = val === 'on'; try { localStorage.setItem('norne-dp', v.dp ? '1' : '0'); } catch(e) {} break;
   case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {} break;
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;
@@ -1125,12 +1136,32 @@ function act(v, a, el, e){
     ui.draft = ui.draft.slice(0, a) + t + ui.draft.slice(b); ui.pop = null; render(v);
     const f = v.root.querySelector('.composer textarea'); if (f) { f.focus({preventScroll:true}); f.setSelectionRange(a + t.length, a + t.length); } return; }
   /* the GM's own emoji pictures */
-  case 'emoAdd': if (!gm) break; pickFramed(v, 'emoji', (img, f) => { ui.emoNew = {d:N.shrinkEmoji(N.cropToFrame(img, f)), n:''}; render(v); setTimeout(() => v.root.querySelector(`#emn-${v.id}`)?.focus(), 30); }); return;
+  case 'emoField': { const id = ui.pop?.fld, sel = ui.pop?.sel, t = val.startsWith(':') ? val + ' ' : val; ui.pop = null;
+    const f = id && v.root.querySelector('#' + CSS.escape(id)); if (!f) { render(v); return; }
+    const a = Math.min(sel ? sel[0] : f.value.length, f.value.length), b = Math.min(sel ? sel[1] : a, f.value.length);
+    f.value = f.value.slice(0, a) + t + f.value.slice(b);
+    /* the form keeps its own copy of each box, so it hears about the change the way it hears typing */
+    f.dispatchEvent(new Event('input', {bubbles:true})); f.dispatchEvent(new Event('change', {bubbles:true}));
+    render(v);
+    const g2 = v.root.querySelector('#' + CSS.escape(id)); if (g2) { g2.focus({preventScroll:true}); try { g2.setSelectionRange(a + t.length, a + t.length); } catch(e) {} } return; }
+  case 'emoAdd': if (!gm) break; {
+    const named = () => { render(v); setTimeout(() => v.root.querySelector(`#emn-${v.id}`)?.focus(), 30); };
+    /* a moving GIF/WebP/PNG is kept exactly as it came (redrawing it would freeze it), so it skips the framer */
+    N.pickImage((img, file) => {
+      if (N.isAnimated(img.src)) {
+        if (img.src.length > 900000) { toast(v, 'That animated emoji is too big. Use one under 650 KB (Discord’s are under 256 KB).'); return; }
+        ui.emoNew = {d:img.src, n:N.emoName((file?.name || '').replace(/\.\w+$/, '')) || '', anim:true}; named(); return;
+      }
+      N.frameEdit(v, {url:img.src, kind:'emoji', save:'Use this picture', onSave:f => { ui.emoNew = {d:N.shrinkEmoji(N.cropToFrame(img, f)), n:''}; named(); }});
+    }); return; }
   case 'emoCancel': ui.emoNew = null; break;
   case 'emoSave': { const e = ui.emoNew, n = N.emoName(e?.n); if (!gm || !e || !n || g.emoji.some(x => x.n === n)) break;
-    g.emoji.push({id:n, n, d:e.d}); ui.emoNew = null; toast(v, `Added :${n}:. Everyone can use it now.`); renderAll(); return; }
+    /* animated ones are too big to share one document with the rest, so each goes in the picture store, readable by everyone */
+    g.emoji.push({id:n, n, d:e.anim ? N.storeImg(e.d, true) : e.d, ...(e.anim ? {a:1} : {})}); ui.emoNew = null; toast(v, `Added :${n}:. Everyone can use it now.`); renderAll(); return; }
   case 'emoDel': { const at = g.emoji.findIndex(x => x.n === val); if (!gm || at < 0) break; const x = g.emoji.splice(at, 1)[0];
-    toast(v, `Removed :${x.n}:.`, () => { if (!g.emoji.some(y => y.n === x.n)) g.emoji.splice(at, 0, x); }); renderAll(); return; }
+    /* an animated one's picture goes once the undo has passed */
+    let undone = false; if (x.a) setTimeout(() => { if (!undone && !g.emoji.some(y => y.d === x.d)) N.dropImg(x.d); }, 9000);
+    toast(v, `Removed :${x.n}:.`, () => { undone = true; if (!g.emoji.some(y => y.n === x.n)) g.emoji.splice(at, 0, x); }); renderAll(); return; }
   /* the GM editing or deleting a chat message */
   case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m || !N.canEdit(v, m)) break; ui.med = {id:m.id, text:m.text}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
   case 'msgSave': {
@@ -1417,6 +1448,8 @@ function act(v, a, el, e){
   case 'rollAll': ui.roll.all = true; break;
   case 'rollOpp': ui.roll.opp = val === 'null' ? null : +val; break;
   case 'rollVsSkill': { const r = ui.roll; r.vsSkill = r.vsSkill === val ? null : val; vsSkillMem[r.skill] = r.vsSkill; vsSkillSave(); const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
+  case 'rollAllWho': ui.roll.allWho = !ui.roll.allWho; break;
+  case 'rollAllVs': ui.roll.allVs = !ui.roll.allVs; break;
   case 'rollVsNpc': { const r = ui.roll; r.vsNpc = val || null; const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
   case 'rollPassive': ui.roll.passive = ui.roll.passive === false; break;
   case 'rollSecret': ui.roll.secret = !ui.roll.secret; break;
@@ -1459,8 +1492,10 @@ function act(v, a, el, e){
   /* ending a scene takes its banner down and lets its one-off NPCs and NPC list go (Undo brings them back) */
   case 'sdEnd': { const ch = val || ui.sd?.ch; if (!ch || !g.scenes[ch]) { ui.sheet = null; break; }
     const cast = g.casts[ch], once = g.extras[ch]; delete g.casts[ch]; delete g.extras[ch];
-    const m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true}); ui.sheet = null;
-    toast(v, 'Scene ended.', () => { N.delMsg(m.id); if (cast) g.casts[ch] = cast; if (once) g.extras[ch] = once; N.renderAll(); }); renderAll(); return; }
+    const title = g.scenes[ch].title, m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true});
+    /* Jake: the log shows where a scene ended, like it shows where one started */
+    const note = push({ch, kind:'sys', by:'gm', text:title ? `Scene ended: ${title}.` : 'Scene ended.', sceneEnd:true, sceneTitle:title || ''}); ui.sheet = null;
+    toast(v, 'Scene ended.', () => { N.delMsg(note.id); N.delMsg(m.id); if (cast) g.casts[ch] = cast; if (once) g.extras[ch] = once; N.renderAll(); }); renderAll(); return; }
   /* fight */
   case 'cbBegin': if (N.metaOnly(val || ui.ch)) { toast(v, `No fights in ${ (val || ui.ch) === 'table' ? 'Everyone' : N.chName(val || ui.ch, 'gm')}, it’s Meta only. Open a chat that isn’t Meta only to begin one.`); break; } N.cbBegin(val || ui.ch); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
   case 'openFight': close(); ui.tab = 'chat'; ui.ch = val || N.fightCh(); focusFight(v); ui.fightOpen = true; ui.fightPane = 'fight'; break;
@@ -1607,14 +1642,14 @@ function sceneRecent(sc){
 /* fixing up a scene changes its own message: no new scene line, nobody is pinged, and spent free invokes stay spent */
 function editScene(v, s){
   const g = G(), m = g.msgs.find(x => x.id === s.msg && x.kind === 'scene'); if (!m) return false;
-  m.scene = {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art || null, place:s.place || null, aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, k:a.k ?? uid('a')}))};
+  m.scene = {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art || null, place:s.place || null, aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, k:a.k ?? uid('a'), ...(a.on ? {on:a.on} : {})}))};
   N.invalidateScenes(); sceneRecent(m.scene);
   toast(v, `Scene updated: ${m.scene.title}`);
   return true;
 }
 function setScene(v, ch, s, post){
   const g = G();
-  const sc = {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, aspects:(s.aspects || []).map(a => ({t:a.t, free:a.free || 0}))};
+  const sc = {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, aspects:(s.aspects || []).map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})}))};
   const m = push({ch, kind:'scene', by:'gm', scene:sc, quiet:!post});
   sceneRecent(sc);
   const who = ch === 'table' ? 'everyone' : (g.P[ch.slice(3)]?.name || 'them');

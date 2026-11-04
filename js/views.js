@@ -77,7 +77,7 @@ function chanLast(v, c){
     if (m.kind === 'news') return 'New edition of the paper';
     if (m.kind === 'sys') return m.text || '';
     const who = isMe(v, m) ? 'You' : m.kind === 'ooc' || m.kind === 'meta' || N.metaRp(m) ? metaObj(m).name : N.speakerObj(m).name;
-    return `${who}: ${(m.text || '').replace(/\*\*/g, '')}`;
+    return `${who}: ${N.plainText(m.text || '')}`;
   }
   return N.chSub(c, v.role);
 }
@@ -228,14 +228,14 @@ function sceneBanner(v, sc, ch){
       ${min ? `<span class="star4"></span>` : `<span class="eyebrow">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}<span>${priv ? onlyWho : 'Scene'}</span>${sc.date?`<span style="color:var(--ink-3);letter-spacing:.1em">· ${esc(sc.date)}</span>`:''}</span>`}
       <h2>${esc(sc.title)}</h2>
       <span class="where">${esc(sc.where||'')}</span>
-      ${sc.aspects?.length ? `<div class="icards">${sc.aspects.map((a,i)=>{ const f = N.sceneFreeLeft(sc, i); return `<span class="icard" style="--rot:${i%2?.8:-.9}deg">${esc(a.t)}${f?`<span class="fi">${'<i></i>'.repeat(f)}</span>`:''}</span>`; }).join('')}</div>` : ''}
+      ${sc.aspects?.length ? `<div class="icards">${sc.aspects.map((a,i)=>{ const f = N.sceneFreeLeft(sc, i); return `<span class="icard" style="--rot:${i%2?.8:-.9}deg">${a.on?`<span class="k">On ${esc(a.on)}</span>`:''}<span>${N.emoText(N.marks(esc(a.t)))}</span>${f?`<span class="fi">${'<i></i>'.repeat(f)}</span>`:''}</span>`; }).join('')}</div>` : ''}
     </div>
     <div class="ctl">${gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Edit scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
   </section>`;
 }
 /* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */
 function isAction(m){
-  return m.kind === 'sys' || m.kind === 'fight' || m.kind === 'combat' || m.kind === 'roll';
+  return m.kind === 'sys' && !m.sceneEnd || m.kind === 'fight' || m.kind === 'combat' || m.kind === 'roll';
 }
 /* the part of the actions that belongs to a fight: fight rolls, results, and the fight's own notices */
 function isFightAct(m){
@@ -310,7 +310,7 @@ function msgWrap(v, m, h){
 function replyQuote(v, id){
   const o = G().msgs.find(x => x.id === id);
   if (!o) return `<div class="rq gone">${IC('reply')}<span>The message this answers was deleted</span></div>`;
-  return `<button type="button" class="rq" data-a="jumpMsg" data-v="${o.id}">${IC('reply')}<b style="--who:${N.msgColor(o)}">${esc(N.msgWho(o))}</b><span>${N.emoText(esc(N.msgSnip(o)))}</span></button>`;
+  return `<button type="button" class="rq" data-a="jumpMsg" data-v="${o.id}">${IC('reply')}<b style="--who:${N.msgColor(o)}">${esc(N.msgWho(o))}</b><span>${N.emoText(esc(N.plainText(N.msgSnip(o))))}</span></button>`;
 }
 /* reactions: a little bubble on the message's inner bottom corner (the most used emoji and a count).
    Tapping it opens the message menu, where your own reactions are lit and can be taken back.
@@ -328,6 +328,7 @@ function rxPill(v, m){
 }
 function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = isMe(v, m), time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
+  if (m.kind === 'sys' && m.sceneEnd) return `<div class="scenem end"><span class="th">${IC('stop')}</span><span><span>Scene ended</span><b>${esc(m.sceneTitle || (m.text || '').replace(/^Scene ended:? ?|\.$/g, '') || 'The scene')}</b></span></div>`;
   if (m.kind === 'sys') return m.res ? resCard(m.res) : m.fightEnd ? `<button type="button" class="sysm fend" data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}">${IC('swords')}<span>${esc(m.text)}</span><b>See what happened</b></button>` : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
   if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
@@ -408,13 +409,15 @@ function rRoll(v, m){
   const r = m.roll, tot = rollTotal(r), o = outcome(r), fold = v.ui.folded.has(m.id) ? v.ui.folded.get(m.id) : m.id !== v._lastRoll;
   const dice = r.dice.map(d => `<span class="die ${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':'·'}</span>`).join('');
   const canInv = isGM(v) || (r.whoKey === 'pc:' + (G().P[v.role]||{}).char && m.by === v.role);
-  return `<div class="roll${fold?' folded':''}${m.ch==='gm'?' secret':''}">
+  /* GM notes hold secret rolls, unless the fight itself is kept there (then its rolls are the fight's own and can be invoked on) */
+  const secret = m.ch === 'gm' && N.fightCh() !== 'gm';
+  return `<div class="roll${fold?' folded':''}${secret?' secret':''}">
     <div class="rh"><span class="grow"><b>${esc(r.skill)} ${sgn(r.bonus - (r.gear||0) + (r.dist||0))}</b>${r.gear?` + ${r.gearL || 'gear'} ${sgn(r.gear)}`:''}${r.dist?` − distance ${r.dist}`:''} · ${esc(r.action)}${r.target?` ${r.action==='Defend'?'against':'on'} <b>${esc(r.target)}</b>`:''}${vsLabel(r)}</span>${r.event ? '<span class="tag gold evtag">Event</span>' : ''}${fold?`<span class="mini-tot">${sgn(tot)}${r.opp!=null?` <small>vs</small> ${sgn(r.opp)}`:''}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" data-f="${fold?1:''}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
     ${evText(r) ? `<div class="evt">${IC('magic')}<span>${esc(evText(r))}</span></div>` : ''}
     <div class="rb"><div class="dice${v.ui.fresh===m.id?' fresh':''}">${dice}</div>${r.opp!=null ? `<div class="tot vs"><span class="n"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></span><i>vs</i><span class="n opp"><b>${sgn(r.opp)}</b><span>${ladderWord(r.opp)}</span></span></div>` : `<div class="tot"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></div>`}</div>
     ${r.oppDice ? `<div class="oppd">${esc(r.vs?.name || 'The other side')} rolled <span class="od">${r.oppDice.map(d => `<span class="${d>0?'op':d<0?'om':'oz'}">${d>0?'+':d<0?'−':''}</span>`).join('')}</span> ${sgn(diceSum({dice:r.oppDice}))} on ${r.vs?.skill ? esc(r.vs.skill) + ' ' : ''}${sgn(r.oppBase)}${r.invokes.some(i => i.opp) ? ` + ${2*r.invokes.filter(i => i.opp).length} invoked` : ''} = <b>${sgn(r.opp)}</b></div>` : ''}
     ${r.invokes.length ? `<div class="inv">${r.invokes.map(i => (i.opp ? `+2 to beat from “${esc(i.aspect)}”` : i.reroll ? `Rerolled with “${esc(i.aspect)}” (was ${sgn(i.was ? i.was.reduce((a,b)=>a+b,0) : 0)})` : `+2 from “${esc(i.aspect)}”`) + (i.by ? `, ${esc(i.by)}` : '')).join(' · ')}</div>` : ''}
-    <div class="rf"><span class="math">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${sgn(r.bonus - (r.gear||0) + (r.dist||0))}${r.gear?` · ${r.gearL || 'gear'} ${sgn(r.gear)}`:''}${r.dist?` · <span class="dist">distance −${r.dist}</span>`:''}${N.plusInvokes(r)?` · invokes +${2*N.plusInvokes(r)}`:''}</span>${o?`<span class="out ${o.k}">${o.t}${o.sh?` · ${o.sh>0?'+':'−'}${Math.abs(o.sh)}`:''}</span>`:''}${canInv && m.ch!=='gm' ? `<button type="button" class="btn sm" data-a="invoke" data-id="${m.id}" style="--h:28px">${IC('cards')}Invoke</button>` : ''}</div>
+    <div class="rf"><span class="math">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${sgn(r.bonus - (r.gear||0) + (r.dist||0))}${r.gear?` · ${r.gearL || 'gear'} ${sgn(r.gear)}`:''}${r.dist?` · <span class="dist">distance −${r.dist}</span>`:''}${N.plusInvokes(r)?` · invokes +${2*N.plusInvokes(r)}`:''}</span>${o?`<span class="out ${o.k}">${o.t}${o.sh?` · ${o.sh>0?'+':'−'}${Math.abs(o.sh)}`:''}</span>`:''}${canInv && !secret ? `<button type="button" class="btn sm" data-a="invoke" data-id="${m.id}" style="--h:28px">${IC('cards')}Invoke</button>` : ''}</div>
   </div>`;
 }
 /* the result of a fight step, posted once the dice are in: an attack against a defense, or the turn order */
@@ -455,7 +458,7 @@ function composer(v){
   if (v.ui.ch === 'gm') { chip = `<span class="ooc-ic">${IC('lock')}</span><b class="only-dt">Note</b>`; ph = 'A note only you can see…'; }
   const re = v.ui.reply && g.msgs.find(x => x.id === v.ui.reply);
   return `<form class="composer${ooc?' ooc':''}" data-f="send" onsubmit="return false">
-    ${re ? `<div class="replying">${IC('reply')}<span>Replying to <b>${esc(N.msgWho(re))}</b><small>${N.emoText(esc(N.msgSnip(re)))}</small></span><button type="button" class="ibtn sm" data-a="replyOff" aria-label="Stop replying">${IC('x')}</button></div>` : ''}
+    ${re ? `<div class="replying">${IC('reply')}<span>Replying to <b>${esc(N.msgWho(re))}</b><small>${N.emoText(esc(N.plainText(N.msgSnip(re))))}</small></span><button type="button" class="ibtn sm" data-a="replyOff" aria-label="Stop replying">${IC('x')}</button></div>` : ''}
     <div class="box">
       ${v.ui.ch === 'gm' || meta ? `<span class="voice"${meta ? ' title="This chat is Meta only: you show by your own name"' : ''}>${chip}</span>` : gm ? `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`
         : `<button type="button" class="voice flip" data-a="voice" data-v="__flip" aria-label="${ooc ? 'Speaking Meta (out of character). Tap to speak in character' : 'Speaking in character. Tap to switch to Meta'}" title="Tap to switch">${chip}${IC('swap','car')}</button>`}
@@ -492,7 +495,7 @@ function gmScreen(v){
       <div class="tools">${tiles.map(([a, ic, l, x]) => `<button type="button" data-a="${a}" ${x}>${IC(ic)}${l}</button>`).join('')}</div>
     </section>
     <section class="gs-sec"><div class="gs-h"><h3>Party</h3><button type="button" class="btn sm" data-a="tab" data-v="cast">Cast</button></div>
-      ${pcs.map(c => c.built ? `<div class="pcrow">${N.av(c,40)}<span><b>${esc(c.short)}</b><small>${esc(N.pcTag(c))}</small></span>
+      ${pcs.map(c => c.built ? `<div class="pcrow">${N.av(c,40)}<span><b>${esc(c.short)}</b><small>${N.emoText(N.marks(esc(N.pcTag(c))))}</small></span>
         <span class="coins">${coinsHtml(c, true)}</span>
         <div class="tracks"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<button type="button" class="sbox${c.stress.phys[i]?' on':''}" data-a="stress" data-c="${c.id}" data-k="phys" data-i="${i}" aria-pressed="${c.stress.phys[i]}">${x}</button>`).join('')}</div>
         <span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<button type="button" class="sbox${c.stress.ment[i]?' on':''}" data-a="stress" data-c="${c.id}" data-k="ment" data-i="${i}" aria-pressed="${c.stress.ment[i]}">${x}</button>`).join('')}</div></div></div>`
@@ -533,9 +536,9 @@ function heroQuick(v){
   if (!c.built) return `<div class="gs"><div class="quiet"><div class="art"></div><p>${esc(N.gmName())} hasn’t made your character card yet. It shows up here as soon as it’s ready.</p></div></div>`;
   const top = Object.entries(c.skills).sort((a,b)=>b[1]-a[1]).slice(0,6);
   return `<div class="gs">
-    <div class="hero-top">${N.av(c,58)}<span><b>${esc(c.name)}</b><small>${esc(N.pcTag(c))}</small></span></div>
+    <div class="hero-top">${N.av(c,58)}<span><b>${esc(c.name)}</b><small>${N.emoText(N.marks(esc(N.pcTag(c))))}</small></span></div>
     <section class="gs-sec"><div class="gs-h"><h3>Fate points</h3><span class="muted" style="font-weight:700;font-size:12px">Refresh ${c.refresh}</span></div><div class="coins">${coinsHtml(c,false)}</div></section>
-    <section class="gs-sec"><div class="gs-h"><h3>Aspects</h3></div><div class="icards">${N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.8,.7,-.4][i%3]}deg"><span class="k">${k}</span>${esc(a)}</span>`).join('')}</div></section>
+    <section class="gs-sec"><div class="gs-h"><h3>Aspects</h3></div><div class="icards">${N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.8,.7,-.4][i%3]}deg"><span class="k">${k}</span><span>${N.emoText(N.marks(esc(a)))}</span></span>`).join('')}</div></section>
     <section class="gs-sec"><div class="gs-h"><h3>Top skills</h3></div><div class="quick-sk">${top.map(([n,x])=>`<span>${esc(n)}<i>${sgn(x)}</i></span>`).join('')}</div></section>
     <section class="gs-sec"><div class="gs-h"><h3>Stress</h3></div>
       <div class="pcrow" style="grid-template-columns:auto 1fr"><div class="tracks" style="grid-column:1/-1"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}</div><span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<span class="sbox${c.stress.ment[i]?' on':''}">${x}</span>`).join('')}</div></div></div>
@@ -560,6 +563,15 @@ function emoGrid(v, attrs, mine){
   const cus = G().emoji || [];
   const b = (e, label) => `<button type="button" class="emo${mine.includes(e)?' me':''}" ${attrs(e)} aria-label="${esc(label || e)}">${N.emj(e)}</button>`;
   return `<div class="emo-grid">${cus.length ? `<div class="lbl">Norne</div>${cus.map(x => b(':' + x.n + ':', x.n)).join('')}<div class="lbl">Emoji</div>` : ''}${N.EMO_ALL.map(e => b(e)).join('')}</div>${isGM(v) ? `<button type="button" class="opt" data-a="sheet" data-v="emoji">${IC('plus')}<span>${cus.length ? 'Manage custom emoji' : 'Add custom emoji'}</span></button>` : ''}`;
+}
+/* how to format text: what you type, and what it looks like */
+function fmtGuide(chat){
+  const e0 = G().emoji?.[0];
+  const rows = N.FMT_GUIDE.filter(r => chat || !r[3]).map(([t, l, ex]) => {
+    const look = t === ':name:' ? (e0 ? N.emj(':' + e0.n + ':') + `<small>:${esc(e0.n)}:</small>` : '<small>Your table’s own emoji</small>') : N.blocks(ex || t);
+    return `<div class="fg-r"><code>${esc(t)}</code><span class="fg-l">${chat ? l.replace(', chat only', '') : l}</span><span class="fg-x">${look}</span></div>`;
+  }).join('');
+  return `<div class="fguide"><p>Type the marks around your words. ${chat ? 'Works in every chat.' : 'Works in wiki entries, the news and character cards.'}</p>${rows}</div>`;
 }
 function popHtml(v){
   const p = v.ui.pop, g = G();
@@ -596,10 +608,14 @@ function popHtml(v){
   }
   /* the composer's emoji button: puts the emoji into what you're typing */
   if (p.type === 'emo') {
-    const gif = v.ui.emoTab === 'gif';
-    const tabs = `<div class="seg emo-tabs" role="tablist"><button type="button" role="tab" data-a="emoTab" data-v="emo" aria-pressed="${!gif}">${IC('smile')}Emoji</button><button type="button" role="tab" data-a="emoTab" data-v="gif" aria-pressed="${gif}"><b class="gifw">GIF</b>GIFs</button></div>`;
-    return `<div class="pop msgpop wide${gif ? ' gifpop' : ''}" style="${pos}" role="dialog" aria-label="${gif ? 'GIFs' : 'Emoji'}">${tabs}${gif ? gifPane(v) : emoGrid(v, e => `data-a="emoIns" data-v="${esc(e)}"`, [])}</div>`;
+    const gif = v.ui.emoTab === 'gif', aa = v.ui.emoTab === 'fmt';
+    const tabs = `<div class="seg emo-tabs" role="tablist"><button type="button" role="tab" data-a="emoTab" data-v="emo" aria-pressed="${!gif && !aa}">${IC('smile')}Emoji</button><button type="button" role="tab" data-a="emoTab" data-v="gif" aria-pressed="${gif}"><b class="gifw">GIF</b>GIFs</button><button type="button" role="tab" data-a="emoTab" data-v="fmt" aria-pressed="${aa}"><b class="gifw aaw">Aa</b>Format</button></div>`;
+    return `<div class="pop msgpop wide${gif ? ' gifpop' : ''}" style="${pos}" role="dialog" aria-label="${gif ? 'GIFs' : aa ? 'Formatting' : 'Emoji'}">${tabs}${gif ? gifPane(v) : aa ? fmtGuide(true) : emoGrid(v, e => `data-a="emoIns" data-v="${esc(e)}"`, [])}</div>`;
   }
+  /* the formatting guide over a form (wiki, news, cards): no quotes or lists there, those have their own rules */
+  if (p.type === 'fmtg') return `<div class="pop msgpop wide" style="${pos}" role="dialog" aria-label="Formatting">${fmtGuide(false)}</div>`;
+  /* the emoji button over a form: puts the emoji into the box typed in last */
+  if (p.type === 'emof') return `<div class="pop msgpop wide" style="${pos}" role="dialog" aria-label="Emoji">${emoGrid(v, e => `data-a="emoField" data-v="${esc(e)}"`, [])}</div>`;
   if (p.type === 'wnew') {
     const row = (a, ic, l, sub, x='') => `<button type="button" class="opt" data-a="${a}" ${x}><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${l}<small>${sub}</small></span></button>`;
     return `<div class="pop" style="${pos}" role="menu" aria-label="New">${row('wNew', 'quill', 'Wiki entry', 'A person, place or rule')}${row('writeNews', 'newsL', 'News edition', 'Players get a ping')}<div class="sep"></div>${row('sheet', 'gear', 'Categories', 'Rename, reorder, icons', 'data-v="wCats"')}</div>`;
@@ -696,7 +712,7 @@ function entBtn(v, e){ return `<button type="button" class="ent" data-a="wiki" d
 function links(s){
   const g = G(), gm = g.role === 'gm';
   /* [[Entry]] links, and the GM's custom emoji (:name:) */
-  return N.emoText(esc(s).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, t, lab) => { const e = g.wiki.find(x => esc(x.title).toLowerCase() === t.toLowerCase() && (gm || !x.gm)); lab = lab || t; return e ? `<a class="wl" data-a="wiki" data-v="${e.id}">${lab}</a>` : lab; }));
+  return N.emoText(N.marks(esc(s)).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, t, lab) => { const e = g.wiki.find(x => esc(x.title).toLowerCase() === t.toLowerCase() && (gm || !x.gm)); lab = lab || t; return e ? `<a class="wl" data-a="wiki" data-v="${e.id}">${lab}</a>` : lab; }));
 }
 function block(p){
   const ls = p.split('\n');
@@ -715,7 +731,7 @@ function articleHtml(v, e){
     <h1>${esc(e.title)}</h1>
     ${e.summary ? `<p class="sum">${links(e.summary)}</p>` : ''}
     <div class="rule"><span class="star4"></span></div>
-    ${(() => { const ps = N.wikiPics(e); return ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(p => `<figure class="wfig">${N.wikiImg(p.src, p.alt || p.cap || e.title)}${p.cap?`<figcaption>${N.emoText(esc(p.cap))}</figcaption>`:''}</figure>`).join('')}</div>` : ''; })()}
+    ${(() => { const ps = N.wikiPics(e); return ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(p => `<figure class="wfig">${N.wikiImg(p.src, p.alt || p.cap || e.title)}${p.cap?`<figcaption>${N.emoText(N.marks(esc(p.cap)))}</figcaption>`:''}</figure>`).join('')}</div>` : ''; })()}
     ${e.info?.length ? `<dl class="facts">${e.info.map(([k,x]) => `<dt>${esc(k)}</dt><dd>${links(x)}</dd>`).join('')}</dl>` : ''}
     ${(e.body||[]).map(block).join('')}
     ${e.soon || !(e.body||[]).length ? '<p class="muted" style="font-weight:700;font-size:13px">More coming soon.</p>' : ''}
@@ -731,9 +747,9 @@ function newsPage(v){
   const gm = isGM(v), ph = v.dev === 'phone', papers = N.papers();
   const seen = G().news.seen[v.role] || [], unseen = i => !gm && !seen.includes(i.id);
   const paper = papers.find(p => p.name === v.ui.paper);
-  const issueBtn = i => `<button type="button" class="ent" data-a="newsSel" data-v="${i.id}" aria-current="${v.ui.newsSel===i.id}"><b>No. ${esc(i.no || '—')}${i.date ? ` <span class="nd">· ${esc(i.date)}</span>` : ''}${unseen(i) ? ' <span class="tag gold">New</span>' : ''}${gm ? audTag(i, 'news') : ''}</b><small>${N.emoText(esc(i.headline))}</small></button>`;
+  const issueBtn = i => `<button type="button" class="ent" data-a="newsSel" data-v="${i.id}" aria-current="${v.ui.newsSel===i.id}"><b>No. ${esc(i.no || '—')}${i.date ? ` <span class="nd">· ${esc(i.date)}</span>` : ''}${unseen(i) ? ' <span class="tag gold">New</span>' : ''}${gm ? audTag(i, 'news') : ''}</b><small>${N.emoText(N.marks(esc(i.headline)))}</small></button>`;
   const paperBtn = p => { const last = p.issues[p.issues.length - 1], n = p.issues.filter(unseen).length, open = paper === p;
-    return `<button type="button" class="herald" data-a="newsPaper" data-v="${esc(p.name)}" aria-current="${open}">${npIcon(p.name)}<span><span class="eyebrow" style="color:var(--gold-tx)">${p.issues.length} ${p.issues.length > 1 ? 'issues' : 'issue'} ${n ? `<span class="tag gold">${n} new</span>` : ''}</span><h3>${esc(p.name)}</h3><small>Latest: No. ${esc(last.no || '—')} · ${N.emoText(esc(last.headline))}</small></span></button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${p.issues.map(issueBtn).join('')}</div>` : ''}`; };
+    return `<button type="button" class="herald" data-a="newsPaper" data-v="${esc(p.name)}" aria-current="${open}">${npIcon(p.name)}<span><span class="eyebrow" style="color:var(--gold-tx)">${p.issues.length} ${p.issues.length > 1 ? 'issues' : 'issue'} ${n ? `<span class="tag gold">${n} new</span>` : ''}</span><h3>${esc(p.name)}</h3><small>Latest: No. ${esc(last.no || '—')} · ${N.emoText(N.marks(esc(last.headline)))}</small></span></button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${p.issues.map(issueBtn).join('')}</div>` : ''}`; };
   const none = `<div class="quiet"><div class="art" style="width:220px;height:180px"></div><p>${gm ? 'No papers yet. Write the first edition and give the paper a name. Players get a ping.' : `No news yet. ${esc(N.gmName())} publishes papers here.`}</p></div>`;
   const newBtn = gm ? (ph ? `<button type="button" class="btn sm primary" data-a="writeNews">${IC('plus')}New edition</button>` : `<button type="button" class="btn sm primary spark" data-a="writeNews">${IC('pen')}New edition</button>`) : '';
   const index = `<div class="wi scroll" data-sk="ni">
@@ -772,6 +788,7 @@ function newsForm(v, papers){
     <textarea class="inp" id="nd-stb${i}-${v.id}" data-i="news" data-k="stb" data-n="${i}" rows="3" placeholder="Text. Leave a blank line between paragraphs." aria-label="Story ${i + 2} text">${esc(st.body)}</textarea>
     ${pic(i, st.img, st.cap)}</div>`;
   return `<div class="article" style="max-width:none;grid-template-columns:1fr;gap:18px">
+    ${N.textTools(v)}
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 style="font-size:28px;flex:1">${ed ? `Edit No. ${esc(d.no || '—')}` : 'New edition'}</h1><button type="button" class="btn ghost" data-a="newsCancel">Cancel</button><button type="button" class="btn gold" data-a="newsPub">${ed ? IC('check') + 'Save changes' : IC('send') + 'Publish'}</button></div>
     ${ed ? `<div class="note">${IC('info')}Readers see the changes straight away. Nobody gets a new note in chat.</div>` : ''}
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
@@ -794,7 +811,7 @@ function newsForm(v, papers){
 }
 function paperHtml(p, prev){
   /* the GM's custom emoji (:name:) work in every part of the paper */
-  const tx = x => N.emoText(esc(x));
+  const tx = x => N.emoText(N.marks(esc(x)));
   const ph = (x, f) => x ? tx(x) : prev ? `<span class="ph">${f}</span>` : '';
   const paras = t => String(t||'').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).map(s => `<p style="margin:0 0 10px">${tx(s).replace(/\n/g, '<br>')}</p>`).join('');
   const fig = (src, cap) => src ? `<figure class="pfig">${N.wikiImg(src, cap || '')}${cap ? `<figcaption>${tx(cap)}</figcaption>` : ''}</figure>` : '';
@@ -845,9 +862,9 @@ function knownBody(v, c, k){
     + (k.skills ? sec('Skills', `<div class="lad">${rungs.map(([x, ns]) => `<div class="rung${x < 0 ? ' neg' : ''}"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(([n, , d]) => `<button type="button" disabled>${esc(n)}${d?.length ? `<small style="color:var(--ink-3);font-weight:600">${esc(d.join(', '))}</small>` : ''}</button>`).join('')}</span></div>`).join('')}</div>`) : '')
     + (k.cons ? sec('Consequences', `<div class="cons">${k.cons.map(([l, r, val]) => `<div class="con"><span class="lv"><b>${esc(l)}</b>${esc(r)} shifts</span><span class="slot${val ? ' full' : ''}">${esc(val) || 'Empty'}</span></div>`).join('')}</div>`) : '')
     + (k.gear ? sec('Weapons and armor', [['sword','Melee weapon'],['target','Ranged weapon'],['arrowR','Ranged ammo'],['shieldU','Armor']].map(([ic, l], i) => `<p class="gearln">${IC(ic)}${l} <b>${sgn(k.gear[i])}</b></p>`).join('')) : '')
-    + (k.stunts ? sec('Stunts', k.stunts.map(([n, d]) => `<div class="stunt"><b>${esc(n)}</b><p>${esc(d)}</p></div>`).join('')) : '')
-    + (k.bio != null ? sec('Bio', k.bio ? `<p style="margin:0;white-space:pre-line">${esc(k.bio)}</p>` : '<p class="muted">Nothing yet.</p>', true) : '')
-    + (k.people != null ? sec('Important people', k.people ? `<p style="margin:0;white-space:pre-line">${esc(k.people)}</p>` : '<p class="muted">Nothing yet.</p>') : '');
+    + (k.stunts ? sec('Stunts', k.stunts.map(([n, d]) => `<div class="stunt"><b>${N.emoText(N.marks(esc(n)))}</b><p>${N.emoText(N.marks(esc(d)))}</p></div>`).join('')) : '')
+    + (k.bio != null ? sec('Bio', k.bio ? `<p style="margin:0;white-space:pre-line">${N.emoText(N.marks(esc(k.bio)))}</p>` : '<p class="muted">Nothing yet.</p>', true) : '')
+    + (k.people != null ? sec('Important people', k.people ? `<p style="margin:0;white-space:pre-line">${N.emoText(N.marks(esc(k.people)))}</p>` : '<p class="muted">Nothing yet.</p>') : '');
 }
 /* phone, player: the sheet's items open in their own view with a way back */
 N.heroBag = v => v.dev === 'phone' && !isGM(v) && v.ui.tab === 'hero';
@@ -859,7 +876,7 @@ function heroInv(v, c, mine){
         ${c.invText ? `<section class="sec"><h3>Notes</h3>${noteBox(v, c, 'invText', false, '')}</section>` : ''}`
       : `<section class="sec"><p class="muted">${own ? `${esc(N.gmName())} hasn’t made your character card yet.` : 'No card yet.'}</p></section>`}</div></div>`;
 }
-const asps = list => list.filter(x => x[1]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.6,.5,-.3][i%3]}deg"><span class="k">${k}</span>${esc(a)}</span>`).join('');
+const asps = list => list.filter(x => x[1]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.6,.5,-.3][i%3]}deg"><span class="k">${k}</span><span>${N.emoText(N.marks(esc(a)))}</span></span>`).join('');
 N.sheetBody = function(v, c){
   const g = G(), gm = isGM(v), mine = c.player === v.role;
   const who = `--who:${c.color}`;
@@ -870,7 +887,7 @@ N.sheetBody = function(v, c){
   const canRoll = gm, edit = mine || gm;
   return `<section class="pc-hero full" style="${who}">
       ${mine && !gm ? `<button type="button" class="facebtn" data-a="sheet" data-v="myFace" aria-label="Change my picture">${N.av(c,84)}<span class="badge">${IC('image')}</span></button>` : N.av(c,84)}
-      <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${esc(N.pcTag(c))}</div>`:''}</div>
+      <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${N.emoText(N.marks(esc(N.pcTag(c))))}</div>`:''}</div>
       <div class="fp"><div><span class="eyebrow">Fate points · refresh ${c.refresh}</span><div class="coins">${coinsHtml(c, gm)}</div></div>${gm?`<div class="gmbar"><button type="button" class="btn sm" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Edit card</button>${revBtn(c.id)}<button type="button" class="btn sm danger" data-a="sheet" data-v="pcDel" data-c="${c.id}">${IC('trash')}Delete</button></div>`:''}</div>
     </section>
     <section class="sec"><h3>Aspects</h3><div class="asps">${asps(N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a])) || '<p class="muted">None yet.</p>'}</div></section>
@@ -878,7 +895,7 @@ N.sheetBody = function(v, c){
     <section class="sec"><h3>Stress</h3><div class="stress2">${[['phys','Physical','Strength'],['ment','Mental','Will']].map(([k,l,s]) => `<div class="trk"><span class="eyebrow">${l} <span style="letter-spacing:0;text-transform:none;font-weight:600">· from ${s}</span></span><div class="boxes">${c.stressV[k].map((x,i)=>`<button type="button" class="sbox${c.stress[k][i]?' on':''}" ${gm?`data-a="stress" data-c="${c.id}" data-k="${k}" data-i="${i}"`:'disabled'} aria-pressed="${!!c.stress[k][i]}" aria-label="${l} ${x}">${x}</button>`).join('')}</div></div>`).join('')}</div></section>
     <section class="sec"><h3>Consequences</h3><div class="cons">${N.consSlots(c.skills).map(sl => `<div class="con">${conLv(sl)}${gm?`<input class="inp" id="con-${sl.k}-${c.id}-${v.id}" data-i="con" data-c="${c.id}" data-k="${sl.k}" value="${esc(c.cons[sl.k]||'')}" placeholder="Empty">`:`<span class="slot${c.cons[sl.k]?' full':''}">${esc(c.cons[sl.k])||'Empty'}</span>`}</div>`).join('')}</div></section>
     <section class="sec"><h3>Weapons and armor</h3><p class="gearln">${IC('sword')}Melee weapon <b>${sgn(+c.gearAtk||0)}</b><span class="muted">Fighting, shifts added to a hit</span></p><p class="gearln">${IC('target')}Ranged weapon <b>${sgn(+c.gearRng||0)}</b><span class="muted">Shooting, added to the roll</span></p><p class="gearln">${IC('arrowR')}Ranged ammo <b>${sgn(+c.gearAmmo||0)}</b><span class="muted">Shooting, shifts added to a hit</span></p><p class="gearln">${IC('shieldU')}Armor <b>${sgn(+c.gearDef||0)}</b><span class="muted">shifts taken off a hit</span></p></section>
-    <section class="sec"><h3>Stunts</h3>${c.stunts.map(([n,d]) => `<div class="stunt"><b>${esc(n)}</b><p>${esc(d)}</p></div>`).join('') || '<p class="muted">None yet.</p>'}</section>
+    <section class="sec"><h3>Stunts</h3>${c.stunts.map(([n,d]) => `<div class="stunt"><b>${N.emoText(N.marks(esc(n)))}</b><p>${N.emoText(N.marks(esc(d)))}</p></div>`).join('') || '<p class="muted">None yet.</p>'}</section>
     <section class="sec full"><h3>Bio</h3>${noteBox(v, c, 'bio', edit, 'Who they are, where they come from, what they look like…')}</section>
     <section class="sec"><h3>Important people</h3>${noteBox(v, c, 'people', edit, 'Family, friends, rivals, debts… one per line')}</section>
     ${N.heroBag(v) ? '' : `<section class="sec"><h3>Inventory</h3>${gm || c.invText ? noteBox(v, c, 'invText', gm, 'What they carry. The player can read this.') : ''}${invList(v, c, gm)}</section>`}`;
@@ -889,13 +906,13 @@ const conLv = sl => `<span class="lv"><b>${sl.l}</b>${sl.lo}–${sl.hi} shifts${
 N.conLv = conLv;
 /* a free-text box on a card the player and GM can both write in (inventory notes: GM only) */
 const noteBox = (v, c, k, edit, ph) => edit ? `<textarea class="inp" id="cn-${k}-${c.id}-${v.id}" data-i="cnote" data-c="${c.id}" data-k="${k}" rows="3" placeholder="${ph}">${esc(c[k]||'')}</textarea>`
-  : c[k] ? `<p style="margin:0;white-space:pre-line">${esc(c[k])}</p>` : '<p class="muted">Nothing yet.</p>';
+  : c[k] ? `<p style="margin:0;white-space:pre-line">${N.emoText(N.marks(esc(c[k])))}</p>` : '<p class="muted">Nothing yet.</p>';
 /* the items the GM hands out; only the GM changes them */
 function invList(v, c, gm, owner){
   /* owner: an NPC being made or edited keeps its items on the draft (data-nd) until it is saved */
   const own = owner || (c.player ? `data-c="${c.id}"` : `data-n="${c.id}"`), key = owner ? 'nd' : c.id;
   const ed = v.ui.invEdit;
-  return `<div class="inv">${(c.inv || []).map(([n,q,d,ic],i) => gm && ed && ed.key === key && ed.i === i ? invEditRow(v, key, own, i, ed.n ?? n, ed.q ?? q, ed.d ?? d, ed.ic ?? ic) : `<div class="it"><span class="ii">${IC(ic||'bag')}</span><span><b>${esc(n)}</b>${d?`<small>${esc(d)}</small>`:''}</span><span class="q">×${q}</span>${gm?`<span class="mini"><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="-1" aria-label="One fewer ${esc(n)}">−</button><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="1" aria-label="One more ${esc(n)}">+</button><button type="button" data-a="invEdit" ${own} data-i="${i}" aria-label="Edit ${esc(n)}">${IC('pen')}</button><button type="button" data-a="invDel" ${own} data-i="${i}" aria-label="Remove ${esc(n)}">${IC('x')}</button></span>`:''}</div>`).join('') || `<p class="muted">${gm?'No items yet.':`No items yet. ${esc(N.gmName())} adds them here.`}</p>`}</div>
+  return `<div class="inv">${(c.inv || []).map(([n,q,d,ic],i) => gm && ed && ed.key === key && ed.i === i ? invEditRow(v, key, own, i, ed.n ?? n, ed.q ?? q, ed.d ?? d, ed.ic ?? ic) : `<div class="it"><span class="ii">${IC(ic||'bag')}</span><span><b>${N.emoText(N.marks(esc(n)))}</b>${d?`<small>${N.emoText(N.marks(esc(d)))}</small>`:''}</span><span class="q">×${q}</span>${gm?`<span class="mini"><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="-1" aria-label="One fewer ${esc(n)}">−</button><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="1" aria-label="One more ${esc(n)}">+</button><button type="button" data-a="invEdit" ${own} data-i="${i}" aria-label="Edit ${esc(n)}">${IC('pen')}</button><button type="button" data-a="invDel" ${own} data-i="${i}" aria-label="Remove ${esc(n)}">${IC('x')}</button></span>`:''}</div>`).join('') || `<p class="muted">${gm?'No items yet.':`No items yet. ${esc(N.gmName())} adds them here.`}</p>`}</div>
       ${gm?`<div class="invadd"><input class="inp" id="inv-${key}-${v.id}" placeholder="Add an item, e.g. Silver dagger" aria-label="Item name"><input class="inp" id="invq-${key}-${v.id}" data-i="invQ" type="number" min="1" value="${v.ui.invQ||1}" aria-label="How many"><button type="button" class="btn sm" data-a="invAdd" ${own}>${IC('plus')}Add</button><input class="inp" id="invd-${key}-${v.id}" placeholder="What it does (optional), e.g. Melee 1" aria-label="Item note" style="grid-column:1/-1"></div>${c.player?`<p class="muted" style="margin:6px 0 0;font:600 12px/1.4 var(--f-ui)">Changes post a note in ${esc(pn(c))}’s private chat.</p>`:''}`:''}`;
 }
 /* the GM changes an item in place: name, how many, what it does and its picture */
@@ -937,7 +954,7 @@ function castPage(v){
     <div style="display:flex;align-items:center;gap:10px;padding-top:var(--safe-t,0px)">${ph?meBtn(v):''}<h1 class="ttl" style="flex:1;font-size:${ph?22:28}px">Cast</h1><button type="button" class="btn sm primary spark" data-a="npcNew">${IC('plus')}New NPC</button></div>
     <div class="seg" role="group" aria-label="Show" style="justify-self:start"><button type="button" data-a="castSeg" data-v="players" aria-pressed="${seg==='players'}">${IC('users')}Players</button><button type="button" data-a="castSeg" data-v="npcs" aria-pressed="${seg==='npcs'}">${IC('npc')}NPCs <span class="tag" style="height:16px">${g.npcs.length}</span></button><button type="button" data-a="castSeg" data-v="items" aria-pressed="${seg==='items'}">${IC('bag')}Items</button></div>
     ${seg === 'items' ? invBody(v) : seg === 'players' ? `<div class="cgrid">${pcs.map(c => c.built
-      ? `<button type="button" class="ccard" data-a="castSel" data-v="${c.id}">${N.av(c,52)}<span><b>${esc(c.name)}</b><small>${esc(N.pcTag(c))}</small><small>Played by ${esc(pn(c))}</small></span><span class="icon-go">${IC('right')}</span></button>`
+      ? `<button type="button" class="ccard" data-a="castSel" data-v="${c.id}">${N.av(c,52)}<span><b>${esc(c.name)}</b><small>${N.emoText(N.marks(esc(N.pcTag(c))))}</small><small>Played by ${esc(pn(c))}</small></span><span class="icon-go">${IC('right')}</span></button>`
       : `<div class="ccard empty">${N.av({name:pn(c),color:c.color},52)}<span><b>${esc(pn(c))}</b><small>Signed in · no card yet</small></span><button type="button" class="btn sm primary" data-a="pcEdit" data-v="${c.id}">Make card</button></div>`).join('')}
       <button type="button" class="ccard empty" data-a="sheet" data-v="players"><span class="av" style="--s:52px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('userplus').replace('<svg','<svg style="width:24px;height:24px"')}</span><span><b>Players &amp; sign-ins</b><small>${pending ? `${pending} ${pending===1?'person is':'people are'} waiting to be let in` : pcs.length ? 'Let people in, rename or remove them' : 'Send your players the link to this page'}</small></span>${pending?`<span class="badge">${pending}</span>`:`<span class="icon-go">${IC('right')}</span>`}</button></div>`
     : `<div class="search">${IC('search')}<input class="inp" id="npcq-${v.id}" placeholder="Find an NPC" data-i="npcQ" value="${esc(v.ui.npcQ||'')}"></div>
@@ -953,11 +970,11 @@ function npcBody(v, n){
     <div class="fp"><div><span class="eyebrow">Fate points · refresh ${n.refresh}</span><div class="coins">${Array.from({length:Math.max(n.fp, n.refresh)}, (_,i) => `<span class="coin${i<n.fp?'':' off'}"></span>`).join('')}<span class="mini"><button type="button" data-a="npcFp" data-n="${n.id}" data-d="-1" aria-label="Take a fate point from ${esc(n.name)}">−</button><button type="button" data-a="npcFp" data-n="${n.id}" data-d="1" aria-label="Give ${esc(n.name)} a fate point">+</button></span></div></div><div class="gmbar"><button type="button" class="btn sm" data-a="npcEdit" data-v="${n.id}">${IC('pen')}Edit</button>${revBtn(n.id)}${G().combat.state!=='off'?`<button type="button" class="btn sm" data-a="npcToFight" data-v="${n.id}">${IC('swords')}Add to fight</button>`:''}<button type="button" class="btn sm ghost" data-a="npcDup" data-v="${n.id}">${IC('copy')}Duplicate</button><button type="button" class="btn sm danger" data-a="sheet" data-v="npcDel" data-c="${n.id}">${IC('trash')}Delete</button></div></div></section>
     <section class="sec"><h3>Aspects</h3><div class="asps">${asps(N.pcAspects(n).map((a,i)=>[`Aspect ${i+1}`,a])) || '<p class="muted">None yet.</p>'}</div></section>
     <section class="sec"><h3>Skills · tap one to roll</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung${x < 0 ? ' neg' : ''}"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(k => `<button type="button" data-a="roll" data-skill="${esc(k)}" data-npc="${n.id}">${esc(k)}${N.discOf(n, k).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(n, k).join(', '))}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div>
-      ${n.magic ? `<p style="margin:10px 0 0"><b>Disciplines.</b> ${esc(n.magic)}</p>` : ''}<button type="button" class="btn sm ghost" data-a="npcEdit" data-v="${n.id}" style="justify-self:start">${IC('pen')}Change skills</button></section>
+      ${n.magic ? `<p style="margin:10px 0 0"><b>Disciplines.</b> ${N.emoText(N.marks(esc(n.magic)))}</p>` : ''}<button type="button" class="btn sm ghost" data-a="npcEdit" data-v="${n.id}" style="justify-self:start">${IC('pen')}Change skills</button></section>
     <section class="sec"><h3>Stress</h3><div class="stress2">${trk('phys','Physical')}${trk('ment','Mental')}</div></section>
     <section class="sec"><h3>Consequences</h3><div class="cons">${N.consSlots(n.skills).map(sl => `<div class="con">${conLv(sl)}<input class="inp" id="ncon-${sl.k}-${n.id}-${v.id}" data-i="npcCon" data-n="${n.id}" data-k="${sl.k}" value="${esc(n.cons[sl.k]||'')}" placeholder="Empty"></div>`).join('')}</div></section>
     <section class="sec"><h3>Weapons and armor</h3><p class="gearln">${IC('sword')}Melee weapon <b>${sgn(+n.gearAtk||0)}</b><span class="muted">Fighting, shifts added to a hit</span></p><p class="gearln">${IC('target')}Ranged weapon <b>${sgn(+n.gearRng||0)}</b><span class="muted">Shooting, added to the roll</span></p><p class="gearln">${IC('arrowR')}Ranged ammo <b>${sgn(+n.gearAmmo||0)}</b><span class="muted">Shooting, shifts added to a hit</span></p><p class="gearln">${IC('shieldU')}Armor <b>${sgn(+n.gearDef||0)}</b><span class="muted">shifts taken off a hit</span></p></section>
-    <section class="sec"><h3>Stunts</h3>${n.stunts.map(([a,b]) => `<div class="stunt"><b>${esc(a)}</b><p>${esc(b)}</p></div>`).join('') || '<p class="muted">None yet.</p>'}</section>
+    <section class="sec"><h3>Stunts</h3>${n.stunts.map(([a,b]) => `<div class="stunt"><b>${N.emoText(N.marks(esc(a)))}</b><p>${N.emoText(N.marks(esc(b)))}</p></div>`).join('') || '<p class="muted">None yet.</p>'}</section>
     <section class="sec"><h3>Inventory</h3>${invList(v, n, true)}</section>
     <section class="sec full"><h3>Bio</h3><textarea class="inp" id="npcbio-${n.id}-${v.id}" data-i="npcNotes" data-n="${n.id}" data-k="bio" rows="4" placeholder="Who they are, what they look like, how they talk…">${esc(n.bio)}</textarea></section>
     <section class="sec full"><h3>GM notes</h3><textarea class="inp" id="npcnotes-${n.id}-${v.id}" data-i="npcNotes" data-n="${n.id}" data-k="notes" rows="3" placeholder="Secrets, plans, who they work for. Only you see these.">${esc(n.notes)}</textarea></section>`;
