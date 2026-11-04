@@ -48,7 +48,7 @@ function boardHtml(v){
     return `<div class="${cls.join(' ')}" data-zone="${z.id}" style="left:${z.x}%;top:${z.y}%;width:${z.w}%;height:${z.h}%;--zc:${z.col}">
       <span class="zl" data-zl="${z.id}">${esc(z.name)}${toks.length?` <i>${toks.filter(t=>!t.out || N.fxHold?.(v, t)?.up).length}</i>`:''}</span>
       ${L.length && R.length ? `<div class="ztoks sides">${grp(L, 'l')}${grp(R, 'r')}</div>` : `<div class="ztoks">${toks.map(t => tokHtml(v, t)).join('')}</div>`}
-      ${z.aspect ? `<div class="za"><span class="icard" style="--rot:-1deg">${esc(z.aspect)}${z.free?`<span class="fi">${'<i></i>'.repeat(z.free)}</span>`:''}</span></div>` : ''}
+      ${z.aspect ? `<div class="za"><span class="icard" style="--rot:-1deg"><span>${N.emoText(N.marks(esc(z.aspect)))}</span>${z.free?`<span class="fi">${'<i></i>'.repeat(z.free)}</span>`:''}</span></div>` : ''}
       ${edit ? `<span class="rs" data-rs="${z.id}" aria-label="Resize ${esc(z.name)}"></span>` : ''}
     </div>`;
   }).join('');
@@ -58,7 +58,7 @@ function boardHtml(v){
   else if (v.ui.placing) hint = `<div class="hint-chip">${IC('pinL')}Tap a zone to place ${esc(N.tokName(N.tokById(v.ui.placing)))}<button type="button" class="btn sm ghost" data-a="cbCancel" style="--h:26px">Cancel</button></div>`;
   else if (edit && !cb.zones.length) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag on the map to draw a zone</div>`;
   else if (edit) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag to draw · drag a name to move · corner to resize</div>`;
-  const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.left!=null?` · ${a.left>0?`for ${a.left} roll${a.left>1?'s':''}`:'last roll'}`:''}</span>`:a.on?`<span class="k">On ${esc(a.on)}</span>`:''}${esc(a.t || 'Unnamed boost')}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
+  const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.left!=null?` · ${a.left>0?`for ${a.left} roll${a.left>1?'s':''}`:'last roll'}`:''}</span>`:a.on?`<span class="k">On ${esc(a.on)}</span>`:''}<span>${N.emoText(N.marks(esc(a.t || 'Unnamed boost')))}</span>${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
   return `<div class="boardwrap"><div class="board${edit?' edit drawing':''}" data-board="1" aria-label="Battlefield: ${esc(cb.title)}">
     <div class="bg">${N.bgPic(N.imgUrl(cb.bg) ? cb.bg : N.FIGHTBG)}</div>
     <div class="cam">${zones}</div>${sasp}${hint}${diceFx(v)}
@@ -225,7 +225,7 @@ function actRows(v, ms, past){
   const live = m => (m.kind === 'fight' || m.kind === 'combat') && cb.state !== 'off' && m.cid === cb.id;
   const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll" data-mid="${m.id}"><div class="who">${esc(m.roll.who)}${secretM(m) ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time></div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
     : m.kind === 'sys' && m.res ? N.resCard(m.res).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
-    : m.fc ? `<div class="fcm${m.by === v.role ? ' mine' : ''}"><b>${esc(N.personObj(m.by).name)}</b><span>${N.emoText(esc(m.text))}</span><time>${N.hhmm(m.t)}</time></div>`
+    : m.fc ? `<div class="fcm${m.by === v.role ? ' mine' : ''}"><b>${esc(N.personObj(m.by).name)}</b><span>${N.emoText(N.marks(esc(m.text)))}</span><time>${N.hhmm(m.t)}</time></div>`
     : m.fightEnd ? `<div data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}" title="See what happened" class="go ff end"><span class="ffi">${IC('swords')}</span><span class="fft">${esc(m.text)} <b>See what happened</b></span></div>`
     : live(m) ? feedRow(m, false).replace('<div class="ff', `<div data-a="mode" data-v="cb" title="Open the fight" class="go ff`)
     : feedRow(m, false)).join('');
@@ -317,10 +317,10 @@ N.tokCard = function(v, t){
   const role = t.kind === 'pc' ? `Played by ${esc(g.P[g.chars[t.ref]?.player]?.name || 'a former player')}` : t.side === 'ally' ? 'Ally' : (t.type === 'nameless' ? 'Nameless foe' : 'Foe');
   return `<div class="tokcard">
     <div class="hd">${N.av(o,54)}<span style="flex:1;min-width:0"><b>${esc(N.tokName(t))}</b><small>${role} · ${z?esc(z.name):'Not placed'}${t.out?' · taken out':''}</small></span>${gm?`<button type="button" class="btn sm ghost tok-rm" data-a="sheet" data-v="tokRm" data-c="${t.id}" title="Take ${esc(N.tokName(t))} out of this fight">${IC('trash')}Remove</button>`:''}${v.dev==='desktop'?`<button type="button" class="ibtn sm" data-a="tokClose" aria-label="Close">${IC('x')}</button>`:''}</div>
-    ${asp.filter(Boolean).length ? `<div class="icards">${asp.filter(Boolean).map((a,i)=>`<span class="icard" style="--rot:${i%2?.6:-.6}deg">${esc(a)}</span>`).join('')}</div>` : ''}
+    ${asp.filter(Boolean).length ? `<div class="icards">${asp.filter(Boolean).map((a,i)=>`<span class="icard" style="--rot:${i%2?.6:-.6}deg"><span>${N.emoText(N.marks(esc(a)))}</span></span>`).join('')}</div>` : ''}
     ${(() => { /* situation aspects the GM pinned on this fighter, and boosts others put on them */
       const on = g.combat.aspects.filter(a => a.onTok === t.id || (a.boost && a.on && a.on === N.tokName(t)));
-      return on.length ? `<div class="icards tok-on"><span class="tok-on-l">On them</span>${on.map((a,i)=>`<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.6:-.6}deg"><span class="k">${a.boost ? `Boost · ${esc(a.by)}` : 'Situation'}</span>${esc(a.t || 'Unnamed boost')}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : ''; })()}
+      return on.length ? `<div class="icards tok-on"><span class="tok-on-l">On them</span>${on.map((a,i)=>`<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.6:-.6}deg"><span class="k">${a.boost ? `Boost · ${esc(a.by)}` : 'Situation'}</span><span>${N.emoText(N.marks(esc(a.t || 'Unnamed boost')))}</span>${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : ''; })()}
     <div class="kv"><span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
       ${(() => {
         /* the same pool an invoke spends (N.invokePayer): the PC's character card or the named NPC's card */

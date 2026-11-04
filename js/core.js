@@ -6,16 +6,28 @@ const N = window.N = {};
 
 /* ---------- helpers ---------- */
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-/* chat text: **bold**, *italics*, and lines starting with "- " or "1. " become lists */
-const inl = s => esc(s).replace(/\*\*([^*\n]+)\*\*/g,'<strong>$1</strong>').replace(/\*([^*\n]+)\*/g,'<em>$1</em>').replace(/\n/g,'<br>');
-const LI = /^\s*(?:[-•]|(\d{1,3})[.)])\s+(.*)$/;
-/* splits text into plain runs and lists; each plain run and each list item goes through inline() */
+/* text marks, Discord style (see N.FMT_GUIDE): **bold**, *italics* or _italics_, __underline__, ~~strike~~, ||spoiler||.
+   marks() works on text that is already escaped; inl() escapes, marks and keeps line breaks */
+const marks = h => h
+  .replace(/\|\|([^|\n]+)\|\|/g, '<span class="spoil" tabindex="0" title="Spoiler, tap to see">$1</span>')
+  .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+  .replace(/__([^_\n]+)__/g, '<u>$1</u>')
+  .replace(/~~([^~\n]+)~~/g, '<s>$1</s>')
+  .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+  .replace(/(^|[^\w:])_([^_\n]+)_(?![\w:])/g, '$1<em>$2</em>');
+const inl = s => marks(esc(s)).replace(/\n/g,'<br>');
+const LI = /^\s*(?:[-•*]|(\d{1,3})[.)])\s+(.*)$/;
+/* splits text into plain runs, lists and > quotes; each plain run, list item and quote line goes through inline() */
 const blocks = (s, inline = inl) => {
   const ls = String(s ?? '').split('\n'), out = [];
-  let run = [], list = null;
+  let run = [], list = null, quote = null;
   const flushRun = () => { if (run.length) { out.push(inline(run.join('\n'))); run = []; } };
   const flushList = () => { if (list) { out.push(`<${list.tag} class="fl"${list.tag === 'ol' && list.start !== 1 ? ` start="${list.start}"` : ''}>${list.items.map(t => `<li>${inline(t)}</li>`).join('')}</${list.tag}>`); list = null; } };
+  const flushQuote = () => { if (quote) { out.push(`<blockquote class="fq">${inline(quote.join('\n'))}</blockquote>`); quote = null; } };
   for (const l of ls) {
+    const q = l.match(/^\s*>(?:\s(.*))?$/);
+    if (q) { flushRun(); flushList(); (quote = quote || []).push(q[1] || ''); continue; }
+    flushQuote();
     const m = l.match(LI);
     if (!m) { flushList(); run.push(l); continue; }
     const tag = m[1] ? 'ol' : 'ul';
@@ -23,9 +35,14 @@ const blocks = (s, inline = inl) => {
     if (!list) list = {tag, start:m[1] ? +m[1] : 1, items:[]};
     list.items.push(m[2]);
   }
-  flushList(); flushRun();
+  flushQuote(); flushList(); flushRun();
   return out.join('');
 };
+/* the words without the marks, for notifications (a spoiler stays hidden there) */
+N.plainText = t => String(t ?? '').replace(/\|\|[^|\n]+\|\|/g, '(spoiler)').replace(/\*\*([^*\n]+)\*\*/g, '$1').replace(/__([^_\n]+)__/g, '$1').replace(/~~([^~\n]+)~~/g, '$1').replace(/\*([^*\n]+)\*/g, '$1').replace(/(^|[^\w:])_([^_\n]+)_(?![\w:])/g, '$1$2').replace(/^\s*>\s/gm, '');
+/* the formatting guide (chat's smiley button > Formatting, and the Formatting button over long forms) */
+N.FMT_GUIDE = [['**bold**','Bold'],['*italics*  or  _italics_','Italics','*italics*'],['__underline__','Underline'],['~~strike~~','Strike'],['||spoiler||','Spoiler, hidden until tapped'],
+  ['> a quote','Quote, chat only','> a quote',1],['- item','List, chat only','- item\n- item',1],['1. first','Numbered list, chat only','1. first\n2. second',1],[':name:','Custom emoji']];
 const fmt = s => blocks(s);
 let _n = 0; const uid = p => p + Date.now().toString(36) + (++_n).toString(36) + Math.random().toString(36).slice(2,6);
 const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
@@ -33,7 +50,7 @@ const sgn = n => (n < 0 ? '−' : '+') + Math.abs(n);
 const IC = (k, cls='') => { const i = (window.ICONS||{})[k]; return i ? `<svg viewBox="${i[0]}" class="${cls}" aria-hidden="true" fill="currentColor">${i[1]}</svg>` : ''; };
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 0c.9 6.6 4.6 10.6 12 12-7.4 1.4-11.1 5.4-12 12-.9-6.6-4.6-10.6-12-12 7.4-1.4 11.1-5.4 12-12z"/></svg>';
 const MARK = '<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="mk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9b0"/><stop offset="1" stop-color="#d9973f"/></linearGradient></defs><path fill="url(#mk)" d="M24 2c1.6 11 7.6 18 20 22-12.4 4-18.4 11-20 22-1.6-11-7.6-18-20-22C16.4 20 22.4 13 24 2z"/><path fill="none" stroke="url(#mk)" stroke-width="1.2" opacity=".7" d="M24 12c.8 5.4 3.8 9 10 12-6.2 3-9.2 6.6-10 12-.8-5.4-3.8-9-10-12 6.2-3 9.2-6.6 10-12z"/></svg>';
-Object.assign(N, {esc, fmt, blocks, inl, uid, clamp, sgn, IC, STAR, MARK});
+Object.assign(N, {esc, fmt, blocks, inl, marks, uid, clamp, sgn, IC, STAR, MARK});
 
 /* ---------- styles: whole looks picked under Profile > Style, each with a Night and a Day ----------
    A new style is one entry here plus its own stylesheet scoped to .app[data-style="<id>"] (see css/parchment.css).
@@ -230,7 +247,20 @@ N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
 N.EMO_ALL = ['👍','👎','❤️','😂','🤣','😮','😢','😡','🔥','🎉','👏','🙏','💀','😱','🤔','😏','😎','🥲','😬','🙄','🤯','😴','🤝','✨','⚔️','🛡️','🏹','🗡️','🪓','🍺','🎲','🐉','👑','🕯️','🌙','☀️','💰','🧪','📜','🗺️','✅','❌','❓','❗'];
 N.emoById = n => (N.G.emoji || []).find(e => e.n === n);
 /* one reaction or emoji as html: a custom one is :name:, anything else is a plain emoji character */
-N.emj = (e, cls='cemo') => { const c = /^:([\w-]+):$/.exec(e || ''); if (!c) return esc(e); const x = N.emoById(c[1]); return x ? `<img class="${cls}" src="${esc(x.d)}" alt=":${esc(x.n)}:" title=":${esc(x.n)}:" draggable="false">` : esc(e); };
+/* an emoji's picture: a still one is kept inline (d is a data URL), an animated one in the picture store (d is "fs:<id>") */
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEAAAAALAAAAAABAAEAAAIBAAA=';
+N.emoSrc = x => (x && N.imgUrl(x.d)) || BLANK;
+N.emj = (e, cls='cemo') => { const c = /^:([\w-]+):$/.exec(e || ''); if (!c) return esc(e); const x = N.emoById(c[1]); return x ? `<img class="${cls}" src="${esc(N.emoSrc(x))}" alt=":${esc(x.n)}:" title=":${esc(x.n)}:" draggable="false">` : esc(e); };
+/* a row over a long form (wiki entry, news edition, character card): the emoji go into whichever box was typed in last */
+N.textTools = v => `<div class="ttools"><span>Emoji go where you were typing.</span><button type="button" class="btn sm ghost" data-a="pop" data-v="fmtg"><b class="aaw">Aa</b>Formatting</button><button type="button" class="btn sm" data-a="pop" data-v="emof">${IC('smile')}Emoji</button></div>`;
+/* does this picture file move? GIF with more than one frame, WebP with an ANIM chunk, PNG with acTL (APNG) */
+N.isAnimated = dataUrl => {
+  const m = /^data:image\/(gif|webp|png|apng);base64,(.*)$/.exec(dataUrl || ''); if (!m) return false;
+  let b; try { b = atob(m[2]); } catch(e){ return false; }
+  if (m[1] === 'gif') { let n = 0, i = -1; while ((i = b.indexOf('\x21\xF9\x04', i + 1)) >= 0) if (++n > 1) return true; return false; }
+  if (m[1] === 'webp') return b.slice(0, 4) === 'RIFF' && b.indexOf('ANIM') > 0 && b.indexOf('ANIM') < 200;
+  const at = b.indexOf('acTL'), dat = b.indexOf('IDAT'); return at > 0 && (dat < 0 || at < dat);
+};
 /* custom emoji typed into a message, after fmt() */
 N.emoText = h => (N.G.emoji || []).length ? h.replace(/:([\w-]{1,32}):/g, (all, n) => N.emoById(n) ? N.emj(all) : all) : h;
 /* a message that is nothing but emoji (up to 12, custom :name: ones included) shows big, without a bubble */
