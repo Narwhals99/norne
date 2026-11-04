@@ -325,7 +325,7 @@ N.sheetHtml = function(v){
   }
   case 'cbEnd': return sheet('End the fight?', `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">Zones and tokens are cleared for everyone. Stress and consequences stay on the character cards.</p>`,
       `<button type="button" class="btn ghost" data-a="closeSheet">Keep fighting</button><button type="button" class="btn danger" data-a="cbEndGo">${IC('stop')}End the fight</button>`);
-  case 'addFoe': return sheet('Add to the fight', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${g.combat.zones.length?'They appear in the first zone. Drag them where they belong.':'Draw a zone first, then place them.'}</p>${N.foeList(true)}
+  case 'addFoe': return sheet('Add to the fight', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${g.combat.zones.length?'They appear in the first zone. Drag them where they belong.':'Draw a zone first, then place them.'}</p>${N.foeList(true, v)}
       <button type="button" class="btn block ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>`);
   case 'cbAspect': return sheet('Situation aspects', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Something true about this fight, like the weather, the ground or a fire. Shown on the board for everyone, and anyone can invoke it.${g.combat.aspects.some(a => !a.boost) ? ' Tap one to remove it.' : ''}</p>
       <div class="icards">${g.combat.aspects.map((a,i)=>a.boost ? '' : `<button type="button" class="icard" data-a="cbAspDel" data-i="${i}" title="Tap to remove">${a.on ? `<span class="k">On ${esc(a.on)}</span>` : ''}${esc(a.t)}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</button>`).join('')}</div>
