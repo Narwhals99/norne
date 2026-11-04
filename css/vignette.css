@@ -1,0 +1,22 @@
+/* Section vignette (PREVIEW): each section's edges darken and fade slowly to the open centre.
+   Drawn as a pseudo-element BEHIND the content (z-index:-1 in an isolated box), so text, buttons and cards stay crisp.
+   Strength is chosen with data-vg="soft|strong" on .app; no attribute = off. Colours per style/theme via --vg-rgb. */
+.app{--vg-rgb:3,4,16}
+.app[data-theme="day"]{--vg-rgb:38,58,30}
+.app[data-style="parchment"]{--vg-rgb:0,0,0}
+.app[data-style="parchment"][data-theme="day"]{--vg-rgb:74,44,16}
+.app[data-style="oak"]{--vg-rgb:8,5,2}
+.app[data-style="oak"][data-theme="day"]{--vg-rgb:62,38,12}
+.app[data-vg="soft"]{--vg-a:.55;--vg-b:120px;--vg-s:6px}
+.app[data-vg="strong"]{--vg-a:.85;--vg-b:170px;--vg-s:14px}
+.app[data-theme="day"][data-vg="soft"]{--vg-a:.16;--vg-b:80px;--vg-s:0px}
+.app[data-theme="day"][data-vg="strong"]{--vg-a:.27;--vg-b:110px;--vg-s:2px}
+.app[data-vg] :is(.page,.rail-a,.rcnt,.shelf:not(.drawer),.nav){isolation:isolate}
+.app[data-vg] :is(.page,.rail-a,.rcnt,.shelf:not(.drawer),.nav)::before{
+  content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;
+  box-shadow:inset 0 0 var(--vg-b) var(--vg-s) rgba(var(--vg-rgb),var(--vg-a))}
+.app[data-vg] :is(.rail-a,.rcnt,.shelf,.nav){position:relative}
+@container dev (max-width: 759px){
+  .app[data-vg] .tabbar{isolation:isolate}
+  .app[data-vg] .tabbar::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;box-shadow:inset 0 0 40px -4px rgba(var(--vg-rgb),calc(var(--vg-a)*.8))}
+}
