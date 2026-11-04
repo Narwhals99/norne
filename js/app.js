@@ -33,7 +33,10 @@ N.msgCopyText = m => m.kind === 'gif' ? (m.gif?.u || '') : m.kind === 'pic' ? (m
 /* on a computer Enter sends and Shift+Enter starts a new line; on a phone Return starts a new line and the arrow sends */
 const TOUCH = matchMedia('(hover: none) and (pointer: coarse)');
 N.enterSends = () => !TOUCH.matches;
-const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as:''}, o); G().msgs.push(m); return m; };
+const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as:''}, o);
+  /* automatic notes (new card, inventory, news, shared wiki) skip a private chat the GM hasn't opened */
+  if (typeof m.ch === 'string' && m.ch.startsWith('dm-') && !N.dmOn(m.ch.slice(3))) return m;
+  G().msgs.push(m); return m; };
 /* a small grey line in the chat; players write their own (the rules only let them post as themselves) */
 const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, text});
 /* a line about the fight goes to the chat the fight lives in */
@@ -1076,6 +1079,12 @@ function act(v, a, el, e){
   case 'emoMore': if (ui.pop) ui.pop.all = !ui.pop.all; break;
   case 'emoTab': ui.emoTab = val; if (val === 'gif' && !ui.gifRes && g.gifKey) gifSearch(v); break;
   /* group chats: the GM makes, renames, fills and deletes them */
+  case 'dmSet': {
+    if (!gm || !g.P[val]) break; const on = !N.dmOn(val); N.setDm(val, on);
+    if (on) sys(`${N.gmName()} opened this private chat. Only the two of you can read it.`, 'dm-' + val);
+    else if (ui.ch === 'dm-' + val) ui.ch = 'table';
+    toast(v, on ? `Private chat with ${g.P[val].name} is open.` : `Private chat with ${g.P[val].name} is closed. Its messages are kept.`); renderAll(); return;
+  }
   case 'grpNew': if (!gm) break; openSheet(v, 'grpEdit', {party:d.party === '1'}); break;
   case 'grpEdit': if (!gm) break; openSheet(v, 'grpEdit', {v:val}); break;
   case 'gdParty': ui.gd.party = val === '1'; break;

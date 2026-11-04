@@ -103,6 +103,7 @@ function shelfHtml(v){
       ${gm ? '' : group('Your party', chs.filter(c => N.grpOf(c)?.party))}
       ${gm ? group('Parties', chs.filter(c => N.grpOf(c)?.party)) : ''}
       ${group(gm ? 'Private chats' : 'Just you and the GM', chs.filter(c => c.startsWith('dm-')))}
+      ${gm && N.seats().length ? `<button type="button" class="shr shnew" data-a="sheet" data-v="dms" title="Private chats"><span class="cic">${IC('whisper')}</span><span class="t"><b>Private chats</b><small>${N.seats().some(s => !N.dmOn(s)) ? 'Open one with a player' : 'Pick who has one with you'}</small></span></button>` : ''}
       ${group('Group chats', chs.filter(c => c.startsWith('grp-') && !N.grpOf(c)?.party))}
       ${gm ? `<button type="button" class="shr shnew" data-a="grpNew" title="New group chat"><span class="cic">${IC('plus')}</span><span class="t"><b>New group chat</b><small>A few players in one chat, or a party</small></span></button>` : ''}
       ${group('Only you', chs.filter(c => c === 'gm'))}

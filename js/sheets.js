@@ -241,6 +241,13 @@ N.sheetHtml = function(v){
   case 'import': return sheet('Import lore', `<div class="note">${IC('info')}Pick <b>norne-gm-lore.json</b>. It fills the World wiki and the maps, GM secrets included, and saves them for the whole table. Players only ever receive the parts they’re allowed to see.</div>
       <button type="button" class="thumb up" style="aspect-ratio:auto;min-height:120px;width:100%" data-a="importLore"><span>${IC('upload')}Choose the lore file</span></button>
       <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Entries and maps with the same name are replaced by the file’s version. Anything you made yourself stays. Loaded now: ${g.wiki.length} entries, ${g.maps.length} maps, ${g.maps.reduce((a,m)=>a+m.pins.filter(p=>p.type!=='party').length,0)} places.</p>`);
+  case 'dms': {
+    const ss = N.seats();
+    const body = `<p class="muted" style="margin:0;font:600 13px/1.45 var(--f-ui)">New players start with only Everyone. Open a private chat with a player here when you need one. Closing it hides it from both of you; its messages are kept and come back if you open it again.</p>
+      <div class="forwho">${ss.map(s => `<button type="button" data-a="dmSet" data-v="${s}" aria-pressed="${N.dmOn(s)}">${N.av(N.personObj(s), 28)}${esc(pName(s))}${N.dmOn(s) ? '' : `<small style="color:var(--ink-3);font-weight:600">· closed</small>`}</button>`).join('') || '<p class="muted" style="margin:0">No players yet.</p>'}</div>
+      <p class="muted" style="margin:0;font:600 12.5px/1.45 var(--f-ui)">Highlighted players have a private chat with you. Automatic notes (a new character card, inventory changes, news) only go to an open one.</p>`;
+    return sheet('Private chats', body, `<button type="button" class="btn primary lg" data-a="closeSheet">${IC('check')}Done</button>`);
+  }
   case 'search': {
     const q = v.ui.cq || '', all = v.ui.cqAll !== false;
     const body = `<div class="srch-top"><label class="search srch-q"><span class="vh">Search for</span>${IC('search')}<input class="inp" type="search" id="cq-${v.id}" data-i="chatQ" value="${esc(q)}" placeholder="Words, a name, a skill…" autocomplete="off" enterkeyhint="search"></label>
@@ -251,7 +258,7 @@ N.sheetHtml = function(v){
   case 'export': {
     const ex = v.ui.exp;
     const out = N.buildExport(ex);
-    const body = `<div><h4>Chats</h4><div class="forwho">${N.channelsFor('gm').map(c => `<button type="button" data-a="expCh" data-v="${c}" aria-pressed="${ex.ch.has(c)}">${esc(N.chName(c,'gm'))}</button>`).join('')}</div></div>
+    const body = `<div><h4>Chats</h4><div class="forwho">${N.channelsFor('gm', true).map(c => `<button type="button" data-a="expCh" data-v="${c}" aria-pressed="${ex.ch.has(c)}">${esc(N.chName(c,'gm'))}</button>`).join('')}</div></div>
       <div><h4>When</h4><div class="forwho">${[['all','Everything'],['day','Last 24 hours'],['week','Last 7 days'],['last','Since the last scene']].map(([k,l]) => `<button type="button" data-a="expWhen" data-v="${k}" aria-pressed="${ex.when === k}">${l}</button>`).join('')}</div>
         <div class="exrange"><label class="field"><span>From</span><input class="inp" type="datetime-local" data-i="expFrom" value="${esc(ex.from || '')}"></label><label class="field"><span>To</span><input class="inp" type="datetime-local" data-i="expTo" value="${esc(ex.to || '')}"></label></div>
         <small class="muted" id="exWhen">${esc(N.cap1(N.expRangeWords(ex)))}. Leave a box empty for no limit on that side.</small></div>
@@ -423,7 +430,7 @@ N.sheetHtml = function(v){
     const count = c => g.msgs.filter(m => m.ch === c).length, fights = N.allFights();
     const ic = c => N.chanIcon ? N.chanIcon(v, c) : '';
     if (w.step === 1 || !w.ch) {
-      const rows = N.channelsFor('gm').map(c => {
+      const rows = N.channelsFor('gm', true).map(c => {
         const n = count(c), fight = !!fights[c], off = fight || !n;
         return `<button type="button" class="wipe-ch" data-a="wipePick" data-v="${esc(c)}" aria-pressed="${w.ch === c}" ${off ? 'disabled' : ''}>${ic(c)}<span><b>${esc(N.chName(c, 'gm'))}</b><small>${esc(N.chSub(c, 'gm'))}</small></span><span class="n">${fight ? 'Fight on: end it first' : n ? `${n} message${n > 1 ? 's' : ''}` : 'Already empty'}</span></button>`;
       }).join('');
@@ -688,7 +695,7 @@ N.expStamp = t => { const d = new Date(t), p = n => String(n).padStart(2, '0'); 
 function buildJson(sel){
   const keep = m => !m.fc && inRange(m, sel) && !(m.kind === 'scene' && (m.quiet || !m.scene)) && (((m.kind === 'rp' || m.kind === 'sys' || m.kind === 'scene' || m.kind === 'combat' || m.kind === 'fight' || m.kind === 'news' || m.kind === 'note') && sel.rp) || (m.kind === 'roll' && sel.roll) || ((m.kind === 'meta' || m.kind === 'ooc') && sel.meta));
   const chats = [];
-  for (const c of N.channelsFor('gm')) {
+  for (const c of N.channelsFor('gm', true)) {
     if (!sel.ch.has(c)) continue;
     const entries = []; let fight = null;
     for (const m of G().msgs.filter(x => x.ch === c && keep(x))) {
@@ -707,7 +714,7 @@ N.buildExport = sel => {
   if (sel.json) return buildJson(sel);
   const kinds = [sel.rp && 'roleplay', sel.roll && 'rolls', sel.meta && 'meta talk'].filter(Boolean);
   const out = ['# Nörne: session log', `Exported ${new Date().toLocaleString()} · includes ${kinds.join(', ') || 'nothing'} · ${rangeWords(sel)}`];
-  for (const c of N.channelsFor('gm')) {
+  for (const c of N.channelsFor('gm', true)) {
     if (!sel.ch.has(c)) continue;
     const ms = G().msgs.filter(m => m.ch === c && !m.fc && inRange(m, sel) && !(m.kind === 'scene' && (m.quiet || !m.scene)) && (((m.kind === 'rp' || m.kind === 'sys' || m.kind === 'scene' || m.kind === 'combat' || m.kind === 'fight' || m.kind === 'news' || m.kind === 'note') && sel.rp) || (m.kind === 'roll' && sel.roll) || ((m.kind === 'meta' || m.kind === 'ooc') && sel.meta)));
     if (!ms.length) continue;

@@ -549,10 +549,21 @@ function applyMembers(list){
   for (const m of list.filter(m => isSeat(m.role))) for (const s of N.seatsOf(m)) rows.push([s, m]);
   for (const [s, m] of rows.sort((a, b) => a[0].slice(1) - b[0].slice(1))) {
     const who = (m.name || 'Player').trim() || 'Player';
-    g.P[s] = {id:s, name:who, who, char:'pc' + s.slice(1), color:N.seatColor(s), uid:m.uid, ...(N.seatsOf(m).length > 1 ? {multi:true, on:m.role === s} : {})};
+    g.P[s] = {id:s, name:who, who, char:'pc' + s.slice(1), color:N.seatColor(s), uid:m.uid, dm:dmOpenOf(m).includes(s), ...(N.seatsOf(m).length > 1 ? {multi:true, on:m.role === s} : {})};
   }
   nameSeats(); ensureChars();
 }
+/* The seats of an account that have a private chat with the GM (members/<uid>.dmOpen). Players let in before
+   dmOpen existed have no list and keep the private chats they had (DM_LEGACY); new ones start with none. */
+const DM_LEGACY = true;
+const dmOpenOf = m => Array.isArray(m.dmOpen) ? m.dmOpen : DM_LEGACY ? N.seatsOf(m) : [];
+N.setDm = (seat, on) => {
+  if (!isGM()) return;
+  const m = N.MEMBERS.find(x => isSeat(x.role) && N.seatsOf(x).includes(seat)); if (!m) return;
+  const cur = dmOpenOf(m).filter(s => s !== seat), next = on ? [...cur, seat] : cur;
+  m.dmOpen = next; if (G().P[seat]) G().P[seat].dm = on;
+  track(F.updateDoc(dref('members/' + m.uid), {dmOpen:next}));
+};
 /* every seat this account holds, the one played now first */
 N.seatsOf = m => [...new Set([m.role, ...(m.seats || [])])].filter(isSeat);
 /* a person with several characters shows as "Jack · Brann" for each one, so their chats can be told apart */
@@ -687,7 +698,8 @@ N.admit = id => {
   const m = N.MEMBERS.find(x => x.uid === id); if (!m) return;
   const used = [...N.MEMBERS.map(x => +(x.seat || x.role).slice(1) || 0), ...Object.keys(G().chars).map(k => +k.slice(2) || 0)];
   const seat = m.seat || 'p' + (Math.max(0, ...used) + 1);
-  track(F.updateDoc(dref('members/' + m.uid), {role:seat, seat}));
+  /* someone new starts with only Everyone; the GM opens a private chat or adds them to group chats */
+  track(F.updateDoc(dref('members/' + m.uid), {role:seat, seat, ...(Array.isArray(m.dmOpen) || m.seat ? {} : {dmOpen:[]})}));
   return m.name;
 };
 /* the GM gives a player another character: a new seat of its own (own card, own private chat, own party) */
@@ -695,7 +707,7 @@ N.addSeat = id => {
   const m = N.MEMBERS.find(x => x.uid === id); if (!m || !isSeat(m.role)) return null;
   const used = [...N.MEMBERS.flatMap(x => [x.seat || x.role, ...(x.seats || [])]).map(s => +String(s).slice(1) || 0), ...Object.keys(G().chars).map(k => +k.slice(2) || 0)];
   const seat = 'p' + (Math.max(0, ...used) + 1);
-  track(F.updateDoc(dref('members/' + m.uid), {seats:[...N.seatsOf(m), seat]}));
+  track(F.updateDoc(dref('members/' + m.uid), {seats:[...N.seatsOf(m), seat], dmOpen:dmOpenOf(m)}));
   return seat;
 };
 /* the GM takes an extra character away (not the one being played); its card stays, like a former player's */

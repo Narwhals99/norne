@@ -309,11 +309,15 @@ N.chName = (id, role) => {
   return role === 'gm' ? (N.G.P[pr]?.name || 'A former player') : `${N.gmName()} · GM`;
 };
 N.chSub = (id, role) => id.startsWith('grp-') ? grpSub(N.grpOf(id)?.seats || [], role) + (N.grpOf(id)?.meta ? ', Meta only' : '') : id === 'table' ? 'Everyone at the table, Meta only' : id === 'gm' ? 'Only you see this. Secret rolls land here.' : role === 'gm' ? `Only you and ${N.G.P[id.slice(3)]?.name || 'them'} see this` : 'Only you and the GM see this';
-N.channelsFor = role => {
+/* A player has a private chat with the GM only once the GM opens one (new players start with just Everyone).
+   A closed one keeps its messages; shut = true also lists closed ones that have messages (export, wipe). */
+N.dmOn = s => N.G.P[s]?.dm !== false;
+N.channelsFor = (role, shut) => {
   const grs = N.grpsFor(role), pts = grs.filter(x => x.party).map(x => 'grp-' + x.id), gs = grs.filter(x => !x.party).map(x => 'grp-' + x.id);
-  if (role === 'gm') return ['table', ...pts, ...N.seats().map(s => 'dm-' + s), ...gs, 'gm'];
+  const dmOk = s => N.dmOn(s) || (shut && N.G.msgs.some(m => m.ch === 'dm-' + s));
+  if (role === 'gm') return ['table', ...pts, ...N.seats().filter(dmOk).map(s => 'dm-' + s), ...gs, 'gm'];
   /* Everyone is the Meta chat: every player has it on every character, party or not */
-  return ['table', ...pts, 'dm-' + role, ...gs];
+  return ['table', ...pts, ...(N.dmOn(role) ? ['dm-' + role] : []), ...gs];
 };
 /* Everyone is table talk only: no speaking in character and no fights there. The GM can make a group chat or party Meta only too */
 N.metaOnly = ch => ch === 'table' || !!N.grpOf(ch)?.meta;
