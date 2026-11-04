@@ -308,15 +308,15 @@ N.chName = (id, role) => {
   const pr = id.slice(3);
   return role === 'gm' ? (N.G.P[pr]?.name || 'A former player') : `${N.gmName()} · GM`;
 };
-N.chSub = (id, role) => id.startsWith('grp-') ? grpSub(N.grpOf(id)?.seats || [], role) : id === 'table' ? 'Everyone at the table, Meta only' : id === 'gm' ? 'Only you see this. Secret rolls land here.' : role === 'gm' ? `Only you and ${N.G.P[id.slice(3)]?.name || 'them'} see this` : 'Only you and the GM see this';
+N.chSub = (id, role) => id.startsWith('grp-') ? grpSub(N.grpOf(id)?.seats || [], role) + (N.grpOf(id)?.meta ? ', Meta only' : '') : id === 'table' ? 'Everyone at the table, Meta only' : id === 'gm' ? 'Only you see this. Secret rolls land here.' : role === 'gm' ? `Only you and ${N.G.P[id.slice(3)]?.name || 'them'} see this` : 'Only you and the GM see this';
 N.channelsFor = role => {
   const grs = N.grpsFor(role), pts = grs.filter(x => x.party).map(x => 'grp-' + x.id), gs = grs.filter(x => !x.party).map(x => 'grp-' + x.id);
   if (role === 'gm') return ['table', ...pts, ...N.seats().map(s => 'dm-' + s), ...gs, 'gm'];
   /* Everyone is the Meta chat: every player has it on every character, party or not */
   return ['table', ...pts, 'dm-' + role, ...gs];
 };
-/* Everyone is table talk only: no speaking in character and no fights there */
-N.metaOnly = ch => ch === 'table';
+/* Everyone is table talk only: no speaking in character and no fights there. The GM can make a group chat or party Meta only too */
+N.metaOnly = ch => ch === 'table' || !!N.grpOf(ch)?.meta;
 /* in a Meta-only chat a person shows by their own name, not "Jack · Brann" */
 N.metaName = by => N.metaPerson(by).name;
 /* the same person on another of their characters counts as "you" in Everyone */
