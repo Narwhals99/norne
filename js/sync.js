@@ -187,10 +187,13 @@ function keepSeatCard(){
   try { localStorage.setItem(SCKEY(s), JSON.stringify({short:c.short, portrait})); } catch(e) {}
 }
 N.seatCard = s => { try { return JSON.parse(localStorage.getItem(SCKEY(s)) || 'null'); } catch(e) { return null; } };
+/* A party's document is asked for only once the groups have arrived, so it can land after start-up has already
+   looked for this player's card. Look again when it does: a second tab gets it straight from the first one's copy,
+   with nothing left waiting on the server to trigger a fresh look, and used to stop at "You're in" for good. */
 function listenParty(id){
   const path = 'parties/' + id;
   if (PARTY_ON.has(path)) return; PARTY_ON.add(path);
-  listenDoc(path, u => { if (!G().groups.some(x => x.id === id && x.party)) return; CH.party[id] = u; mergeChars(); ensureChars(); }, true).then(() => { if (isGM()) queueSync(); });
+  listenDoc(path, u => { if (!G().groups.some(x => x.id === id && x.party)) return; CH.party[id] = u; mergeChars(); ensureChars(); changed(); }, true).then(() => { if (isGM()) queueSync(); });
 }
 const PARTY_ON = new Set();
 /* the GM writes character cards only once it knows every party and has read every party's document,
