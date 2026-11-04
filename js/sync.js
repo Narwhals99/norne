@@ -187,10 +187,13 @@ function keepSeatCard(){
   try { localStorage.setItem(SCKEY(s), JSON.stringify({short:c.short, portrait})); } catch(e) {}
 }
 N.seatCard = s => { try { return JSON.parse(localStorage.getItem(SCKEY(s)) || 'null'); } catch(e) { return null; } };
+/* A party's document is asked for only once the groups have arrived, so it can land after start-up has already
+   looked for this player's card. Look again when it does: a second tab gets it straight from the first one's copy,
+   with nothing left waiting on the server to trigger a fresh look, and used to stop at "You're in" for good. */
 function listenParty(id){
   const path = 'parties/' + id;
   if (PARTY_ON.has(path)) return; PARTY_ON.add(path);
-  listenDoc(path, u => { if (!G().groups.some(x => x.id === id && x.party)) return; CH.party[id] = u; mergeChars(); ensureChars(); }, true).then(() => { if (isGM()) queueSync(); });
+  listenDoc(path, u => { if (!G().groups.some(x => x.id === id && x.party)) return; CH.party[id] = u; mergeChars(); ensureChars(); changed(); }, true).then(() => { if (isGM()) queueSync(); });
 }
 const PARTY_ON = new Set();
 /* the GM writes character cards only once it knows every party and has read every party's document,
@@ -556,7 +559,16 @@ function ensureChars(){
 /* each character keeps its own unread marks on this device, as if it were a different person */
 const LKEY = () => 'norne-seen-' + ME.uid + (ME.seats?.length > 1 && isSeat(G().role) ? '-' + G().role : '');
 function loadLocal(){ const g = G(); try { const d = JSON.parse(localStorage.getItem(LKEY()) || '{}'); g.seen[g.role] = d.t || {}; g.news.seen[g.role] = d.n || []; } catch(e) { g.seen[g.role] = {}; g.news.seen[g.role] = []; } }
-function saveLocal(){ const g = G(); try { localStorage.setItem(LKEY(), JSON.stringify({t:g.seen[g.role] || {}, n:g.news.seen[g.role] || []})); } catch(e) {} }
+/* several tabs share these marks: each one keeps the newest of its own and the stored ones, so a tab
+   left open on another screen never brings back the unread dots for chats read in this one */
+function mergeLocal(d){
+  const g = G(), t = g.seen[g.role] || (g.seen[g.role] = {}), n = g.news.seen[g.role] || (g.news.seen[g.role] = []); let more = false;
+  for (const [ch, at] of Object.entries(d?.t || {})) if (typeof at === 'number' && at > (t[ch] || 0)) { t[ch] = at; more = true; }
+  for (const id of d?.n || []) if (!n.includes(id)) { n.push(id); more = true; }
+  return more;
+}
+function saveLocal(){ const g = G(); try { mergeLocal(JSON.parse(localStorage.getItem(LKEY()) || '{}')); localStorage.setItem(LKEY(), JSON.stringify({t:g.seen[g.role] || {}, n:g.news.seen[g.role] || []})); } catch(e) {} }
+addEventListener('storage', e => { if (!started || !ME || e.key !== LKEY()) return; try { if (mergeLocal(JSON.parse(e.newValue || '{}'))) N.renderAll(); } catch(err) {} });
 
 /* ---------- start-up ---------- */
 async function boot(view){
