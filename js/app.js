@@ -1290,6 +1290,20 @@ function act(v, a, el, e){
   }
   /* character + cast */
   case 'charSel': ui.charSel = val; break;
+  /* sheet reveals (GM) */
+  case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; break;
+  case 'revSeat': ui.revSeat = val; break;
+  case 'revTog': case 'revAll': {
+    const id = ui.sheetArg, st = ui.revSeat; if (!id || !st) break;
+    g.rev = g.rev || {}; const by = g.rev[id] = g.rev[id] || {};
+    const c = g.chars[id], card = c || g.npcs.find(x => x.id === id); if (!card) break;
+    let keys = by[st] || [];
+    if (a === 'revAll') keys = val ? N.revParts(card, !!c).map(p => p.k) : [];
+    else keys = keys.includes(val) ? keys.filter(k => k !== val) : [...keys, val];
+    if (keys.length) by[st] = keys; else delete by[st];
+    if (!Object.keys(by).length) delete g.rev[id];
+    renderAll(); return;
+  }
   case 'castSeg': ui.castSeg = val; ui.castSel = null; break;
   case 'castSel': ui.castSel = val; break;
   case 'castBack': ui.castSel = null; break;

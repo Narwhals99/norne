@@ -236,7 +236,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[],
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], rev:{}, known:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -399,6 +399,38 @@ N.metaPic = role => role === 'gm' ? N.G.gmPic || null : N.charOf(role)?.mpic || 
 
 /* a player card's aspects: older cards kept a high concept and trouble, newer ones just Aspect 1, 2, 3 */
 N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
+/* ---------- sheet reveals: the GM shows single parts of a PC's or NPC's card to chosen players ----------
+   G.rev = {cardId: {seat: [part keys]}} (GM only, gm/misc). Each player gets just what was revealed to them,
+   in their own only/<seat> as unit r:<cardId> (N.revealed), read back into G.known. Keys: a:<n> aspect n,
+   sk:<skill>, st:<stunt name>, about (race and age), bio, people, cons, gear. */
+N.revParts = (c, pc) => {
+  const out = [], add = (k, grp, l, v) => out.push({k, g:grp, l, v});
+  N.pcAspects(c).forEach((a, i) => add('a:' + i, 'Aspects', `Aspect ${i + 1}`, a));
+  Object.entries(c.skills || {}).sort((a, b) => b[1] - a[1]).forEach(([n, x]) => add('sk:' + n, 'Skills', n, sgn(x) + ' ' + ladderWord(x)));
+  (c.stunts || []).filter(([n, d]) => n || d).forEach(([n, d]) => add('st:' + (n || d), 'Stunts', n || 'Unnamed stunt', d));
+  if (c.race || c.age) add('about', 'More', 'Race and age', [c.race, c.age ? 'Age ' + c.age : ''].filter(Boolean).join(' · '));
+  if (c.bio) add('bio', 'More', 'Bio', c.bio);
+  if (pc && c.people) add('people', 'More', 'Important people', c.people);
+  add('cons', 'More', 'Consequences', Object.values(c.cons || {}).filter(Boolean).join(' · ') || 'None right now');
+  add('gear', 'More', 'Weapons and armor', ['gearAtk', 'gearRng', 'gearAmmo', 'gearDef'].map(k => sgn(+c[k] || 0)).join(' / '));
+  return out;
+};
+/* what one player is told about a card: its name and picture, and only the parts in keys */
+N.revealed = (c, pc, keys) => {
+  const has = k => keys.includes(k), r = {id:c.id, pc, name:c.name || c.short || '', portrait:c.portrait || null};
+  if (pc) r.player = c.player;
+  const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
+  const sk = Object.entries(c.skills || {}).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;
+  const st = (c.stunts || []).filter(([n, d]) => has('st:' + (n || d))); if (st.length) r.stunts = st;
+  if (has('about')) { r.race = c.race || ''; r.age = c.age || ''; }
+  if (has('bio')) r.bio = c.bio || '';
+  if (pc && has('people')) r.people = c.people || '';
+  if (has('cons')) r.cons = N.consSlots(c.skills || {}).map(sl => [sl.l, sl.lo + '–' + sl.hi, (c.cons || {})[sl.k] || '']);
+  if (has('gear')) r.gear = ['gearAtk', 'gearRng', 'gearAmmo', 'gearDef'].map(k => +c[k] || 0);
+  return r;
+};
+N.revOf = (id, seat) => ((N.G.rev || {})[id] || {})[seat] || [];
+N.revSeats = id => Object.entries((N.G.rev || {})[id] || {}).filter(([, l]) => l.length).map(([s]) => s);
 N.pcTag = c => N.pcAspects(c)[0] || '';
 
 /* ---------- combat helpers ---------- */

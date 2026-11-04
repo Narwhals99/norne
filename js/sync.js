@@ -373,7 +373,12 @@ function syncNow(){
       }
     }
     writeUnits('gm/npcs', asUnits(g.npcs.map(n => ({...n, occ:n.job || ''}))));
-    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras});
+    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev:g.rev || {}});
+    /* parts of a card the GM revealed to single players: each gets only their own parts (N.revealed) */
+    for (const [id, by] of Object.entries(g.rev || {})) {
+      const c = g.chars[id], n = !c && g.npcs.find(x => x.id === id), card = c && c.built ? c : n; if (!card) continue;
+      for (const [st, keys] of Object.entries(by)) if (keys.length && only[st] && st !== c?.player) only[st]['r:' + id] = N.revealed(card, !!c, keys);
+    }
     if (LOADED.has('gm/news')) {
       /* pictures in an issue can be read by the same people as the issue */
       for (const i of g.news.issues) for (const src of N.newsPics(i)) {
@@ -502,6 +507,7 @@ function setMine(u){
   for (const k of Object.values(KIND)) MINE[k] = {};
   MINEP = {};
   for (const [key, j] of Object.entries(u)) if (key.startsWith('p:')) MINEP[key.slice(2)] = j;
+  G().known = {}; for (const [key, j] of Object.entries(u)) if (key.startsWith('r:')) { try { G().known[key.slice(2)] = JSON.parse(j); } catch(e) {} }
   for (const [key, j] of Object.entries(u)) { const k = KIND[key[0]]; if (k && key[1] === ':') MINE[k][key.slice(2)] = j; }
   mergeView();
 }
@@ -627,7 +633,7 @@ async function start(role){
     'gm/maps': setMaps,
     'gm/wiki': u => { g.wiki = vals(u).sort(byO); },
     'gm/npcs': u => { g.npcs = vals(u).map(normNpc).sort((a,b) => a.name.localeCompare(b.name)); },
-    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; },
+    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev ? JSON.parse(u.rev) : {}; },
     'game/news': u => { PUB.news = u; mergeView(); },
     'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
     'game/maps': u => { PUB.maps = u; mergeView(); },

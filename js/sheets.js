@@ -347,6 +347,21 @@ N.sheetHtml = function(v){
       <div class="note">${IC('info')}Places on the map have their own switch: tap a place while editing to show or hide it.</div>`,
       `<button type="button" class="btn danger" data-a="sheet" data-v="mapDel" data-c="${esc(m.id)}" style="flex:0 0 auto">${IC('trash')}Delete map</button><button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
   }
+  /* ---------------- reveal parts of a card to single players (GM) ---------------- */
+  case 'reveal': {
+    const c = g.chars[arg], n = !c && g.npcs.find(x => x.id === arg), card = c || n; if (!card) return '';
+    const seats = N.seats().filter(st => !c || st !== c.player);
+    if (!seats.includes(v.ui.revSeat)) v.ui.revSeat = seats[0];
+    const st = v.ui.revSeat, keys = N.revOf(arg, st), parts = N.revParts(card, !!c), name = c ? c.short || c.name : n.name;
+    if (!st) return sheet(`Reveal ${esc(name)}`, `<div class="quiet"><div class="art"></div><p>No other players yet.</p></div>`);
+    const groups = [...new Set(parts.map(p => p.g))];
+    const row = p => `<button type="button" class="revrow" data-a="revTog" data-v="${esc(p.k)}" aria-pressed="${keys.includes(p.k)}"><span class="rck">${IC('check')}</span><span><b>${esc(p.l)}</b><small>${esc(p.v)}</small></span></button>`;
+    const body = `<div><h4>To</h4><div class="forwho" role="group" aria-label="Player">${seats.map(s2 => `<button type="button" data-a="revSeat" data-v="${s2}" aria-pressed="${s2 === st}">${N.av(N.personObj(s2),28)}${esc(pName(s2))}${N.revOf(arg, s2).length ? ` <span class="tag" style="height:16px">${N.revOf(arg, s2).length}</span>` : ''}</button>`).join('')}</div></div>
+      ${groups.map(gr => `<div class="revgrp"><h4>${gr}</h4>${parts.filter(p => p.g === gr).map(row).join('')}</div>`).join('')}
+      <div class="note">${IC('info')}${esc(pName(st))} sees ${esc(name)}’s name and picture, plus the parts ticked here, under Character. Nothing is posted in chat. Untick a part to hide it again.</div>`;
+    const all = parts.length && parts.every(p => keys.includes(p.k));
+    return sheet(`Reveal ${esc(name)}`, body, `<button type="button" class="btn ghost" data-a="revAll" data-v="${all ? '' : '1'}" style="flex:0 0 auto">${all ? 'Hide everything' : 'Reveal everything'}</button><button type="button" class="btn primary" data-a="closeSheet">${IC('check')}Done</button>`);
+  }
   case 'mapDir': {
     const md = v.ui.md; if (!md) return '';
     const dir = md.id && N.dirById(md.id), n = dir ? N.dirCount(dir.id, () => true) : 0;
