@@ -516,6 +516,7 @@ function change(v, el){
   if (i === 'cdTo') v.ui.cd[+el.dataset.n].to = val;
   if (i === 'mapName') renderAll();
   if (i === 'memName') { N.renameMember(el.dataset.v, val); toast(v, 'Name saved.'); render(v); }
+  if (i === 'sdAspOn') { const a = v.ui.sd.aspects[+el.dataset.n]; if (a) { if (val) a.on = val; else delete a.on; } render(v); }
   if (i === 'invQ') { const n = parseInt(val, 10); v.ui.invQ = n > 0 ? n : 1; }
 }
 
@@ -1407,6 +1408,8 @@ function act(v, a, el, e){
   case 'rollAll': ui.roll.all = true; break;
   case 'rollOpp': ui.roll.opp = val === 'null' ? null : +val; break;
   case 'rollVsSkill': { const r = ui.roll; r.vsSkill = r.vsSkill === val ? null : val; vsSkillMem[r.skill] = r.vsSkill; vsSkillSave(); const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
+  case 'rollAllWho': ui.roll.allWho = !ui.roll.allWho; break;
+  case 'rollAllVs': ui.roll.allVs = !ui.roll.allVs; break;
   case 'rollVsNpc': { const r = ui.roll; r.vsNpc = val || null; const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
   case 'rollPassive': ui.roll.passive = ui.roll.passive === false; break;
   case 'rollSecret': ui.roll.secret = !ui.roll.secret; break;
@@ -1449,8 +1452,10 @@ function act(v, a, el, e){
   /* ending a scene takes its banner down and lets its one-off NPCs and NPC list go (Undo brings them back) */
   case 'sdEnd': { const ch = val || ui.sd?.ch; if (!ch || !g.scenes[ch]) { ui.sheet = null; break; }
     const cast = g.casts[ch], once = g.extras[ch]; delete g.casts[ch]; delete g.extras[ch];
-    const m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true}); ui.sheet = null;
-    toast(v, 'Scene ended.', () => { N.delMsg(m.id); if (cast) g.casts[ch] = cast; if (once) g.extras[ch] = once; N.renderAll(); }); renderAll(); return; }
+    const title = g.scenes[ch].title, m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true});
+    /* Jake: the log shows where a scene ended, like it shows where one started */
+    const note = push({ch, kind:'sys', by:'gm', text:title ? `Scene ended: ${title}.` : 'Scene ended.', sceneEnd:true, sceneTitle:title || ''}); ui.sheet = null;
+    toast(v, 'Scene ended.', () => { N.delMsg(note.id); N.delMsg(m.id); if (cast) g.casts[ch] = cast; if (once) g.extras[ch] = once; N.renderAll(); }); renderAll(); return; }
   /* fight */
   case 'cbBegin': if (N.metaOnly(val || ui.ch)) { toast(v, `No fights in ${ (val || ui.ch) === 'table' ? 'Everyone' : N.chName(val || ui.ch, 'gm')}, it’s Meta only. Open a chat that isn’t Meta only to begin one.`); break; } N.cbBegin(val || ui.ch); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
   case 'openFight': close(); ui.tab = 'chat'; ui.ch = val || N.fightCh(); focusFight(v); ui.fightOpen = true; ui.fightPane = 'fight'; break;
@@ -1597,14 +1602,14 @@ function sceneRecent(sc){
 /* fixing up a scene changes its own message: no new scene line, nobody is pinged, and spent free invokes stay spent */
 function editScene(v, s){
   const g = G(), m = g.msgs.find(x => x.id === s.msg && x.kind === 'scene'); if (!m) return false;
-  m.scene = {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art || null, place:s.place || null, aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, k:a.k ?? uid('a')}))};
+  m.scene = {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art || null, place:s.place || null, aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, k:a.k ?? uid('a'), ...(a.on ? {on:a.on} : {})}))};
   N.invalidateScenes(); sceneRecent(m.scene);
   toast(v, `Scene updated: ${m.scene.title}`);
   return true;
 }
 function setScene(v, ch, s, post){
   const g = G();
-  const sc = {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, aspects:(s.aspects || []).map(a => ({t:a.t, free:a.free || 0}))};
+  const sc = {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, aspects:(s.aspects || []).map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})}))};
   const m = push({ch, kind:'scene', by:'gm', scene:sc, quiet:!post});
   sceneRecent(sc);
   const who = ch === 'table' ? 'everyone' : (g.P[ch.slice(3)]?.name || 'them');

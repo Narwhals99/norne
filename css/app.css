@@ -2124,6 +2124,13 @@
 .app .distbox{display:grid;gap:8px}
 .app .distbox h4,.app .distbox .vsnote{margin:0}
 .app .distbox .vsnote svg{width:14px;height:14px;vertical-align:-2px;margin-right:4px}
+/* the end of a scene in the chat log, next to where "New scene" lines start one */
+.app .scenem.end .th{display:grid;place-items:center;background:var(--sunk);color:var(--ink-3);box-shadow:0 0 0 2px var(--line-2)}
+.app .scenem.end .th svg{width:15px;height:15px}
+/* scene sheet: who a scene aspect sits on */
+.app .icard .aspon-sel{font:700 11.5px/1.2 var(--f-ui);font-style:normal;color:inherit;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.18);border-radius:4px;padding:3px 4px;max-width:140px;min-height:26px}
+/* Who rolls / Against someone: show everyone, not only the scene */
+.app .morewho{margin-top:8px}
 /* emoji (and later formatting) for long forms: stays in reach while the form scrolls */
 .app .ttools{position:sticky;top:0;z-index:3;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:-4px 0 2px;padding:6px 0;background:var(--page-solid);box-shadow:0 8px 10px -8px var(--page-solid)}
 .app .ttools>span{flex:1;min-width:0;font:600 12.5px/1.3 var(--f-ui);color:var(--ink-3)}
