@@ -255,7 +255,7 @@ function feedRow(m, live){
   if (m.kind === 'sys') return line(IC('info'), esc(m.text || ''));
   if (m.kind === 'combat' || m.kind === 'fight') return line(IC('swords'), `<b>The fight begins</b> ${esc(m.text || '')}`);
   if ((m.kind === 'rp' || m.kind === 'ooc' || m.kind === 'meta') && m.text) {
-    const s = m.kind === 'rp' ? N.speakerObj(m) : N.personObj(m.by), x = m.text.replace(/[*_]/g, ''), t = x.length > 90 ? x.slice(0, 90) + '…' : x;
+    const s = m.kind === 'rp' && !N.metaRp(m) ? N.speakerObj(m) : N.msgPerson(m), x = m.text.replace(/[*_]/g, ''), t = x.length > 90 ? x.slice(0, 90) + '…' : x;
     return line(IC('chatL'), `<b>${esc(s.name || '')}</b> ${esc(t)}`, ' talk');
   }
   return '';

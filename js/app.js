@@ -11,13 +11,13 @@ N.now = () => { const ms = G().msgs; const last = ms.length ? ms[ms.length - 1].
 N.msgEditable = m => ['rp','ooc','meta','note'].includes(m.kind) && typeof m.text === 'string';
 /* the GM can edit any typed message, a player only their own */
 N.canEdit = (v, m) => N.msgEditable(m) && (isGM(v) || m.by === v.role);
-N.msgWho = m => m.kind === 'roll' ? m.roll.who : m.kind === 'rp' ? N.speakerObj(m).name : N.personObj(m.by).name;
+N.msgWho = m => m.kind === 'roll' ? m.roll.who : m.kind === 'rp' && !N.metaRp(m) ? N.speakerObj(m).name : N.msgPerson(m).name;
 /* messages anyone can react to or reply to: not scene changes, fight cards or small grey lines */
 /* a pasted GIF link: any https picture address */
 N.gifLinkOk = u => /^https:\/\/\S+$/i.test(String(u || '').trim());
 N.msgSocial = m => !['scene','fight','combat'].includes(m.kind) && !(m.kind === 'sys' && !m.res);
 N.emoName = s => String(s || '').trim().toLowerCase().replace(/^:+|:+$/g, '').replace(/\s+/g, '_').replace(/[^\w-]/g, '').slice(0, 32);
-N.msgColor = m => (m.kind === 'rp' ? N.speakerObj(m).color : m.kind === 'roll' ? 'var(--ink-2)' : N.personObj(m.by).color) || 'var(--ink-2)';
+N.msgColor = m => (m.kind === 'rp' && !N.metaRp(m) ? N.speakerObj(m).color : m.kind === 'roll' ? 'var(--ink-2)' : N.msgPerson(m).color) || 'var(--ink-2)';
 /* a one-line taste of a message, for the line above a reply */
 N.msgSnip = m => {
   if (m.kind === 'roll') return `${m.roll.skill} roll · ${sgn(N.rollTotal(m.roll))} ${ladderWord(N.rollTotal(m.roll))}`;
