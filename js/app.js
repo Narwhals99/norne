@@ -856,32 +856,44 @@ function zoomAt(v, f, px, py){
   const k1 = T.k; T.k = clamp(T.k * f, kMin(v), Math.max(kMin(v) * 10, 1.6)); const r = T.k / k1;
   T.x = px - (px - T.x) * r; T.y = py - (py - T.y) * r; applyMap(v);
 }
+/* one gesture at a time. A finger whose "up" never arrives (iPhone drops it when the map is redrawn under the finger,
+   e.g. by live sync) used to stay in the list for good, so the next one-finger drag was read as a pinch against
+   that ghost finger and zoomed. A new first finger (isPrimary) now always starts a fresh gesture. */
 function mapDown(v, e){
-  const pts = v._pts || (v._pts = new Map());
-  pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  let g = v._mapG;
+  if (e.isPrimary || !g) { if (g) g.end(); g = null; }
+  if (g) { g.pts.set(e.pointerId, {x:e.clientX, y:e.clientY}); g.pinch = null; return; }
+  const pts = new Map([[e.pointerId, {x:e.clientX, y:e.clientY}]]);
   const cvr = () => v.root.querySelector('[data-mapcv]').getBoundingClientRect();
-  let moved = 0, last = {x:e.clientX, y:e.clientY}, pinch = null;
+  let moved = 0, last = {x:e.clientX, y:e.clientY};
   const move = ev => {
     if (!pts.has(ev.pointerId)) return;
     pts.set(ev.pointerId, {x:ev.clientX, y:ev.clientY});
     const T = v.ui.mapT; if (!T) return;
     if (pts.size >= 2) {
       const [a, b] = [...pts.values()], dist = Math.hypot(a.x - b.x, a.y - b.y), mid = {x:(a.x + b.x)/2, y:(a.y + b.y)/2};
-      if (pinch) { const r = cvr(); zoomAt(v, dist / pinch.d, mid.x - r.left, mid.y - r.top); T.x += mid.x - pinch.mx; T.y += mid.y - pinch.my; applyMap(v); }
-      pinch = {d:dist, mx:mid.x, my:mid.y}; moved += 10; return;
+      const p = g.pinch;
+      if (p && p.d > 0) { const r = cvr(); zoomAt(v, dist / p.d, mid.x - r.left, mid.y - r.top); T.x += mid.x - p.mx; T.y += mid.y - p.my; applyMap(v); }
+      g.pinch = {d:dist, mx:mid.x, my:mid.y}; moved += 10; return;
     }
-    pinch = null;
+    g.pinch = null;
     const dx = ev.clientX - last.x, dy = ev.clientY - last.y; last = {x:ev.clientX, y:ev.clientY};
     moved += Math.abs(dx) + Math.abs(dy);
     T.x += dx; T.y += dy; applyMap(v);
   };
-  const up = ev => {
-    pts.delete(ev.pointerId);
-    if (pts.size) { const [q] = [...pts.values()]; last = {x:q.x, y:q.y}; pinch = null; return; }
+  const end = () => {
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+    if (v._mapG === g) v._mapG = null;
+  };
+  const up = ev => {
+    if (!pts.delete(ev.pointerId)) return;
+    g.pinch = null;
+    if (pts.size) { const [q] = [...pts.values()]; last = {x:q.x, y:q.y}; return; }
+    end();
     if (moved > 6) { v.suppress = true; setTimeout(() => { v.suppress = false; }, 0); }
   };
-  if (pts.size === 1) { window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up); }
+  g = v._mapG = {pts, pinch:null, end};
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
 }
 function addPinAt(v, e){
   const m = curMap(v), T = v.ui.mapT, cv = v.root.querySelector('[data-mapcv]').getBoundingClientRect();
