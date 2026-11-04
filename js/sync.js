@@ -106,7 +106,10 @@ function syncMsgs(){
     const fresh = !MKNOWN.has(m.id);
     /* reactions are written on their own (saveRx), so a message saved again never overwrites someone else's */
     MKNOWN.set(m.id, j); const {roll, rx, ...rest} = m;
-    track(F.setDoc(dref('msgs/' + m.id), {...rest, ...(fresh && rx ? {rx} : {}), aud:audOf(m.ch), roll:roll ? JSON.stringify(roll) : null}, {merge:true})
+    /* a message already saved keeps who may read it: a member added later without the chat's history never gets it
+       back because someone invoked on an old roll or the GM fixed a typo */
+    const aud = !fresh && MDOCS.get(m.id)?.aud || audOf(m.ch);
+    track(F.setDoc(dref('msgs/' + m.id), {...rest, ...(fresh && rx ? {rx} : {}), aud, roll:roll ? JSON.stringify(roll) : null}, {merge:true})
       .then(() => { if (fresh && N.pushOut) try { N.pushOut(m); } catch(e) { console.warn('push', e); } }));
   }
 }
@@ -215,13 +218,24 @@ function listenGroups(){
 }
 /* the rules that guard groups/<id> have to be published before the GM can make one */
 N.groupsReady = () => GROUPS_OK;
-/* the GM saves a group; members added or removed get (or lose) the chat's whole history */
-N.saveGroup = (gr, before) => {
+/* the GM saves a group. Members taken out lose the chat's history. Members added get it all when hist is on
+   (the default); with hist false they read only what is said from now on. Each old message keeps its own
+   readers, so someone let in without the history earlier still doesn't get it when another member is added with it. */
+N.saveGroup = (gr, before, hist = true) => {
   if (!isGM()) return;
   const g = G(), i = g.groups.findIndex(x => x.id === gr.id); if (i < 0) g.groups.push(gr); else g.groups[i] = gr;
   track(F.setDoc(dref('groups/' + gr.id), {name:gr.name, seats:gr.seats, t:gr.t || Date.now(), party:!!gr.party, meta:!!gr.meta}));
   if (gr.party) listenParty(gr.id);
-  if (before && before.join() !== gr.seats.join()) for (const m of g.msgs) if (m.ch === 'grp-' + gr.id && MKNOWN.has(m.id)) track(F.updateDoc(dref('msgs/' + m.id), {aud:audOf(m.ch)}));
+  if (before && before.join() !== gr.seats.join()) {
+    const added = gr.seats.filter(s => !before.includes(s));
+    for (const m of g.msgs) if (m.ch === 'grp-' + gr.id && MKNOWN.has(m.id)) {
+      const was = MDOCS.get(m.id)?.aud || before, keep = was.filter(s => gr.seats.includes(s));
+      const aud = [...new Set([...keep, ...(hist ? added : [])])], now = aud.length ? aud : ['gm'];
+      if (now.join() === was.join()) continue;
+      const d = MDOCS.get(m.id); if (d) d.aud = now;
+      track(F.updateDoc(dref('msgs/' + m.id), {aud:now}));
+    }
+  }
 };
 /* deleting a group deletes its messages and its fight document too */
 N.dropGroup = id => {
@@ -541,10 +555,21 @@ function applyMembers(list){
   for (const m of list.filter(m => isSeat(m.role))) for (const s of N.seatsOf(m)) rows.push([s, m]);
   for (const [s, m] of rows.sort((a, b) => a[0].slice(1) - b[0].slice(1))) {
     const who = (m.name || 'Player').trim() || 'Player';
-    g.P[s] = {id:s, name:who, who, char:'pc' + s.slice(1), color:N.seatColor(s), uid:m.uid, ...(N.seatsOf(m).length > 1 ? {multi:true, on:m.role === s} : {})};
+    g.P[s] = {id:s, name:who, who, char:'pc' + s.slice(1), color:N.seatColor(s), uid:m.uid, dm:dmOpenOf(m).includes(s), ...(N.seatsOf(m).length > 1 ? {multi:true, on:m.role === s} : {})};
   }
   nameSeats(); ensureChars();
 }
+/* The seats of an account that have a private chat with the GM (members/<uid>.dmOpen). Players let in before
+   dmOpen existed have no list and keep the private chats they had (DM_LEGACY); new ones start with none. */
+const DM_LEGACY = true;
+const dmOpenOf = m => Array.isArray(m.dmOpen) ? m.dmOpen : DM_LEGACY ? N.seatsOf(m) : [];
+N.setDm = (seat, on) => {
+  if (!isGM()) return;
+  const m = N.MEMBERS.find(x => isSeat(x.role) && N.seatsOf(x).includes(seat)); if (!m) return;
+  const cur = dmOpenOf(m).filter(s => s !== seat), next = on ? [...cur, seat] : cur;
+  m.dmOpen = next; if (G().P[seat]) G().P[seat].dm = on;
+  track(F.updateDoc(dref('members/' + m.uid), {dmOpen:next}));
+};
 /* every seat this account holds, the one played now first */
 N.seatsOf = m => [...new Set([m.role, ...(m.seats || [])])].filter(isSeat);
 /* a person with several characters shows as "Jack · Brann" for each one, so their chats can be told apart */
@@ -679,7 +704,8 @@ N.admit = id => {
   const m = N.MEMBERS.find(x => x.uid === id); if (!m) return;
   const used = [...N.MEMBERS.map(x => +(x.seat || x.role).slice(1) || 0), ...Object.keys(G().chars).map(k => +k.slice(2) || 0)];
   const seat = m.seat || 'p' + (Math.max(0, ...used) + 1);
-  track(F.updateDoc(dref('members/' + m.uid), {role:seat, seat}));
+  /* someone new starts with only Everyone; the GM opens a private chat or adds them to group chats */
+  track(F.updateDoc(dref('members/' + m.uid), {role:seat, seat, ...(Array.isArray(m.dmOpen) || m.seat ? {} : {dmOpen:[]})}));
   return m.name;
 };
 /* the GM gives a player another character: a new seat of its own (own card, own private chat, own party) */
@@ -687,7 +713,7 @@ N.addSeat = id => {
   const m = N.MEMBERS.find(x => x.uid === id); if (!m || !isSeat(m.role)) return null;
   const used = [...N.MEMBERS.flatMap(x => [x.seat || x.role, ...(x.seats || [])]).map(s => +String(s).slice(1) || 0), ...Object.keys(G().chars).map(k => +k.slice(2) || 0)];
   const seat = 'p' + (Math.max(0, ...used) + 1);
-  track(F.updateDoc(dref('members/' + m.uid), {seats:[...N.seatsOf(m), seat]}));
+  track(F.updateDoc(dref('members/' + m.uid), {seats:[...N.seatsOf(m), seat], dmOpen:dmOpenOf(m)}));
   return seat;
 };
 /* the GM takes an extra character away (not the one being played); its card stays, like a former player's */

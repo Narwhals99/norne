@@ -266,10 +266,27 @@ N.sheetHtml = function(v){
   case 'import': return sheet('Import lore', `<div class="note">${IC('info')}Pick <b>norne-gm-lore.json</b>. It fills the World wiki and the maps, GM secrets included, and saves them for the whole table. Players only ever receive the parts they’re allowed to see.</div>
       <button type="button" class="thumb up" style="aspect-ratio:auto;min-height:120px;width:100%" data-a="importLore"><span>${IC('upload')}Choose the lore file</span></button>
       <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Entries and maps with the same name are replaced by the file’s version. Anything you made yourself stays. Loaded now: ${g.wiki.length} entries, ${g.maps.length} maps, ${g.maps.reduce((a,m)=>a+m.pins.filter(p=>p.type!=='party').length,0)} places.</p>`);
+  case 'dms': {
+    const ss = N.seats();
+    const body = `<p class="muted" style="margin:0;font:600 13px/1.45 var(--f-ui)">New players start with only Everyone. Open a private chat with a player here when you need one. Closing it hides it from both of you; its messages are kept and come back if you open it again.</p>
+      <div class="forwho">${ss.map(s => `<button type="button" data-a="dmSet" data-v="${s}" aria-pressed="${N.dmOn(s)}">${N.av(N.personObj(s), 28)}${esc(pName(s))}${N.dmOn(s) ? '' : `<small style="color:var(--ink-3);font-weight:600">· closed</small>`}</button>`).join('') || '<p class="muted" style="margin:0">No players yet.</p>'}</div>
+      <p class="muted" style="margin:0;font:600 12.5px/1.45 var(--f-ui)">Highlighted players have a private chat with you. Automatic notes (a new character card, inventory changes, news) only go to an open one.</p>`;
+    return sheet('Private chats', body, `<button type="button" class="btn primary lg" data-a="closeSheet">${IC('check')}Done</button>`);
+  }
+  case 'search': {
+    const q = v.ui.cq || '', all = v.ui.cqAll !== false;
+    const body = `<div class="srch-top"><label class="search srch-q"><span class="vh">Search for</span>${IC('search')}<input class="inp" type="search" id="cq-${v.id}" data-i="chatQ" value="${esc(q)}" placeholder="Words, a name, a skill…" autocomplete="off" enterkeyhint="search"></label>
+        <div class="seg"><button type="button" data-a="cqAll" data-v="1" aria-pressed="${all}">All chats</button><button type="button" data-a="cqAll" data-v="0" aria-pressed="${!all}">${esc(N.chName(v.ui.ch, v.role))}</button></div></div>
+      <div class="srch-res" id="cqr-${v.id}">${N.chatSearchHtml(v)}</div>`;
+    return sheet('Search the chats', body, '', {wide:true});
+  }
   case 'export': {
     const ex = v.ui.exp;
     const out = N.buildExport(ex);
-    const body = `<div><h4>Chats</h4><div class="forwho">${N.channelsFor('gm').map(c => `<button type="button" data-a="expCh" data-v="${c}" aria-pressed="${ex.ch.has(c)}">${esc(N.chName(c,'gm'))}</button>`).join('')}</div></div>
+    const body = `<div><h4>Chats</h4><div class="forwho">${N.channelsFor('gm', true).map(c => `<button type="button" data-a="expCh" data-v="${c}" aria-pressed="${ex.ch.has(c)}">${esc(N.chName(c,'gm'))}</button>`).join('')}</div></div>
+      <div><h4>When</h4><div class="forwho">${[['all','Everything'],['day','Last 24 hours'],['week','Last 7 days'],['last','Since the last scene']].map(([k,l]) => `<button type="button" data-a="expWhen" data-v="${k}" aria-pressed="${ex.when === k}">${l}</button>`).join('')}</div>
+        <div class="exrange"><label class="field"><span>From</span><input class="inp" type="datetime-local" data-i="expFrom" value="${esc(ex.from || '')}"></label><label class="field"><span>To</span><input class="inp" type="datetime-local" data-i="expTo" value="${esc(ex.to || '')}"></label></div>
+        <small class="muted" id="exWhen">${esc(N.cap1(N.expRangeWords(ex)))}. Leave a box empty for no limit on that side.</small></div>
       <div><h4>Include</h4><div class="forwho">${[['rp','Roleplay'],['roll','Rolls'],['meta','Meta']].map(([k,l]) => `<button type="button" data-a="expKind" data-v="${k}" aria-pressed="${!!ex[k]}">${l}</button>`).join('')}</div></div>
       <div><h4>Format</h4><div class="forwho"><button type="button" data-a="expKind" data-v="json" aria-pressed="${!ex.json}" ${ex.json ? '' : 'disabled'}>Text (.md)</button><button type="button" data-a="expKind" data-v="json" aria-pressed="${!!ex.json}" ${ex.json ? 'disabled' : ''}>Data for an AI (.json)</button></div><small class="muted">The JSON keeps every fight as its own block with its rolls and results. Talk typed in a fight’s chat is never exported.</small></div>
       <div><h4>Preview · for your notes, or to paste into an AI for a session summary</h4><textarea id="exOut" class="inp" readonly rows="10" style="font:500 12.5px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2)">${esc(out)}</textarea></div>`;
@@ -433,7 +450,10 @@ N.sheetHtml = function(v){
         <p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">${d.meta ? 'Like Everyone: players show by their own name and Meta picture, never their character. Nobody speaks in character and no fights start here.' : 'Players can speak as their characters and switch to Meta, and you can narrate and start fights here.'}</p></div>
       <label class="field"><span>Name</span><input class="inp" id="gdn-${v.id}" data-i="gdName" value="${esc(d.name)}" placeholder="${d.party ? 'e.g. The river company' : 'e.g. Jack and Rachel'}" autocomplete="off"></label>
       <div><h4>Who’s in it</h4><div class="forwho">${seats.map(s => { const other = d.party && (g.groups || []).find(x => x.party && x.id !== d.id && x.seats.includes(s)); return `<button type="button" data-a="gdSeat" data-v="${s}" aria-pressed="${d.seats.includes(s)}">${N.av(N.personObj(s), 28)}${esc(G().P[s]?.name || s)}${other ? `<small style="color:var(--ink-3);font-weight:600">· in ${esc(other.name)}</small>` : ''}</button>`; }).join('') || '<p class="muted" style="margin:0">No players yet.</p>'}</div>
-      <p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">Only these players and you can read the chat. Someone added later sees the whole chat so far; someone taken out loses it.${d.party ? ' Picking someone who is in another party moves them here.' : ''}</p></div>
+      <p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">Only these players and you can read the chat. Someone taken out loses it.${d.party ? ' Picking someone who is in another party moves them here.' : ''}</p></div>
+      ${(() => { const was = d.id && (g.groups || []).find(x => x.id === d.id), add = was ? d.seats.filter(s => !was.seats.includes(s)) : []; if (!add.length) return '';
+        return `<div><h4>${esc(N.namesOf(add))} can read</h4><div class="seg"><button type="button" data-a="gdHist" data-v="1" aria-pressed="${d.hist !== false}">${IC('scroll')}Everything so far</button><button type="button" data-a="gdHist" data-v="0" aria-pressed="${d.hist === false}">${IC('clock')}From now on</button></div>
+        <p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">${d.hist === false ? 'They won’t see anything said here before you add them, only what comes after.' : 'They can scroll back through the whole chat, from the first message.'}</p></div>`; })()}
       ${d.id ? `<button type="button" class="btn sm danger" data-a="sheet" data-v="grpDel" data-c="${esc(d.id)}" style="justify-self:start">${IC('trash')}Delete this group chat</button>` : ''}`;
     return sheet(d.id ? (d.party ? 'Edit party' : 'Edit group chat') : (d.party ? 'New party' : 'New group chat'), body, `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="gdSave" ${d.name.trim() && d.seats.length && ready ? '' : 'disabled'}>${IC('check')}${d.id ? 'Save' : d.party ? 'Make the party' : 'Make the chat'}</button>`);
   }
@@ -460,7 +480,7 @@ N.sheetHtml = function(v){
     const count = c => g.msgs.filter(m => m.ch === c).length, fights = N.allFights();
     const ic = c => N.chanIcon ? N.chanIcon(v, c) : '';
     if (w.step === 1 || !w.ch) {
-      const rows = N.channelsFor('gm').map(c => {
+      const rows = N.channelsFor('gm', true).map(c => {
         const n = count(c), fight = !!fights[c], off = fight || !n;
         return `<button type="button" class="wipe-ch" data-a="wipePick" data-v="${esc(c)}" aria-pressed="${w.ch === c}" ${off ? 'disabled' : ''}>${ic(c)}<span><b>${esc(N.chName(c, 'gm'))}</b><small>${esc(N.chSub(c, 'gm'))}</small></span><span class="n">${fight ? 'Fight on: end it first' : n ? `${n} message${n > 1 ? 's' : ''}` : 'Already empty'}</span></button>`;
       }).join('');
@@ -713,10 +733,19 @@ function exEntry(m){
   const sp = N.speakerObj(m);
   return sp.narr ? {t, type:'narration', text:m.text} : {t, type:'speech', speaker:sp.name, npc:m.by === 'gm', text:m.text};
 }
+/* the export's date range: from and to are datetime-local strings ("2026-11-04T19:30") or empty for no limit; to takes its whole minute */
+const expMs = (x, end) => { if (!x) return end ? Infinity : -Infinity; const t = new Date(x).getTime(); return isNaN(t) ? (end ? Infinity : -Infinity) : t + (end ? 59999 : 0); };
+const inRange = (m, sel) => m.t >= expMs(sel.from) && m.t <= expMs(sel.to, true);
+const rangeWords = sel => { const f = d => new Date(d).toLocaleString([], {dateStyle:'medium', timeStyle:'short'});
+  return sel.from && sel.to ? `from ${f(sel.from)} to ${f(sel.to)}` : sel.from ? `from ${f(sel.from)} on` : sel.to ? `up to ${f(sel.to)}` : 'from the first message to the last'; };
+N.expRangeWords = rangeWords;
+N.cap1 = x => x.charAt(0).toUpperCase() + x.slice(1);
+/* "2026-11-04T19:30" for a datetime-local field, in this device's time */
+N.expStamp = t => { const d = new Date(t), p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; };
 function buildJson(sel){
-  const keep = m => !m.fc && !(m.kind === 'scene' && (m.quiet || !m.scene)) && (((m.kind === 'rp' || m.kind === 'sys' || m.kind === 'scene' || m.kind === 'combat' || m.kind === 'fight' || m.kind === 'news' || m.kind === 'note') && sel.rp) || (m.kind === 'roll' && sel.roll) || ((m.kind === 'meta' || m.kind === 'ooc') && sel.meta));
+  const keep = m => !m.fc && inRange(m, sel) && !(m.kind === 'scene' && (m.quiet || !m.scene)) && (((m.kind === 'rp' || m.kind === 'sys' || m.kind === 'scene' || m.kind === 'combat' || m.kind === 'fight' || m.kind === 'news' || m.kind === 'note') && sel.rp) || (m.kind === 'roll' && sel.roll) || ((m.kind === 'meta' || m.kind === 'ooc') && sel.meta));
   const chats = [];
-  for (const c of N.channelsFor('gm')) {
+  for (const c of N.channelsFor('gm', true)) {
     if (!sel.ch.has(c)) continue;
     const entries = []; let fight = null;
     for (const m of G().msgs.filter(x => x.ch === c && keep(x))) {
@@ -727,20 +756,52 @@ function buildJson(sel){
     if (entries.length) chats.push({chat:N.chName(c, 'gm'), entries});
   }
   return JSON.stringify({format:'norne-log', version:1, campaign:'Nörne', exported:new Date().toISOString(),
+    ...(sel.from || sel.to ? {range:{from:sel.from ? new Date(expMs(sel.from)).toISOString() : null, to:sel.to ? new Date(expMs(sel.to, true)).toISOString() : null}} : {}),
     about:'A Fate Core campaign log. Chats are in time order. type "fight" blocks hold that fight\'s rolls (4 Fate dice, -1/0/+1 each, total = dice + skillBonus + gear + 2 per invoke that is neither a reroll nor againstRoll; an againstRoll invoke is already in "against"), attack results and notices. Typed fight chat is left out.',
     includes:{roleplay:!!sel.rp, rolls:!!sel.roll, outOfCharacter:!!sel.meta}, chats}, null, 2);
 }
 N.buildExport = sel => {
   if (sel.json) return buildJson(sel);
   const kinds = [sel.rp && 'roleplay', sel.roll && 'rolls', sel.meta && 'meta talk'].filter(Boolean);
-  const out = ['# Nörne: session log', `Exported ${new Date().toLocaleString()} · includes ${kinds.join(', ') || 'nothing'}`];
-  for (const c of N.channelsFor('gm')) {
+  const out = ['# Nörne: session log', `Exported ${new Date().toLocaleString()} · includes ${kinds.join(', ') || 'nothing'} · ${rangeWords(sel)}`];
+  for (const c of N.channelsFor('gm', true)) {
     if (!sel.ch.has(c)) continue;
-    const ms = G().msgs.filter(m => m.ch === c && !m.fc && !(m.kind === 'scene' && (m.quiet || !m.scene)) && (((m.kind === 'rp' || m.kind === 'sys' || m.kind === 'scene' || m.kind === 'combat' || m.kind === 'fight' || m.kind === 'news' || m.kind === 'note') && sel.rp) || (m.kind === 'roll' && sel.roll) || ((m.kind === 'meta' || m.kind === 'ooc') && sel.meta)));
+    const ms = G().msgs.filter(m => m.ch === c && !m.fc && inRange(m, sel) && !(m.kind === 'scene' && (m.quiet || !m.scene)) && (((m.kind === 'rp' || m.kind === 'sys' || m.kind === 'scene' || m.kind === 'combat' || m.kind === 'fight' || m.kind === 'news' || m.kind === 'note') && sel.rp) || (m.kind === 'roll' && sel.roll) || ((m.kind === 'meta' || m.kind === 'ooc') && sel.meta)));
     if (!ms.length) continue;
     out.push('', `## ${N.chName(c, 'gm')}`, '', ms.map(exLine).join('\n\n'));
   }
   return out.join('\n');
+};
+
+/* ---------- chat search: every message this person can read, newest first ---------- */
+const srchText = m => { const t = N.msgCopyText(m); return m.kind === 'roll' ? `${m.roll.who || ''} ${m.roll.skill} ${m.roll.action || ''} ${m.roll.target || ''} ${t}` : m.kind === 'scene' ? `${m.scene?.title || ''} ${m.scene?.where || ''}` : t; };
+const srchWho = m => m.kind === 'roll' ? (m.roll.who || 'Roll') : m.kind === 'scene' ? 'New scene' : m.kind === 'sys' || m.kind === 'news' ? '' : m.kind === 'rp' && !N.metaRp(m) ? N.speakerObj(m).name || 'Narrator' : N.msgPerson(m).name;
+const fold = x => String(x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const mark = (txt, words) => { let h = esc(txt); for (const w of words) h = h.replace(new RegExp('(' + esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<mark>$1</mark>'); return h; };
+N.chatSearch = (v, q, all) => {
+  const words = fold(q).split(/\s+/).filter(Boolean); if (!words.length) return [];
+  const chs = new Set(all ? N.channelsFor(v.role) : [v.ui.ch]);
+  const hits = [];
+  for (let i = G().msgs.length - 1; i >= 0 && hits.length < 200; i--) {
+    const m = G().msgs[i];
+    if (!chs.has(m.ch) || m.fc || (m.kind === 'scene' && (m.quiet || !m.scene))) continue;
+    const hay = fold(srchText(m) + ' ' + srchWho(m));
+    if (words.every(w => hay.includes(w))) hits.push(m);
+  }
+  return hits;
+};
+N.chatSearchHtml = v => {
+  const q = (v.ui.cq || '').trim(), all = v.ui.cqAll !== false;
+  if (!q) return `<p class="muted srch-none">Type to search ${all ? 'every chat you’re in' : 'this chat'}: words someone said, a character’s name, a skill. Tap a result to jump to it.</p>`;
+  const hits = N.chatSearch(v, q, all), words = q.split(/\s+/).filter(Boolean);
+  if (!hits.length) return `<p class="muted srch-none">Nothing found for “${esc(q)}”.</p>`;
+  const day = t => new Date(t).toLocaleDateString([], {month:'short', day:'numeric', year:new Date(t).getFullYear() === new Date().getFullYear() ? undefined : 'numeric'});
+  return `<p class="muted srch-n">${hits.length >= 200 ? 'The newest 200 matches' : `${hits.length} match${hits.length > 1 ? 'es' : ''}`}</p><ul class="srch-list">${hits.map(m => {
+    const t = srchText(m).replace(/\s+/g, ' ').trim(), lo = fold(t), first = Math.min(...words.map(w => { const k = lo.indexOf(fold(w)); return k < 0 ? Infinity : k; }));
+    /* start the snippet a few words before the first match, on a word boundary */
+    let at = first === Infinity || first < 50 ? 0 : t.indexOf(' ', first - 45) + 1; if (at <= 0 || at > first) at = first === Infinity ? 0 : Math.min(first, at);
+    const snip = (at > 0 ? '…' : '') + t.slice(at, at + 180) + (t.length > at + 180 ? '…' : ''), who = srchWho(m);
+    return `<li><button type="button" data-a="cqGo" data-v="${m.id}" data-c="${esc(m.ch)}"><span class="srch-h">${all ? `<b>${esc(N.chName(m.ch, v.role))}</b>` : ''}${who ? `<span style="color:${N.msgColor(m)}">${esc(who)}</span>` : ''}<time>${day(m.t)} · ${hhmm(m.t)}</time></span><span class="srch-t">${mark(snip, words)}</span></button></li>`; }).join('')}</ul>`;
 };
 
 N.creditsHtml = () => `<div class="note">${IC('heart')}Everything here is free to use. Some licenses ask for credit, so here it is.</div>
