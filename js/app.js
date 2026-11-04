@@ -112,6 +112,10 @@ function render(v){
   /* the same goes for a fighter's card on the desktop board: new chat lines must not make it slide in again */
   if (v.ui.tokSel && v._tokSel === v.ui.tokSel) root.querySelectorAll('.tokpanel').forEach(e => e.classList.add('still'));
   v._tokSel = root.querySelector('.tokpanel') ? v.ui.tokSel : null;
+  /* and an open dropdown (maps, Speak as, emoji, a message's menu): pictures loading in it redraw the page, which must not pop it in again */
+  const pk = v.ui.pop ? [v.ui.pop.type, v.ui.pop.mid || '', v.ui.pop.x, v.ui.pop.y, !!v.ui.pop.up].join(':') : null;
+  if (pk && v._pop === pk) root.querySelectorAll('.pop').forEach(e => e.classList.add('still'));
+  v._pop = pk && root.querySelector('.pop') ? pk : null;
   root.querySelectorAll('[data-sk]').forEach(e => {
     const s = sk[e.dataset.sk];
     if (e.dataset.bottom && (!s || s.bottom || v.ui.stick)) e.scrollTop = e.scrollHeight;

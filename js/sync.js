@@ -249,14 +249,17 @@ function listenPush(){
 const MIMG = new Map(), MVIS = new Map();
 /* a picture is either for everyone (vis), for some seats (aud) or for the GM only */
 const visKey = (vis, aud) => (vis === true ? '*' : '') + '|' + (aud || []).join(',');
+/* many pictures arriving together (every map's thumbnail when the maps dropdown opens) make one redraw, not one each */
+let _imgR = 0;
+const imgArrived = () => { clearTimeout(_imgR); _imgR = setTimeout(() => N.renderAll(), 50); };
 N.loadImg = id => {
   let e = MIMG.get(id);
   if (!e) {
     e = {url:'', p:null}; MIMG.set(id, e);
     if (F) {
       /* the device's copy shows at once; the server's copy (who may see it) follows */
-      F.getDocFromCache(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (d?.data && !e.url) { e.url = d.data; N.renderAll(); } }).catch(() => {});
-      e.p = F.getDoc(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (!d || !d.data) throw new Error('no image'); const was = e.url; e.url = d.data; MVIS.set(id, visKey(d.vis, d.aud)); if (was !== e.url) N.renderAll(); })
+      F.getDocFromCache(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (d?.data && !e.url) { e.url = d.data; imgArrived(); } }).catch(() => {});
+      e.p = F.getDoc(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (!d || !d.data) throw new Error('no image'); const was = e.url; e.url = d.data; MVIS.set(id, visKey(d.vis, d.aud)); if (was !== e.url) imgArrived(); })
         .catch(() => { e.url = ''; setTimeout(() => MIMG.delete(id), 15000); });
     }
   }
