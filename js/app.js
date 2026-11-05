@@ -237,7 +237,8 @@ function bind(v){
       return;
     }
     const tok = e.target.closest('[data-tok]'); if (tok) { tokClick(v, tok.dataset.tok); return; }
-    const pin = e.target.closest('[data-pin]'); if (pin) { v.ui.pinSel = v.ui.pinSel === pin.dataset.pin ? null : pin.dataset.pin; render(v); return; }
+    const pin = e.target.closest('[data-pin]'); if (pin && !(isGM(v) && v.ui.mapEdit) && pinGo(v, pin.dataset.pin)) return;
+    if (pin) { v.ui.pinSel = v.ui.pinSel === pin.dataset.pin ? null : pin.dataset.pin; render(v); return; }
     const zone = e.target.closest('[data-zone]'); if (zone) { zoneClick(v, zone.dataset.zone); return; }
     if (e.target.closest('[data-mapcv]') && v.ui.addPin) { addPinAt(v, e); return; }
     if (e.target.closest('[data-board]') && (v.ui.tokSel || v.ui.zoneSel)) { v.ui.tokSel = null; v.ui.zoneSel = null; render(v); }
@@ -920,6 +921,13 @@ function mapDown(v, e){
   g = v._mapG = {pts, pinch:null, end};
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
 }
+/* a place that opens a map (a country, a city, a neighborhood) goes straight to it; Back returns to the map it was on */
+function openMapFrom(v, id){ const cur = curMap(v); if (cur && cur.id !== id) (v.ui.mapBack = v.ui.mapBack || []).push(cur.id); v.ui.mapId = id; }
+function pinGo(v, pid){
+  const m = curMap(v), p = m && m.pins.find(x => x.id === pid), to = p && N.pinTo(m, p), mp = to && G().maps.find(x => x.id === to && seeMap(v, x));
+  if (!mp) return false;
+  openMapFrom(v, mp.id); Object.assign(v.ui, {pinSel:null, mapT:null, mapType:'all', pop:null}); render(v); return true;
+}
 function addPinAt(v, e){
   const m = curMap(v), T = v.ui.mapT, cv = v.root.querySelector('[data-mapcv]').getBoundingClientRect();
   const rx = ((e.clientX - cv.left) - T.x) / T.k / m.w, ry = ((e.clientY - cv.top) - T.y) / T.k / m.h;
@@ -1233,7 +1241,8 @@ function act(v, a, el, e){
   case 'mapEditGo': close(); ui.tab = 'map'; ui.mapEdit = true; ui.addPin = false; break;
   case 'castNpcs': close(); ui.tab = 'cast'; ui.castSeg = 'npcs'; ui.castSel = null; break;
   /* map */
-  case 'mapGo': ui.mapId = val; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break;
+  case 'mapBack': { const b = ui.mapBack || [], to = b.pop(); if (!to) break; ui.mapId = to; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
+  case 'mapGo': ui.mapBack = []; ui.mapId = val; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break;
   case 'mapEdit': ui.mapEdit = !ui.mapEdit; ui.addPin = false; break;
   /* map folders: open one in the maps dropdown, make, rename, move or delete one (GM) */
   case 'mapDirGo': ui.mapDir = N.dirById(val) ? val : null; break;
@@ -1531,7 +1540,7 @@ function act(v, a, el, e){
   /* the beacon: tap it to open the next map down */
   case 'locGo': { const loc = N.myLoc(v.role, ui.ch), o = loc && loc[val]; if (!o) break;
     const to = o.to && g.maps.find(m => m.id === o.to && seeMap(v, m));
-    if (to) { ui.mapId = to.id; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
+    if (to) { openMapFrom(v, to.id); ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
     toast(v, o.to ? `You’re in ${o.l}. ${N.gmName()} hasn’t shared that map yet.` : `You’re in ${o.l}.`); return; }
   case 'locHere': { const loc = N.myLoc(v.role, ui.ch); if (!loc) break;
     const k = N.LOCK.find(k => loc[k] && g.maps.some(m => m.id === loc[k].m && seeMap(v, m))); if (!k) { toast(v, `You’re in ${N.locText(loc)}.`); return; }

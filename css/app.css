@@ -2219,3 +2219,13 @@
 @keyframes bcn-blink{0%,100%{opacity:1}50%{opacity:.5}}
 @keyframes bcn-ring{0%{transform:scale(1);opacity:.9}100%{transform:scale(3.4);opacity:0}}
 @media (prefers-reduced-motion:reduce){.app .beacon .bd,.app .cchip .bdot{animation:none}.app .beacon::before,.app .beacon::after{animation:none;opacity:0}}
+/* places that open a map: tap goes there; on a mouse they light up when pointed at */
+.app .pin.go{cursor:pointer}
+.app .pin.go .pl{display:inline-flex;align-items:center;gap:2px}
+.app .pin.dotp.go .pl{display:none}
+.app .pin.go .pl svg{width:11px;height:11px;opacity:.85}
+@media (hover:hover){
+  .app .pin.go .pm{transition:filter .15s,box-shadow .15s,scale .15s}
+  .app .pin.go:hover .pm{filter:brightness(1.18);scale:1.15;box-shadow:0 0 0 2.5px #fff,0 0 16px 4px color-mix(in srgb,var(--pc,#f4c46e) 75%,transparent)}
+  .app .pin.go:hover .pl{display:inline-flex;background:color-mix(in srgb,var(--pc,#f4c46e) 30%,rgba(10,10,32,.92));box-shadow:0 0 0 1.5px var(--pc,#f4c46e),0 4px 8px -4px rgba(0,0,0,.8)}
+}
