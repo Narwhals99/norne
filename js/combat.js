@@ -216,18 +216,21 @@ function feedHtml(v){
 function recentHtml(v, mode){
   const g = G(), cb = g.combat, start = mode === 'cb' && g.msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === cb.id);
   const ms = g.msgs.filter(m => (m.ch === v.ui.ch || (mode === 'cb' && secretEv(m, cb.id))) && (mode === 'cb' ? N.isFightAct(m) && (!m.fc || m.fc === cb.id) && (!start || m.t >= start.t) : N.isAction(m) && !N.isFightAct(m))).slice(-60);
-  const rows = actRows(v, ms);
+  const rows = actRows(v, ms, false, mode !== 'cb');
   return `<div class="ff-list scroll" data-sk="recent-${mode}" data-bottom="1">${rows || `<p class="muted">${mode === 'cb' ? 'Rolls and results in this fight show up here.' : 'Rolls, stress, inventory and other notes from this chat show up here.'}</p>`}</div>`;
 }
 /* one action as it shows in the side panel or a fight's record: rolls and results as cards, fight chat as small bubbles, the rest as lines */
-function actRows(v, ms, past){
+/* near: roleplay's Recent actions, where tapping a roll or a note takes the chat to what was said around then (nearMsg) */
+function actRows(v, ms, past, near){
   const g = G(), cb = g.combat, keep = v._lastRoll; v._lastRoll = past ? null : (ms.findLast(m => m.kind === 'roll') || {}).id;
   const live = m => (m.kind === 'fight' || m.kind === 'combat') && cb.state !== 'off' && m.cid === cb.id;
-  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll" data-mid="${m.id}"><div class="who">${esc(m.roll.who)}${secretM(m) ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time></div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
+  const go = m => near ? ` data-a="nearMsg" data-v="${m.id}" title="Show this moment in the chat"` : '';
+  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll${near ? ' near' : ''}" data-mid="${m.id}"${go(m)}><div class="who">${esc(m.roll.who)}${secretM(m) ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time>${near ? `<span class="inchat">${IC('chatL')}In chat</span>` : ''}</div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
     : m.kind === 'sys' && m.res ? N.resCard(m.res).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
     : m.fc ? `<div class="fcm${m.by === v.role ? ' mine' : ''}"><b>${esc(N.personObj(m.by).name)}</b><span>${N.emoText(N.marks(esc(m.text)))}</span><time>${N.hhmm(m.t)}</time></div>`
     : m.fightEnd ? `<div data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}" title="See what happened" class="go ff end"><span class="ffi">${IC('swords')}</span><span class="fft">${esc(m.text)} <b>See what happened</b></span></div>`
     : live(m) ? feedRow(m, false).replace('<div class="ff', `<div data-a="mode" data-v="cb" title="Open the fight" class="go ff`)
+    : near ? feedRow(m, false).replace('<div class="ff', `<div${go(m)} class="go near ff`)
     : feedRow(m, false)).join('');
   v._lastRoll = keep;
   return rows;
