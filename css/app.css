@@ -2215,3 +2215,27 @@
 .app .revgrp.tight .revrow b{font-size:13px}
 .app .revgrp.tight .revrow small{font-size:12px}
 .app .revgrp.tight .revrow .rck{width:18px;height:18px;border-radius:6px}
+
+/* scene location beacon on the map: a blinking red light with rings; tap it for the next map down */
+.app .beacon{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;padding:0;border:0;background:none;pointer-events:auto;cursor:pointer;transform:scale(calc(1 / var(--k,1)));transform-origin:50% 50%;z-index:3}
+.app .beacon .bd{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 38% 34%,#ff9d8f,#e8231b 55%,#8e0d08);box-shadow:0 0 0 2.5px #fff,0 0 14px 4px rgba(255,40,30,.75);animation:bcn-blink 1.1s ease-in-out infinite}
+.app .beacon::before,.app .beacon::after{content:"";position:absolute;inset:0;border-radius:50%;border:3px solid #ff3b2f;animation:bcn-ring 1.8s ease-out infinite;pointer-events:none}
+.app .beacon::after{animation-delay:.9s}
+.app .beacon .bl{position:absolute;left:50%;top:calc(100% + 7px);translate:-50% 0;display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#c8170f;color:#fff;font:800 11.5px/1.15 var(--f-ui);white-space:nowrap;box-shadow:0 0 0 1.5px rgba(255,255,255,.85),0 4px 10px -4px rgba(0,0,0,.8)}
+.app .beacon .bl svg{width:12px;height:12px}
+.app .beacon:focus-visible .bd{outline:3px solid var(--gold);outline-offset:3px}
+.app .cchip.here{color:var(--ink)}
+.app .cchip .bdot{width:10px;height:10px;border-radius:50%;background:#e8231b;box-shadow:0 0 0 2px #fff;animation:bcn-blink 1.1s ease-in-out infinite;flex:0 0 auto}
+@keyframes bcn-blink{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes bcn-ring{0%{transform:scale(1);opacity:.9}100%{transform:scale(3.4);opacity:0}}
+@media (prefers-reduced-motion:reduce){.app .beacon .bd,.app .cchip .bdot{animation:none}.app .beacon::before,.app .beacon::after{animation:none;opacity:0}}
+/* places that open a map: tap goes there; on a mouse they light up when pointed at */
+.app .pin.go{cursor:pointer}
+.app .pin.go .pl{display:inline-flex;align-items:center;gap:2px}
+.app .pin.dotp.go .pl{display:none}
+.app .pin.go .pl svg{width:11px;height:11px;opacity:.85}
+@media (hover:hover){
+  .app .pin.go .pm{transition:filter .15s,box-shadow .15s,scale .15s}
+  .app .pin.go:hover .pm{filter:brightness(1.18);scale:1.15;box-shadow:0 0 0 2.5px #fff,0 0 16px 4px color-mix(in srgb,var(--pc,#f4c46e) 75%,transparent)}
+  .app .pin.go:hover .pl{display:inline-flex;background:color-mix(in srgb,var(--pc,#f4c46e) 30%,rgba(10,10,32,.92));box-shadow:0 0 0 1.5px var(--pc,#f4c46e),0 4px 8px -4px rgba(0,0,0,.8)}
+}

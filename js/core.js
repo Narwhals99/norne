@@ -253,7 +253,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], rev:{}, known:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], rev:{}, known:{}, hlocs:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -318,6 +318,47 @@ Object.defineProperty(N.G, 'party', {get(){
   for (const m of N.G.maps) { const p = (m.pins||[]).find(x => x.type === 'party'); if (p && (N.G.role === 'gm' || m.vis !== false)) return {map:m.id, rx:p.rx, ry:p.ry, pin:p}; }
   return {map:null};
 }});
+
+/* ---------- where a scene is: country > city > neighborhood, each one a place pinned on a map ----------
+   A place opens the next map down: the GM can pick it on the pin (p.to, '-' = none), else a map with the same name opens */
+const placeName = s => (s || '').toLowerCase().replace(/\(.*?\)/g, ' ').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().replace(/^the /, '');
+N.pinAutoTo = (m, p) => {
+  const a = placeName(p.label); if (!a) return null;
+  const has = (x, y) => ` ${x} `.includes(` ${y} `);
+  let best = null, bl = 0;
+  for (const x of N.G.maps) { if (x.id === m.id) continue; const b = placeName(x.name); if (!b) continue;
+    const sc = a === b ? 999 : (has(a, b) || has(b, a)) ? Math.min(a.length, b.length) : 0;
+    if (sc > bl) { best = x.id; bl = sc; } }
+  return best;
+};
+N.pinTo = (m, p) => { if (!m || !p) return null; if (p.to === '-') return null; if (p.to && N.G.maps.some(x => x.id === p.to)) return p.to; return N.pinAutoTo(m, p); };
+N.LOCK = ['c', 't', 'n'];
+N.LOCNAME = {c:'Country', t:'City or town', n:'Neighborhood'};
+const locPins = m => m ? m.pins.filter(p => p.type !== 'party').map(p => ({m:m.id, p:p.id, l:p.label, rx:p.rx, ry:p.ry, to:N.pinTo(m, p)})).sort((a, b) => a.l.localeCompare(b.l)) : [];
+/* the places the GM can pick at each step: countries are the Nation pins, then the pins on the map the step above opens */
+N.locOpts = (k, sel) => {
+  const g = N.G, at = key => { const [mi, pi] = (key || '').split('|'), m = g.maps.find(x => x.id === mi), p = m && m.pins.find(x => x.id === pi); return p ? {m, p} : null; };
+  if (k === 'c') return g.maps.flatMap(m => locPins(m).filter(o => m.pins.find(p => p.id === o.p).type === 'nation'));
+  const up = at(sel[k === 't' ? 'c' : 't']); if (!up) return [];
+  return locPins(g.maps.find(x => x.id === N.pinTo(up.m, up.p)));
+};
+N.locKey = o => o ? o.m + '|' + o.p : '';
+/* picked keys -> what the scene keeps: each step's map, spot and name, and the map it opens (players may not have the pins) */
+N.locBuild = sel => {
+  const out = {};
+  for (const k of N.LOCK) { const o = N.locOpts(k, sel).find(x => N.locKey(x) === sel[k]); if (!o) break; out[k] = o; }
+  return out.c ? out : null;
+};
+N.locKeys = loc => ({c:N.locKey(loc?.c), t:N.locKey(loc?.t), n:N.locKey(loc?.n)});
+N.locText = loc => loc ? N.LOCK.map(k => loc[k]?.l).filter(Boolean).reverse().join(', ') : '';
+/* where you are: a player sees the newest shared location of a scene in their chats; the GM sees the open chat's (shared or not) */
+N.myLoc = (role, ch) => {
+  const g = N.G, sc = g.scenes;
+  if (role === 'gm') { const c = !ch || ch === 'gm' ? 'table' : ch, s = sc[c]; return s ? s.loc || g.hlocs[s.msg] || null : null; }
+  let best = null, bt = -1;
+  for (const c of N.channelsFor(role)) { const s = sc[c]; if (!s || !s.loc) continue; const m = g.msgs.find(x => x.id === s.msg), t = m ? m.t : 0; if (t > bt) { bt = t; best = s.loc; } }
+  return best;
+};
 
 /* free invokes on a scene aspect are spent by the rolls that used them. An aspect keeps its key (k) when the scene is edited,
    so its spent invokes stay spent; older aspects without one are known by their place in the list */
