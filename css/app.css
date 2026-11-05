@@ -736,6 +736,10 @@
 .app .mapcv:active{cursor:grabbing}
 .app .mapst{position:absolute;left:0;top:0;transform-origin:0 0}
 .app .mapst img{display:block;user-select:none;-webkit-user-drag:none;pointer-events:none}
+/* while a pinch, drag or wheel zoom is moving the map: the picture and the pins are separate GPU layers, so the picture (and its
+   style's colour filter) is scaled as it is instead of being redrawn every frame. Sharp again once the gesture ends (see mapFrame in app.js) */
+.app .mapcv.moving .mapst img,.app .mapcv.moving .pins{will-change:transform}
+.app .mapst .pins{position:absolute;inset:0;pointer-events:none}
 .app[data-theme="night"] .mapst img{filter:saturate(.85) brightness(.88)}
 .app .mapov{position:absolute;inset:0;pointer-events:none;z-index:3;padding:10px;display:grid;grid-template-rows:auto auto 1fr auto;grid-template-columns:minmax(0,1fr);gap:8px}
 .app .mapov>*{pointer-events:auto}
@@ -754,7 +758,7 @@
 .app .mapov .chips{padding:0;pointer-events:auto;width:max-content;max-width:100%}
 .app .mapov .chips .cchip{padding:0 12px}
 .app .mapov .chips .cchip svg{width:15px;height:15px}
-.app .pin{position:absolute;translate:-50% -100%;display:grid;justify-items:center;gap:3px;pointer-events:auto;transform:scale(calc(1 / var(--k,1)));transform-origin:50% 100%}
+.app .pin{position:absolute;translate:-50% -100%;display:grid;justify-items:center;gap:3px;pointer-events:auto;transform-origin:50% 100%}
 .app .pin .pm{width:30px;height:30px;border-radius:50% 50% 50% 6px;rotate:-45deg;display:grid;place-items:center;background:linear-gradient(135deg,var(--pc,#f4c46e),color-mix(in srgb,var(--pc,#f4c46e) 60%,#000));box-shadow:0 0 0 2px rgba(10,10,30,.75),0 6px 12px -4px rgba(0,0,0,.8)}
 .app .pin .pm svg{rotate:45deg;width:15px;height:15px;color:#1a1208}
 .app .pin .pl{padding:3px 8px;border-radius:999px;background:rgba(10,10,32,.85);color:#fff;font:800 11px/1.15 var(--f-ui);white-space:nowrap;box-shadow:0 4px 8px -4px rgba(0,0,0,.8)}
@@ -2217,7 +2221,7 @@
 .app .revgrp.tight .revrow .rck{width:18px;height:18px;border-radius:6px}
 
 /* scene location beacon on the map: a blinking red light with rings; tap it for the next map down */
-.app .beacon{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;padding:0;border:0;background:none;pointer-events:auto;cursor:pointer;transform:scale(calc(1 / var(--k,1)));transform-origin:50% 50%;z-index:3}
+.app .beacon{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;padding:0;border:0;background:none;pointer-events:auto;cursor:pointer;transform-origin:50% 50%;z-index:3}
 .app .beacon .bd{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 38% 34%,#ff9d8f,#e8231b 55%,#8e0d08);box-shadow:0 0 0 2.5px #fff,0 0 14px 4px rgba(255,40,30,.75);animation:bcn-blink 1.1s ease-in-out infinite}
 .app .beacon::before,.app .beacon::after{content:"";position:absolute;inset:0;border-radius:50%;border:3px solid #ff3b2f;animation:bcn-ring 1.8s ease-out infinite;pointer-events:none}
 .app .beacon::after{animation-delay:.9s}
