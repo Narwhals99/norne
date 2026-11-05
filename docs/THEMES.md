@@ -130,7 +130,11 @@ real pack art (Kenney's UI Pack: Adventure, CC0) on the existing boxes without m
 
 ### 2.8 A look with no colour at all (Sketchbook)
 
-*Sketchbook* (`css/sketch.css`) is black, white and greys only, by Night and Day. What it learned:
+*Sketchbook* (`css/sketch.css`) is black, white and greys by Night and Day, with one exception Jack asked for on 2026-11-05:
+**success is green pencil and failure is red pencil** (plus/minus dice, roll and fight outcomes, the fight log icons, a hit result card,
+the attack words). Those use the tokens `--ok`/`--bad` (+ `-ink`, `-soft`) in `sketch.css`; nothing else may be coloured, so things that
+used `--jade` for other meanings are restyled grey there. `onlyokbad.py` (next to `nocolour.py`) checks that every coloured pixel is red
+or green. What it learned:
 
 - **Colour carries meaning in a few places; say it another way.** Speakers get their own hatch on their in-character bubbles
   (picked with `.m[style*="c-p3)"]`, since `--spk` is set inline as `var(--c-pN)`); zones get a hatch chosen from their picked

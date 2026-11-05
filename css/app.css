@@ -1674,8 +1674,8 @@
 .app .mw.on .mtools,.app .mtools:focus-within{opacity:1;pointer-events:auto}
 @media (hover:hover){ .app .mw:hover .mtools{opacity:1;pointer-events:auto} .app .mtools button:hover{color:var(--ink);background:var(--raise)} }
 @media (hover:none){ .app .mtools{display:none} }
-.app .mw.flash{animation:mflash 1.6s ease-out}
-@keyframes mflash{0%,35%{background:var(--accent-soft);box-shadow:0 0 0 6px var(--accent-soft)}100%{background:transparent;box-shadow:0 0 0 6px transparent}}
+.app .mw.flash{animation:mflash 2.4s ease-out;border-radius:14px}
+@keyframes mflash{0%,45%{background:var(--accent-soft);box-shadow:0 0 0 6px var(--accent-soft),0 0 0 8px var(--gold)}100%{background:transparent;box-shadow:0 0 0 6px transparent,0 0 0 8px transparent}}
 .app .rq{display:flex;align-items:center;gap:6px;min-width:0;max-width:calc(100% - 50px);margin:10px 0 -6px 41px;padding:2px 4px;border-radius:8px;font:600 12px/1.25 var(--f-ui);color:var(--ink-3);text-align:left}
 .app .rq svg{width:13px;height:13px;flex:none;rotate:180deg;scale:-1 1;color:var(--ink-4)}
 .app .rq b{flex:none;color:var(--who,var(--ink-2));font-weight:800}
@@ -2255,3 +2255,9 @@
 .app .gs-gold{display:flex;align-items:center;gap:7px;margin-top:8px;font:700 12px/1 var(--f-ui);color:var(--ink-3)}
 .app .gs-gold b{font-size:16px}
 @media (min-width:900px){.app .pc-hero .fp .res{justify-content:flex-end}}
+
+/* roleplay Recent actions: a roll or note takes the chat to that moment (nearMsg) */
+.app .rcnt .rc-roll.near{cursor:pointer;border-radius:14px;padding:4px;margin:-4px;transition:background .15s}
+.app .rcnt .rc-roll .inchat{margin-left:auto;display:inline-flex;align-items:center;gap:4px;font:700 10.5px/1 var(--f-ui);letter-spacing:.04em;color:var(--ink-4)}
+.app .rcnt .rc-roll .inchat svg{width:13px;height:13px}
+@media (hover:hover){ .app .rcnt .rc-roll.near:hover{background:var(--raise)} .app .rcnt .rc-roll.near:hover .inchat{color:var(--gold-tx)} }

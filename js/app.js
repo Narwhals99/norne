@@ -1188,11 +1188,18 @@ function act(v, a, el, e){
     close(); ui.tab = 'chat'; ui.shelf = false; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; renderAll();
     setTimeout(() => act(v, 'jumpMsg', {dataset:{v:val}}), 60); return;
   }
+  case 'nearMsg': {
+    /* a roll or note in Recent actions: land the chat on what was said closest to when it happened */
+    const a = g.msgs.find(m => m.id === val); if (!a) break;
+    const said = g.msgs.filter(m => m.ch === a.ch && !N.isAction(m) && !m.fc && !(m.kind === 'scene' && (m.quiet || !m.scene)));
+    let best = null; for (const m of said) if (!best || Math.abs(m.t - a.t) < Math.abs(best.t - a.t)) best = m;
+    if (!best) { toast(v, 'Nothing was said in this chat around then.'); break; }
+    act(v, 'jumpMsg', {dataset:{v:best.id}}); return; }
   case 'jumpMsg': { let w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`);
     /* an answered message older than what is drawn: draw back to it first */
     if (!w && g.msgs.some(m => m.id === val && m.ch === ui.ch)) { const i = g.msgs.filter(m => m.ch === ui.ch).findIndex(m => m.id === val), n = g.msgs.filter(m => m.ch === ui.ch).length; (ui.more = ui.more || {})[ui.ch] = Math.max(N.msgWin(v), n - i + 20); render(v); w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`); }
     if (!w) { toast(v, 'That message isn’t in this chat any more.'); break; }
-    w.scrollIntoView({block:'center', behavior:'smooth'}); w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash'); setTimeout(() => w.classList.remove('flash'), 1600); return; }
+    w.scrollIntoView({block:'center', behavior:'smooth'}); w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash'); setTimeout(() => w.classList.remove('flash'), 2400); return; }
   case 'emoIns': { const ta = v.root.querySelector('.composer textarea'), t = val.startsWith(':') ? val + ' ' : val;
     const a = ta ? ta.selectionStart ?? ui.draft.length : ui.draft.length, b = ta ? ta.selectionEnd ?? a : a;
     ui.draft = ui.draft.slice(0, a) + t + ui.draft.slice(b); ui.pop = null; render(v);
