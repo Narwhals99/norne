@@ -492,6 +492,7 @@ N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
    cn:<slot> one consequence, g:<gear key> one rating, it:<item name> one inventory item, bio, people.
    PCs and NPCs reach players in the same shape, so their cards look alike. */
 N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target'],['gearAmmo','Ranged ammo','arrowR'],['gearDef','Armor','shieldU']];
+N.GOLD_MAX = 9999999; /* Gold on a card: whole numbers 0 to this, 7 digits like the box allows */
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 N.revParts = (c, pc) => {
   const out = [], add = (k, grp, l, v) => out.push({k, g:grp, l, v});

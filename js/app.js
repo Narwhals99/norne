@@ -249,6 +249,7 @@ function bind(v){
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
     if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'fcDraft') { e.preventDefault(); fcSend(v); }
+    if (e.key === 'Enter' && e.target.dataset.i === 'gold') { e.preventDefault(); e.target.blur(); }
     if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
   root.addEventListener('pointerdown', e => down(v, e));
@@ -478,6 +479,7 @@ function input(v, el){
     case 'gdName': { v.ui.gd.name = val; const b = v.root.querySelector('[data-a="gdSave"]'); if (b) b.disabled = !val.trim() || !v.ui.gd.seats.length || !N.groupsReady(); return; }
     case 'news': { const d = v.ui.newsEdit, n = +el.dataset.n; if (k === 'stt' || k === 'stb') d.stories[n][k === 'stt' ? 'title' : 'body'] = val; else if (k === 'cap') { if (n < 0) d.lcap = val; else d.stories[n].cap = val; } else d[k] = val; render(v); return; }
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
+    case 'gold': { const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; return; }
     case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || (c.player === v.role && k !== 'invText'))) c[k] = val; return; }
     case 'cbTitle': g.combat.title = val; return;
     case 'zone': { const z = g.combat.zones.find(x => x.id === el.dataset.z); if (!z) return; z[k] = val; if (k === 'name') { const l = v.root.querySelector(`[data-zl="${z.id}"]`); if (l && l.firstChild) l.firstChild.textContent = val; } return; }
@@ -529,6 +531,8 @@ function change(v, el){
   if (i === 'cd') render(v);
   if (i === 'cdTo') v.ui.cd[+el.dataset.n].to = val;
   if (i === 'mapName') renderAll();
+  if (i === 'gold' && isGM(v)) { const g = G(), o = el.dataset.c ? g.chars[el.dataset.c] : g.npcs.find(x => x.id === el.dataset.n);
+    if (o) { o.gold = clamp(parseInt(val, 10) || 0, 0, N.GOLD_MAX); renderAll(); } }
   if (i === 'memName') { N.renameMember(el.dataset.v, val); toast(v, 'Name saved.'); render(v); }
   if (i === 'sdAspOn') { const a = v.ui.sd.aspects[+el.dataset.n]; if (a) { if (val) a.on = val; else delete a.on; } render(v); }
   if (i === 'invQ') { const n = parseInt(val, 10); v.ui.invQ = n > 0 ? n : 1; }
@@ -1466,6 +1470,8 @@ function act(v, a, el, e){
   case 'npcDelGo': { const i = g.npcs.findIndex(x => x.id === val), n = g.npcs[i]; if (!n) break; g.npcs.splice(i, 1); ui.sheet = null; ui.castSel = null; toast(v, `${n.name} deleted.`, () => g.npcs.splice(i, 0, n)); renderAll(); return; }
   /* an NPC's fate points change right on its card, without opening Edit. Secret, so nothing is posted */
   case 'npcFp': { const n = g.npcs.find(x => x.id === d.n); if (!n || !gm) break; n.fp = clamp((+n.fp || 0) + (+d.d), 0, 10); renderAll(); return; }
+  /* Gold on a character (data-c) or NPC (data-n) card, whole numbers only, GM only */
+  case 'gold': { if (!gm) break; const o = d.c ? g.chars[d.c] : g.npcs.find(x => x.id === d.n); if (!o) break; o.gold = clamp((parseInt(o.gold, 10) || 0) + (+d.d), 0, N.GOLD_MAX); renderAll(); return; }
   case 'npcStress': { const n = g.npcs.find(x => x.id === d.n); n.stress[d.k][+d.i] = !n.stress[d.k][+d.i]; renderAll(); return; }
   case 'npcToFight': { if (cb.state === 'off') { toast(v, 'Begin a fight first.'); break; } const t = N.cbAddNpc(val, 'foe', cb.zones[0]?.id); toast(v, `${t.name} joins the fight${cb.zones[0] ? ' in ' + cb.zones[0].name : ''}.`); renderAll(); return; }
   /* players and sign-ins */

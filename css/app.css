@@ -2243,3 +2243,15 @@
   .app .pin.go:hover .pm{filter:brightness(1.18);scale:1.15;box-shadow:0 0 0 2.5px #fff,0 0 16px 4px color-mix(in srgb,var(--pc,#f4c46e) 75%,transparent)}
   .app .pin.go:hover .pl{display:inline-flex;background:color-mix(in srgb,var(--pc,#f4c46e) 30%,rgba(10,10,32,.92));box-shadow:0 0 0 1.5px var(--pc,#f4c46e),0 4px 8px -4px rgba(0,0,0,.8)}
 }
+/* Gold next to the fate points on character and NPC sheets (N.goldHtml) */
+.app .pc-hero .fp .res{display:flex;align-items:flex-end;gap:12px 22px;flex-wrap:wrap}
+.app .goldf .eyebrow{display:block;margin-bottom:6px}
+.app .gold-ro{display:flex;align-items:center;gap:7px;min-height:24px}
+.app .gold-ro b,.app .gs-gold b{font:700 18px/1 var(--f-display);color:var(--gold-tx);font-variant-numeric:tabular-nums}
+.app .gold-ed{display:flex;align-items:center;gap:4px}
+.app .gold-ed button{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--sunk);font:800 15px/1 var(--f-ui);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line)}
+.app .gold-ed button:disabled{opacity:.4}
+.app .gold-ed .inp{width:76px;height:30px;min-height:30px;padding:0 6px;text-align:center;font:700 16px/1 var(--f-display);color:var(--gold-tx);font-variant-numeric:tabular-nums}
+.app .gs-gold{display:flex;align-items:center;gap:7px;margin-top:8px;font:700 12px/1 var(--f-ui);color:var(--ink-3)}
+.app .gs-gold b{font-size:16px}
+@media (min-width:900px){.app .pc-hero .fp .res{justify-content:flex-end}}
