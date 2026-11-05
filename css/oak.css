@@ -500,6 +500,8 @@
 .app:where([data-style="oak"]) .wfig{border-radius:6px}
 .app:where([data-style="oak"]) .secret{border-radius:6px;background:repeating-linear-gradient(135deg,transparent 0 12px,var(--accent-soft) 12px 13px),var(--raise);border-image:var(--k-frame-iron) 16 / 12px}
 .app:where([data-style="oak"]) .paper{border-radius:3px}
+/* the paper is always light, so its story and notice headlines keep the dark day ink at night too (the article gold was unreadable on it) */
+.app:where([data-style="oak"]) .article .paper h3{color:#93372f}
 
 /* ---------- character sheet ---------- */
 .app:where([data-style="oak"]) .pc-hero{border-radius:6px;background:linear-gradient(120deg,color-mix(in srgb,var(--who,var(--accent)) 20%,transparent),transparent 65%),var(--raise);border-image:var(--k-frame) 16 / 16px}

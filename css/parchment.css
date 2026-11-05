@@ -456,6 +456,8 @@
 .app:where([data-style="parchment"]) .secret .seal svg{visibility:hidden}
 .app:where([data-style="parchment"]) .paper{border-radius:2px;background:linear-gradient(rgba(250,242,222,.5),rgba(240,228,198,.5)),url("../art/ui/parchment.jpg") 0 0/520px auto,#ece0c0;
   box-shadow:inset 0 0 50px rgba(120,70,20,.28),0 30px 60px -30px rgba(0,0,0,.9),0 0 0 1px rgba(60,35,10,.25)}
+/* the paper is always light, so its story and notice headlines keep the dark day ink at night too (the article gold was unreadable on it) */
+.app:where([data-style="parchment"]) .article .paper h3{color:#9b2320}
 
 /* ---------- character sheet ---------- */
 .app:where([data-style="parchment"]) .pc-hero{border-radius:6px;background:linear-gradient(120deg,color-mix(in srgb,var(--who,var(--accent)) 20%,transparent),transparent 65%),var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2);outline:1px solid var(--line);outline-offset:-6px}
