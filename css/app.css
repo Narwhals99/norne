@@ -2205,3 +2205,17 @@
 .app .tokcard .tk-none{margin:0;font:600 12.5px/1.3 var(--f-ui)}
 .app .foe-sc{display:flex;align-items:center;gap:6px;font:600 12px/1.3 var(--f-ui);color:var(--gold-tx)}
 .app .foe-sc svg{width:13px;height:13px;flex:none}
+
+/* scene location beacon on the map: a blinking red light with rings; tap it for the next map down */
+.app .beacon{position:absolute;width:22px;height:22px;margin:-11px 0 0 -11px;padding:0;border:0;background:none;pointer-events:auto;cursor:pointer;transform:scale(calc(1 / var(--k,1)));transform-origin:50% 50%;z-index:3}
+.app .beacon .bd{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 38% 34%,#ff9d8f,#e8231b 55%,#8e0d08);box-shadow:0 0 0 2.5px #fff,0 0 14px 4px rgba(255,40,30,.75);animation:bcn-blink 1.1s ease-in-out infinite}
+.app .beacon::before,.app .beacon::after{content:"";position:absolute;inset:0;border-radius:50%;border:3px solid #ff3b2f;animation:bcn-ring 1.8s ease-out infinite;pointer-events:none}
+.app .beacon::after{animation-delay:.9s}
+.app .beacon .bl{position:absolute;left:50%;top:calc(100% + 7px);translate:-50% 0;display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:999px;background:#c8170f;color:#fff;font:800 11.5px/1.15 var(--f-ui);white-space:nowrap;box-shadow:0 0 0 1.5px rgba(255,255,255,.85),0 4px 10px -4px rgba(0,0,0,.8)}
+.app .beacon .bl svg{width:12px;height:12px}
+.app .beacon:focus-visible .bd{outline:3px solid var(--gold);outline-offset:3px}
+.app .cchip.here{color:var(--ink)}
+.app .cchip .bdot{width:10px;height:10px;border-radius:50%;background:#e8231b;box-shadow:0 0 0 2px #fff;animation:bcn-blink 1.1s ease-in-out infinite;flex:0 0 auto}
+@keyframes bcn-blink{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes bcn-ring{0%{transform:scale(1);opacity:.9}100%{transform:scale(3.4);opacity:0}}
+@media (prefers-reduced-motion:reduce){.app .beacon .bd,.app .cchip .bdot{animation:none}.app .beacon::before,.app .beacon::after{animation:none;opacity:0}}

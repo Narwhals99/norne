@@ -483,6 +483,10 @@ function input(v, el){
     case 'rollAsp': v.ui.roll.aspect = val; return;
     case 'rollEv': v.ui.roll.evText = val; return;
     case 'rollOther': v.ui.roll.otherName = val; return;
+    /* picking a country clears the city under it, and so on down */
+    case 'sdLoc': { const L = v.ui.sd.loc; L[k] = val; if (k === 'c') { L.t = ''; L.n = ''; } if (k === 't') L.n = ''; v.ui.sd.touched = true;
+      if (k === 't' && val && !v.ui.sd.where.trim()) v.ui.sd.where = N.locText(N.locBuild(L)); render(v); return; }
+    case 'pinTo': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; if (val) pin.to = val; else delete pin.to; N.renderAll(); return; }
     case 'sd': v.ui.sd[k] = val; if (k === 'title' || k === 'where') { v.ui.sd.autoTitle = false; v.ui.sd.touched = true; } if (k === 'title') render(v); return;
     case 'cbAsp': v.ui.cbAsp = val; return;
     case 'emn': if (v.ui.emoNew) { v.ui.emoNew.n = val; const n = N.emoName(val), b = v.root.querySelector('[data-a="emoSave"]'), t = v.root.querySelector('.emo-new small');
@@ -859,7 +863,10 @@ function applyMap(v){
   const m = curMap(v), g = G(); if (!m || !m.w) return;
   if (!v.ui.mapT || v.ui.mapT.id !== m.id || v.ui.mapT.bw !== b.w || v.ui.mapT.bh !== b.h) {
     const keep = v.ui.mapT && v.ui.mapT.id === m.id;
+    /* a map with your location beacon opens on the beacon */
+    const loc = keep ? null : N.myLoc(isGM(v) ? 'gm' : v.role, v.ui.ch), bk = loc && N.LOCK.find(k => loc[k] && loc[k].m === m.id);
     if (keep) clampT(v);
+    else if (bk) centerOn(v, loc[bk].rx, loc[bk].ry, kOpen(v) * 1.5);
     else if (g.party.map === m.id) centerOn(v, g.party.rx, g.party.ry, kOpen(v) * 1.5);
     else centerOn(v, .5, .5, kOpen(v));
     v.ui.mapT.bw = b.w; v.ui.mapT.bh = b.h;
@@ -1490,7 +1497,7 @@ function act(v, a, el, e){
   case 'sdFor': { const sd = ui.sd; sd.ch = val;
     /* another chat: open its scene to edit, unless the GM is already building a new one */
     if (g.scenes[val] && !(sd.mode === 'new' && sd.touched)) sdLoad(sd, 'edit');
-    else { const keep = {title:sd.title, where:sd.where, date:sd.date, art:sd.art, place:sd.place, aspects:sd.aspects, touched:sd.touched}; sdLoad(sd, 'new'); if (keep.touched) Object.assign(sd, keep); }
+    else { const keep = {title:sd.title, where:sd.where, date:sd.date, art:sd.art, place:sd.place, aspects:sd.aspects, loc:sd.loc, share:sd.share, touched:sd.touched}; sdLoad(sd, 'new'); if (keep.touched) Object.assign(sd, keep); }
     break; }
   case 'sdMode': sdLoad(ui.sd, val); break;
   case 'sdOneAdd': { const sd = ui.sd, name = (sd.oneName || '').trim(); if (!name) { toast(v, 'Give them a name first.'); break; }
@@ -1519,7 +1526,17 @@ function act(v, a, el, e){
   case 'sdCast': { const c = ui.sd.cast, i = c.indexOf(val); if (i >= 0) c.splice(i, 1); else c.push(val); break; }
   case 'sdCastNone': ui.sd.cast = []; break;
   case 'sdPost': ui.sd.post = !ui.sd.post; break;
-  case 'sdApply': { const s = ui.sd; sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects}, s.post); ui.sheet = null; renderAll(); return; }
+  case 'sdShare': ui.sd.share = !ui.sd.share; break;
+  case 'sdLocClear': ui.sd.loc = {c:'', t:'', n:''}; break;
+  /* the beacon: tap it to open the next map down */
+  case 'locGo': { const loc = N.myLoc(v.role, ui.ch), o = loc && loc[val]; if (!o) break;
+    const to = o.to && g.maps.find(m => m.id === o.to && seeMap(v, m));
+    if (to) { ui.mapId = to.id; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
+    toast(v, o.to ? `You’re in ${o.l}. ${N.gmName()} hasn’t shared that map yet.` : `You’re in ${o.l}.`); return; }
+  case 'locHere': { const loc = N.myLoc(v.role, ui.ch); if (!loc) break;
+    const k = N.LOCK.find(k => loc[k] && g.maps.some(m => m.id === loc[k].m && seeMap(v, m))); if (!k) { toast(v, `You’re in ${N.locText(loc)}.`); return; }
+    ui.mapId = loc[k].m; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
+  case 'sdApply': { const s = ui.sd; sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects, loc:s.loc, share:s.share}, s.post); ui.sheet = null; renderAll(); return; }
   /* ending a scene takes its banner down and lets its one-off NPCs and NPC list go (Undo brings them back) */
   case 'sdEnd': { const ch = val || ui.sd?.ch; if (!ch || !g.scenes[ch]) { ui.sheet = null; break; }
     const cast = g.casts[ch], once = g.extras[ch]; delete g.casts[ch]; delete g.extras[ch];
@@ -1658,6 +1675,9 @@ N.wipeMatch = w => !!(w && w.ch) && (w.typed || '').trim().toLowerCase() === N.c
 function sdLoad(sd, mode){
   const g = G(), cur = g.scenes[sd.ch];
   sd.mode = cur ? mode : 'new'; sd.touched = false; sd.autoTitle = false;
+  /* the location: an edit shows the scene's own; a new scene starts where the last one was */
+  const curLoc = cur ? cur.loc || g.hlocs[cur.msg] || null : null;
+  sd.loc = N.locKeys(curLoc); sd.share = cur ? !!cur.loc || !curLoc : true;
   if (sd.mode === 'edit') Object.assign(sd, {msg:cur.msg, title:cur.title, where:cur.where || '', date:cur.date || '', art:cur.art || null, place:cur.place || null,
     aspects:(cur.aspects || []).map((a, i) => ({...a, k:a.k ?? String(i)})), cast:[...(N.castOf(sd.ch) || [])], extras:N.extrasOf(sd.ch).map(x => ({...x, skills:{...x.skills}}))});
   else Object.assign(sd, {msg:null, title:'', where:'', date:'', art:null, place:null, aspects:[], cast:cur ? [] : [...(N.castOf(sd.ch) || [])], extras:cur ? [] : N.extrasOf(sd.ch).map(x => ({...x, skills:{...x.skills}}))});
@@ -1675,15 +1695,20 @@ function sceneRecent(sc){
 /* fixing up a scene changes its own message: no new scene line, nobody is pinged, and spent free invokes stay spent */
 function editScene(v, s){
   const g = G(), m = g.msgs.find(x => x.id === s.msg && x.kind === 'scene'); if (!m) return false;
-  m.scene = {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art || null, place:s.place || null, aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, k:a.k ?? uid('a'), ...(a.on ? {on:a.on} : {})}))};
+  const loc = N.locBuild(s.loc || {});
+  if (loc && !s.share) G().hlocs[m.id] = loc; else delete G().hlocs[m.id];
+  m.scene = {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art || null, place:s.place || null, ...(loc && s.share ? {loc} : {}), aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, k:a.k ?? uid('a'), ...(a.on ? {on:a.on} : {})}))};
   N.invalidateScenes(); sceneRecent(m.scene);
   toast(v, `Scene updated: ${m.scene.title}`);
   return true;
 }
 function setScene(v, ch, s, post){
   const g = G();
-  const sc = {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, aspects:(s.aspects || []).map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})}))};
+  /* a location the players aren't told stays in the GM's own data, so it never reaches their devices */
+  const loc = s.loc ? N.locBuild(s.loc) : null, share = s.share !== false;
+  const sc = {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, ...(loc && share ? {loc} : {}), aspects:(s.aspects || []).map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})}))};
   const m = push({ch, kind:'scene', by:'gm', scene:sc, quiet:!post});
+  if (loc && !share) g.hlocs[m.id] = loc;
   sceneRecent(sc);
   const who = ch === 'table' ? 'everyone' : (g.P[ch.slice(3)]?.name || 'them');
   toast(v, `Scene set for ${who}: ${sc.title}`, () => N.delMsg(m.id));
