@@ -5,9 +5,9 @@ Read it before you add a style, change a colour, or build any new screen (new sc
 
 **Words used here**
 
-- A **style** is a whole look that people pick under Profile > **Style**: today *Storybook* (the default), *Parchment & Wax*
-  and *Oak & Iron*.
-- A **theme** is **Night** or **Day** (Profile > **Appearance**). Every style has both, so there are six looks today.
+- A **style** is a whole look that people pick under Profile > **Style**: today *Storybook* (the default), *Parchment & Wax*,
+  *Oak & Iron* and *Sketchbook*.
+- A **theme** is **Night** or **Day** (Profile > **Appearance**). Every style has both, so there are eight looks today.
 - Both are saved per device in `localStorage` (`norne-style`, `norne-theme`), like the text size (`norne-fz`).
   Two devices on the same account can each show a different look.
 
@@ -127,6 +127,26 @@ real pack art (Kenney's UI Pack: Adventure, CC0) on the existing boxes without m
   the project files at `/mnt/project-files/asset-theme/source/make_art.py`; the whole set is about 80 KB.
 
 ---
+
+### 2.8 A look with no colour at all (Sketchbook)
+
+*Sketchbook* (`css/sketch.css`) is black, white and greys only, by Night and Day. What it learned:
+
+- **Colour carries meaning in a few places; say it another way.** Speakers get their own hatch on their in-character bubbles
+  (picked with `.m[style*="c-p3)"]`, since `--spk` is set inline as `var(--c-pN)`); zones get a hatch chosen from their picked
+  colour (`.zone[style*="f4c46e"]`, and `--zc` forced with `!important`); plus dice are filled in, minus dice left open, blank
+  dice hatched; outcomes are a solid block (with style), a doubled line (success), dashed (tie) and dotted with cross-hatch (fail);
+  the main button and your own messages are a solid block of charcoal (Day) or white pastel (Night).
+- **Pictures:** `filter:grayscale(1)` on `img`, picture boxes (`.art`, `.thumb`, `.scenecard`...) and anything with an inline
+  `url(` background; the attack animation layer (`.board .cam>svg`, `.fxt`) too. `--map-grade` and `--glass-filter` include `grayscale(1)`.
+- **Emoji:** put `'Noto Emoji'` (Google Fonts, the black-and-white emoji font) in every `--f-*` stack, after the main font.
+- **Inline colours** in the JS (map pin kinds, zone colours, the wordmark gradient) are overridden or greyed per element; there is
+  no filter on the whole app (it would make every scroll repaint through a filter on iPhone).
+- **Check it with pixels:** `nocolour.py` in `/mnt/project-files/sketch-theme/source/` reads every theme-kit screenshot and
+  reports any pixel whose red, green and blue differ. All 56 screens came out at 0.
+- The art (paper, pencil frames, charcoal blocks, hatch tiles) is drawn by `make_sketch_art.py` in the same folder and saved as
+  grey-only PNG/JPG (`L`/`LA`), so it cannot carry colour. The stylesheet is written as `sketch.src.css` with short placeholders
+  (`@S`, `@D`...) and expanded by `build.sh`.
 
 ## 3. The token contract
 
@@ -331,3 +351,5 @@ Quirk: the kit's `roll` screen does not open the roll sheet for a player (`role=
 - **2026-10-31** Oak & Iron, the first style built from a real UI art pack (Kenney UI Pack: Adventure, CC0): wooden and iron
   frames, wooden/red/gold buttons, a red ribbon on sheet titles, Vollkorn, Nunito and Grenze. Jack picked the pack from a few
   free options because the earlier styles looked like "plain panels with color schemes".
+- **2026-11-05** Sketchbook: Jack asked for a black and white look, "black coloured pencil, black pastel", artsy and notebook-like,
+  with no colour anywhere. Kalam, Caveat and Fredericka the Great, Noto Emoji for emoji, and pencil art drawn by script.

@@ -65,7 +65,10 @@ const STYLES = [
     day:{bg:'#dcc79d url(art/ui/parchment.jpg) 0 0/180px', card:'#fbf4e1', ink:'#2a1c0f', acc:'#9b2320', hi:'#9a6a1c'}},
   {id:'oak', name:'Oak & Iron', sub:'Wooden frames, iron corners and red ribbons',
     night:{bg:'#1e2733 url(art/ui/oak/stripes-night.svg) 0 0/24px', card:'#3a2919', ink:'#fff1d2', acc:'#b5483f', hi:'#f0bd55'},
-    day:{bg:'#aabdcc url(art/ui/oak/stripes-day.svg) 0 0/24px', card:'#fff1d2', ink:'#3a2513', acc:'#c6594f', hi:'#d9a03a'}}
+    day:{bg:'#aabdcc url(art/ui/oak/stripes-day.svg) 0 0/24px', card:'#fff1d2', ink:'#3a2513', acc:'#c6594f', hi:'#d9a03a'}},
+  {id:'sketch', name:'Sketchbook', sub:'Pencil, charcoal and pastel. Black and white only',
+    night:{bg:'#141414 url(art/ui/sketch/paper-night.jpg) 0 0/180px', card:'#2a2a2a', ink:'#f3f3f3', acc:'#f0f0f0', hi:'#8c8c8c'},
+    day:{bg:'#e9e9e9 url(art/ui/sketch/paper-day.jpg) 0 0/180px', card:'#ffffff', ink:'#141414', acc:'#1a1a1a', hi:'#8c8c8c'}}
 ];
 N.STYLES = STYLES;
 N.styleOk = id => STYLES.some(s => s.id === id) ? id : 'storybook';

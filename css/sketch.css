@@ -1,0 +1,569 @@
+/* =====================================================================
+   NORNE — Sketchbook style: a look, nothing else.
+   Picked under Profile > Style. Every rule here only applies while the app has data-style="sketch",
+   and :where() keeps each selector exactly as specific as the app.css rule it reskins.
+   No colour at all, by day or by night: only black, white and greys. What colour used to say (whose line it is,
+   plus or minus on a die, a hit, your turn) is said with pencil instead: hatching, solid ink, dashed and doubled lines.
+   Night = white pastel and chalk on black paper. Day = graphite and charcoal on white drawing paper.
+   Pictures, maps and portraits are shown in greys; emoji use the black-and-white Noto Emoji font.
+   The art in art/ui/sketch/ (paper, pencil frames, ink blocks, hatching) is drawn by a script, in greys only.
+   Frames are drawn with border-image on boxes that already have (or are given) a 1px see-through border,
+   or on an overlay that ignores the pointer, so every size, place and behaviour stays app.css's.
+   ===================================================================== */
+
+.app:where([data-style="sketch"]){
+  /* ---- Night: white pastel on black paper ---- */
+  --sky-0:#0b0b0b; --sky-1:#141414; --sky-2:#1c1c1c;
+  --page:rgba(23,23,23,.93); --page-solid:#181818;
+  --raise:#212121; --raise-2:#292929; --sunk:#0f0f0f;
+  --line:rgba(255,255,255,.12); --line-2:rgba(255,255,255,.22); --line-3:rgba(255,255,255,.4);
+  --ink:#f3f3f3; --ink-2:#d0d0d0; --ink-3:#b0b0b0; --ink-4:#9c9c9c;
+  --accent:#f0f0f0; --accent-2:#e2e2e2; --accent-3:#c8c8c8; --accent-ink:#111111;
+  --accent-soft:rgba(255,255,255,.1); --accent-glow:rgba(255,255,255,.22);
+  --gold:#ffffff; --gold-2:#dddddd; --gold-3:#9a9a9a; --gold-ink:#111111; --gold-soft:rgba(255,255,255,.1);
+  --ember:#ffffff; --ember-soft:rgba(255,255,255,.13); --jade:#c4c4c4; --jade-soft:rgba(255,255,255,.07);
+  --link:#ffffff;
+  --gold-tx:#ffffff; --accent-tx:#ffffff; --ember-ink:#000000;
+  --card-paper:#efefef; --card-ink:#161616; --card-rule:#161616; --card-line:rgba(0,0,0,.11);
+  --scrim:rgba(0,0,0,.68);
+  --shadow-1:0 1px 0 rgba(255,255,255,.04) inset, 0 10px 30px -12px rgba(0,0,0,.8);
+  --shadow-2:0 24px 60px -20px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.14);
+  --tex:url("../art/ui/sketch/paper-night.jpg");
+  --sky-art:radial-gradient(70% 50% at 50% -8%, rgba(255,255,255,.07), transparent 65%),
+            radial-gradient(130% 95% at 50% 45%, transparent 55%, rgba(0,0,0,.6)),
+            var(--tex) 0 0/512px auto, var(--sky-1);
+  --page-bg:linear-gradient(rgba(30,30,30,.55), rgba(26,26,26,.55)), var(--tex) 0 0/512px auto, var(--page-solid);
+  --paper-bg:linear-gradient(rgba(40,40,40,.62), rgba(34,34,34,.62)), var(--tex) 0 0/512px auto, var(--raise);
+  --engrave:#ffffff;
+  --c-p1:#f4f4f4; --c-p2:#d2d2d2; --c-gm:#ffffff; --c-npc:#c2c2c2; --c-foe:#ffffff;
+  --c-p3:#e6e6e6; --c-p4:#c6c6c6; --c-p5:#dcdcdc; --c-p6:#bababa; --c-p7:#ececec; --c-p8:#cacaca;
+  --map-grade:grayscale(1) brightness(.62) contrast(1.18);
+  --map-tint:linear-gradient(180deg, rgba(0,0,0,.22), rgba(0,0,0,.45));
+  --say-top:7%; --say-bot:3%;
+  /* Meta glass: smoked by night, others clear and yours frosted bright */
+  --glass-tint:rgba(255,255,255,.07); --glass-tint-2:rgba(255,255,255,.015); --glass-mine:rgba(255,255,255,.24); --glass-mine-2:rgba(255,255,255,.1); --glass-mine-rim:rgba(255,255,255,.95);
+  --glass-sheen:rgba(255,255,255,.13); --glass-rim:rgba(255,255,255,.55); --glass-rim-2:rgba(255,255,255,.05); --glass-rim-3:rgba(255,255,255,.3);
+  --glass-shadow:0 8px 20px -12px rgba(0,0,0,.85); --glass-filter:blur(5px) grayscale(1) brightness(1.12);
+
+  /* fonts: Kalam (handwriting) for the interface, Caveat for descriptions and notes, Fredericka the Great (hatched capitals)
+     for big titles; Noto Emoji in every stack so emoji come out as black-and-white drawings */
+  --f-mark:'Fredericka the Great', 'Noto Emoji', Georgia, serif;
+  --f-display:'Kalam', 'Noto Emoji', 'Segoe Print', 'Bradley Hand', cursive;
+  --f-ui:'Kalam', 'Noto Emoji', 'Segoe Print', 'Bradley Hand', system-ui, sans-serif;
+  --f-body:'Kalam', 'Noto Emoji', 'Segoe Print', 'Bradley Hand', cursive;
+  --f-hand:'Caveat', 'Kalam', 'Noto Emoji', 'Segoe Print', cursive;
+  --f-title:'Fredericka the Great', 'Kalam', 'Noto Emoji', Georgia, serif;
+  --f-paper:'IM Fell English', 'Noto Emoji', Georgia, serif;
+  --f-mast:'UnifrakturMaguntia', 'IM Fell English', Georgia, serif;
+
+  /* pencil art for this theme */
+  --k-frame:url("../art/ui/sketch/frame-night.png");
+  --k-btn:url("../art/ui/sketch/btn-night.png");
+  --k-dash:url("../art/ui/sketch/dash-night.png");
+  --k-blk:url("../art/ui/sketch/blk-chalk.png");
+  --k-blk-f:url("../art/ui/sketch/blk-chalk-framed.png");
+  --k-blk-inv:url("../art/ui/sketch/blk-ink.png");
+  --h:-night.png;
+  --k-h-diag:url("../art/ui/sketch/hatch-diag-night.png"); --k-h-anti:url("../art/ui/sketch/hatch-anti-night.png"); --k-h-horiz:url("../art/ui/sketch/hatch-horiz-night.png"); --k-h-vert:url("../art/ui/sketch/hatch-vert-night.png");
+  --k-h-cross:url("../art/ui/sketch/hatch-cross-night.png"); --k-h-dots:url("../art/ui/sketch/hatch-dots-night.png"); --k-h-loops:url("../art/ui/sketch/hatch-loops-night.png"); --k-h-grid:url("../art/ui/sketch/hatch-grid-night.png");
+  --k-h-waves:url("../art/ui/sketch/hatch-waves-night.png"); --k-h-dense:url("../art/ui/sketch/hatch-dense-night.png");
+  /* the four-point star stays, drawn as a pencil asterisk */
+  --star4:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round'%3E%3Cpath d='M12 2.5c.3 6 .1 12.6-.4 19M3 12.4c6.3-.5 12.6-.6 18.4.1M5.6 5.4c4.2 4.3 8.6 8.8 12.6 13.2M18.6 5.2c-4.4 4.4-8.8 8.9-13 13.5'/%3E%3C/svg%3E");
+  font-synthesis-weight:none;
+  accent-color:var(--ink);
+}
+.app:where([data-style="sketch"])[data-theme="day"]{
+  /* ---- Day: graphite and charcoal on drawing paper ---- */
+  --sky-0:#d6d6d6; --sky-1:#e9e9e9; --sky-2:#f2f2f2;
+  --page:rgba(250,250,250,.9); --page-solid:#f7f7f7;
+  --raise:#fbfbfb; --raise-2:#ffffff; --sunk:#ececec;
+  --line:rgba(0,0,0,.13); --line-2:rgba(0,0,0,.24); --line-3:rgba(0,0,0,.45);
+  --ink:#141414; --ink-2:#333333; --ink-3:#4d4d4d; --ink-4:#5c5c5c;
+  --accent:#1a1a1a; --accent-2:#262626; --accent-3:#0d0d0d; --accent-ink:#ffffff;
+  --accent-soft:rgba(0,0,0,.07); --accent-glow:rgba(0,0,0,.22);
+  --gold:#111111; --gold-2:#2a2a2a; --gold-3:#555555; --gold-ink:#ffffff; --gold-soft:rgba(0,0,0,.07);
+  --ember:#000000; --ember-soft:rgba(0,0,0,.09); --jade:#3d3d3d; --jade-soft:rgba(0,0,0,.05);
+  --link:#000000;
+  --gold-tx:#111111; --accent-tx:#111111; --ember-ink:#ffffff;
+  --card-paper:#fdfdfd; --card-ink:#161616; --card-rule:#161616; --card-line:rgba(0,0,0,.1);
+  --scrim:rgba(20,20,20,.38);
+  --shadow-1:0 1px 0 rgba(255,255,255,.8) inset, 0 10px 26px -14px rgba(0,0,0,.4);
+  --shadow-2:0 24px 60px -24px rgba(0,0,0,.45), 0 0 0 1px rgba(0,0,0,.16);
+  --tex:url("../art/ui/sketch/paper-day.jpg");
+  --sky-art:radial-gradient(70% 50% at 50% -10%, rgba(255,255,255,.55), transparent 65%),
+            radial-gradient(130% 95% at 50% 45%, transparent 52%, rgba(0,0,0,.16)),
+            var(--tex) 0 0/512px auto, var(--sky-1);
+  --page-bg:linear-gradient(rgba(255,255,255,.5), rgba(252,252,252,.5)), var(--tex) 0 0/512px auto, var(--page-solid);
+  --paper-bg:linear-gradient(rgba(255,255,255,.62), rgba(253,253,253,.62)), var(--tex) 0 0/512px auto, var(--raise);
+  --engrave:#111111;
+  --c-p1:#111111; --c-p2:#3b3b3b; --c-gm:#000000; --c-npc:#474747; --c-foe:#000000;
+  --c-p3:#232323; --c-p4:#4a4a4a; --c-p5:#2d2d2d; --c-p6:#545454; --c-p7:#1b1b1b; --c-p8:#414141;
+  --map-grade:grayscale(1) contrast(1.06) brightness(1.02);
+  --map-tint:linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.06));
+  --say-top:6%; --say-bot:2.5%;
+  --glass-tint:rgba(255,255,255,.55); --glass-tint-2:rgba(255,255,255,.22); --glass-mine:rgba(40,40,40,.2); --glass-mine-2:rgba(40,40,40,.09); --glass-mine-rim:rgba(0,0,0,.55);
+  --glass-sheen:rgba(255,255,255,.75); --glass-rim:rgba(255,255,255,.98); --glass-rim-2:rgba(255,255,255,.25); --glass-rim-3:rgba(0,0,0,.28);
+  --glass-shadow:0 8px 18px -12px rgba(0,0,0,.4); --glass-filter:blur(6px) grayscale(1) brightness(1.04);
+  --k-frame:url("../art/ui/sketch/frame-day.png");
+  --k-btn:url("../art/ui/sketch/btn-day.png");
+  --k-dash:url("../art/ui/sketch/dash-day.png");
+  --k-blk:url("../art/ui/sketch/blk-ink.png");
+  --k-blk-f:url("../art/ui/sketch/blk-ink-framed.png");
+  --k-blk-inv:url("../art/ui/sketch/blk-chalk.png");
+  --k-h-diag:url("../art/ui/sketch/hatch-diag-day.png"); --k-h-anti:url("../art/ui/sketch/hatch-anti-day.png"); --k-h-horiz:url("../art/ui/sketch/hatch-horiz-day.png"); --k-h-vert:url("../art/ui/sketch/hatch-vert-day.png");
+  --k-h-cross:url("../art/ui/sketch/hatch-cross-day.png"); --k-h-dots:url("../art/ui/sketch/hatch-dots-day.png"); --k-h-loops:url("../art/ui/sketch/hatch-loops-day.png"); --k-h-grid:url("../art/ui/sketch/hatch-grid-day.png");
+  --k-h-waves:url("../art/ui/sketch/hatch-waves-day.png"); --k-h-dense:url("../art/ui/sketch/hatch-dense-day.png");
+}
+
+/* ---------- no colour, anywhere ----------
+   pictures, portraits, maps, uploads and custom emoji are shown in greys; the attack animations too */
+.app:where([data-style="sketch"]) :is(img,video,canvas,.art,.thumb,.scenecard,.wfig,.cic,.gifbox,.fr-stage){filter:grayscale(1)}
+.app:where([data-style="sketch"]) .scene .art{filter:grayscale(1) contrast(1.08)}
+.app:where([data-style="sketch"]) .mapst img,.app:where([data-style="sketch"])[data-theme="night"] .mapst img{filter:grayscale(1) contrast(1.05)}
+.app:where([data-style="sketch"])[data-theme="night"] .mapst img{filter:grayscale(1) brightness(.8) contrast(1.1)}
+.app:where([data-style="sketch"]) .board .cam>svg,.app:where([data-style="sketch"]) .fxt{filter:grayscale(1) contrast(1.25)}
+.app:where([data-style="sketch"]) [style*="url("],.app:where([data-style="sketch"]) .mapsel .th,.app:where([data-style="sketch"]) .stc .sw,.app:where([data-style="sketch"]) .pin,.app:where([data-style="sketch"]) .pincard .av,.app:where([data-style="sketch"]) .zlist .zi i,.app:where([data-style="sketch"]) .beacon,.app:where([data-style="sketch"]) .cchip .bdot{filter:grayscale(1)}
+.app:where([data-style="sketch"]) .paper .pfig img{filter:grayscale(1) contrast(1.05)}
+.app:where([data-style="sketch"]) ::selection{background:rgba(128,128,128,.4);color:inherit}
+.app:where([data-style="sketch"]) :focus-visible{outline-color:var(--ink);outline-style:dashed;border-radius:3px}
+.app:where([data-style="sketch"]) .stars{display:none}
+.app:where([data-style="sketch"]) .scroll{scrollbar-color:var(--line-3) transparent}
+.app:where([data-style="sketch"]) .scroll::-webkit-scrollbar-thumb{background:var(--line-3);border-radius:1px}
+
+/* ---------- base ---------- */
+.app:where([data-style="sketch"]) .eyebrow{font:700 11.5px/1.2 var(--f-ui);letter-spacing:.14em;text-transform:uppercase}
+.app:where([data-style="sketch"]) .ttl{font-family:var(--f-title);font-weight:400;letter-spacing:.01em}
+.app:where([data-style="sketch"]) .spark::after{filter:none;background:var(--ink)}
+.app:where([data-style="sketch"]) .star4{background:var(--ink)}
+.app:where([data-style="sketch"]) .muted{color:var(--ink-3)}
+
+/* square corners everywhere (a sketchbook has no pills); frames are drawn on, so the radius only shapes focus rings and shadows */
+.app:where([data-style="sketch"]) :is(.btn,.ibtn,.seg,.seg button,.inp,.cchip,.tag,.badge,.pop,.toast,.sheet,.scene,.fightcard,.roll,.resm,.composer .box,.voice,.diceb,.sendb,.icard,
+  .pcrow,.ccard,.mem,.stunt,.trk,.catrow,.invopt,.waiting,.inv .it,.zlist .zi,.facts,.menu,.menu button,.cat,.ent,.herald,.secret,.pc-hero,.gcard,.stc,.stc .sw,
+  .shr,.shelf .who,.chname,.chname-row .chname,.nav .ni,.nav .who,.nav .sub button,.tabbar .ti,.sk,.act,.lchip,.tgt,.toggle,.note,.forwho button,.inv-chips button,
+  .nchips button,.vssk button,.thumb,.lad .rung .sks button,.lad .rung .sks .skc,.scenecard,.bigcta,.tools button,.quick-sk :is(button,span),.gmrow button,.pchip,.board,.zone,.tok .nm,.nowbar,.abtn,
+  .yourturn,.incoming,.feed,.ffeed .ff-list,.tray,.fight-order .ot,.fight-h .fight-order,.dicefx,.ff,.ff .ffb,.gmtools,.gmtools button,.fight-tools,.fight-tools button,
+  .mapsel,.pincard,.mapedit,.maploading,.glass,.mtools,.rxp,.composer .replying,.emo,.emo-it,.emo-new,.more-msgs,.scenem,.mdots,.wfig,.rl,.rcnt .ff-list,
+  .gmban,.gmban .go,.pcmini,.modeseg,.modeseg button,.coins .mini button,.inv .mini button,.fightbar,.railopen,.fzpick .fzs,.m.gifm .gifbox,.m.gifm .gif,.recent button,.voices button){border-radius:3px}
+.app:where([data-style="sketch"]) :is(.m .bub,.m.cont .bub,.m.mine .bub,.m.mine.cont .bub){border-radius:3px}
+
+/* ---------- pencil frames: the boxes that wear one get a 1px see-through border (Safari only draws border-image on a real border);
+   the padding gives the pixel back, so nothing moves. Same list and paddings as Oak & Iron, which proved them out. ---------- */
+.app:where([data-style="sketch"]) .ibtn.solid,.app:where([data-style="sketch"]) .seg button,.app:where([data-style="sketch"]) .cchip,.app:where([data-style="sketch"]) .m.say .bub,.app:where([data-style="sketch"]) .roll:not(.ff),.app:where([data-style="sketch"]) .composer .box,.app:where([data-style="sketch"]) .pop,.app:where([data-style="sketch"]) .toast,.app:where([data-style="sketch"]) .sbox,.app:where([data-style="sketch"]) .bigcta,.app:where([data-style="sketch"]) .gmrow button,.app:where([data-style="sketch"]) .gmtools,.app:where([data-style="sketch"]) .gmtools button,
+.app:where([data-style="sketch"]) .fight-tools button,.app:where([data-style="sketch"]) .nowbar,.app:where([data-style="sketch"]) .yourturn,.app:where([data-style="sketch"]) .incoming,.app:where([data-style="sketch"]) .resm,.app:where([data-style="sketch"]) .dicefx,.app:where([data-style="sketch"]) .glass,.app:where([data-style="sketch"]) .herald,.app:where([data-style="sketch"]) .secret,.app:where([data-style="sketch"]) .pc-hero,.app:where([data-style="sketch"]) .gcard,.app:where([data-style="sketch"]) .shr,.app:where([data-style="sketch"]) .shelf.drawer,.app:where([data-style="sketch"]) .gmban .go,
+.app:where([data-style="sketch"]) .pincard,.app:where([data-style="sketch"]) .tokpanel,.app:where([data-style="sketch"]) .setup-panel{border:1px solid transparent}
+.app:where([data-style="sketch"]) .nav .ni{border:1px solid transparent}
+.app:where([data-style="sketch"]) .scene::after,.app:where([data-style="sketch"]) .fightcard::after,.app:where([data-style="sketch"]) .board::after,.app:where([data-style="sketch"]) .sheet::after,.app:where([data-style="sketch"]) .page::after{box-sizing:border-box;border:1px solid transparent}
+.app:where([data-style="sketch"]) .seg button{padding:0 13px}.app:where([data-style="sketch"]) .fzpick .seg button{padding:0}.app:where([data-style="sketch"]) .cchip{padding:0 12px 0 4px}.app:where([data-style="sketch"]) .composer .box{padding:4px}.app:where([data-style="sketch"]) .pop{padding:5px}
+.app:where([data-style="sketch"]) .toast{padding:9px 11px 9px 15px}.app:where([data-style="sketch"]) .bigcta{padding:11px 13px}.app:where([data-style="sketch"]) .gmrow button{padding:0 11px 0 8px}.app:where([data-style="sketch"]) .gmtools{padding:4px}.app:where([data-style="sketch"]) .fight-tools button{padding:8px 2px 7px}
+.app:where([data-style="sketch"]) .nowbar{padding:11px}.app:where([data-style="sketch"]) .fight.cmd.dt .nowbar{padding:11px 13px}.app:where([data-style="sketch"]) .fight.cmd.ph .nowbar{padding:9px}.app:where([data-style="sketch"]) .yourturn{padding:11px}.app:where([data-style="sketch"]) .incoming{padding:11px}
+.app:where([data-style="sketch"]) .resm{padding:9px 11px}.app:where([data-style="sketch"]) .dicefx{padding:15px 19px 13px}.app:where([data-style="sketch"]) .herald{padding:13px}.app:where([data-style="sketch"]) .secret{padding:13px 15px 13px 57px}.app:where([data-style="sketch"]) .pc-hero{padding:17px 15px}
+.app:where([data-style="sketch"]) .gcard{padding:31px 23px 25px}.app:where([data-style="sketch"]) .shr{padding:6px 9px 6px 7px}.app:where([data-style="sketch"]) .gmban .go{padding:0 9px}.app:where([data-style="sketch"]) .pincard{padding:13px 13px 11px}
+
+/* big panels: a pencil (chalk) rectangle drawn round them, corners crossing like a quick sketch */
+.app:where([data-style="sketch"]) .scene::after,.app:where([data-style="sketch"]) .fightcard::after,.app:where([data-style="sketch"]) .board::after{content:"";position:absolute;inset:0;pointer-events:none;border-image:var(--k-frame) 24 / 12px}
+.app:where([data-style="sketch"]) .scene::after,.app:where([data-style="sketch"]) .board::after{z-index:4}
+.app:where([data-style="sketch"]) .fightcard::after{z-index:1}
+.app:where([data-style="sketch"]) .sheet::after{content:"";position:absolute;inset:0;z-index:6;pointer-events:none;border-image:var(--k-frame) 24 / 12px}
+.app:where([data-style="sketch"]) :is(.pop,.toast,.glass,.pincard,.herald,.secret,.pc-hero,.resm,.dicefx,.nowbar,.yourturn,.incoming,.gmtools,.tokpanel,.setup-panel,.shelf.drawer){border-image:var(--k-frame) 24 / 12px;box-shadow:var(--shadow-1)}
+.app:where([data-style="sketch"]) .gcard{border-image:var(--k-frame) 24 / 14px}
+.app:where([data-style="sketch"]) :is(.pop,.toast,.glass,.pincard){box-shadow:var(--shadow-2)}
+
+/* ---------- buttons: pencil outlines; the main action is a block of charcoal (day) or white pastel (night) ---------- */
+.app:where([data-style="sketch"]) .btn{font-weight:700;letter-spacing:.01em;color:var(--ink);background:transparent;border-image:var(--k-btn) 14 / 7px;box-shadow:none;text-shadow:none}
+.app:where([data-style="sketch"]) .btn:hover{filter:none;background:var(--accent-soft)}
+.app:where([data-style="sketch"]) .btn:active{box-shadow:none}
+.app:where([data-style="sketch"]) .btn.primary,.app:where([data-style="sketch"])[data-theme="day"] .btn.primary{color:var(--accent-ink);background:transparent;border-image:var(--k-blk) 14 fill / 7px;box-shadow:none;text-shadow:none}
+.app:where([data-style="sketch"]) .btn.gold,.app:where([data-style="sketch"])[data-theme="day"] .btn.gold{color:var(--gold-ink);background:transparent;border-image:var(--k-blk-f) 14 fill / 7px;box-shadow:none;text-shadow:none}
+.app:where([data-style="sketch"]) .btn.primary:hover,.app:where([data-style="sketch"]) .btn.gold:hover{background:transparent;filter:contrast(1.15)}
+.app:where([data-style="sketch"]) .btn.ghost,.app:where([data-style="sketch"])[data-theme="day"] .btn.ghost{background:transparent;border-image:none;border-color:transparent;box-shadow:inset 0 -1.5px 0 var(--line-2)}
+.app:where([data-style="sketch"]) .btn.ghost:hover{background:var(--accent-soft)}
+.app:where([data-style="sketch"]) .btn.danger,.app:where([data-style="sketch"])[data-theme="day"] .btn.danger{color:var(--ink);background:repeating-linear-gradient(135deg,transparent 0 5px,var(--ember-soft) 5px 6.5px);border-image:var(--k-dash) 14 / 7px;box-shadow:none}
+.app:where([data-style="sketch"]) .btn.on{color:var(--ink);background:var(--k-h-diag) 0 0/48px,var(--accent-soft);border-image:var(--k-btn) 14 / 7px}
+.app:where([data-style="sketch"]) .btn[disabled]{filter:none;opacity:.4}
+.app:where([data-style="sketch"]) .ibtn:hover{background:var(--accent-soft)}
+.app:where([data-style="sketch"]) .ibtn.solid{background:var(--paper-bg);border-image:var(--k-btn) 14 / 7px;box-shadow:none}
+
+/* badges: unread is a dot of solid ink; the gold ones are drawn round instead of filled */
+.app:where([data-style="sketch"]) .badge{font:700 11px/1 var(--f-ui);background:var(--ember);color:var(--ember-ink);box-shadow:0 0 0 2px var(--page-solid);border-radius:999px}
+.app:where([data-style="sketch"]) .badge.gold{background:var(--page-solid);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink),0 0 0 2px var(--page-solid)}
+.app:where([data-style="sketch"]) .dot{background:var(--ember);border-radius:50%}
+.app:where([data-style="sketch"]) .tag{font:700 10px/1 var(--f-ui);letter-spacing:.12em;background:transparent;box-shadow:inset 0 0 0 1px var(--line-3)}
+.app:where([data-style="sketch"]) .tag.gold{color:var(--ink);background:var(--gold-soft);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.app:where([data-style="sketch"]) .tag.ember{color:var(--ember-ink);background:var(--ember);box-shadow:none}
+
+/* segmented control and fields */
+.app:where([data-style="sketch"]) .seg{background:transparent;box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .seg button[aria-pressed="true"]{color:var(--accent-ink);background:transparent;border-image:var(--k-blk) 14 fill / 7px;box-shadow:none}
+.app:where([data-style="sketch"]) .inp{background:transparent;border-color:transparent;border-radius:0;box-shadow:inset 0 -1.5px 0 var(--line-3)}
+.app:where([data-style="sketch"]) .inp:focus{border-color:transparent;box-shadow:inset 0 -2px 0 var(--ink),0 0 0 0 transparent;background:var(--accent-soft)}
+.app:where([data-style="sketch"]) textarea.inp,.app:where([data-style="sketch"]) select.inp,.app:where([data-style="sketch"]) .search .inp{border-radius:3px;box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) textarea.inp:focus,.app:where([data-style="sketch"]) select.inp:focus,.app:where([data-style="sketch"]) .search .inp:focus{box-shadow:inset 0 0 0 1.5px var(--ink)}
+
+/* ---------- avatars: portraits in greys inside a pencil ring ---------- */
+.app:where([data-style="sketch"]) .av{background:radial-gradient(circle at 35% 28%,color-mix(in srgb,var(--c) 30%,var(--raise-2)),var(--raise) 80%);color:var(--ink);
+  box-shadow:0 0 0 2px var(--page-solid),0 0 0 3.5px var(--c,var(--ink-3)),0 3px 8px -3px rgba(0,0,0,.5);font-family:var(--f-ui);font-weight:700}
+.app:where([data-style="sketch"]) .av img{filter:grayscale(1) contrast(1.05)}
+.app:where([data-style="sketch"]) .av.narrav{background:var(--raise-2);box-shadow:0 0 0 2px var(--page-solid),0 0 0 3.5px var(--ink)}
+.app:where([data-style="sketch"]) .av.narrav svg{color:var(--ink)}
+
+/* ---------- aspect cards: index cards, always light; free invokes are inked dots ---------- */
+.app:where([data-style="sketch"]) .icard{font-family:var(--f-hand);font-weight:700;font-size:1.12em;color:var(--card-ink);
+  background:repeating-linear-gradient(180deg,transparent 0 15px,var(--card-line) 15px 16px) 0 18px/100% calc(100% - 18px) no-repeat,
+    linear-gradient(rgba(255,255,255,.6),rgba(255,255,255,.6)),url("../art/ui/sketch/paper-day.jpg") 0 0/320px auto,var(--card-paper);
+  box-shadow:0 0 0 1px rgba(0,0,0,.18),0 6px 12px -8px rgba(0,0,0,.6)}
+.app:where([data-style="sketch"]) .icard .k{font:700 10px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:#4a4a4a}
+.app:where([data-style="sketch"]) .icard .fi i,.app:where([data-style="sketch"]) .icard .fib i{background:#161616;box-shadow:0 0 0 1.5px #fdfdfd,0 0 0 2.5px #161616}
+.app:where([data-style="sketch"]) .icard .fib em{color:#4a4a4a}
+.app:where([data-style="sketch"]) .icard .xb{color:#4a4a4a}
+.app:where([data-style="sketch"]) .icard.add{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-3);color:var(--ink-2)}
+.app:where([data-style="sketch"]) button.icard:hover{box-shadow:0 0 0 1px rgba(0,0,0,.22),0 12px 18px -10px rgba(0,0,0,.6)}
+
+/* ---------- shell ---------- */
+.app:where([data-style="sketch"]) .tabbar{background:linear-gradient(var(--line-3),var(--line-3)) 0 0/100% 1px no-repeat,linear-gradient(var(--line-2),var(--line-2)) 0 4px/100% 1px no-repeat,
+    linear-gradient(color-mix(in srgb,var(--sky-0) 55%,transparent),color-mix(in srgb,var(--sky-0) 55%,transparent)),var(--tex) 0 0/512px auto,var(--sky-1);border-top:0}
+.app:where([data-style="sketch"])[data-theme="day"] .tabbar{background:linear-gradient(var(--line-3),var(--line-3)) 0 0/100% 1px no-repeat,linear-gradient(var(--line-2),var(--line-2)) 0 4px/100% 1px no-repeat,
+    linear-gradient(rgba(255,255,255,.35),rgba(255,255,255,.35)),var(--tex) 0 0/512px auto,var(--sky-1)}
+.app:where([data-style="sketch"]) .tabbar button{font:700 11.5px/1 var(--f-ui);letter-spacing:.03em}
+.app:where([data-style="sketch"]) .tabbar button[aria-current="page"] .ti{color:var(--accent-ink);background:transparent;border-image:var(--k-blk) 14 fill / 7px;box-shadow:none}
+.app:where([data-style="sketch"]) .tabbar .ti{border:1px solid transparent}
+.app:where([data-style="sketch"]) .tabbar .fightdot{background:var(--ember);color:var(--ember-ink);border-radius:50%}
+.app:where([data-style="sketch"]) .top h1{font-family:var(--f-title);font-weight:400;letter-spacing:.02em}
+
+/* wordmark: the star is redrawn in pencil and the name in hatched capitals */
+.app:where([data-style="sketch"]) .mark,.app:where([data-style="sketch"]) .mark b{color:var(--ink);text-shadow:none}
+.app:where([data-style="sketch"]) .mark svg,.app:where([data-style="sketch"]) .gmark svg{filter:none}
+.app:where([data-style="sketch"]) .mark svg stop,.app:where([data-style="sketch"]) .gmark svg stop{stop-color:var(--ink)}
+.app:where([data-style="sketch"]) .mark b{font-family:var(--f-mark);font-weight:400;letter-spacing:.1em}
+
+/* ---------- chat ---------- */
+.app:where([data-style="sketch"]) .cchip{background:transparent;border-image:var(--k-btn) 14 / 7px;box-shadow:none}
+.app:where([data-style="sketch"]) .cchip[aria-current="true"]{color:var(--accent-ink);background:transparent;border-image:var(--k-blk) 14 fill / 7px;box-shadow:none}
+.app:where([data-style="sketch"]) .cchip[aria-current="true"] *{color:inherit}
+
+/* scene banner: a grey print with a paper glaze, framed in pencil */
+.app:where([data-style="sketch"]) .scene{box-shadow:0 14px 30px -18px rgba(0,0,0,.8)}
+.app:where([data-style="sketch"]) .scene::before{background:linear-gradient(90deg,rgba(14,14,14,.92) 0%,rgba(14,14,14,.6) 55%,rgba(14,14,14,0) 100%),linear-gradient(0deg,rgba(14,14,14,.6),transparent 70%)}
+.app:where([data-style="sketch"])[data-theme="day"] .scene::before{background:linear-gradient(90deg,rgba(250,250,250,.95) 0%,rgba(250,250,250,.74) 55%,rgba(250,250,250,0) 100%)}
+.app:where([data-style="sketch"]) .scene h2{font-family:var(--f-title);font-weight:400;letter-spacing:.01em}
+.app:where([data-style="sketch"]) .scene .eyebrow{color:var(--ink-2)}
+.app:where([data-style="sketch"]) .scene .ctl .btn,.app:where([data-style="sketch"])[data-theme] .scene .ctl .btn{background:linear-gradient(rgba(16,16,16,.78),rgba(16,16,16,.78));color:#f3f3f3;border-image:url("../art/ui/sketch/btn-night.png") 14 / 7px}
+.app:where([data-style="sketch"])[data-theme="day"] .scene .ctl .btn{background:linear-gradient(rgba(252,252,252,.92),rgba(252,252,252,.92));color:#141414;border-image:url("../art/ui/sketch/btn-day.png") 14 / 7px}
+.app:where([data-style="sketch"]) .scene .ctl .btn.primary,.app:where([data-style="sketch"])[data-theme] .scene .ctl .btn.primary{background:transparent;color:var(--accent-ink);border-image:var(--k-blk) 14 fill / 7px}
+.app:where([data-style="sketch"]) .scene.empty{background:var(--k-h-diag) 0 0/48px,var(--paper-bg)}
+.app:where([data-style="sketch"]) .scene.empty::before{display:none}
+
+/* messages */
+.app:where([data-style="sketch"]) .day-div{font:700 12.5px/1 var(--f-hand);font-size:17px;letter-spacing:.04em;text-transform:none;color:var(--ink-3)}
+.app:where([data-style="sketch"]) .day-div::before,.app:where([data-style="sketch"]) .day-div::after{height:5px;background:url("../art/ui/sketch/hatch-horiz-night.png") 0 0/48px;opacity:.9}
+.app:where([data-style="sketch"])[data-theme="day"] .day-div::before,.app:where([data-style="sketch"])[data-theme="day"] .day-div::after{background-image:url("../art/ui/sketch/hatch-horiz-day.png")}
+.app:where([data-style="sketch"]) .m .who{font:700 13px/1 var(--f-ui)}
+.app:where([data-style="sketch"]) .m .who time{font:600 15px/1 var(--f-hand)}
+.app:where([data-style="sketch"]) .m .bub{font:400 15.5px/1.45 var(--f-ui);background:var(--paper-bg);box-shadow:0 0 0 1px var(--line-2),0 4px 10px -8px rgba(0,0,0,.6)}
+.app:where([data-style="sketch"]) .m .bub em,.app:where([data-style="sketch"]) .m .bub .rpd{font-family:var(--f-hand);font-style:normal;font-weight:500;font-size:1.25em;line-height:1.2;color:var(--ink-2)}
+.app:where([data-style="sketch"]) .m .bub .rpd em{font-size:1em}
+.app:where([data-style="sketch"]) .m .bub strong{font-weight:700}
+.app:where([data-style="sketch"]) .m .fl li::marker{color:var(--ink)}
+
+/* other people in character: their own pencil shading, so whose line it is reads without colour.
+   Each seat gets a different hatch; NPCs a wavy one and a doubled edge; the GM's own voice none. */
+.app:where([data-style="sketch"]) .m.say:not(.mine) .bub{padding:8px 13px 9px;background:var(--spk-h,none) 0 0/48px,linear-gradient(180deg,color-mix(in srgb,var(--spk) var(--say-top),var(--raise-2)),color-mix(in srgb,var(--spk) var(--say-bot),var(--raise)));
+  border-image:var(--k-btn) 14 / 7px;box-shadow:inset 3px 0 0 var(--spk),0 6px 14px -12px rgba(0,0,0,.6)}
+.app:where([data-style="sketch"]) .m.say.npc:not(.mine) .bub{box-shadow:inset 3px 0 0 var(--spk),inset 5px 0 0 transparent,inset 7px 0 0 color-mix(in srgb,var(--spk) 70%,transparent),0 6px 14px -12px rgba(0,0,0,.6)}
+.app:where([data-style="sketch"]) .m[style*="c-p1)"]{--spk-h:var(--k-h-diag)}
+.app:where([data-style="sketch"]) .m[style*="c-p2)"]{--spk-h:var(--k-h-dots)}
+.app:where([data-style="sketch"]) .m[style*="c-p3)"]{--spk-h:var(--k-h-horiz)}
+.app:where([data-style="sketch"]) .m[style*="c-p4)"]{--spk-h:var(--k-h-anti)}
+.app:where([data-style="sketch"]) .m[style*="c-p5)"]{--spk-h:var(--k-h-grid)}
+.app:where([data-style="sketch"]) .m[style*="c-p6)"]{--spk-h:var(--k-h-loops)}
+.app:where([data-style="sketch"]) .m[style*="c-p7)"]{--spk-h:var(--k-h-vert)}
+.app:where([data-style="sketch"]) .m[style*="c-p8)"]{--spk-h:var(--k-h-cross)}
+.app:where([data-style="sketch"]) .m[style*="c-npc)"]{--spk-h:var(--k-h-waves)}
+.app:where([data-style="sketch"]) .m[style*="c-foe)"]{--spk-h:var(--k-h-dense)}
+/* your own lines: a block of charcoal by day, a block of white pastel by night (the text is the paper colour) */
+.app:where([data-style="sketch"]) .m.mine .bub,.app:where([data-style="sketch"]) .m.mine.cont .bub{color:var(--accent-ink);background:transparent;border-image:var(--k-blk) 14 fill / 7px;box-shadow:0 6px 14px -8px rgba(0,0,0,.55)}
+.app:where([data-style="sketch"]) .m.say.mine .bub{padding:8px 13px 9px}
+.app:where([data-style="sketch"]) .m.mine .bub em,.app:where([data-style="sketch"]) .m.mine .bub .rpd{color:var(--accent-ink);opacity:.85}
+.app:where([data-style="sketch"]) .m.mine .bub .ed{color:var(--accent-ink);opacity:.7}
+.app:where([data-style="sketch"]) .m.mine .fl li::marker{color:inherit}
+/* out of character: smoky glass (night) and frosted glass (day); yours is frosted brighter, darker by day, and etched with a fine hatch */
+.app:where([data-style="sketch"]) .m.ooc .bub{color:var(--ink-2);font-size:14.5px}
+.app:where([data-style="sketch"])[data-theme] .m.ooc.mine .bub{color:var(--ink-2);border-image:none;
+  background:var(--k-h-diag) 0 0/48px,radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-mine),var(--glass-mine-2));
+  box-shadow:inset 0 1px 0 var(--glass-rim),inset 0 -1px 2px var(--glass-rim-2),var(--glass-shadow)}
+.app:where([data-style="sketch"])[data-theme] .m.ooc.mine .bub em,.app:where([data-style="sketch"])[data-theme] .m.ooc.mine .bub .rpd{color:var(--ink-2);opacity:1}
+.app:where([data-style="sketch"])[data-theme] .m.ooc.mine .bub .ed{color:var(--ink-4);opacity:1}
+.app:where([data-style="sketch"]) .m.ooc .bub::before{font:700 10px/1 var(--f-ui);letter-spacing:.12em}
+
+/* narration: the story itself, written out longhand with a hatched initial */
+.app:where([data-style="sketch"]) .narr::before{width:1.5px;left:5px;background:var(--ink-3);box-shadow:3px 0 0 var(--line-2);border-radius:0}
+.app:where([data-style="sketch"]) .narr .who{font:700 11.5px/1 var(--f-ui);letter-spacing:.16em;color:var(--ink-2)}
+.app:where([data-style="sketch"]) .narr p{font:400 17.5px/1.55 var(--f-body);font-variation-settings:normal;color:var(--ink)}
+.app:where([data-style="sketch"]) .narr p em{font-family:var(--f-hand);font-style:normal;font-size:1.2em;font-weight:500}
+.app:where([data-style="sketch"]) .narr.first p::first-letter{font:400 54px/.82 var(--f-mark);color:var(--ink);margin:6px 9px 0 0}
+.app:where([data-style="sketch"]) .mw.on{background:var(--accent-soft);box-shadow:0 0 0 6px var(--accent-soft)}
+.app:where([data-style="sketch"]) .mdots{background:var(--paper-bg)}
+.app:where([data-style="sketch"]) .sysm{font-family:var(--f-hand);font-size:17px;font-weight:500}
+.app:where([data-style="sketch"]) .sysm svg{color:var(--ink-2)}
+.app:where([data-style="sketch"]) .scenem{background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .scenem b{font-weight:700}
+.app:where([data-style="sketch"]) .scenem span{font:700 11px/1.2 var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+
+/* ---------- rolls: a tally slip; plus dice are filled in, minus dice are left open, blanks are hatched ---------- */
+.app:where([data-style="sketch"]) .roll,.app:where([data-style="sketch"]) .m.mine .roll{background:var(--paper-bg);border-image:var(--k-frame) 24 / 12px;box-shadow:0 10px 22px -14px rgba(0,0,0,.7);color:var(--ink)}
+.app:where([data-style="sketch"]) .m.mine .roll{background:var(--k-h-diag) 0 0/48px,var(--paper-bg)}
+.app:where([data-style="sketch"]) .roll .tot b{font:400 34px/1 var(--f-mark);color:var(--ink);text-shadow:none}
+.app:where([data-style="sketch"]) .roll .tot span{font:700 11px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase}
+.app:where([data-style="sketch"]) .roll .rf{border-top:0;background:url("../art/ui/sketch/hatch-horiz-night.png") 0 0/48px 6px repeat-x}
+.app:where([data-style="sketch"])[data-theme="day"] .roll .rf{background-image:url("../art/ui/sketch/hatch-horiz-day.png")}
+.app:where([data-style="sketch"]) .roll .mini-tot{font-family:var(--f-mark);font-weight:400;color:var(--ink)}
+.app:where([data-style="sketch"]) .roll.secret,.app:where([data-style="sketch"]) .m.mine .roll.secret{border-image:var(--k-dash) 14 / 7px}
+.app:where([data-style="sketch"]) :is(.die,.ff .ffd i,.rl .rld i,.rfx .f,.roll .oppd .od span){color:var(--ink);background:var(--raise-2);box-shadow:inset 0 0 0 1.5px var(--ink),0 2px 4px -2px rgba(0,0,0,.5);font-family:var(--f-ui);font-weight:700}
+.app:where([data-style="sketch"]) :is(.die.p,.ff .ffd i.p,.rl .rld i.p,.rfx .f.p,.oppd .od span.op){color:var(--accent-ink);background:var(--ink);box-shadow:0 2px 4px -2px rgba(0,0,0,.5)}
+.app:where([data-style="sketch"]) :is(.die.m,.ff .ffd i.m,.rl .rld i.m,.rfx .f.m,.oppd .od span.om){color:var(--ink);background:var(--raise-2);box-shadow:inset 0 0 0 1.5px var(--ink),0 2px 4px -2px rgba(0,0,0,.5)}
+.app:where([data-style="sketch"]) .die.z{color:transparent;background:var(--k-h-diag) 0 0/24px,var(--raise-2)}
+.app:where([data-style="sketch"]) :is(.ff .ffd i,.rl .rld i,.rfx .f,.oppd .od span):not(.p):not(.m):not(.op):not(.om){background:var(--k-h-diag) 0 0/24px,var(--raise-2)}
+/* outcomes: with style = inked block and a star, success = doubled line, tie = dashed, fail = dotted and struck through */
+.app:where([data-style="sketch"]) :is(.roll .out,.resm .out,.rl .out){font:700 10.5px/1 var(--f-ui);letter-spacing:.08em;border-radius:2px}
+.app:where([data-style="sketch"]) .out.style{color:var(--accent-ink);background:var(--ink)}
+.app:where([data-style="sketch"]) .out.succ{color:var(--ink);background:transparent;box-shadow:inset 0 0 0 1px var(--ink),inset 0 0 0 2.5px var(--page-solid),inset 0 0 0 3.5px var(--ink)}
+.app:where([data-style="sketch"]) .out.tie{color:var(--ink);background:transparent;outline:1.5px dashed var(--ink-2);outline-offset:-1.5px}
+.app:where([data-style="sketch"]) .out.fail{color:var(--ink-2);background:var(--k-h-cross) 0 0/24px;outline:1.5px dotted var(--ink-3);outline-offset:-1.5px}
+
+/* fight card in chat */
+.app:where([data-style="sketch"]) .fightcard{box-shadow:0 18px 40px -18px rgba(0,0,0,.85)}
+.app:where([data-style="sketch"]) .fightcard .art{filter:grayscale(1) brightness(.85)}
+.app:where([data-style="sketch"]) .fightcard::before{background:linear-gradient(180deg,rgba(14,14,14,.5),rgba(14,14,14,.95) 50%)}
+.app:where([data-style="sketch"])[data-theme="day"] .fightcard::before{background:linear-gradient(180deg,rgba(250,250,250,.4),rgba(250,250,250,.97) 50%)}
+.app:where([data-style="sketch"]) .fightcard h3{font-family:var(--f-title);font-weight:400}
+@container dev (max-width: 759px){
+  .app:where([data-style="sketch"]) .msgs .fightcard::before{background:linear-gradient(90deg,rgba(14,14,14,.95) 45%,rgba(14,14,14,.62))}
+  .app:where([data-style="sketch"])[data-theme="day"] .msgs .fightcard::before{background:linear-gradient(90deg,rgba(250,250,250,.97) 45%,rgba(250,250,250,.72))}
+}
+
+/* composer: a strip of paper; dice is a pencil-ringed button, send a charcoal (pastel) block */
+.app:where([data-style="sketch"]) .composer .box{background:var(--paper-bg);border-image:var(--k-frame) 24 / 12px;box-shadow:0 10px 26px -14px rgba(0,0,0,.6)}
+.app:where([data-style="sketch"]) .composer .box:focus-within{box-shadow:0 10px 26px -14px rgba(0,0,0,.6),inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .composer.ooc .box{background:var(--glass-tint);border-image:var(--k-dash) 14 / 7px}
+.app:where([data-style="sketch"]) .composer textarea{font-family:var(--f-ui)}
+.app:where([data-style="sketch"]) .composer textarea::placeholder{font-family:var(--f-hand);font-size:19px;color:var(--ink-4)}
+.app:where([data-style="sketch"]) .diceb{color:var(--ink);background:var(--paper-bg);box-shadow:inset 0 0 0 1.5px var(--ink),inset 0 0 0 3.5px var(--page-solid),inset 0 0 0 4.5px var(--line-3);border-radius:50%}
+.app:where([data-style="sketch"]) .sendb{color:var(--accent-ink);background:transparent;border-image:var(--k-blk) 14 fill / 7px;border:1px solid transparent;box-shadow:none;border-radius:3px}
+.app:where([data-style="sketch"]) .hint{font-family:var(--f-hand);font-size:16px}
+.app:where([data-style="sketch"]) .voice{box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .fightbar{background:var(--k-h-cross) 0 0/48px,var(--paper-bg);box-shadow:inset 0 0 0 1.5px var(--ink)}
+
+/* ---------- popovers, sheets, toasts: loose leaves ---------- */
+.app:where([data-style="sketch"]) .sheet{background:var(--page-bg);box-shadow:0 -30px 60px -20px rgba(0,0,0,.6)}
+.app:where([data-style="sketch"]) .sheet::before{z-index:7;width:46px;height:3px;border-radius:0;background:var(--ink-3);box-shadow:0 5px 0 var(--line-3)}
+.app:where([data-style="sketch"]) .sheet .sh-h .ttl{font-size:24px}
+.app:where([data-style="sketch"]) .sheet .sh-f{background:linear-gradient(color-mix(in srgb,var(--page-solid) 80%,transparent),color-mix(in srgb,var(--page-solid) 80%,transparent))}
+.app:where([data-style="sketch"]) :is(.sheet h4,.gs-h h3,.sec>h3,.shg h3,.pop .lbl){font:700 12.5px/1.2 var(--f-ui);letter-spacing:.14em;text-transform:uppercase}
+.app:where([data-style="sketch"]) .pop{background:var(--page-bg)}
+.app:where([data-style="sketch"]) .pop .pop-find{background:var(--page-solid)}
+.app:where([data-style="sketch"]) .pop .opt[aria-selected="true"],.app:where([data-style="sketch"]) .pop .opt[aria-current="true"],.app:where([data-style="sketch"]) .pop .opt.on{background:var(--k-h-diag) 0 0/48px,var(--accent-soft)}
+.app:where([data-style="sketch"]) .toast{background:var(--page-bg)}
+.app:where([data-style="sketch"]) .toast button{color:var(--ink);text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:3px}
+.app:where([data-style="sketch"]) .who-row button[aria-pressed="true"] .av{box-shadow:0 0 0 2px var(--page-solid),0 0 0 4px var(--ink),0 0 0 6px var(--page-solid),0 0 0 7px var(--ink-3)}
+.app:where([data-style="sketch"]) :is(.sk,.act,.lchip,.toggle){background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .sk .v{font:400 18px/1 var(--f-mark);color:var(--ink);background:transparent;box-shadow:inset 0 0 0 1px var(--line-3);border-radius:2px}
+.app:where([data-style="sketch"]) :is(.sk[aria-pressed="true"],.act[aria-pressed="true"],.tgt[aria-pressed="true"],.forwho button[aria-pressed="true"],.inv-chips button[aria-pressed="true"],.nchips button[aria-pressed="true"],.vssk button[aria-pressed="true"],.lchip[aria-pressed="true"]){
+  background:var(--k-h-diag) 0 0/48px,var(--accent-soft);box-shadow:inset 0 0 0 2px var(--ink);color:var(--ink)}
+.app:where([data-style="sketch"]) .act[aria-pressed="true"] svg{color:var(--ink)}
+.app:where([data-style="sketch"]) .lchip b{font-weight:700}
+.app:where([data-style="sketch"]) .toggle .sw{border-radius:3px;background:transparent;box-shadow:inset 0 0 0 1.5px var(--ink-3)}
+.app:where([data-style="sketch"]) .toggle .sw::after{border-radius:2px;background:var(--ink-3);box-shadow:none}
+.app:where([data-style="sketch"]) .toggle[aria-pressed="true"] .sw{background:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.app:where([data-style="sketch"]) .toggle[aria-pressed="true"] .sw::after{background:var(--page-solid)}
+.app:where([data-style="sketch"]) .thumb::after{background:linear-gradient(0deg,rgba(10,10,10,.88),transparent 60%)}
+.app:where([data-style="sketch"]) .thumb.on{box-shadow:0 0 0 2px var(--ink),0 0 0 4px var(--page-solid),0 0 0 5px var(--ink)}
+.app:where([data-style="sketch"]) .thumb .ck{background:var(--ink);color:var(--accent-ink);border-radius:50%}
+
+/* ---------- GM screen / hero ---------- */
+.app:where([data-style="sketch"]) :is(.pcrow,.ccard,.mem,.stunt,.trk,.catrow,.invopt,.waiting,.inv .it,.zlist .zi,.facts,.menu){background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .ccard.empty{background:transparent}
+.app:where([data-style="sketch"]) .coin{background:var(--ink);box-shadow:0 0 0 1.5px var(--page-solid),0 0 0 2.5px var(--ink),0 2px 4px -1px rgba(0,0,0,.4)}
+.app:where([data-style="sketch"]) .coin::after{inset:5px;box-shadow:inset 0 0 0 1.5px var(--page-solid)}
+.app:where([data-style="sketch"]) .coin.off{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-3)}
+.app:where([data-style="sketch"]) .coins .mini button,.app:where([data-style="sketch"]) .inv .mini button{background:transparent;box-shadow:inset 0 0 0 1px var(--line-3)}
+.app:where([data-style="sketch"]) .sbox{font-family:var(--f-ui);font-weight:700;color:var(--ink-3);background:transparent;border-image:var(--k-btn) 14 / 6px;box-shadow:none}
+.app:where([data-style="sketch"]) .sbox.on{color:var(--ember-ink);background:transparent;border-image:var(--k-blk) 14 fill / 6px;box-shadow:none}
+.app:where([data-style="sketch"]) .nb-st i{border-radius:1px}
+.app:where([data-style="sketch"]) .nb-st i.on{background:var(--ink);box-shadow:none}
+.app:where([data-style="sketch"]) .scenecard::after{background:linear-gradient(0deg,rgba(10,10,10,.9),rgba(10,10,10,.1) 75%)}
+.app:where([data-style="sketch"]) .scenecard b{font-weight:700}
+.app:where([data-style="sketch"]) .bigcta{background:var(--paper-bg);border-image:var(--k-frame) 24 / 12px;box-shadow:0 10px 24px -16px rgba(0,0,0,.7)}
+.app:where([data-style="sketch"]) .bigcta .ic{color:var(--accent-ink);background:var(--ink);border-radius:3px;box-shadow:none}
+.app:where([data-style="sketch"]) .bigcta b{font-weight:700;font-size:16px}
+.app:where([data-style="sketch"]) .bigcta.scn{background:var(--paper-bg)}
+.app:where([data-style="sketch"]) .bigcta.scn .ic{color:var(--ink);background:var(--paper-bg);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.app:where([data-style="sketch"]) .tools button{background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .tools button svg,.app:where([data-style="sketch"]) .menu button>svg{color:var(--ink)}
+.app:where([data-style="sketch"]) :is(.quick-sk :is(button,span),.lad .rung .sks button,.lad .rung .sks .skc,.gmrow button,.pchip){background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .quick-sk :is(button,span) i{font-weight:700}
+.app:where([data-style="sketch"]) .gmrow button{background:transparent;border-image:var(--k-btn) 14 / 7px;box-shadow:none}
+.app:where([data-style="sketch"]) :is(.hero-top b,.tokcard .hd b,.ccard b,.prof b,.stunt b,.ent b){font-weight:700}
+.app:where([data-style="sketch"]) .pc-hero{background:var(--k-h-diag) 0 0/48px,var(--paper-bg)}
+.app:where([data-style="sketch"]) .pc-hero h2{font-family:var(--f-title);font-weight:400}
+.app:where([data-style="sketch"]) .pc-hero.full::after{background:var(--ink);opacity:.06}
+.app:where([data-style="sketch"]) .sec>h3::after{height:5px;background:url("../art/ui/sketch/hatch-horiz-night.png") 0 0/48px;opacity:.9}
+.app:where([data-style="sketch"])[data-theme="day"] .sec>h3::after{background-image:url("../art/ui/sketch/hatch-horiz-day.png")}
+.app:where([data-style="sketch"]) .lad .rung .lv b{font-family:var(--f-mark);font-weight:400;color:var(--ink)}
+.app:where([data-style="sketch"]) .con .slot{border-radius:2px}
+.app:where([data-style="sketch"]) .gmban{background:var(--k-h-cross) 0 0/48px,var(--paper-bg);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.app:where([data-style="sketch"]) .gmban .go{color:var(--accent-ink);background:transparent;border-image:var(--k-blk) 14 fill / 7px}
+.app:where([data-style="sketch"]) .gmban .t small{color:var(--ink-2)}
+
+/* ---------- combat ---------- */
+.app:where([data-style="sketch"]) .board{box-shadow:0 20px 40px -20px rgba(0,0,0,.85)}
+.app:where([data-style="sketch"]) .board::before{background:var(--map-tint),radial-gradient(120% 90% at 50% 40%,transparent 50%,rgba(0,0,0,.5))}
+/* zones: dashed pencil lines and their own hatching (their picked colour only chooses which hatch) */
+.app:where([data-style="sketch"]) .zone{--zc:var(--ink) !important;border:2px dashed var(--ink-2);background:var(--zh,var(--k-h-diag)) 0 0/48px,color-mix(in srgb,var(--page-solid) 22%,transparent);box-shadow:none}
+.app:where([data-style="sketch"]) .zone[style*="f4c46e"]{--zh:var(--k-h-diag)}
+.app:where([data-style="sketch"]) .zone[style*="6fd6c0"]{--zh:var(--k-h-dots)}
+.app:where([data-style="sketch"]) .zone[style*="ff9a7e"]{--zh:var(--k-h-anti)}
+.app:where([data-style="sketch"]) .zone[style*="a99bff"]{--zh:var(--k-h-grid)}
+.app:where([data-style="sketch"]) .zone[style*="9cd36b"]{--zh:var(--k-h-horiz)}
+.app:where([data-style="sketch"]) .zone[style*="f39ad0"]{--zh:var(--k-h-loops)}
+.app:where([data-style="sketch"]) .zone .zl{font:700 12px/1 var(--f-ui);color:var(--accent-ink);background:var(--ink);box-shadow:0 4px 10px -4px rgba(0,0,0,.6);border-radius:2px}
+.app:where([data-style="sketch"]) .zone .rs{background:var(--ink)}
+.app:where([data-style="sketch"]) .zone.drop{background:var(--k-h-cross) 0 0/48px,color-mix(in srgb,var(--page-solid) 35%,transparent);box-shadow:inset 0 0 0 2px var(--ink)}
+.app:where([data-style="sketch"]) .zone.reach{box-shadow:inset 0 0 0 3px var(--ink),inset 0 0 0 5px var(--page-solid),inset 0 0 0 6px var(--ink)}
+.app:where([data-style="sketch"]) .zone.sel{border-style:solid;box-shadow:inset 0 0 0 3px var(--ink)}
+.app:where([data-style="sketch"]) .zone.ghost{--zc:var(--ink) !important;background:var(--k-h-diag) 0 0/48px}
+.app:where([data-style="sketch"]) .zlist .zi[style*="--zc"]{--zc:var(--ink) !important}
+.app:where([data-style="sketch"]) .nb-zt{--zc:var(--ink) !important}
+.app:where([data-style="sketch"]) .tok .nm{background:rgba(14,14,14,.86);color:#f3f3f3;font-family:var(--f-ui);font-weight:700}
+.app:where([data-style="sketch"])[data-theme="day"] .tok .nm{background:rgba(252,252,252,.95);color:var(--ink);box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+/* whose turn: a thick inked ring and an inked name tag */
+.app:where([data-style="sketch"]) .tok.now .av,.app:where([data-style="sketch"]) .zone .tok.now .av{box-shadow:0 0 0 3px var(--page-solid),0 0 0 6px var(--ink),0 0 0 8px var(--page-solid),0 0 0 9px var(--ink),0 0 26px 6px var(--accent-glow)}
+.app:where([data-style="sketch"]) .zone .tok.now .nm,.app:where([data-style="sketch"]) .zone .tok.now.me .nm{background:var(--ink);color:var(--accent-ink)}
+.app:where([data-style="sketch"]) .tok.out::after{background:linear-gradient(45deg,transparent 44%,var(--ink) 44% 56%,transparent 56%),linear-gradient(-45deg,transparent 44%,var(--ink) 44% 56%,transparent 56%)}
+.app:where([data-style="sketch"]) .tok .ji{color:var(--accent-ink);background:var(--ink)}
+.app:where([data-style="sketch"]) .board .hint-chip{background:var(--page-bg);box-shadow:inset 0 0 0 1px var(--line-3),0 8px 20px -10px rgba(0,0,0,.6)}
+.app:where([data-style="sketch"]) .board .hint-chip svg{color:var(--ink)}
+.app:where([data-style="sketch"]) .gmtools{background:var(--page-solid);backdrop-filter:none;-webkit-backdrop-filter:none}
+.app:where([data-style="sketch"]) .gmtools button[aria-pressed="true"],.app:where([data-style="sketch"]) .fight-tools button[aria-pressed="true"],.app:where([data-style="sketch"]) .gmrow button[aria-pressed="true"]{color:var(--accent-ink);background:transparent;border-image:var(--k-blk) 14 fill / 7px}
+.app:where([data-style="sketch"]) .fight-tools{background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .fight-tools button svg,.app:where([data-style="sketch"]) .gmrow button svg{color:var(--ink)}
+.app:where([data-style="sketch"]) .fight-tools button[aria-pressed="true"] svg,.app:where([data-style="sketch"]) .gmrow button[aria-pressed="true"] svg{color:var(--accent-ink)}
+.app:where([data-style="sketch"]) .fight-tools button.end svg,.app:where([data-style="sketch"]) .gmrow button.end svg{color:var(--ink)}
+.app:where([data-style="sketch"]) .nowbar{background:var(--paper-bg)}
+.app:where([data-style="sketch"]) .nowbar.turn{background:var(--k-h-diag) 0 0/48px,var(--paper-bg)}
+.app:where([data-style="sketch"]) .nowbar.alert{background:var(--k-h-cross) 0 0/48px,var(--paper-bg)}
+.app:where([data-style="sketch"]) .nowbar b,.app:where([data-style="sketch"]) .dock .turn b{font-weight:700}
+.app:where([data-style="sketch"]) .abtn{background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-3)}
+.app:where([data-style="sketch"]) .abtn svg,.app:where([data-style="sketch"]) .abtn.atk svg{color:var(--ink)}
+.app:where([data-style="sketch"]) .yourturn{background:var(--k-h-diag) 0 0/48px,var(--paper-bg)}
+.app:where([data-style="sketch"]) .incoming{background:var(--k-h-cross) 0 0/48px,var(--paper-bg)}
+.app:where([data-style="sketch"]) .resm{background:var(--paper-bg)}
+.app:where([data-style="sketch"]) .resm .rs-rows b{font-family:var(--f-mark);font-weight:400;color:var(--ink)}
+.app:where([data-style="sketch"]) .fight-order .ot{box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .fight-order .ot.now,.app:where([data-style="sketch"]) .fight-order .ot[aria-current="true"]{box-shadow:inset 0 0 0 2px var(--ink)}
+.app:where([data-style="sketch"]) .fight-h h1{font-family:var(--f-title);font-weight:400}
+.app:where([data-style="sketch"]) .dicefx{background:var(--page-bg)}
+.app:where([data-style="sketch"]) .dicefx .dfx-t b{font-family:var(--f-mark);font-weight:400}
+.app:where([data-style="sketch"]) .step .n{font-weight:700}
+.app:where([data-style="sketch"]) .step.done .n{background:var(--ink);color:var(--accent-ink)}
+.app:where([data-style="sketch"]) .rl .rlv{color:var(--ink)}
+.app:where([data-style="sketch"]) .fxt b{font-family:var(--f-mark);font-weight:400;letter-spacing:.03em;color:#fff;-webkit-text-stroke:1.2px #111;paint-order:stroke}
+.app:where([data-style="sketch"]) .fxt small{color:#fff;text-shadow:0 1px 0 #000,0 0 4px #000}
+.app:where([data-style="sketch"]) .modeseg .nb{background:var(--ember);color:var(--ember-ink)}
+.app:where([data-style="sketch"]) .sysm.fend b,.app:where([data-style="sketch"]) .ff.end .fft b{color:var(--ink)}
+
+/* ---------- map: a pencil survey ---------- */
+.app:where([data-style="sketch"]) .glass{background:var(--page-bg)}
+.app:where([data-style="sketch"]) .mapsel b{font-weight:700}
+.app:where([data-style="sketch"]) .pin .pm{box-shadow:0 0 0 2px rgba(0,0,0,.75),0 6px 12px -4px rgba(0,0,0,.8)}
+.app:where([data-style="sketch"]) .pin .pl{background:rgba(252,252,252,.95);color:#141414;font-family:var(--f-ui);font-weight:700;box-shadow:0 0 0 1px rgba(0,0,0,.4),0 4px 8px -4px rgba(0,0,0,.8)}
+.app:where([data-style="sketch"]) .pin.party .pl{background:#141414;color:#fafafa}
+.app:where([data-style="sketch"]) .pincard .hd b{font-weight:700}
+.app:where([data-style="sketch"]) .beacon .bd{background:radial-gradient(circle at 38% 34%,#fff,#9a9a9a 55%,#111);box-shadow:0 0 0 2.5px #fff,0 0 0 4px #000,0 0 14px 4px rgba(255,255,255,.6)}
+.app:where([data-style="sketch"]) .beacon::before,.app:where([data-style="sketch"]) .beacon::after{border-color:#fff;box-shadow:0 0 0 1.5px #000}
+.app:where([data-style="sketch"]) .beacon .bl{background:#111;color:#fff;box-shadow:0 0 0 1.5px #fff}
+.app:where([data-style="sketch"]) .cchip .bdot{background:var(--ink);box-shadow:0 0 0 2px var(--page-solid)}
+
+/* ---------- world: a commonplace book ---------- */
+.app:where([data-style="sketch"]) .herald{background:var(--k-h-diag) 0 0/48px,var(--paper-bg)}
+.app:where([data-style="sketch"]) .herald h3{font-family:var(--f-title);font-weight:400}
+.app:where([data-style="sketch"]) .herald .np{background:#efefef}
+.app:where([data-style="sketch"]) .herald .np b{color:#161616}
+.app:where([data-style="sketch"]) .herald .np i{background:#c9c9c9}
+.app:where([data-style="sketch"]) .cat,.app:where([data-style="sketch"]) .cat[aria-current="true"]{border:0}
+.app:where([data-style="sketch"]) .cat .ci,.app:where([data-style="sketch"]) .catrow .ci{color:var(--ink);background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-3)}
+.app:where([data-style="sketch"]) .cat b{font:700 14.5px/1.2 var(--f-ui);letter-spacing:.06em}
+.app:where([data-style="sketch"])[data-theme] .cat[aria-current="true"],.app:where([data-style="sketch"])[data-theme] .ent[aria-current="true"]{
+  background:var(--k-h-diag) 0 0/48px,radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-mine),var(--glass-mine-2));
+  box-shadow:inset 3px 0 0 var(--ink),inset 0 1px 0 var(--glass-rim),var(--glass-shadow)}
+.app:where([data-style="sketch"]) .ent[aria-current="true"]::before{background:var(--ink)}
+.app:where([data-style="sketch"]) .article h1{font-family:var(--f-title);font-weight:400;letter-spacing:.01em}
+.app:where([data-style="sketch"]) .article .sum{font-family:var(--f-hand);font-size:20px;line-height:1.3;color:var(--ink-2)}
+.app:where([data-style="sketch"]) .article .rule{color:var(--ink)}
+.app:where([data-style="sketch"]) .article .rule::before,.app:where([data-style="sketch"]) .article .rule::after{height:5px;background:url("../art/ui/sketch/hatch-horiz-night.png") 0 0/48px}
+.app:where([data-style="sketch"])[data-theme="day"] .article .rule::before,.app:where([data-style="sketch"])[data-theme="day"] .article .rule::after{background-image:url("../art/ui/sketch/hatch-horiz-day.png")}
+.app:where([data-style="sketch"]) .article .b,.app:where([data-style="sketch"]) .article ul{font-family:var(--f-body);font-variation-settings:normal;font-size:16.5px}
+.app:where([data-style="sketch"]) .article h3{font:700 14px/1.3 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+.app:where([data-style="sketch"]) .article ul li::marker{color:var(--ink)}
+.app:where([data-style="sketch"]) .secret{background:var(--k-h-cross) 0 0/48px,var(--paper-bg)}
+.app:where([data-style="sketch"]) .secret .seal{background:var(--ink);color:var(--accent-ink);box-shadow:0 0 0 2px var(--page-solid),0 0 0 3px var(--ink)}
+/* the newspaper stays newsprint: grey paper and black ink */
+.app:where([data-style="sketch"]) .paper{background:linear-gradient(rgba(255,255,255,.35),rgba(240,240,240,.35)),url("../art/ui/sketch/paper-day.jpg") 0 0/420px auto,#ececec;color:#191919;
+  box-shadow:inset 0 0 50px rgba(0,0,0,.16),0 30px 60px -30px rgba(0,0,0,.9),0 0 0 1px rgba(0,0,0,.25)}
+.app:where([data-style="sketch"]) .paper :is(.strip,.pstories,.pnotices){border-color:#222}
+.app:where([data-style="sketch"]) .paper .pnotices{outline-color:#222}
+.app:where([data-style="sketch"]) .paper :is(.psub,.pfig figcaption){color:#3d3d3d}
+.app:where([data-style="sketch"]) .paper .ph{color:#6b6b6b}
+.app:where([data-style="sketch"]) .paper .soon{color:#474747}
+.app:where([data-style="sketch"]) .paper h3,.app:where([data-style="sketch"]) .article .paper h3{color:#191919}
+.app:where([data-style="sketch"]) .paper .pnotices li::marker{color:#222}
+.app:where([data-style="sketch"]) .paper .pfig img,.app:where([data-style="sketch"]) .paper .pfig .wfr{box-shadow:0 0 0 1px #222}
+
+/* ---------- character sheet ---------- */
+.app:where([data-style="sketch"]) .inv .it .ii{border-radius:2px}
+.app:where([data-style="sketch"]) .menu button>svg{color:var(--ink)}
+
+/* ---------- sign-in gate ---------- */
+.app:where([data-style="sketch"]) .gcard{background:var(--page-bg);box-shadow:0 40px 80px -40px rgba(0,0,0,.9);backdrop-filter:none;-webkit-backdrop-filter:none}
+.app:where([data-style="sketch"]) .gcard h1{font-family:var(--f-mark);font-weight:400;letter-spacing:.08em;color:var(--ink);text-shadow:none}
+
+/* ---------- chat shelf ---------- */
+.app:where([data-style="sketch"]) .shh .st{color:var(--ink);filter:none}
+.app:where([data-style="sketch"]) .shh h2{font-family:var(--f-title);font-weight:400;font-size:18px;letter-spacing:.06em;text-transform:none;color:var(--ink)}
+.app:where([data-style="sketch"]) .shr[aria-current="true"],.app:where([data-style="sketch"])[data-theme] .shr[aria-current="true"]{color:var(--ink);background:var(--k-h-diag) 0 0/48px,var(--accent-soft);box-shadow:none;border-image:var(--k-btn) 14 / 7px}
+.app:where([data-style="sketch"]) .shr[aria-current="true"]::before{background:var(--ink);border-radius:0;width:4px}
+.app:where([data-style="sketch"]) .shr.new::before{background:var(--ink);border-radius:50%}
+.app:where([data-style="sketch"]) .shelf .who,.app:where([data-style="sketch"]) .chname-row .chname{background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .shelf.drawer{background:var(--page-bg)}
+
+/* ---------- desktop frame ---------- */
+@container dev (min-width: 760px){
+  .app:where([data-style="sketch"]) .nav .ni[aria-current="page"],.app:where([data-style="sketch"])[data-theme] .nav .ni[aria-current="page"]{color:var(--accent-ink);background:transparent;box-shadow:none;border-image:var(--k-blk) 14 fill / 7px}
+  .app:where([data-style="sketch"]) .nav .ni[aria-current="page"]>svg,.app:where([data-style="sketch"]) .nav .ni[aria-current="page"] *{color:var(--accent-ink)}
+  .app:where([data-style="sketch"]) .nav .who{background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
+  .app:where([data-style="sketch"]) .page{background:var(--page-bg);box-shadow:0 30px 70px -40px rgba(0,0,0,.7);backdrop-filter:none;-webkit-backdrop-filter:none}
+  .app:where([data-style="sketch"]) .page::after{content:"";position:absolute;inset:0;z-index:30;pointer-events:none;border-image:var(--k-frame) 24 / 14px}
+  .app:where([data-style="sketch"]) .rail{background:linear-gradient(color-mix(in srgb,var(--sunk) 25%,transparent),color-mix(in srgb,var(--sunk) 25%,transparent));border-left:0;box-shadow:inset 1px 0 0 var(--line-2),inset 4px 0 0 -3px var(--line)}
+  .app:where([data-style="sketch"]) .fight-chat{background:linear-gradient(color-mix(in srgb,var(--sunk) 25%,transparent),color-mix(in srgb,var(--sunk) 25%,transparent))}
+  .app:where([data-style="sketch"]) .shelved .nav .ni .end .tag{background:var(--ember);color:var(--ember-ink)}
+  .app:where([data-style="sketch"]) .top.dt h1{font-family:var(--f-title);font-weight:400}
+  .app:where([data-style="sketch"]) .top.dt .ibtn[aria-pressed="true"]{color:var(--ink);background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--ink)}
+}
+
+/* the style picker */
+.app:where([data-style="sketch"]) .stc{background:var(--paper-bg);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app:where([data-style="sketch"]) .stc[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--ink)}
+.app:where([data-style="sketch"]) .stc .ck{background:var(--ink);color:var(--accent-ink)}
+/* message tools, reactions and reply quotes */
+.app:where([data-style="sketch"]) .mtools{background:var(--page-solid);box-shadow:0 0 0 1px var(--line-3),0 6px 14px -6px rgba(0,0,0,.5)}
+.app:where([data-style="sketch"]) .rxp{background:var(--paper-bg)}
+.app:where([data-style="sketch"]) .rq{font-family:var(--f-hand);font-size:1.15em}
+.app:where([data-style="sketch"]) .more-msgs{background:transparent;border-style:dashed;border-color:var(--line-3)}
+/* the card's ruled line would cross the words on the small scene and board cards, which have no label above it */
+.app:where([data-style="sketch"]) .scene .icard::before,.app:where([data-style="sketch"]) .board .sasp .icard::before{display:none}
+/* contrast touch-ups found by the theme kit audit */
+.app:where([data-style="sketch"]) .cchip{background:var(--page-solid)}
+.app:where([data-style="sketch"]) .zone .zl i{opacity:1}
+.app:where([data-style="sketch"]) .ent small{color:var(--ink-2)}
+.app:where([data-style="sketch"]) .shr.shnew{opacity:1}
+.app:where([data-style="sketch"]) .shr.shnew small{color:var(--ink-3)}
+.app:where([data-style="sketch"]) .pcrow .tracks{color:var(--ink-3)}
