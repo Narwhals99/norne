@@ -254,7 +254,7 @@ function bind(v){
   root.addEventListener('pointerdown', e => down(v, e));
   /* iPhone Safari zooms the whole page on a pinch unless its own gesture events are stopped over the map */
   root.addEventListener('gesturestart', e => { if (e.target.closest('[data-mapcv]')) e.preventDefault(); });
-  root.addEventListener('wheel', e => { const cv = e.target.closest('[data-mapcv]'); if (cv) { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(v, Math.exp(-clamp(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY, -120, 120) * (e.ctrlKey ? .01 : .0018)), e.clientX - r.left, e.clientY - r.top); } }, {passive:false});
+  root.addEventListener('wheel', e => { const cv = e.target.closest('[data-mapcv]'); if (cv) { e.preventDefault(); const r = cv.getBoundingClientRect(); mapWheel(v, Math.exp(-clamp(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY, -120, 120) * (e.ctrlKey ? .01 : .0018)), e.clientX - r.left, e.clientY - r.top); } }, {passive:false});
   /* phones: swipes that follow the finger (see "swipes" below).
      In from the left edge, or across a page that has its own back arrow: one step back. At the top of a chat: the chat list,
      and pushing the list left puts it away. With a fight in this chat, swipe left for combat and right for roleplay. */
@@ -874,13 +874,32 @@ function applyMap(v){
   }
   clampT(v);
   const st = b.cv.querySelector('.mapst'), T = v.ui.mapT;
+  b.cv.classList.toggle('moving', !!(v._mapG || v._mapWheel));
   st.style.transform = `translate(${T.x}px,${T.y}px) scale(${T.k})`;
-  st.style.setProperty('--k', T.k);
+  /* pins and beacons keep their size on screen. Set on each one (not as a --k variable on the map, which restyled every
+     element inside every pin on every frame) */
+  if (st._k !== T.k) { st._k = T.k; const s = `scale(${1 / T.k})`; for (const el of st.querySelectorAll('.pin,.beacon')) el.style.transform = s; }
+}
+/* smooth zooming: a pinch or wheel sends many moves per frame. Each one used to restyle every pin and redraw the whole
+   map picture (with its colour filter) at the new size, so phones managed only a few frames a second. Now moves only
+   change the numbers and the map is drawn once per frame; while it moves (.moving) the picture is its own GPU layer that
+   is scaled as it is, and pins sit on their own layer, so nothing is redrawn until the fingers lift. */
+function mapFrame(v){
+  if (v._mapRaf) return;
+  v._mapRaf = requestAnimationFrame(() => { v._mapRaf = 0; applyMap(v); });
+}
+function mapStill(v){
+  if (v._mapRaf) { cancelAnimationFrame(v._mapRaf); v._mapRaf = 0; }
+  applyMap(v);
 }
 function zoomAt(v, f, px, py){
   const T = v.ui.mapT; if (!T) return;
   const k1 = T.k; T.k = clamp(T.k * f, kMin(v), Math.max(kMin(v) * 10, 1.6)); const r = T.k / k1;
-  T.x = px - (px - T.x) * r; T.y = py - (py - T.y) * r; applyMap(v);
+  T.x = px - (px - T.x) * r; T.y = py - (py - T.y) * r; mapFrame(v);
+}
+function mapWheel(v, f, px, py){
+  clearTimeout(v._mapWheel); v._mapWheel = setTimeout(() => { v._mapWheel = 0; mapStill(v); }, 200);
+  zoomAt(v, f, px, py);
 }
 /* one gesture at a time. A finger whose "up" never arrives (iPhone drops it when the map is redrawn under the finger,
    e.g. by live sync) used to stay in the list for good, so the next one-finger drag was read as a pinch against
@@ -899,17 +918,17 @@ function mapDown(v, e){
     if (pts.size >= 2) {
       const [a, b] = [...pts.values()], dist = Math.hypot(a.x - b.x, a.y - b.y), mid = {x:(a.x + b.x)/2, y:(a.y + b.y)/2};
       const p = g.pinch;
-      if (p && p.d > 0) { const r = cvr(); zoomAt(v, dist / p.d, mid.x - r.left, mid.y - r.top); T.x += mid.x - p.mx; T.y += mid.y - p.my; applyMap(v); }
+      if (p && p.d > 0) { const r = cvr(); zoomAt(v, dist / p.d, mid.x - r.left, mid.y - r.top); T.x += mid.x - p.mx; T.y += mid.y - p.my; mapFrame(v); }
       g.pinch = {d:dist, mx:mid.x, my:mid.y}; moved += 10; return;
     }
     g.pinch = null;
     const dx = ev.clientX - last.x, dy = ev.clientY - last.y; last = {x:ev.clientX, y:ev.clientY};
     moved += Math.abs(dx) + Math.abs(dy);
-    T.x += dx; T.y += dy; applyMap(v);
+    T.x += dx; T.y += dy; mapFrame(v);
   };
   const end = () => {
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
-    if (v._mapG === g) v._mapG = null;
+    if (v._mapG === g) { v._mapG = null; mapStill(v); }
   };
   const up = ev => {
     if (!pts.delete(ev.pointerId)) return;
@@ -919,6 +938,7 @@ function mapDown(v, e){
     if (moved > 6) { v.suppress = true; setTimeout(() => { v.suppress = false; }, 0); }
   };
   g = v._mapG = {pts, pinch:null, end};
+  v.root.querySelector('[data-mapcv]')?.classList.add('moving');
   window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
 }
 /* a place that opens a map (a country, a city, a neighborhood) goes straight to it; Back returns to the map it was on */
