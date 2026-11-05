@@ -387,11 +387,11 @@ function syncNow(){
       }
     }
     writeUnits('gm/npcs', asUnits(g.npcs.map(n => ({...n, occ:n.job || ''}))));
-    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev:g.rev || {}, hlocs:g.hlocs || {}});
+    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, hlocs:g.hlocs || {}});
     /* parts of a card the GM revealed to single players: each gets only their own parts (N.revealed) */
     for (const [id, by] of Object.entries(g.rev || {})) {
       const c = g.chars[id], n = !c && g.npcs.find(x => x.id === id), card = c && c.built ? c : n; if (!card) continue;
-      for (const [st, keys] of Object.entries(by)) if (keys.length && only[st] && st !== c?.player) only[st]['r:' + id] = N.revealed(card, !!c, keys);
+      for (const [st, keys] of Object.entries(by)) if (keys.length && only[st] && st !== c?.player) { const r = N.revealed(card, !!c, keys); if (r) only[st]['r:' + id] = r; }
     }
     if (LOADED.has('gm/news')) {
       /* pictures in an issue can be read by the same people as the issue */
@@ -525,6 +525,8 @@ function setMine(u){
   for (const [key, j] of Object.entries(u)) { const k = KIND[key[0]]; if (k && key[1] === ':') MINE[k][key.slice(2)] = j; }
   mergeView();
 }
+/* reveal lists from before names were their own part: everything already revealed keeps its name and picture */
+function revFrom1(j){ const r = j ? JSON.parse(j) : {}; for (const by of Object.values(r)) for (const st of Object.keys(by)) if (by[st].length) by[st] = [...new Set(['name', 'pic', ...by[st]])]; return r; }
 function normNpc(n){
   const v = N.stressVals(0);
   return Object.assign({race:'', job:n.occ || '', hc:'', trouble:'', aspects:[], skills:{}, magic:'', stunts:[], refresh:3, fp:3, bio:'', notes:'', type:'supporting', portrait:null,
@@ -658,7 +660,7 @@ async function start(role){
     'gm/maps': setMaps,
     'gm/wiki': u => { g.wiki = vals(u).sort(byO); },
     'gm/npcs': u => { g.npcs = vals(u).map(normNpc).sort((a,b) => a.name.localeCompare(b.name)); },
-    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev ? JSON.parse(u.rev) : {}; g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; },
+    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; },
     'game/news': u => { PUB.news = u; mergeView(); },
     'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
     'game/maps': u => { PUB.maps = u; mergeView(); },

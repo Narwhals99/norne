@@ -405,13 +405,13 @@ N.sheetHtml = function(v){
     const c = g.chars[arg], n = !c && g.npcs.find(x => x.id === arg), card = c || n; if (!card) return '';
     const seats = N.seats().filter(st => !c || st !== c.player);
     if (!seats.includes(v.ui.revSeat)) v.ui.revSeat = seats[0];
-    const st = v.ui.revSeat, keys = N.revOf(arg, st), parts = N.revParts(card, !!c), name = c ? c.short || c.name : n.name;
+    const st = v.ui.revSeat, keys = N.revKeys(card, N.revOf(arg, st)), parts = N.revParts(card, !!c), name = c ? c.short || c.name : n.name;
     if (!st) return sheet(`Reveal ${esc(name)}`, `<div class="quiet"><div class="art"></div><p>No other players yet.</p></div>`);
     const groups = [...new Set(parts.map(p => p.g))];
     const row = p => `<button type="button" class="revrow" data-a="revTog" data-v="${esc(p.k)}" aria-pressed="${keys.includes(p.k)}"><span class="rck">${IC('check')}</span><span><b>${esc(p.l)}</b><small>${esc(p.v)}</small></span></button>`;
     const body = `<div><h4>To</h4><div class="forwho" role="group" aria-label="Player">${seats.map(s2 => `<button type="button" data-a="revSeat" data-v="${s2}" aria-pressed="${s2 === st}">${N.av(N.personObj(s2),28)}${esc(pName(s2))}${N.revOf(arg, s2).length ? ` <span class="tag" style="height:16px">${N.revOf(arg, s2).length}</span>` : ''}</button>`).join('')}</div></div>
-      ${groups.map(gr => `<div class="revgrp"><h4>${gr}</h4>${parts.filter(p => p.g === gr).map(row).join('')}</div>`).join('')}
-      <div class="note">${IC('info')}${esc(pName(st))} sees ${esc(name)}’s name and picture, plus the parts ticked here, under Character. Nothing is posted in chat. Untick a part to hide it again.</div>`;
+      ${groups.map(gr => `<div class="revgrp${gr === 'Skills' || gr === 'Weapons and armor' ? ' tight' : ''}"><h4>${gr}</h4>${parts.filter(p => p.g === gr).map(row).join('')}</div>`).join('')}
+      <div class="note">${IC('info')}${keys.includes('name') ? `${esc(pName(st))} sees the parts ticked here under Character.` : `${esc(pName(st))} sees nothing about ${esc(name)} until you tick Name.`} Nothing is posted in chat, and adding someone to a scene never reveals them. Untick a part to hide it again.</div>`;
     const all = parts.length && parts.every(p => keys.includes(p.k));
     return sheet(`Reveal ${esc(name)}`, body, `<button type="button" class="btn ghost" data-a="revAll" data-v="${all ? '' : '1'}" style="flex:0 0 auto">${all ? 'Hide everything' : 'Reveal everything'}</button><button type="button" class="btn primary" data-a="closeSheet">${IC('check')}Done</button>`);
   }

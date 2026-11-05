@@ -1363,11 +1363,13 @@ function act(v, a, el, e){
   /* sheet reveals (GM) */
   case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; break;
   case 'revSeat': ui.revSeat = val; break;
+  /* a player's own note on someone they know: met them, or only heard of them (kept on the player's card) */
+  case 'metSet': { const me = N.charOf(v.role); if (!me || isGM(v)) break; me.met = me.met || {}; if (me.met[d.c] === val) delete me.met[d.c]; else me.met[d.c] = val; renderAll(); N.syncNow && N.syncNow(); return; }
   case 'revTog': case 'revAll': {
     const id = ui.sheetArg, st = ui.revSeat; if (!id || !st) break;
     g.rev = g.rev || {}; const by = g.rev[id] = g.rev[id] || {};
     const c = g.chars[id], card = c || g.npcs.find(x => x.id === id); if (!card) break;
-    let keys = by[st] || [];
+    let keys = N.revKeys(card, by[st] || []);
     if (a === 'revAll') keys = val ? N.revParts(card, !!c).map(p => p.k) : [];
     else keys = keys.includes(val) ? keys.filter(k => k !== val) : [...keys, val];
     if (keys.length) by[st] = keys; else delete by[st];
