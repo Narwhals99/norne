@@ -2205,3 +2205,13 @@
 .app .tokcard .tk-none{margin:0;font:600 12.5px/1.3 var(--f-ui)}
 .app .foe-sc{display:flex;align-items:center;gap:6px;font:600 12px/1.3 var(--f-ui);color:var(--gold-tx)}
 .app .foe-sc svg{width:13px;height:13px;flex:none}
+/* a player's Met / Heard of note on a character they know */
+.app .metseg{margin-top:10px;justify-self:start;width:max-content;max-width:100%}
+.app .metseg button svg{width:15px;height:15px}
+/* skills (every +0 one too) and gear ratings: small tiles side by side so the list stays short */
+.app .revgrp.tight{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+.app .revgrp.tight h4{grid-column:1/-1}
+.app .revgrp.tight .revrow{padding:7px 10px;gap:8px}
+.app .revgrp.tight .revrow b{font-size:13px}
+.app .revgrp.tight .revrow small{font-size:12px}
+.app .revgrp.tight .revrow .rck{width:18px;height:18px;border-radius:6px}

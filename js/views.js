@@ -829,44 +829,42 @@ function paperHtml(p, prev){
 /* ================= character / cast ================= */
 function heroPage(v){
   const g = G(), mine = N.charOf(v.role);
-  /* other players' cards are hidden: a player sees only what the GM revealed (G.known), and NPCs they were told about */
-  const others = N.pcs(), npcs = Object.values(g.known || {}).filter(k => !k.pc).sort((a, b) => a.name.localeCompare(b.name));
-  const selId = v.ui.charSel && (g.chars[v.ui.charSel] || g.known?.[v.ui.charSel]) ? v.ui.charSel : mine?.id;
-  const sel = g.chars[selId] || null, kn = !sel ? g.known?.[selId] : null;
+  /* a player sees their own card in full, and other characters (PCs and NPCs alike) only once the GM revealed their name */
+  const known = Object.values(g.known || {}).filter(k => k.name).sort((a, b) => a.name.localeCompare(b.name));
+  const selId = v.ui.charSel && g.known?.[v.ui.charSel]?.name ? v.ui.charSel : mine?.id;
+  const sel = selId === mine?.id ? mine : null, kn = !sel ? g.known?.[selId] : null;
   if (!sel && !kn) return `<div class="scroll" data-sk="hero" style="min-height:0">${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>Character</h1></div>` : ''}<div class="quiet"><div class="art"></div><p>No character yet.</p></div></div>`;
-  const own = sel && sel === mine;
-  const bag = N.heroBag(v) && own;
+  const bag = N.heroBag(v) && !!sel;
   if (bag && v.ui.heroInv) return heroInv(v, sel, mine);
-  const label = c => c.built ? c.short : pn(c), title = own ? 'My character' : sel ? esc(sel.built ? sel.short : pn(sel)) : esc(kn.name);
-  const chip = (id, avo, b, sm) => `<button type="button" class="pchip" data-a="charSel" data-v="${esc(id)}" aria-current="${id===selId}">${N.av(avo,36)}<span><b>${esc(b)}</b><small>${esc(sm)}</small></span></button>`;
-  const chips = [...[mine, ...others.filter(c => c !== mine)].filter(Boolean).map(c => chip(c.id, {name:label(c), portrait:c.built?c.portrait:null, color:c.color}, c===mine?'You':label(c), c===mine ? (c.built ? N.pcTag(c) : 'No card yet') : revCount(g.known?.[c.id]))),
-    ...npcs.map(k => chip(k.id, {name:k.name, portrait:k.portrait, color:'var(--c-npc)'}, k.name, revCount(k)))];
+  const met = (mine?.met || {});
+  const chip = (id, avo, b, sm) => `<button type="button" class="pchip" data-a="charSel" data-v="${esc(id)}" aria-current="${id===selId}">${N.av(avo,36)}<span><b>${esc(b)}</b><small>${sm}</small></span></button>`;
+  const chips = [...(mine ? [chip(mine.id, {name:mine.built ? mine.short : pn(mine), portrait:mine.built ? mine.portrait : null, color:mine.color}, 'You', mine.built ? N.emoText(N.marks(esc(N.pcTag(mine)))) : 'No card yet')] : []),
+    ...known.map(k => chip(k.id, {name:k.name, portrait:k.portrait, color:'var(--c-npc)'}, k.name, MET[met[k.id]] || 'Not marked'))];
   return `<div class="scroll" data-sk="hero" style="min-height:0">
-    ${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>${title}</h1>${bag && sel.built ? `<button type="button" class="btn sm" data-a="heroInv" data-v="1">${IC('bag')}Inventory${sel.inv?.length ? ` <span class="tag" style="height:16px">${sel.inv.length}</span>` : ''}</button>` : ''}</div>` : ''}
+    ${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>${sel ? 'My character' : esc(kn.name)}</h1>${bag && sel.built ? `<button type="button" class="btn sm" data-a="heroInv" data-v="1">${IC('bag')}Inventory${sel.inv?.length ? ` <span class="tag" style="height:16px">${sel.inv.length}</span>` : ''}</button>` : ''}</div>` : ''}
     <div class="sheetv">
       ${chips.length > 1 ? `<div class="party-row full">${chips.join('')}</div>` : ''}
-      ${own ? N.sheetBody(v, sel) : knownBody(v, sel, g.known?.[selId])}
+      ${sel ? N.sheetBody(v, sel) : knownBody(v, kn, met[kn.id])}
     </div></div>`;
 }
-const revCount = k => { if (!k) return 'Nothing revealed'; const n = (k.aspects?.length || 0) + (k.skills?.length || 0) + (k.stunts?.length || 0) + ['race','bio','people','cons','gear'].filter(x => k[x] != null).length; return n ? `${n} ${n === 1 ? 'thing' : 'things'} known` : 'Nothing revealed'; };
-/* someone else's card as a player sees it: the name and picture, and only the parts the GM revealed to them */
-function knownBody(v, c, k){
-  const name = k?.name || (c ? (c.built ? c.name : pn(c)) : ''), who = c ? `--who:${c.color}` : '--who:var(--c-npc)';
-  const av = N.av({name, portrait:k?.portrait ?? (c?.built ? c.portrait : null), color:c ? c.color : 'var(--c-npc)'}, 84);
-  const sub = [c ? `Played by ${pn(c)}` : 'Someone you know', k?.race, k?.age ? `Age ${k.age}` : ''].filter(Boolean).map(esc).join(' · ');
-  const hero = `<section class="pc-hero full" style="${who}">${av}<div style="min-width:0"><h2>${esc(name)}</h2><div class="by">${sub}</div></div></section>`;
-  const has = k && revCount(k) !== 'Nothing revealed';
-  if (!has) return hero + `<div class="quiet full"><div class="art"></div><p>${esc(N.gmName())} hasn’t shown you anything from ${esc(name)}’s card yet.</p></div>`;
+const MET = {met:'Met', heard:'Heard of'};
+/* someone else's card as a player sees it: only the parts the GM revealed. PCs and NPCs look exactly alike here */
+function knownBody(v, k, met){
+  const sub = [k.race, k.age ? `Age ${k.age}` : ''].filter(Boolean).map(esc).join(' · ');
+  const hero = `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:k.name, portrait:k.portrait || null, color:'var(--c-npc)'}, 84)}<div style="min-width:0"><h2>${esc(k.name)}</h2>${sub ? `<div class="by">${sub}</div>` : ''}
+    <div class="seg metseg" role="group" aria-label="How you know them">${Object.entries(MET).map(([x, l]) => `<button type="button" data-a="metSet" data-v="${x}" data-c="${esc(k.id)}" aria-pressed="${met === x}">${IC(x === 'met' ? 'hand' : 'chat')}${l}</button>`).join('')}</div></div></section>`;
   const sec = (h, body, full) => `<section class="sec${full ? ' full' : ''}"><h3>${h}</h3>${body}</section>`;
+  const tx = t => N.emoText(N.marks(esc(t)));
   const rungs = k.skills ? [...new Set(k.skills.map(x => x[1]))].sort((a, b) => b - a).map(x => [x, k.skills.filter(y => y[1] === x)]) : [];
-  return hero
-    + (k.aspects ? sec('Aspects', `<div class="asps">${asps(k.aspects.map(([i, a]) => [`Aspect ${i + 1}`, a]))}</div>`) : '')
+  const body = (k.aspects ? sec('Aspects', `<div class="asps">${asps(k.aspects.map(([i, a]) => [`Aspect ${i + 1}`, a]))}</div>`) : '')
     + (k.skills ? sec('Skills', `<div class="lad">${rungs.map(([x, ns]) => `<div class="rung${x < 0 ? ' neg' : ''}"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(([n, , d]) => `<button type="button" disabled>${esc(n)}${d?.length ? `<small style="color:var(--ink-3);font-weight:600">${esc(d.join(', '))}</small>` : ''}</button>`).join('')}</span></div>`).join('')}</div>`) : '')
     + (k.cons ? sec('Consequences', `<div class="cons">${k.cons.map(([l, r, val]) => `<div class="con"><span class="lv"><b>${esc(l)}</b>${esc(r)} shifts</span><span class="slot${val ? ' full' : ''}">${esc(val) || 'Empty'}</span></div>`).join('')}</div>`) : '')
-    + (k.gear ? sec('Weapons and armor', [['sword','Melee weapon'],['target','Ranged weapon'],['arrowR','Ranged ammo'],['shieldU','Armor']].map(([ic, l], i) => `<p class="gearln">${IC(ic)}${l} <b>${sgn(k.gear[i])}</b></p>`).join('')) : '')
-    + (k.stunts ? sec('Stunts', k.stunts.map(([n, d]) => `<div class="stunt"><b>${N.emoText(N.marks(esc(n)))}</b><p>${N.emoText(N.marks(esc(d)))}</p></div>`).join('')) : '')
-    + (k.bio != null ? sec('Bio', k.bio ? `<p style="margin:0;white-space:pre-line">${N.emoText(N.marks(esc(k.bio)))}</p>` : '<p class="muted">Nothing yet.</p>', true) : '')
-    + (k.people != null ? sec('Important people', k.people ? `<p style="margin:0;white-space:pre-line">${N.emoText(N.marks(esc(k.people)))}</p>` : '<p class="muted">Nothing yet.</p>') : '');
+    + (k.gear ? sec('Weapons and armor', k.gear.map(([gk, x]) => { const [, l, ic] = N.GEARK.find(y => y[0] === gk) || [gk, gk, 'sword']; return `<p class="gearln">${IC(ic)}${l} <b>${sgn(x)}</b></p>`; }).join('')) : '')
+    + (k.stunts ? sec('Stunts', k.stunts.map(([n, d]) => `<div class="stunt"><b>${tx(n)}</b><p>${tx(d)}</p></div>`).join('')) : '')
+    + (k.inv ? sec('Inventory', `<div class="inv">${k.inv.map(([n, q, d, ic]) => `<div class="it"><span class="ii">${IC(ic)}</span><span><b>${esc(n)}</b>${d ? `<small>${esc(d)}</small>` : ''}</span><span class="q">×${q}</span></div>`).join('')}</div>`) : '')
+    + (k.bio ? sec('Bio', `<p style="margin:0;white-space:pre-line">${tx(k.bio)}</p>`, true) : '')
+    + (k.people ? sec('Important people', `<p style="margin:0;white-space:pre-line">${tx(k.people)}</p>`) : '');
+  return hero + (body || `<div class="quiet full"><div class="art"></div><p>That’s all you know about ${esc(k.name)} so far.</p></div>`);
 }
 /* phone, player: the sheet's items open in their own view with a way back */
 N.heroBag = v => v.dev === 'phone' && !isGM(v) && v.ui.tab === 'hero';

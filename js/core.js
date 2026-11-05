@@ -442,33 +442,47 @@ N.metaPic = role => role === 'gm' ? N.G.gmPic || null : N.charOf(role)?.mpic || 
 /* a player card's aspects: older cards kept a high concept and trouble, newer ones just Aspect 1, 2, 3 */
 N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
 /* ---------- sheet reveals: the GM shows single parts of a PC's or NPC's card to chosen players ----------
-   G.rev = {cardId: {seat: [part keys]}} (GM only, gm/misc). Each player gets just what was revealed to them,
-   in their own only/<seat> as unit r:<cardId> (N.revealed), read back into G.known. Keys: a:<n> aspect n,
-   sk:<skill>, st:<stunt name>, about (race and age), bio, people, cons, gear. */
+   G.rev = {cardId: {seat: [part keys]}} (GM only, gm/misc unit rev2). Each player gets just what was revealed to them,
+   in their own only/<seat> as unit r:<cardId> (N.revealed), read back into G.known. A player sees a character only once
+   its name is revealed. Keys: name, pic, race, age, a:<n> aspect n, sk:<skill> (also +0 skills), st:<stunt name>,
+   cn:<slot> one consequence, g:<gear key> one rating, it:<item name> one inventory item, bio, people.
+   PCs and NPCs reach players in the same shape, so their cards look alike. */
+N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target'],['gearAmmo','Ranged ammo','arrowR'],['gearDef','Armor','shieldU']];
+N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 N.revParts = (c, pc) => {
   const out = [], add = (k, grp, l, v) => out.push({k, g:grp, l, v});
+  add('name', 'Who they are', 'Name', (c.name || c.short || '') + ' · needed before they see anything');
+  add('pic', 'Who they are', 'Picture', c.portrait ? 'Their portrait' : 'No picture yet');
+  add('race', 'Who they are', 'Race', c.race || 'Not set');
+  add('age', 'Who they are', 'Age', c.age ? 'Age ' + c.age : 'Not set');
   N.pcAspects(c).forEach((a, i) => add('a:' + i, 'Aspects', `Aspect ${i + 1}`, a));
-  Object.entries(c.skills || {}).sort((a, b) => b[1] - a[1]).forEach(([n, x]) => add('sk:' + n, 'Skills', n, sgn(x) + ' ' + ladderWord(x)));
+  N.revSkills(c).forEach(([n, x]) => add('sk:' + n, 'Skills', n, sgn(x) + ' ' + ladderWord(x)));
   (c.stunts || []).filter(([n, d]) => n || d).forEach(([n, d]) => add('st:' + (n || d), 'Stunts', n || 'Unnamed stunt', d));
-  if (c.race || c.age) add('about', 'More', 'Race and age', [c.race, c.age ? 'Age ' + c.age : ''].filter(Boolean).join(' · '));
-  if (c.bio) add('bio', 'More', 'Bio', c.bio);
-  if (pc && c.people) add('people', 'More', 'Important people', c.people);
-  add('cons', 'More', 'Consequences', Object.values(c.cons || {}).filter(Boolean).join(' · ') || 'None right now');
-  add('gear', 'More', 'Weapons and armor', ['gearAtk', 'gearRng', 'gearAmmo', 'gearDef'].map(k => sgn(+c[k] || 0)).join(' / '));
+  consSlots(c.skills || {}).forEach(sl => add('cn:' + sl.k, 'Consequences', `${sl.l} (${sl.lo}–${sl.hi} shifts)`, (c.cons || {})[sl.k] || 'Empty right now'));
+  N.GEARK.forEach(([k, l]) => add('g:' + k, 'Weapons and armor', l, sgn(+c[k] || 0)));
+  (c.inv || []).forEach(([n, q, d]) => add('it:' + n, 'Inventory', n, ['×' + q, d].filter(Boolean).join(' · ')));
+  add('bio', 'More', 'Bio', c.bio || 'Empty');
+  if (pc) add('people', 'More', 'Important people', c.people || 'Empty');
   return out;
 };
-/* what one player is told about a card: its name and picture, and only the parts in keys */
-N.revealed = (c, pc, keys) => {
-  const has = k => keys.includes(k), r = {id:c.id, pc, name:c.name || c.short || '', portrait:c.portrait || null};
-  if (pc) r.player = c.player;
+/* older reveal lists (before names were their own part) used about, cons and gear for whole groups */
+N.revKeys = (c, keys) => keys.flatMap(k => k === 'about' ? ['race', 'age'] : k === 'cons' ? consSlots(c.skills || {}).map(sl => 'cn:' + sl.k) : k === 'gear' ? N.GEARK.map(g => 'g:' + g[0]) : [k]);
+/* what one player is told about a card: only the parts in keys, nothing at all without the name */
+N.revealed = (c, pc, keys0) => {
+  const keys = N.revKeys(c, keys0), has = k => keys.includes(k);
+  if (!has('name')) return null;
+  const r = {id:c.id, name:c.name || c.short || ''};
+  if (has('pic') && c.portrait) r.portrait = c.portrait;
+  if (has('race') && c.race) r.race = c.race;
+  if (has('age') && c.age) r.age = c.age;
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
-  const sk = Object.entries(c.skills || {}).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;
+  const sk = N.revSkills(c).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;
   const st = (c.stunts || []).filter(([n, d]) => has('st:' + (n || d))); if (st.length) r.stunts = st;
-  if (has('about')) { r.race = c.race || ''; r.age = c.age || ''; }
-  if (has('bio')) r.bio = c.bio || '';
-  if (pc && has('people')) r.people = c.people || '';
-  if (has('cons')) r.cons = N.consSlots(c.skills || {}).map(sl => [sl.l, sl.lo + '–' + sl.hi, (c.cons || {})[sl.k] || '']);
-  if (has('gear')) r.gear = ['gearAtk', 'gearRng', 'gearAmmo', 'gearDef'].map(k => +c[k] || 0);
+  const cn = consSlots(c.skills || {}).filter(sl => has('cn:' + sl.k)).map(sl => [sl.l, sl.lo + '–' + sl.hi, (c.cons || {})[sl.k] || '']); if (cn.length) r.cons = cn;
+  const gr = N.GEARK.filter(([k]) => has('g:' + k)).map(([k]) => [k, +c[k] || 0]); if (gr.length) r.gear = gr;
+  const it = (c.inv || []).filter(([n]) => has('it:' + n)).map(([n, q, d, ic]) => [n, q, d || '', ic || 'bag']); if (it.length) r.inv = it;
+  if (has('bio') && c.bio) r.bio = c.bio;
+  if (pc && has('people') && c.people) r.people = c.people;
   return r;
 };
 N.revOf = (id, seat) => ((N.G.rev || {})[id] || {})[seat] || [];
