@@ -1597,6 +1597,8 @@ function act(v, a, el, e){
   case 'cbQuickZones': N.cbQuickZones(); ui.cbTool = 'move'; renderAll(); return;
   case 'cbInvite': { const i = cb.invited.indexOf(val); if (i >= 0) { cb.invited.splice(i, 1); cb.tokens = cb.tokens.filter(t => !(t.kind === 'pc' && t.ref === val)); } else { cb.invited.push(val); cb.tokens.push(N.tokFromPc(g.chars[val])); N.cbPlacePcs(); } renderAll(); return; }
   case 'cbAddNpc': { const t = N.cbAddNpc(val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
+  case 'cbAddOnce': { const t = N.cbAddOnce(val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
+  case 'foeAll': ui.foeAll = !ui.foeAll; break;
   case 'cbAddFoe': { const t = N.cbAddFoe(+val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
   case 'cbStart': if (N.fightBlocked && N.fightBlocked(cb.ch)) { toast(v, 'To run a fight in a private chat, publish the new security rules first: paste firestore.rules into Firebase > Firestore > Rules, press Publish, then reload.'); break; } N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, 'The fight is on. Roll Notice to see who goes first.'); renderAll(); return;
   case 'cbCancelSetup': g.combat = N.freshCombat(); ui.fightPane = 'chat'; ui.fightOpen = true; ui.zoneSel = null; toast(v, 'Fight setup thrown away.'); renderAll(); return;

@@ -309,6 +309,22 @@ N.tokFpPool = t => {
   if (t.type === 'nameless') return null;
   const n = g.npcs.find(x => x.id === t.ref); return n ? {o:n, name:n.name} : null;
 };
+/* the card a fighter's stunts and inventory come from: the PC's character card, or the NPC card a token was made from
+   (nameless copies too). Built-earlier foes and one-off scene NPCs have none. The GM sees every fighter's;
+   a player sees only their own character's (other sheets stay hidden, as on the Character tab). */
+N.tokKitSrc = (v, t) => {
+  const g = G();
+  if (t.kind === 'pc') { const c = g.chars[t.ref]; return c && (isGM(v) || N.isMine(t, v.role)) ? c : null; }
+  return isGM(v) ? g.npcs.find(n => n.id === t.ref) || null : null;
+};
+N.tokKit = (v, t) => {
+  const c = N.tokKitSrc(v, t); if (!c) return '';
+  const st = (c.stunts || []).filter(x => x && (x[0] || '').trim()), inv = c.inv || [], note = (c.invText || '').trim();
+  const fmt = x => N.emoText(N.marks(esc(x)));
+  const stHtml = st.length ? st.map(([n, d]) => `<div class="tk-st"><b>${fmt(n)}</b>${d ? `<p>${fmt(d)}</p>` : ''}</div>`).join('') : '<p class="muted tk-none">No stunts.</p>';
+  const invHtml = inv.length || note ? `${inv.map(([n, q, d, ic]) => `<div class="tk-it"><span class="ii">${IC(ic || 'bag')}</span><span><b>${fmt(n)}</b>${d ? `<small>${fmt(d)}</small>` : ''}</span><span class="q">×${q}</span></div>`).join('')}${note ? `<p class="tk-note">${fmt(note)}</p>` : ''}` : '<p class="muted tk-none">Nothing carried.</p>';
+  return `<div class="tok-kit"><section><h4>Stunts${st.length ? ` <span class="tag">${st.length}</span>` : ''}</h4>${stHtml}</section><section><h4>Inventory${inv.length ? ` <span class="tag">${inv.length}</span>` : ''}</h4>${invHtml}</section></div>`;
+};
 /* token detail: side panel on desktop, sheet on phone */
 N.tokCard = function(v, t){
   const g = G(), gm = isGM(v), o = N.tokObj(t), z = N.zoneOf(t), st = N.tokStress(t);
@@ -337,6 +353,7 @@ N.tokCard = function(v, t){
       ${t.init != null ? `<span>Turn roll</span><span>Notice ${sgn(N.tokNotice(t))}, rolled ${sgn(t.init)} ${ladderWord(t.init)}</span>` : ''}
       ${gm ? `<span>Gear</span><span style="display:flex;gap:8px;flex-wrap:wrap">${N.GEARS.map(([k,l]) => `<label class="field" style="flex:1;min-width:110px"><span>${l}</span>${N.gearSelect(`tg${k}-${t.id}-${v.id}`, `data-i="tokGear" data-k="${k}" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, N.tokGear(t, k))}</label>`).join('')}</span>` : N.GEARS.some(([k]) => N.tokGear(t, k)) ? `<span>Gear</span><span>${N.GEARS.map(([k,l]) => `${l} ${sgn(N.tokGear(t, k))}`).join(' · ')}</span>` : ''}
     </div>
+    ${N.tokKit(v, t)}
     ${gm ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
       ${t.kind==='npc'?`<button type="button" class="btn sm" data-a="voice" data-v="${esc(t.name.replace(/ \d+$/,''))}" data-go="side">${IC('chatL')}Speak as</button><button type="button" class="btn sm" data-a="roll" data-who="tok:${t.id}">${N.fateDie}Roll</button>`:''}
       ${G().combat.state==='live' && !t.out ? `<button type="button" class="btn sm" data-a="tokTurn" data-t="${t.id}">${IC('play')}Give them the turn</button>`:''}
@@ -434,7 +451,7 @@ N.setupPanel = function(v){
         ${cb.zones.length ? `<div class="zlist">${cb.zones.map(z => `<div class="zi" style="--zc:${z.col}${v.ui.zoneSel===z.id?';box-shadow:inset 0 0 0 1.5px var(--gold)':''}"><i></i><span>${esc(z.name)}${z.aspect?`<small>${esc(z.aspect)}</small>`:''}</span><button type="button" class="ibtn sm" data-a="zoneEdit" data-v="${z.id}" aria-label="Edit ${esc(z.name)}">${IC('pen')}</button></div>`).join('')}</div>` : ''}
         ${zs && v.dev==='desktop' ? zoneForm(v, zs) : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm ${(v.ui.cbTool||'move')==='zone'?'primary':''}" data-a="cbTool" data-v="${(v.ui.cbTool||'move')==='zone'?'move':'zone'}">${IC('zone')}${(v.ui.cbTool||'move')==='zone'?'Done drawing':'Draw zones'}</button>${cb.zones.length?'':`<button type="button" class="btn sm ghost" data-a="cbQuickZones">${IC('sparkle')}Quick: 3 zones</button>`}</div>`)}
-      ${step(4, cb.tokens.some(t => t.kind === 'npc'), 'Enemies and allies', `${N.foeList(false)}<button type="button" class="btn sm ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>`)}
+      ${step(4, cb.tokens.some(t => t.kind === 'npc'), 'Enemies and allies', `${N.foeList(false, v)}<button type="button" class="btn sm ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>`)}
       ${step(5, tray.length === 0 && placed.length > 0, 'Place everyone', `<small>${tray.length ? 'Drag onto a zone, or tap a token and then a zone.' : placed.length ? 'Everyone is on the board. Drag tokens to rearrange.' : (cb.ch === 'gm' ? 'Add NPCs first.' : 'Invite players or add foes first.')}</small>
         <div class="tray" data-tray="1">${tray.length ? tray.map(t => tokHtml(v, t)).join('') : '<span class="empty">Nobody waiting</span>'}</div>`)}
     </div>
@@ -456,11 +473,28 @@ N.zoneForm = zoneForm;
 /* ---------- state changes ---------- */
 const sys = text => Object.assign(N.sys(text, N.fightCh()), {fight:true});
 /* NPC cards and the enemies built in the old "Add enemies" form, ready to drop into a fight */
-N.foeList = place => {
-  const g = G(), row = (av, name, sub, a, id) => `<div class="zi" style="padding:5px 5px 5px 6px">${av}<span>${esc(name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span><button type="button" class="btn sm" data-a="${a}" data-v="${id}" data-side="foe"${place?' data-place="1"':''} style="--h:30px">${IC('plus')}Foe</button><button type="button" class="btn sm ghost" data-a="${a}" data-v="${id}" data-side="ally"${place?' data-place="1"':''} style="--h:30px">Ally</button></div>`;
-  const list = g.npcs.map(n => row(N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},30), n.name, n.type==='nameless'?'Nameless':(N.pcTag(n) || 'Supporting'), 'cbAddNpc', n.id))
-    .concat(g.foes.map((f,i) => row(N.av({name:f.name,color:'var(--c-foe)'},30), f.name, `${f.type==='nameless'?'Nameless':'Supporting'} · built earlier`, 'cbAddFoe', i)));
-  return list.length ? `<div class="zlist">${list.join('')}</div>` : '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No NPC cards yet.</p>';
+/* While the fight's chat has a scene up, only the NPCs the GM put in that scene (and its one-off NPCs) are listed;
+   "Everyone else" opens the rest. No scene up lists every NPC card, as before. */
+N.foeList = (place, v) => {
+  const g = G(), ch = N.fightCh(), up = !!g.scenes[ch], cast = up ? N.castOf(ch) || [] : [], all = !up || !!(v && v.ui.foeAll);
+  const row = (av, name, sub, a, id) => `<div class="zi" style="padding:5px 5px 5px 6px">${av}<span>${esc(name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span><button type="button" class="btn sm" data-a="${a}" data-v="${esc(id)}" data-side="foe"${place?' data-place="1"':''} style="--h:30px">${IC('plus')}Foe</button><button type="button" class="btn sm ghost" data-a="${a}" data-v="${esc(id)}" data-side="ally"${place?' data-place="1"':''} style="--h:30px">Ally</button></div>`;
+  const npcRow = n => row(N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},30), n.name, n.type==='nameless'?'Nameless':(N.pcTag(n) || 'Supporting'), 'cbAddNpc', n.id);
+  const inScene = g.npcs.filter(n => cast.includes(n.name)), rest = g.npcs.filter(n => !cast.includes(n.name));
+  const once = up ? N.extrasOf(ch).map(x => row(N.av({name:x.name,color:'var(--c-npc)'},30), x.name, 'One-off · this scene', 'cbAddOnce', x.id)) : [];
+  const foes = g.foes.map((f,i) => row(N.av({name:f.name,color:'var(--c-foe)'},30), f.name, `${f.type==='nameless'?'Nameless':'Supporting'} · built earlier`, 'cbAddFoe', i));
+  const list = (up ? [...inScene.map(npcRow), ...once] : []).concat(all ? [...(up ? rest : g.npcs).map(npcRow), ...foes] : []);
+  const hid = rest.length + foes.length;
+  const more = up && hid ? `<button type="button" class="btn sm ghost morewho" data-a="foeAll" aria-pressed="${all}">${IC(all ? 'minus' : 'users')}${all ? 'Only who’s in the scene' : `Everyone else (${hid})`}</button>` : '';
+  const head = up ? `<small class="foe-sc">${IC('flag')}From the scene${g.scenes[ch].title ? `: ${esc(g.scenes[ch].title)}` : ''}</small>` : '';
+  const empty = up ? 'Nobody is in this scene yet. Add NPCs in the scene sheet, or open everyone else.' : 'No NPC cards yet.';
+  return `${head}${list.length ? `<div class="zlist">${list.join('')}</div>` : `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${empty}</p>`}${more}`;
+};
+/* a one-off scene NPC (name + skills, no card) dropped into the fight */
+N.cbAddOnce = function(id, side, zone){
+  const g = G(), cb = g.combat, x = N.extrasOf(N.fightCh()).find(e => e.id === id); if (!x) return null;
+  const same = cb.tokens.filter(t => t.ref === 'once:' + id).length;
+  const t = N.tokFromNpc({id:'once:' + id, name:x.name, type:'supporting', skills:x.skills || {}}, side, same ? `${x.name} ${same + 1}` : null);
+  t.zone = zone || null; cb.tokens.push(t); N.cbLateInit(t); return t;
 };
 N.cbBegin = function(ch){
   ch = ch || 'table'; N.focusFight(ch);
