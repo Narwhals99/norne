@@ -2214,6 +2214,11 @@
 /* a player's Met / Heard of note on a character they know */
 .app .metseg{margin-top:10px;justify-self:start;width:max-content;max-width:100%}
 .app .metseg button svg{width:15px;height:15px}
+.app .revgrp .metseg{margin-top:2px}
+.app .metnote{display:block;margin-top:6px;color:var(--ink-3);font:600 12px/1.35 var(--f-ui)}
+/* a player's read-only Met / Heard of, set by the GM */
+.app .metbadge{display:inline-flex;align-items:center;gap:6px;margin-top:10px;height:28px;padding:0 11px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 13px/1 var(--f-ui);color:var(--ink-2)}
+.app .metbadge svg{width:15px;height:15px}
 /* skills (every +0 one too) and gear ratings: small tiles side by side so the list stays short */
 .app .revgrp.tight{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .app .revgrp.tight h4{grid-column:1/-1}

@@ -512,7 +512,8 @@ N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
    in their own only/<seat> as unit r:<cardId> (N.revealed), read back into G.known. A player sees a character only once
    its name is revealed. Keys: name, pic, race, age, a:<n> aspect n, sk:<skill> (also +0 skills), st:<stunt name>,
    cn:<slot> one consequence, g:<gear key> one rating, it:<item name> one inventory item, bio, people.
-   PCs and NPCs reach players in the same shape, so their cards look alike. */
+   PCs and NPCs reach players in the same shape, so their cards look alike.
+   How the player's character knows them is set by the GM too, as one more key: met:met (Met) or met:heard (Heard of). */
 N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target'],['gearAmmo','Ranged ammo','arrowR'],['gearDef','Armor','shieldU']];
 N.GOLD_MAX = 9999999; /* Gold on a card: whole numbers 0 to this, 7 digits like the box allows */
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
@@ -550,10 +551,15 @@ N.revealed = (c, pc, keys0) => {
   const it = (c.inv || []).filter(([n]) => has('it:' + n)).map(([n, q, d, ic]) => [n, q, d || '', ic || 'bag']); if (it.length) r.inv = it;
   if (has('bio') && c.bio) r.bio = c.bio;
   if (pc && has('people') && c.people) r.people = c.people;
+  const mt = N.metOf(keys); if (mt) r.met = mt;
   return r;
 };
 N.revOf = (id, seat) => ((N.G.rev || {})[id] || {})[seat] || [];
-N.revSeats = id => Object.entries((N.G.rev || {})[id] || {}).filter(([, l]) => l.length).map(([s]) => s);
+/* Met / Heard of lives in the same list; it is not a card part, so counts and Reveal everything leave it alone */
+N.MET = {met:'Met', heard:'Heard of'};
+N.metOf = keys => { const k = (keys || []).find(x => x.startsWith('met:')); return k ? k.slice(4) : ''; };
+N.revCount = (id, seat) => N.revOf(id, seat).filter(k => !k.startsWith('met:')).length;
+N.revSeats = id => Object.entries((N.G.rev || {})[id] || {}).filter(([, l]) => l.some(k => !k.startsWith('met:'))).map(([s]) => s);
 N.pcTag = c => N.pcAspects(c)[0] || '';
 
 /* ---------- combat helpers ---------- */
