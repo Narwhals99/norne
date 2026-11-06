@@ -88,6 +88,16 @@ function fzSet(v){
 const fzInline = v => { if (fzSheets) v.root.querySelectorAll('[style*="px"]').forEach(e => fzDecl(e.style)); };
 
 const HS = '.hscroll,.who-row,.fight-order,.chips,.ladder-chips,.party-row,.thumbs';
+/* desktop: a sideways row that doesn't fit (the character chips) gets ‹ › arrows at its ends, shown only while there is more that way */
+function hsArrows(root){
+  root.querySelectorAll('.hsw').forEach(w => {
+    const r = w.querySelector(HS); if (!r) return;
+    const max = r.scrollWidth - r.clientWidth;
+    w.classList.toggle('can-l', r.scrollLeft > 2);
+    w.classList.toggle('can-r', r.scrollLeft < max - 2);
+  });
+}
+const hsEl = t => { const r = t.closest?.(HS); return r && r.scrollWidth > r.clientWidth + 1 ? r : null; };
 function render(v){
   const root = v.root;
   if (!root.isConnected) return;
@@ -131,6 +141,7 @@ function render(v){
   v.ui.stick = false;
   if (focus) { const f = root.querySelector('#' + CSS.escape(focus.id)); if (f) { f.focus({preventScroll:true}); try { if (focus.s != null) f.setSelectionRange(focus.s, focus.e); } catch(e){} } }
   const ta = root.querySelector('.composer textarea'); if (ta) grow(ta);
+  hsArrows(root);
   if (v.ui.tab === 'map') applyMap(v);
   if (v.ui.fresh) setTimeout(() => { v.ui.fresh = null; }, 900);
   if (N.onRender) N.onRender(v);
@@ -227,6 +238,8 @@ function bind(v){
     /* lifting the finger after a long-press must not also tap the menu that opened under it
        (the pressed message was redrawn, so its touchend never reaches us) */
     if (v.lpHold) { v.lpHold = false; e.preventDefault(); return; }
+    const ha = e.target.closest('[data-hs]');
+    if (ha) { const r = ha.parentElement.querySelector(HS); if (r) r.scrollBy({left:+ha.dataset.hs * Math.max(120, r.clientWidth * .7), behavior:'smooth'}); return; }
     const a = e.target.closest('[data-a]');
     if (a && root.contains(a)) {
       if (a.disabled) return; e.preventDefault();
@@ -252,7 +265,16 @@ function bind(v){
     if (e.key === 'Enter' && e.target.dataset.i === 'gold') { e.preventDefault(); e.target.blur(); }
     if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
-  root.addEventListener('pointerdown', e => down(v, e));
+  root.addEventListener('pointerdown', e => { hsDrag(v, e); down(v, e); });
+  /* mouse wheel over a sideways row that doesn't fit scrolls it sideways (until its end, then the page scrolls as usual) */
+  root.addEventListener('wheel', e => {
+    if (e.ctrlKey || TOUCH.matches) return;
+    const r = hsEl(e.target); if (!r || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    const d = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY, max = r.scrollWidth - r.clientWidth;
+    if ((d < 0 && r.scrollLeft <= 0) || (d > 0 && r.scrollLeft >= max - 1)) return;
+    e.preventDefault(); r.scrollLeft += d;
+  }, {passive:false});
+  root.addEventListener('scroll', e => { if (e.target.matches?.(HS) && e.target.parentElement?.classList.contains('hsw')) hsArrows(root); }, true);
   /* iPhone Safari zooms the whole page on a pinch unless its own gesture events are stopped over the map */
   root.addEventListener('gesturestart', e => { if (e.target.closest('[data-mapcv]')) e.preventDefault(); });
   root.addEventListener('wheel', e => { const cv = e.target.closest('[data-mapcv]'); if (cv) { e.preventDefault(); const r = cv.getBoundingClientRect(); mapWheel(v, Math.exp(-clamp(e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY, -120, 120) * (e.ctrlKey ? .01 : .0018)), e.clientX - r.left, e.clientY - r.top); } }, {passive:false});
@@ -795,6 +817,19 @@ function zoneClick(v, zid){
 const zoneAt = (px, py) => { const zs = G().combat.zones; for (let i = zs.length - 1; i >= 0; i--) { const z = zs[i]; if (px >= z.x && px <= z.x + z.w && py >= z.y && py <= z.y + z.h) return z; } return null; };
 
 /* ---------------- pointer: drag tokens, draw zones, pan the map ---------------- */
+/* desktop: grab a sideways row with the mouse and drag it; a real drag doesn't also click the chip under the mouse */
+function hsDrag(v, e){
+  if (e.pointerType !== 'mouse' || e.button !== 0) return;
+  const r = hsEl(e.target); if (!r || e.target.closest('input,textarea,select,.tok,[data-hs]')) return;
+  const x0 = e.clientX, l0 = r.scrollLeft; let moved = false;
+  const move = ev => { const dx = ev.clientX - x0; if (!moved && Math.abs(dx) < 6) return; if (!moved) { moved = true; r.classList.add('grabbing'); } r.scrollLeft = l0 - dx; };
+  const up = () => {
+    window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
+    r.classList.remove('grabbing');
+    if (moved) { v.suppress = true; setTimeout(() => { v.suppress = false; }, 0); }
+  };
+  window.addEventListener('pointermove', move); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+}
 function down(v, e){
   if (e.button && e.button !== 0) return;
   const g = G(), cb = g.combat, gm = isGM(v);
@@ -1018,7 +1053,7 @@ function addPinAt(v, e){
   setTimeout(() => { const f = v.root.querySelector(`#pinl-${v.id}`); if (f) { f.focus(); f.select(); } }, 30);
 }
 N.curMap = curMap;
-window.addEventListener('resize', () => { clearTimeout(window._mr); window._mr = setTimeout(() => views.forEach(v => { if (v.ui.tab === 'map') applyMap(v); }), 120); });
+window.addEventListener('resize', () => { clearTimeout(window._mr); window._mr = setTimeout(() => views.forEach(v => { hsArrows(v.root); if (v.ui.tab === 'map') applyMap(v); }), 120); });
 
 /* ---------------- popovers ---------------- */
 function openPop(v, type, el){
@@ -1487,7 +1522,7 @@ function act(v, a, el, e){
     ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
   }
   /* character + cast */
-  case 'charSel': ui.charSel = val; break;
+  case 'charSel': ui.charSel = val; render(v); v.root.querySelector('.party-row [aria-current="true"]')?.scrollIntoView({block:'nearest', inline:'nearest', behavior:'smooth'}); return;
   /* sheet reveals (GM) */
   case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; ui.askRev = {id:val, base:JSON.parse(JSON.stringify((g.rev || {})[val] || {}))}; break;
   case 'revSeat': ui.revSeat = val; break;

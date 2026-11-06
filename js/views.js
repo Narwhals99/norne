@@ -857,7 +857,7 @@ function heroPage(v){
   return `<div class="scroll" data-sk="hero" style="min-height:0">
     ${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>${sel ? 'My character' : esc(kn.name)}</h1>${bag && sel.built ? `<button type="button" class="btn sm" data-a="heroInv" data-v="1">${IC('bag')}Inventory${sel.inv?.length ? ` <span class="tag" style="height:16px">${sel.inv.length}</span>` : ''}</button>` : ''}</div>` : ''}
     <div class="sheetv">
-      ${chips.length > 1 ? `<div class="party-row full">${chips.join('')}</div>` : ''}
+      ${chips.length > 1 ? `<div class="hsw full"><button type="button" class="hsa l" data-hs="-1" aria-label="Scroll left" tabindex="-1">${IC('left')}</button><div class="party-row">${chips.join('')}</div><button type="button" class="hsa r" data-hs="1" aria-label="Scroll right" tabindex="-1">${IC('right')}</button></div>` : ''}
       ${sel ? N.sheetBody(v, sel) : knownBody(v, kn)}
     </div></div>`;
 }
