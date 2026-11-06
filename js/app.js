@@ -129,6 +129,7 @@ function render(v){
   });
   [...root.querySelectorAll(HS)].forEach((e,i) => { if (hs[i]) e.scrollLeft = hs[i]; });
   v.ui.stick = false;
+  { const ml = root.querySelector('.chat > .msgs[data-sk="msgs"]'); if (ml) pastCheck(v, ml); else if (v.ui.past && v.ui.tab !== 'chat') v.ui.past = null; }
   if (focus) { const f = root.querySelector('#' + CSS.escape(focus.id)); if (f) { f.focus({preventScroll:true}); try { if (focus.s != null) f.setSelectionRange(focus.s, focus.e); } catch(e){} } }
   const ta = root.querySelector('.composer textarea'); if (ta) grow(ta);
   if (v.ui.tab === 'map') applyMap(v);
@@ -165,9 +166,50 @@ N.toast = toast;
 
 const local = (v, cx, cy) => { const r = v.root.getBoundingClientRect(); return {x:cx - r.left, y:cy - r.top, s:1}; };
 
+/* ---------------- the scene at the time ----------------
+   Scrolled back through a chat (or jumped to an old message), the banner shows the scene those messages were said in.
+   The message on a line 40% down the list decides; back at the bottom the live scene returns. Only the banner is swapped,
+   so a phone's flick keeps gliding. */
+function pastCheck(v, el){
+  const ui = v.ui, ch = ui.ch, g = G();
+  let ref = null;
+  if (v._jump && performance.now() - v._jump.t < 1400 && v._jump.ch === ch) ref = v._jump.id;
+  else if (el.scrollHeight - el.scrollTop - el.clientHeight >= 60) {
+    const top = el.getBoundingClientRect().top;
+    /* the line is measured once per chat height while live, so a banner growing or shrinking can't flip it back and forth */
+    if (!ui.past || ui.past.ch !== ch || !v._line) v._line = Math.max(40, el.clientHeight * .4);
+    const at = top + v._line;
+    for (const e of el.querySelectorAll(':scope > [data-mid], :scope > [data-scn], :scope > .mw > [data-scn]')) {
+      if (e.getBoundingClientRect().top > at) break;
+      ref = e.dataset.mid || e.dataset.scn;
+    }
+  }
+  const live = g.scenes[ch], key = s => s ? s.msg : '';
+  let next = null;
+  if (ref) { const sc = N.sceneAt(ch, ref); if (sc !== undefined && key(sc) !== key(live)) next = {ch, ref, key:key(sc)}; }
+  const was = ui.past && ui.past.ch === ch ? ui.past.key : null;
+  if (next && ui.past && ui.past.ch === ch) ui.past.ref = next.ref;
+  if ((next ? next.key : null) === was) { if (!next && ui.past && ui.past.ch !== ch) ui.past = null; return; }
+  ui.past = next;
+  /* swap only the banner */
+  const box = el.parentElement, old = box && box.querySelector(':scope > .scene'), html = N.sceneNow(v);
+  const t = document.createElement('div'); t.innerHTML = html;
+  const neu = t.firstElementChild;
+  if (neu) neu.classList.add('swap');
+  if (old && neu) old.replaceWith(neu); else if (old) old.remove();
+  else if (neu && box) box.insertBefore(neu, box.querySelector(':scope > .fightbar') || el);
+}
+N.pastCheck = pastCheck;
+
 /* ---------------- binding ---------------- */
 function bind(v){
   const root = v.root;
+  { let raf = 0, tgt = null;
+    root.addEventListener('scroll', e => { const el = e.target; if (!el.matches || !el.matches('.chat > .msgs[data-sk="msgs"]')) return; tgt = el;
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (tgt && tgt.isConnected) pastCheck(v, tgt); }); }, true);
+    /* a finger or wheel on the chat takes over from a jump that is still gliding */
+    const mine = e => { if (v._jump && e.target.closest && e.target.closest('.chat > .msgs')) v._jump = null; };
+    root.addEventListener('wheel', mine, {passive:true}); root.addEventListener('touchstart', mine, {passive:true}); }
   /* the speak-as picker must not close the phone keyboard: taps on it never take focus from the message box */
   const KB = '.composer .voice,.composer .emob,.composer .replying button,.pop .opt[data-a="voice"],.pop .emo,.scrim[data-a="closePop"]';
   const typing = () => document.activeElement && document.activeElement.matches('.composer textarea');
@@ -1110,6 +1152,7 @@ function act(v, a, el, e){
   case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {} break;
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;
+  case 'sceneLive': { v._jump = null; const ml = v.root.querySelector('.chat > .msgs[data-sk="msgs"]'); if (ml) ml.scrollTo({top:ml.scrollHeight, behavior:'smooth'}); return; }
   case 'fold': ui.folded.set(d.id, !d.f); break;
   case 'send': send(v); return;
   case 'fcSend': fcSend(v); return;
@@ -1267,7 +1310,9 @@ function act(v, a, el, e){
     /* an answered message older than what is drawn: draw back to it first */
     if (!w && g.msgs.some(m => m.id === val && m.ch === ui.ch)) { const i = g.msgs.filter(m => m.ch === ui.ch).findIndex(m => m.id === val), n = g.msgs.filter(m => m.ch === ui.ch).length; (ui.more = ui.more || {})[ui.ch] = Math.max(N.msgWin(v), n - i + 20); render(v); w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`); }
     if (!w) { toast(v, 'That message isn’t in this chat any more.'); break; }
-    w.scrollIntoView({block:'center', behavior:'smooth'}); w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash'); setTimeout(() => w.classList.remove('flash'), 2400); return; }
+    w.scrollIntoView({block:'center', behavior:'smooth'});
+    { const ml = w.closest('.msgs'); v._jump = {id:val, ch:ui.ch, t:performance.now()}; if (ml) pastCheck(v, ml); setTimeout(() => { if (v._jump && v._jump.id === val) { v._jump = null; if (ml && ml.isConnected) pastCheck(v, ml); } }, 1500); }
+    w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash'); setTimeout(() => w.classList.remove('flash'), 2400); return; }
   case 'emoIns': { const ta = v.root.querySelector('.composer textarea'), t = val.startsWith(':') ? val + ' ' : val;
     const a = ta ? ta.selectionStart ?? ui.draft.length : ui.draft.length, b = ta ? ta.selectionEnd ?? a : a;
     ui.draft = ui.draft.slice(0, a) + t + ui.draft.slice(b); ui.pop = null; render(v);

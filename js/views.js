@@ -198,7 +198,7 @@ function chatView(v, side){
   const chipRow = (!side && fa) ? `<div class="chname-row only-ph"><button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b></span>${IC('caret')}</button></div>` : '';
   return `<section class="chat" aria-label="${esc(N.chName(ch, v.role))}">
     ${side ? '' : topPh}${chipRow}${topDt}
-    ${side ? '' : sceneBanner(v, sc, ch)}
+    ${side ? '' : N.sceneNow(v)}
     <div class="msgs scroll" id="msgs-${v.id}" data-sk="msgs" data-bottom="1">${fightbar && side ? '' : ''}${renderMsgs(v, side)}</div>
     ${fightbar && !side ? '' : ''}
     ${composer(v)}
@@ -216,23 +216,37 @@ N.sceneArt = (sc) => {
 };
 /* a scene's own picture (not a map place) sits inside its box as a framed layer */
 N.scenePic = sc => sc && !sc.place ? N.bgPic(sc.art) : '';
-function sceneBanner(v, sc, ch){
+/* the scene that was up when a message was said: the newest scene line at or before it in its chat.
+   Before the chat's first scene, or after one ended, there was none (null). Scenes have always been chat lines, so old chats work too */
+N.sceneAt = (ch, id) => {
+  const ms = G().msgs, i = ms.findIndex(m => m.id === id); if (i < 0) return undefined;
+  for (let j = i; j >= 0; j--) { const m = ms[j]; if (m.ch === ch && m.kind === 'scene') return m.scene ? Object.assign({msg:m.id}, m.scene) : null; }
+  return null;
+};
+/* the banner over the chat: the live scene, or while scrolled back through older messages the scene they were said in */
+N.sceneNow = v => {
+  const ch = v.ui.ch, p = v.ui.past && v.ui.past.ch === ch ? v.ui.past : null;
+  if (p) { const sc = N.sceneAt(ch, p.ref); if (sc !== undefined) return sceneBanner(v, sc, ch, true); }
+  return sceneBanner(v, G().scenes[ch], ch);
+};
+function sceneBanner(v, sc, ch, past){
   const gm = isGM(v), priv = ch.startsWith('dm-') || ch.startsWith('grp-');
+  if (!sc && past) return '';
   if (!sc) {
     if (!gm || ch === 'gm') return '';
     return `<section class="scene empty"><div class="in" style="grid-template-columns:auto 1fr auto;display:grid;align-items:center;gap:12px"><span class="cic" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);color:var(--gold-tx)">${IC('image')}</span><h2>No scene in this chat yet</h2><button type="button" class="btn sm primary" data-a="sheet" data-v="scene">Set the scene</button></div></section>`;
   }
   const min = v.ui.sceneMin;
   const onlyWho = !priv ? '' : ch.startsWith('grp-') ? `${esc(N.chName(ch, v.role))} scene` : gm ? `Only ${esc(G().P[ch.slice(3)]?.name || 'them')} sees this scene` : 'Your private scene';
-  return `<section class="scene${min?' min':''}" aria-label="Scene">
+  return `<section class="scene${min?' min':''}${past?' past':''}" aria-label="${past ? 'Scene at the time' : 'Scene'}" data-scn="${sc.msg || ''}">
     <div class="art${sc.place?' map':''}" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</div>
     <div class="in">
-      ${min ? `<span class="star4"></span>` : `<span class="eyebrow">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}<span>${priv ? onlyWho : 'Scene'}</span>${sc.date?`<span style="color:var(--ink-3);letter-spacing:.1em">· ${esc(sc.date)}</span>`:''}</span>`}
+      ${min ? `<span class="star4"></span>` : `<span class="eyebrow">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}<span>${priv ? onlyWho : 'Scene'}</span>${past ? `<span class="then">· Earlier</span>` : ''}${sc.date?`<span style="color:var(--ink-3);letter-spacing:.1em">· ${esc(sc.date)}</span>`:''}</span>`}
       <h2>${esc(sc.title)}</h2>
       <span class="where">${esc(sc.where||'')}</span>
       ${sc.aspects?.length ? `<div class="icards">${sc.aspects.map((a,i)=>{ const f = N.sceneFreeLeft(sc, i); return `<span class="icard" style="--rot:${i%2?.8:-.9}deg">${a.on?`<span class="k">On ${esc(a.on)}</span>`:''}<span>${N.emoText(N.marks(esc(a.t)))}</span>${f?`<span class="fi">${'<i></i>'.repeat(f)}</span>`:''}</span>`; }).join('')}</div>` : ''}
     </div>
-    <div class="ctl">${gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Edit scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
+    <div class="ctl">${past ? `<button type="button" class="btn sm" data-a="sceneLive" aria-label="Back to the newest messages and the scene now">${IC('caret')}<span>Now</span></button>` : gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Edit scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
   </section>`;
 }
 /* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */
@@ -332,7 +346,7 @@ function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = isMe(v, m), time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
   if (m.kind === 'sys' && m.sceneEnd) return `<div class="scenem end"><span class="th">${IC('stop')}</span><span><span>Scene ended</span><b>${esc(m.sceneTitle || (m.text || '').replace(/^Scene ended:? ?|\.$/g, '') || 'The scene')}</b></span></div>`;
   if (m.kind === 'sys') return m.res ? resCard(m.res) : m.fightEnd ? `<button type="button" class="sysm fend" data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}">${IC('swords')}<span>${esc(m.text)}</span><b>See what happened</b></button>` : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
-  if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem"><span class="th" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
+  if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem" data-scn="${m.id}"><span class="th" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
   if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);
   if (m.kind === 'news') return `<div class="fightcard" style="box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 18px 40px -18px rgba(0,0,0,.9)"><div class="in" style="padding-top:18px;grid-template-columns:auto 1fr;align-items:center"><div class="herald" style="all:unset;display:contents"><span class="np" style="width:54px;height:66px;border-radius:4px;background:#efe6cc;rotate:-4deg;display:grid;place-items:center;font:400 12px/1 var(--f-mast);color:#2a2418;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)">News</span></div><div style="display:grid;gap:6px"><span class="eyebrow" style="color:var(--gold-tx)">${IC('newsL')}New edition</span><h3 style="font-size:18px">${esc(m.text)}</h3><div class="row"><button type="button" class="btn sm gold" data-a="readNews" data-id="${esc(m.nid||'')}">Read it</button></div></div></div></div>`;
