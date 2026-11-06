@@ -202,7 +202,15 @@ N.sheetHtml = function(v){
         if (!all.length) return '';
         return `<div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">NPCs in this scene${d.cast.length ? ` · ${d.cast.length}` : ''}</h4>${d.cast.length ? `<button type="button" class="btn sm ghost" data-a="sdCastNone">Clear</button>` : ''}</div>
           ${all.length > 10 ? `<div class="pop-find sd-find">${IC('search')}<input class="inp" id="sdcq-${v.id}" data-i="castQ" placeholder="Find an NPC" value="${esc(d.castQ || '')}" autocomplete="off"></div>` : ''}
-          <div class="forwho sdcast" role="group" aria-label="NPCs in this scene">${shown.map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="sdCast" data-v="${esc(n)}" aria-pressed="${d.cast.includes(n)}">${N.av({name:n, portrait:npc?.portrait, color:'var(--c-npc)'}, 28)}${esc(n)}</button>`; }).join('') || '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No NPC by that name.</p>'}</div>
+          ${(() => { /* the GM's NPC folders from the Cast page: loose NPCs first, then each folder, closed until opened (or while searching) */
+            const chip = n => { const npc = N.npcByName(n); return `<button type="button" data-a="sdCast" data-v="${esc(n)}" aria-pressed="${d.cast.includes(n)}">${N.av({name:n, portrait:npc?.portrait, color:'var(--c-npc)'}, 28)}${esc(n)}</button>`; };
+            const dirOf = n => N.nd.of(N.npcByName(n)), dirs = N.nd.list().filter(([id]) => shown.some(n => N.nd.tree(id).includes(dirOf(n))));
+            if (!dirs.length) return `<div class="forwho sdcast" role="group" aria-label="NPCs in this scene">${shown.map(chip).join('') || '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No NPC by that name.</p>'}</div>`;
+            const loose = shown.filter(n => !dirOf(n)), open = d.dirOpen || {};
+            return `${loose.length ? `<div class="forwho sdcast" role="group" aria-label="NPCs not in a folder">${loose.map(chip).join('')}</div>` : ''}<div class="sddirs">${dirs.map(([id, , depth]) => {
+              const dir = N.nd.byId(id), here = shown.filter(n => dirOf(n) === id), all = N.nd.npcs(id).map(n => n.name.trim()).filter(Boolean), on = all.filter(n => d.cast.includes(n)).length, isOpen = q || open[id];
+              return `<div class="sddir" style="--dd:${depth}"><div class="sddir-h"><button type="button" class="sddir-t" data-a="sdDirTog" data-v="${esc(id)}" aria-expanded="${!!isOpen}">${IC('folder')}<span><b>${esc(dir.name)}</b><small>${on ? `${on} of ${all.length} here` : `${all.length} ${all.length === 1 ? 'NPC' : 'NPCs'}`}</small></span>${IC(isOpen ? 'caret' : 'right')}</button><button type="button" class="btn sm ghost" data-a="sdCastDir" data-v="${esc(id)}">${on === all.length ? 'Unpick all' : `Pick all ${all.length}`}</button></div>
+                ${isOpen && here.length ? `<div class="forwho sdcast" role="group" aria-label="NPCs in ${esc(dir.name)}">${here.map(chip).join('')}</div>` : ''}</div>`; }).join('')}</div>`; })()}
           <p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${d.cast.length ? `Speak as in this chat lists only ${d.cast.length === 1 ? 'this NPC' : `these ${d.cast.length}`} and the Narrator. Everyone else is one tap away. Players don’t see this list.` : 'Pick who is here and Speak as lists only them. None picked lists no NPC cards; everyone else is still one tap away.'}</p></div>`; })()}
       <div><h4>One-off NPCs · only for this scene${d.extras.length ? ` · ${d.extras.length}` : ''}</h4>
         ${d.extras.length ? `<div class="sdones">${d.extras.map((x, i) => `<span class="sdone">${N.av({name:x.name, color:'var(--c-npc)'}, 28)}<span><b>${esc(x.name)}</b><small>${Object.entries(x.skills || {}).map(([k, n]) => `${esc(k)} ${sgn(n)}`).join(' · ') || 'No skills'}</small></span><button type="button" class="xb" data-a="sdOneDel" data-v="${i}" aria-label="Remove ${esc(x.name)}">${IC('x')}</button></span>`).join('')}</div>` : ''}
@@ -435,6 +443,15 @@ N.sheetHtml = function(v){
     return sheet(dir ? `The ${esc(dir.name)} folder` : 'New map folder', body,
       `${dir ? `<button type="button" class="btn danger" data-a="mdDel" data-v="${esc(dir.id)}" style="flex:0 0 auto" title="${n ? `Its ${n} ${n === 1 ? 'map moves' : 'maps move'} up a level` : ''}">${IC('trash')}Delete</button>` : ''}<button type="button" class="btn ghost" data-a="${md.map ? 'sheet' : 'closeSheet'}" ${md.map ? `data-v="mapSet" data-c="${esc(md.map)}"` : ''}>Cancel</button><button type="button" class="btn primary" data-a="mdSave" ${md.name.trim() ? '' : 'disabled'}>${IC('check')}${dir ? 'Save' : 'Make folder'}</button>`);
   }
+  case 'npcDir': {
+    const nf = v.ui.nf; if (!nf) return '';
+    const dir = nf.id && N.nd.byId(nf.id), n = dir ? N.nd.npcs(dir.id).length : 0;
+    const body = `<label class="field"><span>Folder name</span><input class="inp" id="nfn-${v.id}" data-i="nf" data-k="name" value="${esc(nf.name)}" placeholder="e.g. Drinkhold" autocomplete="off"></label>
+      <label class="field"><span>Inside</span><select class="inp" id="nfi-${v.id}" data-i="nf" data-k="in"><option value="">Nothing (top of the NPC list)</option>${N.nd.list(nf.id).map(([id, name]) => `<option value="${esc(id)}" ${nf.in === id ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>
+      <div class="note">${IC('info')}Only you see NPC folders. They show up when you pick who is in a scene, too. Move an NPC into a folder from Edit on its card.</div>`;
+    return sheet(dir ? `The ${esc(dir.name)} folder` : 'New NPC folder', body,
+      `${dir ? `<button type="button" class="btn danger" data-a="nfDel" data-v="${esc(dir.id)}" style="flex:0 0 auto" title="${n ? `Its ${n} ${n === 1 ? 'NPC moves' : 'NPCs move'} up a level` : ''}">${IC('trash')}Delete</button>` : ''}<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn primary" data-a="nfSave" ${nf.name.trim() ? '' : 'disabled'}>${IC('check')}${dir ? 'Save' : 'Make folder'}</button>`);
+  }
   case 'mapDel': {
     const m = g.maps.find(x => x.id === arg); if (!m) return '';
     const n = m.pins.filter(p => p.type !== 'party').length, party = m.pins.some(p => p.type === 'party');
@@ -636,6 +653,7 @@ function npcEditor(v){
       <label class="field"><span>Race</span><input class="inp" id="ndr-${v.id}" data-i="nd" data-k="race" list="races-${v.id}" value="${esc(d.race)}" placeholder="Optional"></label>
       <label class="field"><span>Job or faction</span><input class="inp" id="ndj-${v.id}" data-i="nd" data-k="job" value="${esc(d.job)}" placeholder="Optional"></label>
       <label class="field"><span>Age</span><input class="inp" id="ndg-${v.id}" data-i="nd" data-k="age" value="${esc(d.age||'')}" placeholder="Optional"></label>
+      ${N.nd.list().length ? `<label class="field"><span>Folder</span><select class="inp" id="ndf-${v.id}" data-i="nd" data-k="dir"><option value="">No folder</option>${N.nd.list().map(([id, name]) => `<option value="${esc(id)}" ${d.dir === id ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>` : ''}
     </div>
     <div><h4>Kind</h4><div class="seg"><button type="button" data-a="ndType" data-v="supporting" aria-pressed="${d.type!=='nameless'}">Supporting</button><button type="button" data-a="ndType" data-v="nameless" aria-pressed="${d.type==='nameless'}">Nameless (one hit)</button></div></div>
     <div><h4>Aspects</h4><div style="display:grid;gap:8px">
