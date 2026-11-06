@@ -114,6 +114,8 @@ const diceSum = r => r.dice.reduce((a,b)=>a+b,0);
    against a roll with nothing rolled on their side (opp:true) went onto r.opp, so it doesn't count here either */
 const plusInvokes = r => (r.invokes||[]).filter(i => !i.reroll && !i.opp).length;
 const rollTotal = r => diceSum(r) + r.bonus + 2*plusInvokes(r);
+/* the skill's own share of r.bonus: gear, the distance debuff and the GM's buff or debuff are shown as their own parts */
+N.skillPart = r => r.bonus - (r.gear||0) + (r.dist||0) - (r.mod||0);
 function outcome(r){
   if (r.opp == null) return null;
   const sh = rollTotal(r) - r.opp;
@@ -230,18 +232,19 @@ N.catIcon = name => (N.cats().find(c => c.name === name) || {}).ic || N.CATICON[
 N.catNames = wiki => { const names = N.cats().map(c => c.name); for (const e of wiki) if (e.cat && !names.includes(e.cat)) names.push(e.cat); return names; };
 
 /* ---------- who sees a wiki entry, a map or a news edition ----------
-   Hidden (wiki gm:true, map vis:false) is GM only. Otherwise see:['p1',…] limits it to those seats; no see is everyone. */
-const hiddenOf = (x, kind) => kind === 'wiki' ? !!x.gm : kind === 'map' ? x.vis === false : false;
+   Hidden (wiki gm:true, map vis:false) is GM only. Otherwise see:['p1',…] limits it to those seats; no see is everyone.
+   A place on a map (kind 'pin') is hidden unless vis is true; see:['p1',…] with vis false shows it to those seats only. */
+const hiddenOf = (x, kind) => kind === 'wiki' ? !!x.gm : kind === 'map' ? x.vis === false : kind === 'pin' ? x.type !== 'party' && !x.vis && !(Array.isArray(x.see) && x.see.length) : false;
 /* a wiki entry's pictures: the lore's own picture (img) and any the GM added (imgs) */
 N.wikiPics = e => { const seen = new Set(); return [...(e.img ? [e.img] : []), ...(e.imgs || [])].filter(p => p?.src && !seen.has(p.src) && seen.add(p.src)); };
-N.audOf = (x, kind) => hiddenOf(x, kind) ? 'gm' : (Array.isArray(x.see) && x.see.length ? x.see : '*');
+N.audOf = (x, kind) => hiddenOf(x, kind) ? 'gm' : kind === 'pin' && (x.vis || x.type === 'party') ? '*' : (Array.isArray(x.see) && x.see.length ? x.see : '*');
 N.audSet = (x, kind, val) => {
-  const hide = h => { if (kind === 'wiki') { if (h) x.gm = true; else delete x.gm; } else if (kind === 'map') x.vis = !h; };
+  const hide = h => { if (kind === 'wiki') { if (h) x.gm = true; else delete x.gm; } else if (kind === 'map') x.vis = !h; else if (kind === 'pin') x.vis = !h; };
   const cur = N.audOf(x, kind);
   if (val === '*' || val === 'gm') { hide(val === 'gm'); delete x.see; return; }
   const s = new Set(Array.isArray(cur) ? cur : []);
   s.has(val) ? s.delete(val) : s.add(val);
-  if (s.size) { hide(false); x.see = [...s].sort((a,b) => a.slice(1) - b.slice(1)); }
+  if (s.size) { hide(false); x.see = [...s].sort((a,b) => a.slice(1) - b.slice(1)); if (kind === 'pin') x.vis = false; }
   else { delete x.see; hide(kind !== 'news'); }
 };
 /* the seats that can see it right now */
@@ -268,10 +271,15 @@ N.papers = () => {
 };
 N.newsUnseen = role => { const s = N.G.news.seen[role] || []; return N.G.news.issues.filter(i => !s.includes(i.id)); };
 N.PINT = {
-  town:{name:'Towns',col:'#efd9a0',ic:'castle'}, nation:{name:'Nations',col:'#f4c46e',ic:'flag'}, landmark:{name:'Landmarks',col:'#c9bdff',ic:'star'},
+  here:{name:'You are here',one:'You are here',col:'#ff6b5a',ic:'crosshair'},
+  nation:{name:'Nations',col:'#f4c46e',ic:'flag'}, region:{name:'Regions',col:'#e8c9a0',ic:'mapL'}, city:{name:'Cities',one:'City',col:'#ffd27a',ic:'castle'},
+  town:{name:'Towns',col:'#efd9a0',ic:'house'}, hood:{name:'Neighborhoods',col:'#d9c3f0',ic:'houses'}, landmark:{name:'Landmarks',col:'#c9bdff',ic:'star'},
   tavern:{name:'Taverns',col:'#f2b25c',ic:'tavern'}, shop:{name:'Shops',col:'#a3d6b4',ic:'bag'}, temple:{name:'Temples',col:'#f4e38d',ic:'religion'},
   danger:{name:'Danger',col:'#ff8a6e',ic:'warn'}, note:{name:'Notes',col:'#cfd8d3',ic:'pen'}, party:{name:'Party',col:'#8c7cff',ic:'banner'},
 };
+
+/* one place of a kind: "City", "Town", "You are here" */
+N.pinOne = t => t.one || t.name.replace(/s$/, '');
 
 /* ---------- the shared game (filled in by sync.js) ---------- */
 const SEATCOL = 8;

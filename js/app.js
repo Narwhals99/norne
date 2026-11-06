@@ -438,6 +438,15 @@ function askTell(v){
       if (all && !q.wasAll) add('*', `${gm} shared the ${m.name} map.`);
       else if (!all) for (const st of N.audSeats(m, 'map').filter(s => !q.before.includes(s))) add(st, `${gm} shared the ${m.name} map with you.`);
     }
+  } else if (ui.sheet === 'pinSet' && ui.askPin?.key === ui.sheetArg) {
+    const [mi, pi] = ui.askPin.key.split('|'), m = g.maps.find(x => x.id === mi), p = m && m.pins.find(x => x.id === pi), q = ui.askPin; ui.askPin = null;
+    if (p) {
+      const mapName = m.name.replace(/ \(.*\)$/, ''), now = N.audSeats(p, 'pin').filter(s => N.audSeats(m, 'map').includes(s)), fresh = now.filter(s => !q.before.includes(s));
+      const text = `${gm} revealed ${p.label} on the ${mapName} map.`;
+      /* a place shown to every player of a map everyone sees goes to Everyone; otherwise each new player gets a private note */
+      if (fresh.length && N.audOf(p, 'pin') === '*' && N.audOf(m, 'map') === '*' && !q.before.length) add('*', text);
+      else for (const st of fresh) add(st, `${gm} revealed ${p.label} to you on the ${mapName} map.`);
+    }
   }
   if (!items.length) return false;
   for (const it of items) if (!it.ok) it.on = false;
@@ -520,6 +529,7 @@ function input(v, el){
     case 'zone': { const z = g.combat.zones.find(x => x.id === el.dataset.z); if (!z) return; z[k] = val; if (k === 'name') { const l = v.root.querySelector(`[data-zl="${z.id}"]`); if (l && l.firstChild) l.firstChild.textContent = val; } return; }
     case 'rollAsp': v.ui.roll.aspect = val; return;
     case 'rollEv': v.ui.roll.evText = val; return;
+    case 'invName': v.ui.invName = val; return;
     case 'rollOther': v.ui.roll.otherName = val; return;
     /* picking a country clears the city under it, and so on down */
     case 'sdLoc': { const L = v.ui.sd.loc; L[k] = val; if (k === 'c') { L.t = ''; L.n = ''; } if (k === 't') L.n = ''; v.ui.sd.touched = true;
@@ -651,7 +661,7 @@ function openRoll(v, o={}){
   }
   const r = N.rollerOf(v, who);
   const best = r ? Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] : 'Notice';
-  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0};
+  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0, mod:0};
   { const r = v.ui.roll; if (r.skill in vsSkillMem) r.vsSkill = vsSkillMem[r.skill]; }
   v.ui.sheet = 'roll'; v.ui.pop = null;
 }
@@ -675,6 +685,9 @@ function doRoll(v){
      off the roll, shown as its own part of the total. The pick is remembered for the rest of the fight. */
   const far = N.farOf(v, r);
   if (fight && far) { g.combat.distLast = +r.dist || 0; if (r.dist > 0) { roll.bonus -= r.dist; roll.dist = +r.dist; roll.distZ = N.zoneOf(far)?.name || ''; } }
+  /* Jake's buff or debuff: the GM's own +1..+6 or −1..−6 on the roll, shown as its own part of the total. Not remembered */
+  const mod = isGM(v) ? clamp(+r.mod || 0, -6, 6) : 0;
+  if (mod) { roll.bonus += mod; roll.mod = mod; }
   /* a custom event (mind magic, a spell, anything the four actions don't cover) is a fight roll built like a roleplay roll:
      a skill against a skill and/or someone, a difficulty, passive or not, and it can be secret */
   const ev = fight && r.event, rp = isGM(v) && (ev || (!fight && r.ctx !== 'cb') || (fight && r.ctx === 'cb' && r.action !== 'attack'));
@@ -1106,7 +1119,8 @@ function act(v, a, el, e){
     break;
   }
   case 'newVoice': ui.pop = null; openSheet(v, 'npcNew', {from:'voice'}); break;
-  case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; ui.invBy = null; break;
+  case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; ui.invBy = null; ui.invName = ''; break;
+  case 'invMod': invMod(v, +d.d); return;
   case 'invBy': ui.invBy = val; break;
   /* add a situation aspect from the invoke sheet, then come back to it */
   case 'invAsp': ui.invBack = ui.sheetArg; ui.sheet = 'cbAspect'; break;
@@ -1395,8 +1409,15 @@ function act(v, a, el, e){
   case 'pinClose': ui.pinSel = null; break;
   case 'pinScene': { const m = curMap(v), p = m.pins.find(x => x.id === val); setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:p.label, where:m.name, place:{map:m.id, rx:p.rx, ry:p.ry}, aspects:[]}, true); renderAll(); return; }
   case 'pinParty': { const m = curMap(v), p = m.pins.find(x => x.id === val); moveParty(m, p.rx, p.ry + .002); sys(`The party heads to ${p.label}.`); toast(v, `The party is now at ${p.label}. A note went to Everyone.`); renderAll(); return; }
-  case 'pinType': { const p = curMap(v).pins.find(x => x.id === ui.pinSel); if (p) p.type = val; renderAll(); return; }
-  case 'pinVis': { const m = curMap(v), p = m.pins.find(x => x.id === ui.pinSel); if (!p) break; p.vis = !p.vis; if (p.vis) tell(m, 'map', `${N.gmName()} revealed ${p.label} on the ${m.name.replace(/ \(.*\)$/, '')} map.`); renderAll(); return; }
+  case 'pinType': { const p = curMap(v).pins.find(x => x.id === ui.pinSel); if (p) { if (val === 'here' && p.label === 'New place') p.label = 'You are here'; else if (p.type === 'here' && val !== 'here' && p.label === 'You are here') p.label = 'New place'; p.type = val; } renderAll(); return; }
+  case 'pinAud': {
+    const [mi, pi] = String(ui.sheetArg || '').split('|'), m = g.maps.find(x => x.id === mi), p = m && m.pins.find(x => x.id === pi); if (!p) break;
+    /* who could see the place before the first change; the GM is asked on Done whether to tell the new ones */
+    const sees = () => N.audSeats(p, 'pin').filter(s => N.audSeats(m, 'map').includes(s));
+    if (ui.askPin?.key !== ui.sheetArg) ui.askPin = {key:ui.sheetArg, before:sees()};
+    N.audSet(p, 'pin', val);
+    renderAll(); return;
+  }
   case 'pinDel': { const m = curMap(v), i = m.pins.findIndex(x => x.id === ui.pinSel), p = m.pins[i]; if (!p) break; m.pins.splice(i, 1); ui.pinSel = null; toast(v, `Removed ${p.label}.`, () => m.pins.splice(i, 0, p)); renderAll(); return; }
   /* world */
   case 'wiki': { const en = g.wiki.find(x => x.id === val); if (!en || (!gm && en.gm)) break; close();
@@ -1638,6 +1659,7 @@ function act(v, a, el, e){
   case 'rollAct': ui.roll.action = val; if (val === 'defend') { ui.roll.skill = 'Athletics'; } if (val === 'attack') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Shooting||0) > (r.skills.Fighting||0) ? 'Shooting' : 'Fighting'; } break;
   case 'rollTgt': ui.roll.target = val; ui.roll.ctx = 'cb'; break;
   case 'rollDist': ui.roll.dist = +val || 0; break;
+  case 'rollMod': ui.roll.mod = clamp(+val || 0, -6, 6); break;
   case 'rollSkill': { const r = ui.roll; r.skill = val; if (val in vsSkillMem) { r.vsSkill = vsSkillMem[val]; const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; } break; }
   case 'rollAll': ui.roll.all = true; break;
   case 'rollOpp': ui.roll.opp = val === 'null' ? null : +val; break;
@@ -1912,6 +1934,16 @@ function saveNpc(v){
   v.ui.sheet = null;
   if (d.from === 'voice') { v.ui.voice = n.name; v.ui.mode = 'rp'; const ch = v.ui.ch === 'gm' ? 'table' : v.ui.ch, cast = N.castOf(ch) || []; if (!cast.includes(n.name)) g.casts[ch] = [...cast, n.name]; }
   toast(v, old ? 'NPC saved.' : `${n.name} saved. Pick them in “Speak as”.`); renderAll();
+}
+/* the GM's buff or debuff on a roll that's already made (a defense, a Notice roll, or one rolled without it): −6..+6,
+   the total and any fight result follow it */
+function invMod(v, d){
+  const g = G(), m = g.msgs.find(x => x.id === v.ui.sheetArg); if (!isGM(v) || !m || m.kind !== 'roll') return;
+  const r = m.roll, was = r.mod || 0, now = clamp(was + d, -6, 6); if (now === was) return;
+  r.bonus += now - was; if (now) r.mod = now; else delete r.mod;
+  const p = g.combat.pending; if (p && p.msgId === m.id) p.total = N.rollTotal(r);
+  N.cbReresolve(m);
+  renderAll();
 }
 function doInvoke(v, i, reroll){
   const g = G(), m = g.msgs.find(x => x.id === v.ui.sheetArg), x = m && N.invokeCtx(v, m), o = x && N.invokeOptions(v, m, x)[i];

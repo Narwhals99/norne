@@ -617,7 +617,7 @@ N.boostTick = t => {
    plus a boost on the defender (pending.stage 'style', then N.cbStyle).
    Then the GM picks how the defender soaks it: a stress box, a consequence or taken out (pending.stage 'absorb',
    N.cbAbsorb), for player characters and NPCs alike. */
-const rollLine = (name, r) => ({n:name, sk:r.skill, b:r.bonus, g:r.gear || 0, ...(r.gearL ? {gl:r.gearL} : {}), ...(r.dist ? {dist:r.dist} : {}), tot:N.rollTotal(r)});
+const rollLine = (name, r) => ({n:name, sk:r.skill, b:r.bonus, g:r.gear || 0, ...(r.gearL ? {gl:r.gearL} : {}), ...(r.dist ? {dist:r.dist} : {}), ...(r.mod ? {mod:r.mod} : {}), tot:N.rollTotal(r)});
 N.cbResolve = function(again){
   const g = G(), cb = g.combat, p = cb.pending; if (!p || !p.defMsg) return;
   const a = N.tokById(p.att), d = N.tokById(p.def), am = g.msgs.find(m => m.id === p.msgId), dm = g.msgs.find(m => m.id === p.defMsg);

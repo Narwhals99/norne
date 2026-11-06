@@ -2268,6 +2268,22 @@
 .app .rcnt .rc-roll .inchat{margin-left:auto;display:inline-flex;align-items:center;gap:4px;font:700 10.5px/1 var(--f-ui);letter-spacing:.04em;color:var(--ink-4)}
 .app .rcnt .rc-roll .inchat svg{width:13px;height:13px}
 @media (hover:hover){ .app .rcnt .rc-roll.near:hover{background:var(--raise)} .app .rcnt .rc-roll.near:hover .inchat{color:var(--gold-tx)} }
+/* Jake's buff or debuff on a roll (2026-11-06): chips in the roll sheet, a −/+ row in the invoke sheet, and the Unnamed aspect */
+.app .modbox{display:grid;gap:8px}
+.app .modbox h4{margin:0}
+.app .modchips{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));max-width:560px}
+.app .modchips .lchip{min-width:0;padding:6px 2px;font-size:11px}
+.app .modchips .lchip.deb b,.app .invmod b.deb{color:var(--ember)}
+.app .modchips .lchip.buf b,.app .invmod b.buf{color:var(--jade)}
+.app .invmod{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px;padding:10px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .invmod .grow{flex:1 1 180px;min-width:0;font:700 13.5px/1.3 var(--f-ui);color:var(--ink)}
+.app .invmod .grow small{display:block;font-weight:600;font-size:12px;color:var(--ink-3)}
+.app .invmod .seg{align-items:center}
+.app .invmod .seg button{padding:0 10px}
+.app .invmod .seg b{min-width:34px;text-align:center;font:700 17px/1 var(--f-display)}
+.app .invmod .seg button[disabled]{opacity:.4}
+.app .invopt.unnamed .unasp{flex:1 1 200px;min-width:0;margin:0}
+.app .rf .math .buf{color:var(--jade)}
 
 /* NPC folders on the Cast page and in the scene's cast picker */
 .app .ndbar{display:flex;gap:8px;align-items:center}
@@ -2324,3 +2340,12 @@
 .app .itc-chips{padding:0;flex-wrap:wrap;overflow:visible}
 .app .itc-chips .cchip{padding:0 12px;white-space:nowrap}
 .app .itc-chips .cchip svg{width:16px;height:16px;flex:none}
+.app .pincard .chips .cchip{gap:5px}
+.app .pincard .chips .cchip svg{width:14px;height:14px;flex:none}
+/* places on a map: shown to some players only (GM view) get a dashed ring; "You are here" pins pulse */
+.app .pin.some .pm{outline:2px dashed #fff;outline-offset:2px}
+.app .pin.here .pm{position:relative;width:34px;height:34px}
+.app .pin.here .pm::after{content:"";position:absolute;inset:-3px;border-radius:inherit;border:3px solid var(--pc,#ff6b5a);animation:bcn-ring 1.8s ease-out infinite;pointer-events:none}
+.app .pin.here .pl{background:color-mix(in srgb,var(--pc,#ff6b5a) 45%,rgba(10,10,32,.92))}
+.app .pin.here.dotp .pl{display:block}
+@media (prefers-reduced-motion:reduce){.app .pin.here .pm::after{animation:none}}
