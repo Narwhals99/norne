@@ -543,6 +543,7 @@ function input(v, el){
     case 'wd': if (k === 'cap') { v.ui.wd.imgs[+el.dataset.n].cap = val; return; } if (k === 'ph' || k === 'pt') { v.ui.wd.parts[+el.dataset.n][k === 'ph' ? 'h' : 'text'] = val; return; } v.ui.wd[k] = val; if (k === 'title') render(v); return;
     case 'cd': v.ui.cd[+el.dataset.n].name = val; return;
     case 'mapName': { const m = G().maps.find(x => x.id === el.dataset.v); if (m) m.name = val; return; }
+    case 'mapLvl': { const m = G().maps.find(x => x.id === el.dataset.v); if (!m) return; m.lvl = val; N.renderAll(); return; }
     case 'mapFolder': { const m = G().maps.find(x => x.id === el.dataset.v); if (!m) return; if (val) m.dir = val; else delete m.dir; N.renderAll(); return; }
     case 'nf': if (v.ui.nf) { v.ui.nf[k] = val; if (k === 'name') { const b = v.root.querySelector('[data-a="nfSave"]'); if (b) b.disabled = !val.trim(); } else render(v); } return;
     case 'md': if (v.ui.md) { v.ui.md[k] = val; if (k === 'name') { const b = v.root.querySelector('[data-a="mdSave"]'); if (b) b.disabled = !val.trim(); } else render(v); } return;
@@ -1045,7 +1046,8 @@ function act(v, a, el, e){
   case 'signIn': N.signIn(); return;
   case 'signOut': N.signOut(); return;
   /* navigation */
-  case 'tab': close(); ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
+  /* players always land on the default map when they come to the Maps tab (the GM keeps the map they were on) */
+  case 'tab': close(); if (val === 'map' && ui.tab !== 'map' && !gm) { const dm = N.defMap(false); if (dm) Object.assign(ui, {mapId:dm.id, mapBack:[], mapDir:null, pinSel:null, mapT:null, mapType:'all'}); } ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
   case 'heroInv': ui.heroInv = !!val; break;
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
@@ -1361,6 +1363,7 @@ function act(v, a, el, e){
   }
   case 'mapType': ui.mapType = val; break;
   case 'addPin': ui.addPin = !ui.addPin; if (ui.addPin) toast(v, 'Tap the map where the new place goes.'); break;
+  case 'mapDef': { const m = g.maps.find(x => x.id === d.m); if (!m) break; const on = !m.def; for (const x of g.maps) delete x.def; if (on) m.def = true; toast(v, on ? `Players now open the Maps tab on ${m.name}.` : `No default map. Players open the Maps tab on ${N.defMap(false)?.name || 'the first map'}.`); renderAll(); return; }
   case 'mapAud': {
     const m = g.maps.find(x => x.id === ui.sheetArg); if (!m) break;
     /* who saw it before the first change; the GM is asked on Done whether to tell the new ones */

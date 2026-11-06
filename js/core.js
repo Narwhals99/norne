@@ -202,6 +202,14 @@ N.dirTree = id => [id, ...N.dirKids(id).flatMap(d => N.dirTree(d.id))];
 N.dirCount = (id, see) => { const ids = new Set(N.dirTree(id)); return N.G.maps.filter(m => see(m) && ids.has(N.mapDirOf(m))).length; };
 /* every folder as [id, "Riverlands › Drinkhold"], for pickers */
 N.dirList = (skip) => { const out = [], walk = (id, d) => { for (const k of N.dirKids(id)) { if (k.id === skip) continue; out.push([k.id, N.dirName(k.id), d]); walk(k.id, d + 1); } }; walk(null, 0); return out; };
+/* ---------- map levels and the default map ---------- */
+/* the GM tags each map World, Nation, Region or City/Town (m.lvl); the lore's Nörne map counts as World until the GM says otherwise */
+N.MLVLS = [['world', 'World'], ['nation', 'Nation'], ['region', 'Region'], ['city', 'City/Town']];
+N.mapLvl = m => (m && m.lvl != null ? m.lvl : m && m.id === 'norne' ? 'world' : '') || '';
+N.mapLvlName = m => (N.MLVLS.find(([k]) => k === N.mapLvl(m)) || [, ''])[1];
+N.mapLvlRank = m => { const i = N.MLVLS.findIndex(([k]) => k === N.mapLvl(m)); return i < 0 ? 9 : i; };
+/* the map someone lands on when they open the Maps tab: the GM's default (m.def) if they can see it, else a World map, else the first one */
+N.defMap = gm => { const ms = N.G.maps.filter(m => gm || m.vis !== false); return ms.find(m => m.def) || ms.find(m => N.mapLvl(m) === 'world') || ms[0] || null; };
 /* ---------- NPC folders: the GM sorts NPC cards into folders on the Cast page (folders can sit in folders) ----------
    G.npcDirs = [{id, name, in}] (GM-only, gm/misc); an NPC's folder is n.dir. Same shape as the map folders above */
 N.nd = {
