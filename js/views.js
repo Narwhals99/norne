@@ -849,23 +849,21 @@ function heroPage(v){
   if (!sel && !kn) return `<div class="scroll" data-sk="hero" style="min-height:0">${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>Character</h1></div>` : ''}<div class="quiet"><div class="art"></div><p>No character yet.</p></div></div>`;
   const bag = N.heroBag(v) && !!sel;
   if (bag && v.ui.heroInv) return heroInv(v, sel, mine);
-  const met = (mine?.met || {});
   const chip = (id, avo, b, sm) => `<button type="button" class="pchip" data-a="charSel" data-v="${esc(id)}" aria-current="${id===selId}">${N.av(avo,36)}<span><b>${esc(b)}</b><small>${sm}</small></span></button>`;
   const chips = [...(mine ? [chip(mine.id, {name:mine.built ? mine.short : pn(mine), portrait:mine.built ? mine.portrait : null, color:mine.color}, 'You', mine.built ? N.emoText(N.marks(esc(N.pcTag(mine)))) : 'No card yet')] : []),
-    ...known.map(k => chip(k.id, {name:k.name, portrait:k.portrait, color:'var(--c-npc)'}, k.name, MET[met[k.id]] || 'Not marked'))];
+    ...known.map(k => chip(k.id, {name:k.name, portrait:k.portrait, color:'var(--c-npc)'}, k.name, N.MET[k.met] || 'Not marked'))];
   return `<div class="scroll" data-sk="hero" style="min-height:0">
     ${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>${sel ? 'My character' : esc(kn.name)}</h1>${bag && sel.built ? `<button type="button" class="btn sm" data-a="heroInv" data-v="1">${IC('bag')}Inventory${sel.inv?.length ? ` <span class="tag" style="height:16px">${sel.inv.length}</span>` : ''}</button>` : ''}</div>` : ''}
     <div class="sheetv">
       ${chips.length > 1 ? `<div class="party-row full">${chips.join('')}</div>` : ''}
-      ${sel ? N.sheetBody(v, sel) : knownBody(v, kn, met[kn.id])}
+      ${sel ? N.sheetBody(v, sel) : knownBody(v, kn)}
     </div></div>`;
 }
-const MET = {met:'Met', heard:'Heard of'};
 /* someone else's card as a player sees it: only the parts the GM revealed. PCs and NPCs look exactly alike here */
-function knownBody(v, k, met){
+function knownBody(v, k){
   const sub = [k.race, k.age ? `Age ${k.age}` : ''].filter(Boolean).map(esc).join(' · ');
   const hero = `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:k.name, portrait:k.portrait || null, color:'var(--c-npc)'}, 84)}<div style="min-width:0"><h2>${esc(k.name)}</h2>${sub ? `<div class="by">${sub}</div>` : ''}
-    <div class="seg metseg" role="group" aria-label="How you know them">${Object.entries(MET).map(([x, l]) => `<button type="button" data-a="metSet" data-v="${x}" data-c="${esc(k.id)}" aria-pressed="${met === x}">${IC(x === 'met' ? 'hand' : 'chat')}${l}</button>`).join('')}</div></div></section>`;
+    ${k.met ? `<div class="metbadge">${IC(k.met === 'met' ? 'hand' : 'chat')}${N.MET[k.met]}</div>` : ''}</div></section>`;
   const sec = (h, body, full) => `<section class="sec${full ? ' full' : ''}"><h3>${h}</h3>${body}</section>`;
   const tx = t => N.emoText(N.marks(esc(t)));
   const rungs = k.skills ? [...new Set(k.skills.map(x => x[1]))].sort((a, b) => b - a).map(x => [x, k.skills.filter(y => y[1] === x)]) : [];

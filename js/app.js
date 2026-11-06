@@ -427,7 +427,7 @@ function askTell(v){
       const name = c ? c.short || c.name : card.name;
       for (const [st, l] of Object.entries((g.rev || {})[id] || {})) {
         const now = N.revKeys(card, l), was = N.revKeys(card, base[st] || []);
-        if (!now.includes('name') || !now.some(k => !was.includes(k))) continue;
+        if (!now.includes('name') || !now.some(k => !k.startsWith('met:') && !was.includes(k))) continue;
         add(st, was.includes('name') ? `${gm} revealed more about ${name}. Open Character to see it.` : `${gm} revealed ${name} to you. Open Character to see them.`);
       }
     }
@@ -1430,15 +1430,16 @@ function act(v, a, el, e){
   /* sheet reveals (GM) */
   case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; ui.askRev = {id:val, base:JSON.parse(JSON.stringify((g.rev || {})[val] || {}))}; break;
   case 'revSeat': ui.revSeat = val; break;
-  /* a player's own note on someone they know: met them, or only heard of them (kept on the player's card) */
-  case 'metSet': { const me = N.charOf(v.role); if (!me || isGM(v)) break; me.met = me.met || {}; if (me.met[d.c] === val) delete me.met[d.c]; else me.met[d.c] = val; renderAll(); N.syncNow && N.syncNow(); return; }
-  case 'revTog': case 'revAll': {
+  case 'revTog': case 'revAll': case 'revMet': {
     const id = ui.sheetArg, st = ui.revSeat; if (!id || !st) break;
     g.rev = g.rev || {}; const by = g.rev[id] = g.rev[id] || {};
     const c = g.chars[id], card = c || g.npcs.find(x => x.id === id); if (!card) break;
     let keys = N.revKeys(card, by[st] || []);
-    if (a === 'revAll') keys = val ? N.revParts(card, !!c).map(p => p.k) : [];
-    else keys = keys.includes(val) ? keys.filter(k => k !== val) : [...keys, val];
+    const mt = keys.filter(k => k.startsWith('met:')); keys = keys.filter(k => !k.startsWith('met:'));
+    /* Met / Heard of: the GM decides how this player's character knows them (tap again to clear) */
+    if (a === 'revMet') keys = [...keys, ...(val && mt[0] !== 'met:' + val ? ['met:' + val] : [])];
+    else if (a === 'revAll') keys = [...(val ? N.revParts(card, !!c).map(p => p.k) : []), ...mt];
+    else keys = [...(keys.includes(val) ? keys.filter(k => k !== val) : [...keys, val]), ...mt];
     if (keys.length) by[st] = keys; else delete by[st];
     if (!Object.keys(by).length) delete g.rev[id];
     renderAll(); return;
