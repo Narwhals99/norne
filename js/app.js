@@ -921,6 +921,10 @@ function applyMap(v){
   st.style.transform = `translate(${T.x}px,${T.y}px) scale(${T.k})`;
   /* pins and beacons keep their size on screen. Set on each one (not as a --k variable on the map, which restyled every
      element inside every pin on every frame) */
+  /* first time this map shows in this style: make its copy with the colours painted in (js/mappic.js), so the big
+     picture needs no CSS filter, which on a phone took a full-size extra copy in memory and crashed the page */
+  const im = st.querySelector('img');
+  if (im && !im._bk && !im.classList.contains('baked')) { im._bk = 1; N.mapBake(m.src, v.style + '/' + v.theme, getComputedStyle(im).filter, im); }
   if (st._k !== T.k) { st._k = T.k; const s = `scale(${1 / T.k})`; for (const el of st.querySelectorAll('.pin,.beacon')) el.style.transform = s; }
 }
 /* smooth zooming: a pinch or wheel sends many moves per frame. Each one used to restyle every pin and redraw the whole

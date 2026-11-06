@@ -741,6 +741,8 @@
 .app .mapcv.moving .mapst img,.app .mapcv.moving .pins{will-change:transform}
 .app .mapst .pins{position:absolute;inset:0;pointer-events:none}
 .app[data-theme="night"] .mapst img{filter:saturate(.85) brightness(.88)}
+/* the map's colours already painted into its picture (js/mappic.js): no filter, so no extra full-size copy in memory */
+.app .mapst img.baked{filter:none!important}
 .app .mapov{position:absolute;inset:0;pointer-events:none;z-index:3;padding:10px;display:grid;grid-template-rows:auto auto 1fr auto;grid-template-columns:minmax(0,1fr);gap:8px}
 .app .mapov>*{pointer-events:auto}
 /* only the controls take taps: the empty spacers and gaps let drags and the wheel through to the map */
