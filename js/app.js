@@ -47,7 +47,7 @@ const tell = (x, kind, text, only) => { const a = N.audOf(x, kind); if (a === 'g
 const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:null, pop:null, toast:null, mode:'ooc', voice:'Narrator', draft:'', sceneMin:false, folded:new Map(), fresh:null,
   fightPane:'fight', fightOpen:true, watching:false, cbTool:'move', tokSel:null, targeting:null, placing:null, zoneSel:null,
   mapId:null, mapType:'all', mapQ:'', pinSel:null, mapEdit:false, addPin:false, mapT:null,
-  wikiQ:'', wikiCat:null, wikiSel:null, paper:null, newsEdit:null, newsSel:null, charSel:null, castSeg:'players', castSel:null, npcQ:'',
+  wikiQ:'', wikiCat:null, wikiSel:null, paper:null, newsEdit:null, newsSel:null, charSel:null, castSeg:'players', castSel:null, npcQ:'', npcDir:null,
   roll:null, sd:null, pd:null, nd:null, wd:null, exp:null, cbAsp:'', cbAspFree:0, cbAspOn:null});
 
 /* ---------------- mount + render ---------------- */
@@ -544,6 +544,7 @@ function input(v, el){
     case 'cd': v.ui.cd[+el.dataset.n].name = val; return;
     case 'mapName': { const m = G().maps.find(x => x.id === el.dataset.v); if (m) m.name = val; return; }
     case 'mapFolder': { const m = G().maps.find(x => x.id === el.dataset.v); if (!m) return; if (val) m.dir = val; else delete m.dir; N.renderAll(); return; }
+    case 'nf': if (v.ui.nf) { v.ui.nf[k] = val; if (k === 'name') { const b = v.root.querySelector('[data-a="nfSave"]'); if (b) b.disabled = !val.trim(); } else render(v); } return;
     case 'md': if (v.ui.md) { v.ui.md[k] = val; if (k === 'name') { const b = v.root.querySelector('[data-a="mdSave"]'); if (b) b.disabled = !val.trim(); } else render(v); } return;
     case 'npcNotes': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n[k || 'notes'] = val; return; }
     case 'npcCon': { const n = g.npcs.find(x => x.id === el.dataset.n); if (n) n.cons[k] = val; return; }
@@ -1336,6 +1337,28 @@ function act(v, a, el, e){
     toast(v, `Deleted the ${dir.name} folder. What was in it moved up a level.`, () => { g.mapDirs.splice(at, 0, dir); maps.forEach(m => { m.dir = dir.id; }); kids.forEach(x => { x.in = dir.id; }); });
     renderAll(); return;
   }
+  /* NPC folders on the Cast page: open one, make, rename, move or delete one (GM only, like the NPCs) */
+  case 'npcDirGo': ui.npcDir = N.nd.byId(val) ? val : null; ui.npcQ = ''; break;
+  case 'nfOpen': { const dir = N.nd.byId(val); ui.nf = dir ? {id:dir.id, name:dir.name, in:N.nd.byId(dir.in) ? dir.in : ''} : {id:null, name:'', in:N.nd.byId(ui.npcDir) ? ui.npcDir : ''}; ui.sheet = 'npcDir'; ui.sheetArg = null; break; }
+  case 'nfSave': {
+    const nf = ui.nf, name = (nf?.name || '').trim(); if (!name) break;
+    g.npcDirs = g.npcDirs || [];
+    let dir = nf.id && N.nd.byId(nf.id);
+    if (!dir) { dir = {id:uid('nd'), name, in:null}; g.npcDirs.push(dir); }
+    dir.name = name; dir.in = nf.in && nf.in !== dir.id && !N.nd.tree(dir.id).includes(nf.in) ? nf.in : null;
+    ui.nf = null; ui.sheet = null; ui.npcDir = dir.id; ui.npcQ = '';
+    toast(v, nf.id ? `Saved the ${name} folder.` : `Made the ${name} folder.`); renderAll(); return;
+  }
+  case 'nfDel': {
+    /* a deleted folder's NPCs and folders move up into the folder it sat in */
+    const dir = N.nd.byId(val); if (!dir) break;
+    const up = N.nd.byId(dir.in) ? dir.in : null, at = g.npcDirs.indexOf(dir);
+    const npcs = g.npcs.filter(n => n.dir === dir.id), kids = g.npcDirs.filter(x => x.in === dir.id);
+    npcs.forEach(n => { n.dir = up; }); kids.forEach(x => { x.in = up; });
+    g.npcDirs.splice(at, 1); ui.nf = null; ui.sheet = null; if (ui.npcDir === dir.id) ui.npcDir = up;
+    toast(v, `Deleted the ${dir.name} folder. What was in it moved up a level.`, () => { g.npcDirs.splice(at, 0, dir); npcs.forEach(n => { n.dir = dir.id; }); kids.forEach(x => { x.in = dir.id; }); });
+    renderAll(); return;
+  }
   case 'mapType': ui.mapType = val; break;
   case 'addPin': ui.addPin = !ui.addPin; if (ui.addPin) toast(v, 'Tap the map where the new place goes.'); break;
   case 'mapAud': {
@@ -1605,6 +1628,13 @@ function act(v, a, el, e){
   case 'sdAspDel': ui.sd.aspects.splice(+d.i, 1); break;
   case 'sdCast': { const c = ui.sd.cast, i = c.indexOf(val); if (i >= 0) c.splice(i, 1); else c.push(val); break; }
   case 'sdCastNone': ui.sd.cast = []; break;
+  /* NPC folders in the scene's cast picker: open or close one, or pick everyone in it (and the folders inside it) */
+  case 'sdDirTog': { const o = ui.sd.dirOpen = ui.sd.dirOpen || {}; o[val] = !o[val]; break; }
+  case 'sdCastDir': {
+    const names = N.nd.npcs(val).map(n => n.name.trim()).filter(Boolean), c = ui.sd.cast, all = names.every(n => c.includes(n));
+    ui.sd.cast = all ? c.filter(n => !names.includes(n)) : [...c, ...names.filter(n => !c.includes(n))];
+    (ui.sd.dirOpen = ui.sd.dirOpen || {})[val] = true; break;
+  }
   case 'sdPost': ui.sd.post = !ui.sd.post; break;
   case 'sdShare': ui.sd.share = !ui.sd.share; break;
   case 'sdLocClear': ui.sd.loc = {c:'', t:'', n:''}; break;
@@ -1732,7 +1762,7 @@ function openSheet(v, s, d={}){
   }
   if (s === 'npcNew') {
     const n = d.edit && g.npcs.find(x => x.id === d.edit);
-    ui.nd = n ? Object.assign(JSON.parse(JSON.stringify(n)), {edit:n.id}) : {name:'', race:'', job:'', age:'', disc:{}, hc:'', trouble:'', aspects:[], type:'supporting', skills:{}, stunts:[], magic:'', bio:'', notes:'', refresh:3, fp:3, portrait:null, from:d.from || null};
+    ui.nd = n ? Object.assign(JSON.parse(JSON.stringify(n)), {edit:n.id}) : {name:'', race:'', job:'', age:'', disc:{}, hc:'', trouble:'', aspects:[], type:'supporting', skills:{}, stunts:[], magic:'', bio:'', notes:'', refresh:3, fp:3, portrait:null, from:d.from || null, dir:ui.tab === 'cast' && N.nd.byId(ui.npcDir) ? ui.npcDir : null};
     ui.nd.from = d.from || null;
     /* NPC aspects are Aspect 1, 2, 3 too; an old high concept and trouble become the first two */
     ui.nd.aspects = N.pcAspects(ui.nd); ui.nd.hc = ''; ui.nd.trouble = '';
@@ -1819,7 +1849,7 @@ function saveNpc(v){
   const g = G(), d = v.ui.nd, old = d.edit && g.npcs.find(x => x.id === d.edit);
   const base = {name:d.name.trim(), race:d.race.trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
     skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0,
-    inv:(d.inv || []).map(x => [...x])};
+    inv:(d.inv || []).map(x => [...x]), dir:N.nd.byId(d.dir) ? d.dir : null};
   let n;
   if (old) {
     n = Object.assign(old, base);

@@ -202,6 +202,20 @@ N.dirTree = id => [id, ...N.dirKids(id).flatMap(d => N.dirTree(d.id))];
 N.dirCount = (id, see) => { const ids = new Set(N.dirTree(id)); return N.G.maps.filter(m => see(m) && ids.has(N.mapDirOf(m))).length; };
 /* every folder as [id, "Riverlands › Drinkhold"], for pickers */
 N.dirList = (skip) => { const out = [], walk = (id, d) => { for (const k of N.dirKids(id)) { if (k.id === skip) continue; out.push([k.id, N.dirName(k.id), d]); walk(k.id, d + 1); } }; walk(null, 0); return out; };
+/* ---------- NPC folders: the GM sorts NPC cards into folders on the Cast page (folders can sit in folders) ----------
+   G.npcDirs = [{id, name, in}] (GM-only, gm/misc); an NPC's folder is n.dir. Same shape as the map folders above */
+N.nd = {
+  byId: id => (N.G.npcDirs || []).find(d => d.id === id) || null,
+  of: n => (n && N.nd.byId(n.dir)) ? n.dir : null,
+  kids: id => (N.G.npcDirs || []).filter(d => (N.nd.byId(d.in) ? d.in : null) === (id || null)).sort((a, b) => a.name.localeCompare(b.name)),
+  path: id => { const out = []; for (let d = N.nd.byId(id), n = 0; d && n < 20; d = N.nd.byId(d.in), n++) out.unshift(d); return out; },
+  name: id => N.nd.path(id).map(d => d.name).join(' › '),
+  tree: id => [id, ...N.nd.kids(id).flatMap(d => N.nd.tree(d.id))],
+  /* the NPC cards in the folder or any folder inside it */
+  npcs: id => { const ids = new Set(N.nd.tree(id)); return N.G.npcs.filter(n => ids.has(N.nd.of(n))); },
+  /* every folder as [id, "Drinkhold › The Copper Tankard", depth], for pickers */
+  list: skip => { const out = [], walk = (id, d) => { for (const k of N.nd.kids(id)) { if (k.id === skip) continue; out.push([k.id, N.nd.name(k.id), d]); walk(k.id, d + 1); } }; walk(null, 0); return out; },
+};
 N.cats = () => N.G.cats || N.WCATS.map(name => ({name, ic:N.CATICON[name] || 'globe'}));
 N.catIcon = name => (N.cats().find(c => c.name === name) || {}).ic || N.CATICON[name] || 'globe';
 /* every category with entries in it: the GM's list in order, then any an entry still names */
@@ -256,7 +270,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], rev:{}, known:{}, hlocs:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], rev:{}, known:{}, hlocs:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
