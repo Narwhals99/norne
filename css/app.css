@@ -2263,3 +2263,27 @@
 .app .rcnt .rc-roll .inchat{margin-left:auto;display:inline-flex;align-items:center;gap:4px;font:700 10.5px/1 var(--f-ui);letter-spacing:.04em;color:var(--ink-4)}
 .app .rcnt .rc-roll .inchat svg{width:13px;height:13px}
 @media (hover:hover){ .app .rcnt .rc-roll.near:hover{background:var(--raise)} .app .rcnt .rc-roll.near:hover .inchat{color:var(--gold-tx)} }
+
+/* NPC folders on the Cast page and in the scene's cast picker */
+.app .ndbar{display:flex;gap:8px;align-items:center}
+.app .ndbar .search{flex:1;min-width:0}
+.app .ndbar>.btn{flex:0 0 auto}
+.app .ndhead{display:flex;align-items:center;gap:8px;padding:2px 0}
+.app .ndhead>span{flex:1;min-width:0;display:flex;align-items:center;gap:8px;color:var(--gold-tx)}
+.app .ndhead>span>svg{width:20px;height:20px;flex:0 0 auto}
+.app .ndhead>span>span{min-width:0;display:grid}
+.app .ndhead small{font:600 12px/1.3 var(--f-ui);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .ndhead b{font:600 19px/1.2 var(--f-display);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .ccard .ndwhere{display:flex;align-items:center;gap:4px}
+.app .ccard .ndwhere svg{width:12px;height:12px;flex:0 0 auto}
+.app .sddirs{display:grid;gap:6px;margin-top:8px}
+.app .sddir{display:grid;gap:8px;margin-left:calc(var(--dd,0) * 16px)}
+.app .sddir-h{display:flex;align-items:center;gap:6px}
+.app .sddir-t{flex:1;min-width:0;display:flex;align-items:center;gap:9px;min-height:42px;padding:6px 12px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);text-align:left;color:var(--ink-2)}
+.app .sddir-t>svg{width:17px;height:17px;flex:0 0 auto;color:var(--gold-tx)}
+.app .sddir-t>svg:last-child{color:var(--ink-4);width:15px;height:15px}
+.app .sddir-t>span{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.app .sddir-t b{font:700 13.5px/1.2 var(--f-ui);color:var(--ink)}
+.app .sddir-t small{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .sddir-t[aria-expanded="true"]{box-shadow:inset 0 0 0 1.5px var(--line-3)}
+.app:where([data-style="oak"],[data-style="parchment"]) .sddir-t{border-radius:6px}
