@@ -448,6 +448,7 @@ function backStep(v, home){
   const ui = v.ui;
   if (ui.shelf) return () => { ui.shelf = false; };
   if (ui.pop) return () => { ui.pop = null; };
+  if (ui.sheet === 'itemEd' || ui.sheet === 'itemGive') return () => { ui.sheet = 'items'; ui.itd = null; };
   if (ui.sheet) return () => { if (!askTell(v)) ui.sheet = null; };
   if (ui.tab === 'chat' && (ui.targeting || ui.placing)) return () => { ui.targeting = null; ui.placing = null; };
   /* any page with its own back arrow (wiki, news, cast card, inventory) goes back the way that arrow does */
@@ -495,6 +496,12 @@ function input(v, el){
     case 'draft': v.ui.draft = val; grow(el); return;
     case 'fcDraft': v.ui.fcDraft = val; return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
+    case 'itQ': v.ui.itQ = val; render(v); return;
+    case 'itd': { const d = v.ui.itd; if (!d) return; d[k] = N.GEARK.some(([x]) => x === k) ? +val || 0 : val;
+      if (k === 'name') { const b = v.root.querySelector('[data-a="itSave"]'); if (b) b.disabled = !val.trim(); } return; }
+    case 'itg': { const t = v.ui.itg; if (!t) return;
+      if (k === 'q') { const n = val.replace(/[^0-9]/g, '').slice(0, 4); if (n !== val) el.value = n; t.q = Math.max(1, parseInt(n, 10) || 1); return; }
+      t.to = val; render(v); return; }
     case 'mapQ': v.ui.mapQ = val; render(v); return;
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
     case 'npcQ': v.ui.npcQ = val; render(v); return;
@@ -1491,10 +1498,13 @@ function act(v, a, el, e){
   }
   case 'invAdd': {
     const c = invOwner(d, v), key = d.nd ? 'nd' : c.id, inp = v.root.querySelector(`#inv-${key}-${v.id}`), n = (inp?.value || '').trim(), q = ui.invQ || 1;
-    const note = (v.root.querySelector(`#invd-${key}-${v.id}`)?.value || '').trim();
+    let note = (v.root.querySelector(`#invd-${key}-${v.id}`)?.value || '').trim();
     if (!n) { toast(v, 'Type an item name first.'); break; }
     if (!c.inv) c.inv = [];
-    const ex = c.inv.find(x => x[0].toLowerCase() === n.toLowerCase()); if (ex) { ex[1] += q; if (note) ex[2] = note; } else c.inv.push(note ? [n, q, note] : [n, q]);
+    /* a name from the GM's item catalog brings its description and picture along */
+    const cat = N.itemByName(n), ic = cat && cat.ic && cat.ic !== 'bag' ? cat.ic : null;
+    if (cat && !note) note = N.itemNote(cat);
+    const ex = c.inv.find(x => x[0].toLowerCase() === n.toLowerCase()); if (ex) { ex[1] += q; if (note) ex[2] = note; } else c.inv.push(ic ? [cat.name, q, note, ic] : note ? [cat ? cat.name : n, q, note] : [cat ? cat.name : n, q]);
     if (d.nd) { ui.invQ = 1; renderAll(); return; }
     if (!d.c) { ui.invQ = 1; toast(v, `Added to ${c.name}’s inventory.`); renderAll(); return; }
     sys(`${N.gmName()} added ${n} ×${q} to ${c.short}’s inventory.`, 'dm-' + c.player); ui.invQ = 1;
@@ -1516,6 +1526,45 @@ function act(v, a, el, e){
     renderAll(); return;
   }
   case 'invDel': { ui.invEdit = null; const c = invOwner(d, v), it = c?.inv?.splice(+d.i, 1)[0]; if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
+  /* the GM's item catalog (GM tools > Item catalog): add, edit, delete, and give an item to a character or NPC */
+  case 'itKind': ui.itK = val || ''; break;
+  case 'itNew': ui.itd = {id:null, name:'', kind:ui.itK || 'weapon', ic:'', d:'', gm:'', gearAtk:0, gearRng:0, gearAmmo:0, gearDef:0}; ui.sheet = 'itemEd'; break;
+  case 'itEdit': { const it = N.itemById(val); if (!it) break; ui.itd = {gearAtk:0, gearRng:0, gearAmmo:0, gearDef:0, ic:'', d:'', gm:'', ...JSON.parse(JSON.stringify(it))}; ui.sheet = 'itemEd'; break; }
+  case 'itdKind': if (ui.itd) ui.itd.kind = val; break;
+  case 'itdIc': if (ui.itd) ui.itd.ic = val; break;
+  case 'itSave': {
+    const d = ui.itd, name = (d?.name || '').trim(); if (!name) break;
+    if (!g.items) g.items = [];
+    const dup = g.items.find(x => x.id !== d.id && x.name.toLowerCase() === name.toLowerCase());
+    if (dup) { toast(v, `There is already an item called ${dup.name}.`); break; }
+    const it = {id:d.id || uid('it'), name, kind:N.itemKind(d.kind)[0], ic:d.ic && d.ic !== N.itemKind(d.kind)[2] ? d.ic : '', d:(d.d || '').trim(), gm:(d.gm || '').trim()};
+    for (const [k] of N.GEARK) if (+d[k] > 0) it[k] = +d[k];
+    const at = g.items.findIndex(x => x.id === it.id); if (at >= 0) g.items[at] = it; else g.items.push(it);
+    g.items.sort((a, b) => a.name.localeCompare(b.name));
+    ui.itd = null; ui.sheet = 'items'; if (ui.itK && ui.itK !== it.kind) ui.itK = it.kind;
+    toast(v, at >= 0 ? `Saved ${name}.` : `Added ${name} to the catalog.`); renderAll(); return;
+  }
+  case 'itDel': {
+    const at = (g.items || []).findIndex(x => x.id === val); if (at < 0) break;
+    const [it] = g.items.splice(at, 1); ui.itd = null; ui.sheet = 'items';
+    toast(v, `Deleted ${it.name} from the catalog. Inventories that have it keep it.`, () => { g.items.splice(at, 0, it); });
+    renderAll(); return;
+  }
+  case 'itGive': { const it = N.itemById(val); if (!it) break; ui.itg = {id:it.id, to:ui.itg?.to && N.itemTo(ui.itg.to) ? ui.itg.to : '', q:1, gear:N.itemGears(it).length > 0}; ui.sheet = 'itemGive'; break; }
+  case 'itgQ': if (ui.itg) ui.itg.q = Math.max(1, Math.min(9999, ui.itg.q + +d.d)); break;
+  case 'itgGear': if (ui.itg) ui.itg.gear = !ui.itg.gear; break;
+  case 'itGiveGo': {
+    const t = ui.itg, it = t && N.itemById(t.id), who = t && N.itemTo(t.to); if (!it || !who) break;
+    const o = who.o, q = Math.max(1, t.q || 1), note = N.itemNote(it), ic = it.ic || N.itemKind(it.kind)[2];
+    if (!o.inv) o.inv = [];
+    const ex = o.inv.find(x => x[0].toLowerCase() === it.name.toLowerCase());
+    if (ex) { ex[1] += q; if (note) ex[2] = note; if (ic !== 'bag') ex[3] = ic; } else o.inv.push(ic !== 'bag' ? [it.name, q, note, ic] : [it.name, q, note]);
+    const gs = t.gear ? N.itemGears(it) : [];
+    for (const [k] of gs) o[k] = +it[k];
+    if (who.pc) sys(`${N.gmName()} gave ${o.short} ${it.name} ×${q}.${gs.length ? ` ${gs.map(([k, l]) => `${l} rating is now +${+it[k]}`).join(', ').replace(/^./, c => c.toUpperCase())}.` : ''}`, 'dm-' + o.player);
+    ui.sheet = 'items';
+    toast(v, `Gave ${it.name} ×${q} to ${who.label}.${who.pc ? ' They got a note.' : ''}`); renderAll(); return;
+  }
   case 'npcNew': openSheet(v, 'npcNew', d); break;
   case 'npcEdit': openSheet(v, 'npcNew', {edit:val}); break;
   case 'myFace': { const c = N.charOf(v.role); if (c) myFace(v, c, val); return; }

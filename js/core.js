@@ -278,7 +278,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], rev:{}, known:{}, hlocs:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, hlocs:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -515,6 +515,21 @@ N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
    PCs and NPCs reach players in the same shape, so their cards look alike.
    How the player's character knows them is set by the GM too, as one more key: met:met (Met) or met:heard (Heard of). */
 N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target'],['gearAmmo','Ranged ammo','arrowR'],['gearDef','Armor','shieldU']];
+/* ---------- the GM's item catalog: the weapons, armor and magical things that exist in the world ----------
+   G.items = [{id, name, kind, ic, d, gm, gearAtk, gearRng, gearAmmo, gearDef}] (GM only, its own doc gm/items, one unit per item).
+   d is what it does (copied into an inventory when the GM gives it), gm is the GM's own notes (never copied).
+   The ratings match the ones on a card (N.GEARK); giving the item can set them on the card too. */
+N.ITEMK = [['weapon','Weapons','sword'],['armor','Armor','shieldU'],['magic','Magical','magic'],['potion','Potions and food','potion'],['gear','Gear and tools','bag'],['other','Other','items']];
+N.ITEM_IC = ['bag','sword','target','arrowR','shieldU','helm','boots','knuckles','magic','sparkle','spellbook','potion','drink','scroll','coins','skull','items'];
+N.itemKind = k => N.ITEMK.find(x => x[0] === k) || N.ITEMK[N.ITEMK.length - 1];
+N.itemById = id => (N.G.items || []).find(x => x.id === id) || null;
+N.itemByName = n => { const k = String(n || '').trim().toLowerCase(); return k ? (N.G.items || []).find(x => x.name.toLowerCase() === k) || null : null; };
+/* who an item is given to: 'c:<char id>' (a player character) or 'n:<npc id>' */
+N.itemTo = to => { const [t, id] = String(to || '').split(/:(.*)/s); const o = t === 'c' ? N.G.chars[id] : t === 'n' ? N.G.npcs.find(x => x.id === id) : null;
+  return o && (t === 'n' || o.built) ? {o, pc:t === 'c', label:t === 'c' ? o.short : o.name} : null; };
+N.itemGears = it => N.GEARK.filter(([k]) => +it[k] > 0);
+/* the line an inventory gets: its ratings, then what it does */
+N.itemNote = it => [N.itemGears(it).map(([k, l]) => `${l} +${+it[k]}`).join(', '), (it.d || '').trim()].filter(Boolean).join(' · ');
 N.GOLD_MAX = 9999999; /* Gold on a card: whole numbers 0 to this, 7 digits like the box allows */
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 N.revParts = (c, pc) => {
