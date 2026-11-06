@@ -506,7 +506,7 @@ function input(v, el){
     case 'fcDraft': v.ui.fcDraft = val; return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
     case 'itQ': v.ui.itQ = val; render(v); return;
-    case 'itd': { const d = v.ui.itd; if (!d) return; d[k] = N.GEARK.some(([x]) => x === k) ? +val || 0 : val;
+    case 'itd': { const d = v.ui.itd; if (!d) return; d[k] = N.ITEM_RATE.some(([x]) => x === k) ? +val || 0 : val;
       if (k === 'name') { const b = v.root.querySelector('[data-a="itSave"]'); if (b) b.disabled = !val.trim(); } return; }
     case 'itg': { const t = v.ui.itg; if (!t) return;
       if (k === 'q') { const n = val.replace(/[^0-9]/g, '').slice(0, 4); if (n !== val) el.value = n; t.q = Math.max(1, parseInt(n, 10) || 1); return; }
@@ -1548,9 +1548,19 @@ function act(v, a, el, e){
   }
   case 'invDel': { ui.invEdit = null; const c = invOwner(d, v), it = c?.inv?.splice(+d.i, 1)[0]; if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
   /* the GM's item catalog (GM tools > Item catalog): add, edit, delete, and give an item to a character or NPC */
-  case 'itKind': ui.itK = val || ''; break;
+  case 'itKind': ui.itK = val || ''; ui.itC = ''; break;
+  case 'itCls': ui.itC = val || ''; break;
+  case 'itdSilver': if (ui.itd) ui.itd.silver = ui.itd.silver ? 0 : 1; break;
+  case 'itImport': {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+    inp.onchange = () => { const f = inp.files?.[0]; if (!f) return;
+      f.text().then(t => { const j = JSON.parse(t), list = Array.isArray(j) ? j : j.items; if (!Array.isArray(list)) throw new Error('no items');
+        const r = N.importItems(list); toast(v, `Imported ${r.add} new item${r.add === 1 ? '' : 's'}${r.rep ? `, updated ${r.rep}` : ''}.`); renderAll(); })
+        .catch(err => { console.error(err); toast(v, 'That isn’t a Norne items file.'); }); };
+    inp.click(); return;
+  }
   case 'itNew': ui.itd = {id:null, name:'', kind:ui.itK || 'weapon', ic:'', d:'', gm:'', gearAtk:0, gearRng:0, gearAmmo:0, gearDef:0}; ui.sheet = 'itemEd'; break;
-  case 'itEdit': { const it = N.itemById(val); if (!it) break; ui.itd = {gearAtk:0, gearRng:0, gearAmmo:0, gearDef:0, ic:'', d:'', gm:'', ...JSON.parse(JSON.stringify(it))}; ui.sheet = 'itemEd'; break; }
+  case 'itEdit': { const it = N.itemById(val); if (!it) break; ui.itd = {ic:'', d:'', gm:'', ...JSON.parse(JSON.stringify(it))}; ui.sheet = 'itemEd'; break; }
   case 'itdKind': if (ui.itd) ui.itd.kind = val; break;
   case 'itdIc': if (ui.itd) ui.itd.ic = val; break;
   case 'itSave': {
@@ -1558,8 +1568,10 @@ function act(v, a, el, e){
     if (!g.items) g.items = [];
     const dup = g.items.find(x => x.id !== d.id && x.name.toLowerCase() === name.toLowerCase());
     if (dup) { toast(v, `There is already an item called ${dup.name}.`); break; }
-    const it = {id:d.id || uid('it'), name, kind:N.itemKind(d.kind)[0], ic:d.ic && d.ic !== N.itemKind(d.kind)[2] ? d.ic : '', d:(d.d || '').trim(), gm:(d.gm || '').trim()};
-    for (const [k] of N.GEARK) if (+d[k] > 0) it[k] = +d[k];
+    /* fields this sheet doesn't show (Jake's rule flags from an items file) are kept as they were */
+    const it = {...d, id:d.id || uid('it'), name, kind:N.itemKind(d.kind)[0], ic:d.ic && d.ic !== N.itemKind(d.kind)[2] ? d.ic : '', d:(d.d || '').trim(), gm:(d.gm || '').trim(), cls:(d.cls || '').trim(), disc:(d.disc || '').trim()};
+    for (const k of ['cls', 'disc', 'silver']) if (!it[k]) delete it[k];
+    for (const [k] of N.ITEM_RATE) if (+d[k] > 0) it[k] = +d[k]; else delete it[k];
     const at = g.items.findIndex(x => x.id === it.id); if (at >= 0) g.items[at] = it; else g.items.push(it);
     g.items.sort((a, b) => a.name.localeCompare(b.name));
     ui.itd = null; ui.sheet = 'items'; if (ui.itK && ui.itK !== it.kind) ui.itK = it.kind;
@@ -1571,7 +1583,7 @@ function act(v, a, el, e){
     toast(v, `Deleted ${it.name} from the catalog. Inventories that have it keep it.`, () => { g.items.splice(at, 0, it); });
     renderAll(); return;
   }
-  case 'itGive': { const it = N.itemById(val); if (!it) break; ui.itg = {id:it.id, to:ui.itg?.to && N.itemTo(ui.itg.to) ? ui.itg.to : '', q:1, gear:N.itemGears(it).length > 0}; ui.sheet = 'itemGive'; break; }
+  case 'itGive': { const it = N.itemById(val); if (!it) break; ui.itg = {id:it.id, to:ui.itg?.to && N.itemTo(ui.itg.to) ? ui.itg.to : '', q:1, gear:N.itemCardGears(it).length > 0}; ui.sheet = 'itemGive'; break; }
   case 'itgQ': if (ui.itg) ui.itg.q = Math.max(1, Math.min(9999, ui.itg.q + +d.d)); break;
   case 'itgGear': if (ui.itg) ui.itg.gear = !ui.itg.gear; break;
   case 'itGiveGo': {
@@ -1580,7 +1592,7 @@ function act(v, a, el, e){
     if (!o.inv) o.inv = [];
     const ex = o.inv.find(x => x[0].toLowerCase() === it.name.toLowerCase());
     if (ex) { ex[1] += q; if (note) ex[2] = note; if (ic !== 'bag') ex[3] = ic; } else o.inv.push(ic !== 'bag' ? [it.name, q, note, ic] : [it.name, q, note]);
-    const gs = t.gear ? N.itemGears(it) : [];
+    const gs = t.gear ? N.itemCardGears(it) : [];
     for (const [k] of gs) o[k] = +it[k];
     if (who.pc) sys(`${N.gmName()} gave ${o.short} ${it.name} ×${q}.${gs.length ? ` ${gs.map(([k, l]) => `${l} rating is now +${+it[k]}`).join(', ').replace(/^./, c => c.toUpperCase())}.` : ''}`, 'dm-' + o.player);
     ui.sheet = 'items';

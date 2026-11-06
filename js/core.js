@@ -535,7 +535,23 @@ N.itemByName = n => { const k = String(n || '').trim().toLowerCase(); return k ?
 /* who an item is given to: 'c:<char id>' (a player character) or 'n:<npc id>' */
 N.itemTo = to => { const [t, id] = String(to || '').split(/:(.*)/s); const o = t === 'c' ? N.G.chars[id] : t === 'n' ? N.G.npcs.find(x => x.id === id) : null;
   return o && (t === 'n' || o.built) ? {o, pc:t === 'c', label:t === 'c' ? o.short : o.name} : null; };
-N.itemGears = it => N.GEARK.filter(([k]) => +it[k] > 0);
+/* an item's ratings: the four a card has, plus Shield (a shield's rating; no card field yet) */
+N.ITEM_RATE = [...N.GEARK, ['shield','Shield','shieldU']];
+N.itemGears = it => N.ITEM_RATE.filter(([k]) => +it[k] > 0);
+N.itemCardGears = it => N.GEARK.filter(([k]) => +it[k] > 0);
+/* where an item sits in Jake's lists: class (e.g. Small one-handed weapons), then sub-type and discipline */
+N.itemPath = it => [it.cls, it.sub, it.disc].filter(Boolean).join(' · ');
+/* merge an items file (norne-gm-items.json) into the catalog: same name = replaced, keeping its id */
+N.importItems = list => {
+  const g = N.G; if (!g.items) g.items = []; let add = 0, rep = 0;
+  for (const raw of list) {
+    const name = String(raw?.name || '').trim(); if (!name) continue;
+    const it = {...raw, name, kind:N.itemKind(raw.kind)[0]}; delete it.o;
+    const at = g.items.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
+    if (at >= 0) { it.id = g.items[at].id; g.items[at] = it; rep++; } else { it.id = N.uid('it'); g.items.push(it); add++; }
+  }
+  g.items.sort((a, b) => a.name.localeCompare(b.name)); return {add, rep};
+};
 /* the line an inventory gets: its ratings, then what it does */
 N.itemNote = it => [N.itemGears(it).map(([k, l]) => `${l} +${+it[k]}`).join(', '), (it.d || '').trim()].filter(Boolean).join(' · ');
 N.GOLD_MAX = 9999999; /* Gold on a card: whole numbers 0 to this, 7 digits like the box allows */
