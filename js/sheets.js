@@ -397,7 +397,7 @@ N.sheetHtml = function(v){
     return sheet('Map settings', `<label class="field"><span>Map name</span><input class="inp" id="mpn-${v.id}" data-i="mapName" data-v="${esc(m.id)}" value="${esc(m.name)}"></label>
       <label class="field"><span>Folder</span><div style="display:flex;gap:8px"><select class="inp" id="mpf-${v.id}" data-i="mapFolder" data-v="${esc(m.id)}" style="flex:1;min-width:0"><option value="">No folder (top of the list)</option>${N.dirList().map(([id, name]) => `<option value="${esc(id)}" ${N.mapDirOf(m) === id ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select><button type="button" class="btn ghost" data-a="mdOpen" data-map="${esc(m.id)}" data-in="${esc(N.mapDirOf(m) || '')}" style="flex:0 0 auto">${IC('plus')}New folder</button></div></label>
       <div><h4>Who sees this map</h4>${N.audPick('mapAud', m, 'map')}</div>
-      <div class="note">${IC('info')}Places on the map have their own switch: tap a place while editing to show or hide it.</div>`,
+      <div class="note">${IC('info')}When you press Done you can choose whether to tell the players you shared it with. Places on the map have their own switch: tap a place while editing to show or hide it.</div>`,
       `<button type="button" class="btn danger" data-a="sheet" data-v="mapDel" data-c="${esc(m.id)}" style="flex:0 0 auto">${IC('trash')}Delete map</button><button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
   }
   /* ---------------- reveal parts of a card to single players (GM) ---------------- */
@@ -411,9 +411,18 @@ N.sheetHtml = function(v){
     const row = p => `<button type="button" class="revrow" data-a="revTog" data-v="${esc(p.k)}" aria-pressed="${keys.includes(p.k)}"><span class="rck">${IC('check')}</span><span><b>${esc(p.l)}</b><small>${esc(p.v)}</small></span></button>`;
     const body = `<div><h4>To</h4><div class="forwho" role="group" aria-label="Player">${seats.map(s2 => `<button type="button" data-a="revSeat" data-v="${s2}" aria-pressed="${s2 === st}">${N.av(N.personObj(s2),28)}${esc(pName(s2))}${N.revOf(arg, s2).length ? ` <span class="tag" style="height:16px">${N.revOf(arg, s2).length}</span>` : ''}</button>`).join('')}</div></div>
       ${groups.map(gr => `<div class="revgrp${gr === 'Skills' || gr === 'Weapons and armor' ? ' tight' : ''}"><h4>${gr}</h4>${parts.filter(p => p.g === gr).map(row).join('')}</div>`).join('')}
-      <div class="note">${IC('info')}${keys.includes('name') ? `${esc(pName(st))} sees the parts ticked here under Character.` : `${esc(pName(st))} sees nothing about ${esc(name)} until you tick Name.`} Nothing is posted in chat, and adding someone to a scene never reveals them. Untick a part to hide it again.</div>`;
+      <div class="note">${IC('info')}${keys.includes('name') ? `${esc(pName(st))} sees the parts ticked here under Character.` : `${esc(pName(st))} sees nothing about ${esc(name)} until you tick Name.`} When you press Done you can choose whether to send them a note. Adding someone to a scene never reveals them. Untick a part to hide it again.</div>`;
     const all = parts.length && parts.every(p => keys.includes(p.k));
     return sheet(`Reveal ${esc(name)}`, body, `<button type="button" class="btn ghost" data-a="revAll" data-v="${all ? '' : '1'}" style="flex:0 0 auto">${all ? 'Hide everything' : 'Reveal everything'}</button><button type="button" class="btn primary" data-a="closeSheet">${IC('check')}Done</button>`);
+  }
+  /* ---------------- after a reveal: send the players a note (and a ping)? (GM) ---------------- */
+  case 'tellAsk': {
+    const t = v.ui.tellAsk; if (!t) return '';
+    const n = t.items.filter(it => it.on).length;
+    const row = (it, i) => `<button type="button" class="revrow" data-a="tellTog" data-v="${i}" aria-pressed="${it.on}" ${it.ok ? '' : 'disabled'}><span class="rck">${IC('check')}</span>${it.to === '*' ? '' : N.av(N.personObj(it.to), 28)}<span><b>${it.to === '*' ? 'Everyone' : esc(pName(it.to))}</b><small>${it.ok ? esc(it.text) : 'Your private chat with them is closed, so they can’t get a note.'}</small></span></button>`;
+    return sheet('Send notifications?', `<p class="muted" style="margin:0;font:600 13.5px/1.45 var(--f-ui)">Saved. Should the players get a note in chat about it? Their phones ping if they have notifications on.</p>
+      <div class="revgrp">${t.items.map(row).join('')}</div>`,
+      `<button type="button" class="btn ghost" data-a="tellSkip">Don’t send</button><button type="button" class="btn primary" data-a="tellGo" ${n ? '' : 'disabled'}>${IC('send')}Send${n > 1 ? ` ${n} notes` : ''}</button>`);
   }
   case 'mapDir': {
     const md = v.ui.md; if (!md) return '';

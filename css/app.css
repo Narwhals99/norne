@@ -2146,6 +2146,8 @@
 .app .revrow .rck svg{width:14px;height:14px}
 .app .revrow[aria-pressed="true"]{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--gold-soft)}
 .app .revrow[aria-pressed="true"] .rck{background:var(--gold-tx);box-shadow:none;color:var(--page-solid)}
+.app .revrow[disabled]{opacity:.55;cursor:default}
+.app .revrow>.av{flex:none}
 /* chat search */
 .app .srch-top{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .app .srch-q{flex:1 1 240px;position:relative;display:flex;min-width:0}
