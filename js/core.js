@@ -204,6 +204,28 @@ N.dirTree = id => [id, ...N.dirKids(id).flatMap(d => N.dirTree(d.id))];
 N.dirCount = (id, see) => { const ids = new Set(N.dirTree(id)); return N.G.maps.filter(m => see(m) && ids.has(N.mapDirOf(m))).length; };
 /* every folder as [id, "Riverlands › Drinkhold"], for pickers */
 N.dirList = (skip) => { const out = [], walk = (id, d) => { for (const k of N.dirKids(id)) { if (k.id === skip) continue; out.push([k.id, N.dirName(k.id), d]); walk(k.id, d + 1); } }; walk(null, 0); return out; };
+/* ---------- map levels and the default map ---------- */
+/* the GM tags each map World, Nation, Region or City/Town (m.lvl); the lore's Nörne map counts as World until the GM says otherwise */
+N.MLVLS = [['world', 'World'], ['nation', 'Nation'], ['region', 'Region'], ['city', 'City/Town']];
+N.mapLvl = m => (m && m.lvl != null ? m.lvl : m && m.id === 'norne' ? 'world' : '') || '';
+N.mapLvlName = m => (N.MLVLS.find(([k]) => k === N.mapLvl(m)) || [, ''])[1];
+N.mapLvlRank = m => { const i = N.MLVLS.findIndex(([k]) => k === N.mapLvl(m)); return i < 0 ? 9 : i; };
+/* the map someone lands on when they open the Maps tab: the GM's default (m.def) if they can see it, else a World map, else the first one */
+N.defMap = gm => { const ms = N.G.maps.filter(m => gm || m.vis !== false); return ms.find(m => m.def) || ms.find(m => N.mapLvl(m) === 'world') || ms[0] || null; };
+/* ---------- NPC folders: the GM sorts NPC cards into folders on the Cast page (folders can sit in folders) ----------
+   G.npcDirs = [{id, name, in}] (GM-only, gm/misc); an NPC's folder is n.dir. Same shape as the map folders above */
+N.nd = {
+  byId: id => (N.G.npcDirs || []).find(d => d.id === id) || null,
+  of: n => (n && N.nd.byId(n.dir)) ? n.dir : null,
+  kids: id => (N.G.npcDirs || []).filter(d => (N.nd.byId(d.in) ? d.in : null) === (id || null)).sort((a, b) => a.name.localeCompare(b.name)),
+  path: id => { const out = []; for (let d = N.nd.byId(id), n = 0; d && n < 20; d = N.nd.byId(d.in), n++) out.unshift(d); return out; },
+  name: id => N.nd.path(id).map(d => d.name).join(' › '),
+  tree: id => [id, ...N.nd.kids(id).flatMap(d => N.nd.tree(d.id))],
+  /* the NPC cards in the folder or any folder inside it */
+  npcs: id => { const ids = new Set(N.nd.tree(id)); return N.G.npcs.filter(n => ids.has(N.nd.of(n))); },
+  /* every folder as [id, "Drinkhold › The Copper Tankard", depth], for pickers */
+  list: skip => { const out = [], walk = (id, d) => { for (const k of N.nd.kids(id)) { if (k.id === skip) continue; out.push([k.id, N.nd.name(k.id), d]); walk(k.id, d + 1); } }; walk(null, 0); return out; },
+};
 N.cats = () => N.G.cats || N.WCATS.map(name => ({name, ic:N.CATICON[name] || 'globe'}));
 N.catIcon = name => (N.cats().find(c => c.name === name) || {}).ic || N.CATICON[name] || 'globe';
 /* every category with entries in it: the GM's list in order, then any an entry still names */
@@ -258,7 +280,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], rev:{}, known:{}, hlocs:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], rev:{}, known:{}, hlocs:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -492,7 +514,8 @@ N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
    in their own only/<seat> as unit r:<cardId> (N.revealed), read back into G.known. A player sees a character only once
    its name is revealed. Keys: name, pic, race, age, a:<n> aspect n, sk:<skill> (also +0 skills), st:<stunt name>,
    cn:<slot> one consequence, g:<gear key> one rating, it:<item name> one inventory item, bio, people.
-   PCs and NPCs reach players in the same shape, so their cards look alike. */
+   PCs and NPCs reach players in the same shape, so their cards look alike.
+   How the player's character knows them is set by the GM too, as one more key: met:met (Met) or met:heard (Heard of). */
 N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target'],['gearAmmo','Ranged ammo','arrowR'],['gearDef','Armor','shieldU']];
 N.GOLD_MAX = 9999999; /* Gold on a card: whole numbers 0 to this, 7 digits like the box allows */
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
@@ -530,10 +553,15 @@ N.revealed = (c, pc, keys0) => {
   const it = (c.inv || []).filter(([n]) => has('it:' + n)).map(([n, q, d, ic]) => [n, q, d || '', ic || 'bag']); if (it.length) r.inv = it;
   if (has('bio') && c.bio) r.bio = c.bio;
   if (pc && has('people') && c.people) r.people = c.people;
+  const mt = N.metOf(keys); if (mt) r.met = mt;
   return r;
 };
 N.revOf = (id, seat) => ((N.G.rev || {})[id] || {})[seat] || [];
-N.revSeats = id => Object.entries((N.G.rev || {})[id] || {}).filter(([, l]) => l.length).map(([s]) => s);
+/* Met / Heard of lives in the same list; it is not a card part, so counts and Reveal everything leave it alone */
+N.MET = {met:'Met', heard:'Heard of'};
+N.metOf = keys => { const k = (keys || []).find(x => x.startsWith('met:')); return k ? k.slice(4) : ''; };
+N.revCount = (id, seat) => N.revOf(id, seat).filter(k => !k.startsWith('met:')).length;
+N.revSeats = id => Object.entries((N.G.rev || {})[id] || {}).filter(([, l]) => l.some(k => !k.startsWith('met:'))).map(([s]) => s);
 N.pcTag = c => N.pcAspects(c)[0] || '';
 
 /* ---------- combat helpers ---------- */
