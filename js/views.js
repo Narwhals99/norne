@@ -48,6 +48,7 @@ N.appHtml = function(v){
     ${shelfOn && v.dev === 'phone' && v.ui.shelf ? `<div class="scrim shelf-scrim" data-a="shelf"></div>${shelfHtml(v)}` : ''}
     ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
     ${v.ui.pop ? `<div class="scrim" style="background:transparent;backdrop-filter:none" data-a="closePop"></div>${popHtml(v)}` : ''}
+    ${N.updReady && !v.ui.toast ? `<div class="toast upd" role="status"><span class="star4"></span><span>Norne was updated.</span><button type="button" data-a="appReload">Reload</button><button type="button" data-a="appLater" aria-label="Not now">${IC('x')}</button></div>` : ''}
     ${v.ui.toast ? `<div class="toast" role="status"><span class="star4"></span><span>${esc(v.ui.toast.text)}</span>${v.ui.toast.undo?'<button type="button" data-a="undo">Undo</button>':''}</div>` : ''}`;
 };
 

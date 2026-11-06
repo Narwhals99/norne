@@ -73,6 +73,28 @@ noscript{position:fixed;inset:0;display:grid;place-items:center;padding:24px;col
   wide.addEventListener ? wide.addEventListener('change', onWide) : wide.addListener(onWide);
   N.kbInit();
   N.boot(v);
+  /* A phone can keep Norne open for days (an iPhone home-screen app is never reloaded, only woken), still running
+     the scripts it loaded back then, so a fix merged since never reaches it. When Norne comes back on screen (and every
+     10 minutes while it stays there) ask the server whether any script or stylesheet changed since this page loaded,
+     and if one did, show "Norne was updated" with a Reload button. */
+  const FILES = [...document.querySelectorAll('script[src^="js/"],link[rel="stylesheet"][href^="css/"]')].map(e => e.getAttribute('src') || e.getAttribute('href'));
+  const tag = f => fetch(f, {method:'HEAD', cache:'no-store'}).then(r => r.ok ? r.headers.get('etag') || r.headers.get('last-modified') || '' : '').catch(() => '');
+  const stamps = () => Promise.all(FILES.map(tag));
+  let base = null, last = 0;
+  const check = () => {
+    if (document.hidden || Date.now() - last < 60000) return; last = Date.now();
+    stamps().then(now => {
+      if (!base) { base = now; return; }
+      /* a file that couldn't be asked about (offline, no tag) counts as unchanged */
+      const key = now.join('|'), moved = now.some((t, i) => t && base[i] && t !== base[i]);
+      if (moved && key !== N.updSeen && !N.updReady) { N.updReady = true; N.updNew = key; N.renderAll(); }
+    });
+  };
+  N.updCheck = () => { last = 0; check(); };
+  setTimeout(check, 3000);
+  document.addEventListener('visibilitychange', check);
+  window.addEventListener('focus', check);
+  setInterval(check, 600000);
   /* sw.js makes every visit check for the newest scripts (see the note at its top) */
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
