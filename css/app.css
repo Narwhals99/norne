@@ -736,9 +736,9 @@
 .app .mapcv:active{cursor:grabbing}
 .app .mapst{position:absolute;left:0;top:0;transform-origin:0 0}
 .app .mapst img{display:block;user-select:none;-webkit-user-drag:none;pointer-events:none}
-/* while a pinch, drag or wheel zoom is moving the map: the picture and the pins are separate GPU layers, so the picture (and its
-   style's colour filter) is scaled as it is instead of being redrawn every frame. Sharp again once the gesture ends (see mapFrame in app.js) */
-.app .mapcv.moving .mapst img,.app .mapcv.moving .pins{will-change:transform}
+/* no will-change on the map picture or its pins while it moves (it was added 2026-11-05 for smoother pinching): on an iPhone it
+   made the whole map, at its zoomed size, into extra GPU layers on every drag, and the phone closed the page for using too much
+   memory (2026-11-06). Smooth pinching comes from drawing once per frame (mapFrame in app.js). .moving stays as a hook only. */
 .app .mapst .pins{position:absolute;inset:0;pointer-events:none}
 .app[data-theme="night"] .mapst img{filter:saturate(.85) brightness(.88)}
 /* the map's colours already painted into its picture (js/mappic.js): no filter, so no extra full-size copy in memory */

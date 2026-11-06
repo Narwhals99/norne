@@ -933,8 +933,8 @@ function applyMap(v){
 }
 /* smooth zooming: a pinch or wheel sends many moves per frame. Each one used to restyle every pin and redraw the whole
    map picture (with its colour filter) at the new size, so phones managed only a few frames a second. Now moves only
-   change the numbers and the map is drawn once per frame; while it moves (.moving) the picture is its own GPU layer that
-   is scaled as it is, and pins sit on their own layer, so nothing is redrawn until the fingers lift. */
+   change the numbers and the map is drawn once per frame. (It also made the picture and pins GPU layers while moving; that
+   made iPhones run out of memory and reload the page, so it was taken out on 2026-11-06, see .mapcv.moving in app.css.) */
 function mapFrame(v){
   if (v._mapRaf) return;
   v._mapRaf = requestAnimationFrame(() => { v._mapRaf = 0; applyMap(v); });
