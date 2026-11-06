@@ -1000,7 +1000,11 @@ function applyMap(v){
     const keep = v.ui.mapT && v.ui.mapT.id === m.id;
     /* a map with your location beacon opens on the beacon */
     const loc = keep ? null : N.myLoc(isGM(v) ? 'gm' : v.role, v.ui.ch), bk = loc && N.LOCK.find(k => loc[k] && loc[k].m === m.id);
+    /* on desktop a map opens fully zoomed out, the whole map in view (Jack, 2026-11-06); a phone opens it filling the
+       screen and closer in on your beacon or party */
+    const desk = v.dev !== 'phone';
     if (keep) clampT(v);
+    else if (desk) centerOn(v, .5, .5, kMin(v));
     else if (bk) centerOn(v, loc[bk].rx, loc[bk].ry, kOpen(v) * 1.5);
     else if (g.party.map === m.id) centerOn(v, g.party.rx, g.party.ry, kOpen(v) * 1.5);
     else centerOn(v, .5, .5, kOpen(v));
