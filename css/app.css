@@ -2356,3 +2356,21 @@
 .app .itc-tag{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-2);font:700 11px/1 var(--f-ui)}
 .app .itc-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 @media (max-width:560px){ .app .itc-two{grid-template-columns:1fr} }
+
+/* ---------- equipped weapons and armor, ammo counts (Jake's weapon rules) ---------- */
+.app .inv-h{display:flex;align-items:center;gap:6px;margin:4px 2px 6px;font:800 11px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.app .inv-h svg{width:14px;height:14px;color:var(--gold-tx)}
+.app .inv + .inv-h{margin-top:12px}
+.app .inv .it.eq{box-shadow:inset 0 0 0 1.5px var(--gold)}
+.app .inv .eqtag{display:inline-flex;align-items:center;height:18px;padding:0 8px;margin:3px 0 2px;border-radius:999px;background:var(--gold);color:var(--gold-ink);font:800 10.5px/1 var(--f-ui);letter-spacing:.04em;text-transform:uppercase}
+.app .inv .mini .eqb[aria-pressed="true"]{background:var(--gold);color:var(--gold-ink);box-shadow:none}
+.app .inv .ammo{display:flex;align-items:center;gap:6px;margin-top:6px}
+.app .inv .ammo .eyebrow{margin-right:2px}
+.app .inv .ammo b{display:inline;font:700 15px/1 var(--f-display);color:var(--gold-tx)}
+.app .inv .ammo button{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--sunk);font:800 14px/1 var(--f-ui);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line)}
+.app .inv .ammo button:disabled{opacity:.4}
+.app .inv .eqtag{display:flex;width:max-content}
+@container dev (max-width:560px){
+  .app .inv .it:has(.eqb){grid-template-columns:36px 1fr auto}
+  .app .inv .it:has(.eqb) .mini{grid-column:1/-1;justify-content:flex-end}
+}

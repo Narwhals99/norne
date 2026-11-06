@@ -716,6 +716,7 @@ function afterFightRoll(v, r, m){
     const d = N.tokById(r.target);
     N.boostTick(a);
     cb.pending = {att:a.id, def:r.target, total:tot, skill:m.roll.skill, msgId:m.id, stage:'defend'}; cb.last = null; cb.acted = true;
+    if (m.roll.skill === 'Shooting' && !(cb.shot || []).includes(a.id)) (cb.shot = cb.shot || []).push(a.id);
     fsys(`${N.tokName(a)} attacks ${d ? N.tokName(d) : 'someone'} with ${m.roll.skill}: ${sgn(tot)} ${ladderWord(tot)}. ${d ? N.tokName(d) : 'They'} rolls to defend next.`);
     return;
   }
@@ -745,6 +746,8 @@ function cbDefend(v){
   const [skill, x] = N.defSkill(d);
   const key = d.kind === 'pc' ? 'pc:' + d.ref : 'tok:' + d.id;
   const roll = {who:N.tokName(d), whoKey:key, skill, bonus:x, action:'Defend', target:N.tokName(a), opp:p.total, dice:N.rollDice(), invokes:[], fight:true};
+  /* Jake's rule: any shield adds +1 to a Defend roll, whatever its rating */
+  if (N.tokGear(d, 'shield')) { roll.bonus += 1; roll.gear = 1; roll.gearL = 'shield'; }
   const m = push({ch:N.fightCh(), kind:'roll', by:v.role, roll});
   if (d.kind === 'npc' && d.portrait) m.pt = d.portrait;
   /* defending counts as joining the fight */
@@ -1526,12 +1529,13 @@ function act(v, a, el, e){
     const cat = N.itemByName(n), ic = cat && cat.ic && cat.ic !== 'bag' ? cat.ic : null;
     if (cat && !note) note = N.itemNote(cat);
     const ex = c.inv.find(x => x[0].toLowerCase() === n.toLowerCase()); if (ex) { ex[1] += q; if (note) ex[2] = note; } else c.inv.push(ic ? [cat.name, q, note, ic] : note ? [cat ? cat.name : n, q, note] : [cat ? cat.name : n, q]);
+    const nr = ex || c.inv[c.inv.length - 1]; if (cat && N.itemSlot(cat)) N.invSetX(nr, {w:1, ...(cat.ammo && N.invX(nr).am == null ? {am:N.AMMO_MAX} : {})});
     if (d.nd) { ui.invQ = 1; renderAll(); return; }
     if (!d.c) { ui.invQ = 1; toast(v, `Added to ${c.name}’s inventory.`); renderAll(); return; }
     sys(`${N.gmName()} added ${n} ×${q} to ${c.short}’s inventory.`, 'dm-' + c.player); ui.invQ = 1;
     toast(v, `Added to ${c.short}’s inventory. They got a note.`); renderAll(); return;
   }
-  case 'invQty': { const c = invOwner(d, v), it = c?.inv?.[+d.i]; if (!it) break; it[1] += +d.d; if (it[1] <= 0) { c.inv.splice(+d.i, 1); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); } renderAll(); return; }
+  case 'invQty': { const c = invOwner(d, v), it = c?.inv?.[+d.i]; if (!it) break; it[1] += +d.d; if (it[1] <= 0) { c.inv.splice(+d.i, 1); if (N.invX(it).eq && !d.nd) N.applyGear(c); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); } renderAll(); return; }
   case 'invEdit': ui.invEdit = {key:d.nd ? 'nd' : invOwner(d, v)?.id, i:+d.i}; break;
   case 'invEditCancel': ui.invEdit = null; break;
   case 'invIc': if (ui.invEdit) ui.invEdit.ic = val; break;
@@ -1542,11 +1546,18 @@ function act(v, a, el, e){
     if (!n) { toast(v, 'An item needs a name.'); break; }
     ui.invEdit = null;
     if (q === 0) { c.inv.splice(+d.i, 1); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
-    const was = it[0]; c.inv[+d.i] = [n, q > 0 ? q : it[1], note, ...(ic && ic !== 'bag' ? [ic] : [])];
+    const was = it[0], x = it[4]; c.inv[+d.i] = [n, q > 0 ? q : it[1], note, ...(ic && ic !== 'bag' || x ? [ic || 'bag'] : []), ...(x ? [x] : [])];
     if (d.c) sys(`${N.gmName()} changed ${was === n ? n : `${was} to ${n}`} in ${c.short}’s inventory.`, 'dm-' + c.player);
     renderAll(); return;
   }
-  case 'invDel': { ui.invEdit = null; const c = invOwner(d, v), it = c?.inv?.splice(+d.i, 1)[0]; if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
+  /* Jake's weapon rules: equip a weapon or armor (fills the card's ratings), and step an ammo count */
+  case 'invEquip': { const c = invOwner(d, v); if (!c) break; const r = N.equipRow(c, +d.i); if (!r) break;
+    if (r.no) { toast(v, r.no); break; }
+    if (d.c) sys(`${N.gmName()}: ${c.short} ${N.invX(c.inv[+d.i]).eq ? 'equipped' : 'put away'} ${c.inv[+d.i][0]}.`, 'dm-' + c.player);
+    toast(v, r.ok); renderAll(); return; }
+  case 'invAmmo': { const c = invOwner(d, v), row = c?.inv?.[+d.i]; if (!row) break; const x = N.invX(row);
+    N.invSetX(row, {am:Math.max(0, Math.min(N.AMMO_MAX, (x.am || 0) + +d.d))}); renderAll(); return; }
+  case 'invDel': { ui.invEdit = null; const c = invOwner(d, v), it = c?.inv?.splice(+d.i, 1)[0]; if (it && N.invX(it).eq && !d.nd) N.applyGear(c); if (it && d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
   /* the GM's item catalog (GM tools > Item catalog): add, edit, delete, and give an item to a character or NPC */
   case 'itKind': ui.itK = val || ''; ui.itC = ''; break;
   case 'itCls': ui.itC = val || ''; break;
@@ -1591,7 +1602,10 @@ function act(v, a, el, e){
     const o = who.o, q = Math.max(1, t.q || 1), note = N.itemNote(it), ic = it.ic || N.itemKind(it.kind)[2];
     if (!o.inv) o.inv = [];
     const ex = o.inv.find(x => x[0].toLowerCase() === it.name.toLowerCase());
-    if (ex) { ex[1] += q; if (note) ex[2] = note; if (ic !== 'bag') ex[3] = ic; } else o.inv.push(ic !== 'bag' ? [it.name, q, note, ic] : [it.name, q, note]);
+    let row = ex;
+    if (ex) { ex[1] += q; if (note) ex[2] = note; if (ic !== 'bag') ex[3] = ic; } else { row = ic !== 'bag' ? [it.name, q, note, ic] : [it.name, q, note]; o.inv.push(row); }
+    /* weapons and armor go on the weapons list; ammo and thrown weapons start full */
+    if (N.itemSlot(it)) N.invSetX(row, {w:1, ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})});
     const gs = t.gear ? N.itemCardGears(it) : [];
     for (const [k] of gs) o[k] = +it[k];
     if (who.pc) sys(`${N.gmName()} gave ${o.short} ${it.name} ×${q}.${gs.length ? ` ${gs.map(([k, l]) => `${l} rating is now +${+it[k]}`).join(', ').replace(/^./, c => c.toUpperCase())}.` : ''}`, 'dm-' + o.player);
@@ -1913,7 +1927,7 @@ function setScene(v, ch, s, post){
 function savePc(v){
   const g = G(), d = v.ui.pd, c = g.chars[d.id], first = !c.built;
   const sv = N.stressVals;
-  const pv = sv(d.skills.Strength || 0), mv = sv(d.skills.Will || 0);
+  const pv = [...sv(d.skills.Strength || 0), ...(c.gearBox || [])], mv = sv(d.skills.Will || 0);
   Object.assign(c, {name:d.name.trim(), short:(d.short.trim() || d.name.trim().split(' ')[0]), portrait:d.portrait || null, hc:'', trouble:'',
     aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), race:(d.race || '').trim(), age:(d.age || '').trim(), bio:d.bio || '', people:d.people || '', invText:d.invText || '', skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), refresh:d.refresh, fp:d.fp, built:true,
     stressV:{phys:pv, ment:mv}, stress:{phys:pv.map((x,i) => !!c.stress.phys[i]), ment:mv.map((x,i) => !!c.stress.ment[i])}, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0});
@@ -1940,7 +1954,7 @@ function saveNpc(v){
   let n;
   if (old) {
     n = Object.assign(old, base);
-    for (const [tr, sk] of [['phys','Strength'],['ment','Will']]) { const sv = N.stressVals(n.skills[sk] || 0); if (sv.join() !== (n.stressV[tr] || []).join()) { n.stressV[tr] = sv; n.stress[tr] = sv.map(() => false); } }
+    for (const [tr, sk] of [['phys','Strength'],['ment','Will']]) { const sv = [...N.stressVals(n.skills[sk] || 0), ...(tr === 'phys' ? n.gearBox || [] : [])]; if (sv.join() !== (n.stressV[tr] || []).join()) { n.stressV[tr] = sv; n.stress[tr] = sv.map(() => false); } }
   } else { n = N.npcCard(base); g.npcs.push(n); }
   g.npcs.sort((a,b) => a.name.localeCompare(b.name));
   v.ui.sheet = null;
