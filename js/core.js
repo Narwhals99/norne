@@ -114,6 +114,8 @@ const diceSum = r => r.dice.reduce((a,b)=>a+b,0);
    against a roll with nothing rolled on their side (opp:true) went onto r.opp, so it doesn't count here either */
 const plusInvokes = r => (r.invokes||[]).filter(i => !i.reroll && !i.opp).length;
 const rollTotal = r => diceSum(r) + r.bonus + 2*plusInvokes(r);
+/* the skill's own share of r.bonus: gear, the distance debuff and the GM's buff or debuff are shown as their own parts */
+N.skillPart = r => r.bonus - (r.gear||0) + (r.dist||0) - (r.mod||0);
 function outcome(r){
   if (r.opp == null) return null;
   const sh = rollTotal(r) - r.opp;

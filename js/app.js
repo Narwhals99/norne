@@ -513,6 +513,7 @@ function input(v, el){
     case 'zone': { const z = g.combat.zones.find(x => x.id === el.dataset.z); if (!z) return; z[k] = val; if (k === 'name') { const l = v.root.querySelector(`[data-zl="${z.id}"]`); if (l && l.firstChild) l.firstChild.textContent = val; } return; }
     case 'rollAsp': v.ui.roll.aspect = val; return;
     case 'rollEv': v.ui.roll.evText = val; return;
+    case 'invName': v.ui.invName = val; return;
     case 'rollOther': v.ui.roll.otherName = val; return;
     /* picking a country clears the city under it, and so on down */
     case 'sdLoc': { const L = v.ui.sd.loc; L[k] = val; if (k === 'c') { L.t = ''; L.n = ''; } if (k === 't') L.n = ''; v.ui.sd.touched = true;
@@ -642,7 +643,7 @@ function openRoll(v, o={}){
   }
   const r = N.rollerOf(v, who);
   const best = r ? Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] : 'Notice';
-  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0};
+  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0, mod:0};
   { const r = v.ui.roll; if (r.skill in vsSkillMem) r.vsSkill = vsSkillMem[r.skill]; }
   v.ui.sheet = 'roll'; v.ui.pop = null;
 }
@@ -666,6 +667,9 @@ function doRoll(v){
      off the roll, shown as its own part of the total. The pick is remembered for the rest of the fight. */
   const far = N.farOf(v, r);
   if (fight && far) { g.combat.distLast = +r.dist || 0; if (r.dist > 0) { roll.bonus -= r.dist; roll.dist = +r.dist; roll.distZ = N.zoneOf(far)?.name || ''; } }
+  /* Jake's buff or debuff: the GM's own +1..+6 or −1..−6 on the roll, shown as its own part of the total. Not remembered */
+  const mod = isGM(v) ? clamp(+r.mod || 0, -6, 6) : 0;
+  if (mod) { roll.bonus += mod; roll.mod = mod; }
   /* a custom event (mind magic, a spell, anything the four actions don't cover) is a fight roll built like a roleplay roll:
      a skill against a skill and/or someone, a difficulty, passive or not, and it can be secret */
   const ev = fight && r.event, rp = isGM(v) && (ev || (!fight && r.ctx !== 'cb') || (fight && r.ctx === 'cb' && r.action !== 'attack'));
@@ -1096,7 +1100,8 @@ function act(v, a, el, e){
     break;
   }
   case 'newVoice': ui.pop = null; openSheet(v, 'npcNew', {from:'voice'}); break;
-  case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; ui.invBy = null; break;
+  case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; ui.invBy = null; ui.invName = ''; break;
+  case 'invMod': invMod(v, +d.d); return;
   case 'invBy': ui.invBy = val; break;
   /* add a situation aspect from the invoke sheet, then come back to it */
   case 'invAsp': ui.invBack = ui.sheetArg; ui.sheet = 'cbAspect'; break;
@@ -1562,6 +1567,7 @@ function act(v, a, el, e){
   case 'rollAct': ui.roll.action = val; if (val === 'defend') { ui.roll.skill = 'Athletics'; } if (val === 'attack') { const r = N.rollerOf(v, ui.roll.who); ui.roll.skill = (r.skills.Shooting||0) > (r.skills.Fighting||0) ? 'Shooting' : 'Fighting'; } break;
   case 'rollTgt': ui.roll.target = val; ui.roll.ctx = 'cb'; break;
   case 'rollDist': ui.roll.dist = +val || 0; break;
+  case 'rollMod': ui.roll.mod = clamp(+val || 0, -6, 6); break;
   case 'rollSkill': { const r = ui.roll; r.skill = val; if (val in vsSkillMem) { r.vsSkill = vsSkillMem[val]; const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; } break; }
   case 'rollAll': ui.roll.all = true; break;
   case 'rollOpp': ui.roll.opp = val === 'null' ? null : +val; break;
@@ -1829,6 +1835,16 @@ function saveNpc(v){
   v.ui.sheet = null;
   if (d.from === 'voice') { v.ui.voice = n.name; v.ui.mode = 'rp'; const ch = v.ui.ch === 'gm' ? 'table' : v.ui.ch, cast = N.castOf(ch) || []; if (!cast.includes(n.name)) g.casts[ch] = [...cast, n.name]; }
   toast(v, old ? 'NPC saved.' : `${n.name} saved. Pick them in “Speak as”.`); renderAll();
+}
+/* the GM's buff or debuff on a roll that's already made (a defense, a Notice roll, or one rolled without it): −6..+6,
+   the total and any fight result follow it */
+function invMod(v, d){
+  const g = G(), m = g.msgs.find(x => x.id === v.ui.sheetArg); if (!isGM(v) || !m || m.kind !== 'roll') return;
+  const r = m.roll, was = r.mod || 0, now = clamp(was + d, -6, 6); if (now === was) return;
+  r.bonus += now - was; if (now) r.mod = now; else delete r.mod;
+  const p = g.combat.pending; if (p && p.msgId === m.id) p.total = N.rollTotal(r);
+  N.cbReresolve(m);
+  renderAll();
 }
 function doInvoke(v, i, reroll){
   const g = G(), m = g.msgs.find(x => x.id === v.ui.sheetArg), x = m && N.invokeCtx(v, m), o = x && N.invokeOptions(v, m, x)[i];
