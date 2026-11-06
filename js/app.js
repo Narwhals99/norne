@@ -416,11 +416,39 @@ function swEnd(v, s, go, vel){
    Phones step back one level at a time with a swipe in from the left edge or the Android back button:
    the chat list, a popup or sheet, a pick in the fight, the open page (wiki entry, category, news issue, cast card…),
    the fight pane, a map place. The back button alone then returns any other tab to Chat. */
+/* closing the Reveal or Map settings sheet after revealing something asks the GM whether to send notes (and so pings).
+   Returns true when it opened that question instead of closing. */
+function askTell(v){
+  const ui = v.ui, g = G(), gm = N.gmName(), items = [];
+  const add = (to, text) => items.push({to, text, on:true, ok:to === '*' || (!!g.P[to] && N.dmOn(to))});
+  if (ui.sheet === 'reveal' && ui.askRev?.id === ui.sheetArg) {
+    const id = ui.askRev.id, c = g.chars[id], card = c || g.npcs.find(x => x.id === id), base = ui.askRev.base; ui.askRev = null;
+    if (card) {
+      const name = c ? c.short || c.name : card.name;
+      for (const [st, l] of Object.entries((g.rev || {})[id] || {})) {
+        const now = N.revKeys(card, l), was = N.revKeys(card, base[st] || []);
+        if (!now.includes('name') || !now.some(k => !was.includes(k))) continue;
+        add(st, was.includes('name') ? `${gm} revealed more about ${name}. Open Character to see it.` : `${gm} revealed ${name} to you. Open Character to see them.`);
+      }
+    }
+  } else if (ui.sheet === 'mapSet' && ui.askMap?.id === ui.sheetArg) {
+    const m = g.maps.find(x => x.id === ui.askMap.id), q = ui.askMap; ui.askMap = null;
+    if (m) {
+      const all = N.audOf(m, 'map') === '*';
+      if (all && !q.wasAll) add('*', `${gm} shared the ${m.name} map.`);
+      else if (!all) for (const st of N.audSeats(m, 'map').filter(s => !q.before.includes(s))) add(st, `${gm} shared the ${m.name} map with you.`);
+    }
+  }
+  if (!items.length) return false;
+  for (const it of items) if (!it.ok) it.on = false;
+  ui.tellAsk = {items}; ui.sheet = 'tellAsk'; ui.sheetArg = null;
+  return true;
+}
 function backStep(v, home){
   const ui = v.ui;
   if (ui.shelf) return () => { ui.shelf = false; };
   if (ui.pop) return () => { ui.pop = null; };
-  if (ui.sheet) return () => { ui.sheet = null; };
+  if (ui.sheet) return () => { if (!askTell(v)) ui.sheet = null; };
   if (ui.tab === 'chat' && (ui.targeting || ui.placing)) return () => { ui.targeting = null; ui.placing = null; };
   /* any page with its own back arrow (wiki, news, cast card, inventory) goes back the way that arrow does */
   const b = v.root.querySelector('.page [data-a][aria-label^="Back"]');
@@ -1026,7 +1054,16 @@ function act(v, a, el, e){
   case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); if (val === 'search') { render(v); const f = v.root.querySelector(`#cq-${v.id}`); if (f) { f.focus({preventScroll:true}); f.select(); } return; } break;
-  case 'closeSheet': ui.sheet = null; break;
+  case 'closeSheet': if (!askTell(v)) { ui.sheet = null; ui.tellAsk = null; } break;
+  /* the GM's answer to "Send notifications?" after revealing something */
+  case 'tellTog': { const it = ui.tellAsk?.items[+val]; if (it) it.on = !it.on; break; }
+  case 'tellGo': case 'tellSkip': {
+    const t = ui.tellAsk; ui.tellAsk = null; ui.sheet = null; if (!t) break;
+    const go = a === 'tellGo' ? t.items.filter(it => it.on && it.ok) : [];
+    for (const it of go) sys(it.text, it.to === '*' ? 'table' : 'dm-' + it.to);
+    toast(v, go.length ? `Sent a note to ${go.some(it => it.to === '*') ? 'Everyone' : N.namesOf(go.map(it => it.to))}.` : 'Saved. Nobody got a note.');
+    renderAll(); return;
+  }
   case 'closePop': ui.pop = null; break;
   case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); openPop(v, val, el);
     /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box */
@@ -1303,10 +1340,9 @@ function act(v, a, el, e){
   case 'addPin': ui.addPin = !ui.addPin; if (ui.addPin) toast(v, 'Tap the map where the new place goes.'); break;
   case 'mapAud': {
     const m = g.maps.find(x => x.id === ui.sheetArg); if (!m) break;
-    const before = N.audSeats(m, 'map'), wasAll = N.audOf(m, 'map') === '*'; N.audSet(m, 'map', val);
-    const added = N.audSeats(m, 'map').filter(s => !before.includes(s));
-    if (N.audOf(m, 'map') === '*' && !wasAll) tell(m, 'map', `${N.gmName()} shared the ${m.name} map.`);
-    else if (added.length) tell(m, 'map', `${N.gmName()} shared the ${m.name} map with you.`, added);
+    /* who saw it before the first change; the GM is asked on Done whether to tell the new ones */
+    if (ui.askMap?.id !== m.id) ui.askMap = {id:m.id, before:N.audSeats(m, 'map'), wasAll:N.audOf(m, 'map') === '*'};
+    N.audSet(m, 'map', val);
     renderAll(); return;
   }
   case 'mapDelGo': {
@@ -1392,7 +1428,7 @@ function act(v, a, el, e){
   /* character + cast */
   case 'charSel': ui.charSel = val; break;
   /* sheet reveals (GM) */
-  case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; break;
+  case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; ui.askRev = {id:val, base:JSON.parse(JSON.stringify((g.rev || {})[val] || {}))}; break;
   case 'revSeat': ui.revSeat = val; break;
   /* a player's own note on someone they know: met them, or only heard of them (kept on the player's card) */
   case 'metSet': { const me = N.charOf(v.role); if (!me || isGM(v)) break; me.met = me.met || {}; if (me.met[d.c] === val) delete me.met[d.c]; else me.met[d.c] = val; renderAll(); N.syncNow && N.syncNow(); return; }
