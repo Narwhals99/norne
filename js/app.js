@@ -438,6 +438,15 @@ function askTell(v){
       if (all && !q.wasAll) add('*', `${gm} shared the ${m.name} map.`);
       else if (!all) for (const st of N.audSeats(m, 'map').filter(s => !q.before.includes(s))) add(st, `${gm} shared the ${m.name} map with you.`);
     }
+  } else if (ui.sheet === 'pinSet' && ui.askPin?.key === ui.sheetArg) {
+    const [mi, pi] = ui.askPin.key.split('|'), m = g.maps.find(x => x.id === mi), p = m && m.pins.find(x => x.id === pi), q = ui.askPin; ui.askPin = null;
+    if (p) {
+      const mapName = m.name.replace(/ \(.*\)$/, ''), now = N.audSeats(p, 'pin').filter(s => N.audSeats(m, 'map').includes(s)), fresh = now.filter(s => !q.before.includes(s));
+      const text = `${gm} revealed ${p.label} on the ${mapName} map.`;
+      /* a place shown to every player of a map everyone sees goes to Everyone; otherwise each new player gets a private note */
+      if (fresh.length && N.audOf(p, 'pin') === '*' && N.audOf(m, 'map') === '*' && !q.before.length) add('*', text);
+      else for (const st of fresh) add(st, `${gm} revealed ${p.label} to you on the ${mapName} map.`);
+    }
   }
   if (!items.length) return false;
   for (const it of items) if (!it.ok) it.on = false;
@@ -1388,8 +1397,15 @@ function act(v, a, el, e){
   case 'pinClose': ui.pinSel = null; break;
   case 'pinScene': { const m = curMap(v), p = m.pins.find(x => x.id === val); setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:p.label, where:m.name, place:{map:m.id, rx:p.rx, ry:p.ry}, aspects:[]}, true); renderAll(); return; }
   case 'pinParty': { const m = curMap(v), p = m.pins.find(x => x.id === val); moveParty(m, p.rx, p.ry + .002); sys(`The party heads to ${p.label}.`); toast(v, `The party is now at ${p.label}. A note went to Everyone.`); renderAll(); return; }
-  case 'pinType': { const p = curMap(v).pins.find(x => x.id === ui.pinSel); if (p) p.type = val; renderAll(); return; }
-  case 'pinVis': { const m = curMap(v), p = m.pins.find(x => x.id === ui.pinSel); if (!p) break; p.vis = !p.vis; if (p.vis) tell(m, 'map', `${N.gmName()} revealed ${p.label} on the ${m.name.replace(/ \(.*\)$/, '')} map.`); renderAll(); return; }
+  case 'pinType': { const p = curMap(v).pins.find(x => x.id === ui.pinSel); if (p) { if (val === 'here' && p.label === 'New place') p.label = 'You are here'; else if (p.type === 'here' && val !== 'here' && p.label === 'You are here') p.label = 'New place'; p.type = val; } renderAll(); return; }
+  case 'pinAud': {
+    const [mi, pi] = String(ui.sheetArg || '').split('|'), m = g.maps.find(x => x.id === mi), p = m && m.pins.find(x => x.id === pi); if (!p) break;
+    /* who could see the place before the first change; the GM is asked on Done whether to tell the new ones */
+    const sees = () => N.audSeats(p, 'pin').filter(s => N.audSeats(m, 'map').includes(s));
+    if (ui.askPin?.key !== ui.sheetArg) ui.askPin = {key:ui.sheetArg, before:sees()};
+    N.audSet(p, 'pin', val);
+    renderAll(); return;
+  }
   case 'pinDel': { const m = curMap(v), i = m.pins.findIndex(x => x.id === ui.pinSel), p = m.pins[i]; if (!p) break; m.pins.splice(i, 1); ui.pinSel = null; toast(v, `Removed ${p.label}.`, () => m.pins.splice(i, 0, p)); renderAll(); return; }
   /* world */
   case 'wiki': { const en = g.wiki.find(x => x.id === val); if (!en || (!gm && en.gm)) break; close();

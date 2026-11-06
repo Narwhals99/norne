@@ -2292,3 +2292,12 @@
 .app .sddir-t small{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
 .app .sddir-t[aria-expanded="true"]{box-shadow:inset 0 0 0 1.5px var(--line-3)}
 .app:where([data-style="oak"],[data-style="parchment"]) .sddir-t{border-radius:6px}
+.app .pincard .chips .cchip{gap:5px}
+.app .pincard .chips .cchip svg{width:14px;height:14px;flex:none}
+/* places on a map: shown to some players only (GM view) get a dashed ring; "You are here" pins pulse */
+.app .pin.some .pm{outline:2px dashed #fff;outline-offset:2px}
+.app .pin.here .pm{position:relative;width:34px;height:34px}
+.app .pin.here .pm::after{content:"";position:absolute;inset:-3px;border-radius:inherit;border:3px solid var(--pc,#ff6b5a);animation:bcn-ring 1.8s ease-out infinite;pointer-events:none}
+.app .pin.here .pl{background:color-mix(in srgb,var(--pc,#ff6b5a) 45%,rgba(10,10,32,.92))}
+.app .pin.here.dotp .pl{display:block}
+@media (prefers-reduced-motion:reduce){.app .pin.here .pm::after{animation:none}}

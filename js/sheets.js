@@ -160,7 +160,7 @@ N.sheetHtml = function(v){
   /* ---------------- scene picker (GM) ---------------- */
   case 'scene': {
     const d = v.ui.sd, tab = d.tab;
-    const pins = g.maps.flatMap(mp => mp.pins.filter(p => ['town','tavern','landmark','shop','temple','nation'].includes(p.type)).map(p => ({map:mp.id, id:p.id, rx:p.rx, ry:p.ry, label:p.label, sub:mp.name})));
+    const pins = g.maps.flatMap(mp => mp.pins.filter(p => ['city','town','hood','region','tavern','landmark','shop','temple','nation'].includes(p.type)).map(p => ({map:mp.id, id:p.id, rx:p.rx, ry:p.ry, label:p.label, sub:mp.name})));
     const pics = tab === 'recent' ? g.recent.map(r => ({...r, sub:r.where}))
       : tab === 'maps' ? pins.map(p => ({id:`pl:${p.map}:${p.id}`, title:p.label, sub:p.sub, place:{map:p.map, rx:p.rx, ry:p.ry}}))
       : [...g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your picture', up:true})), ...N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Picture'}))];
@@ -407,8 +407,17 @@ N.sheetHtml = function(v){
       <label class="field"><span>Map level</span><select class="inp" id="mpl-${v.id}" data-i="mapLvl" data-v="${esc(m.id)}"><option value="" ${N.mapLvl(m) ? '' : 'selected'}>No level</option>${N.MLVLS.map(([k, l]) => `<option value="${k}" ${N.mapLvl(m) === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       <div class="revgrp"><button type="button" class="revrow" data-a="mapDef" data-m="${esc(m.id)}" aria-pressed="${!!m.def}"><span class="rck">${IC('check')}</span><span><b>Default map</b><small>${m.def ? 'Players open the Maps tab on this map.' + (N.audOf(m, 'map') === '*' ? '' : ` Anyone who can’t see it gets ${esc(N.G.maps.find(x => x !== m && N.audOf(x, 'map') === '*' && N.mapLvl(x) === 'world')?.name || 'the first map they can see')} instead.`) : `Players open the Maps tab on ${esc(N.defMap(false)?.name || 'the first map')}. Tick to make it this one.`}</small></span></button></div>
       <div><h4>Who sees this map</h4>${N.audPick('mapAud', m, 'map')}</div>
-      <div class="note">${IC('info')}When you press Done you can choose whether to tell the players you shared it with. Places on the map have their own switch: tap a place while editing to show or hide it.</div>`,
+      <div class="note">${IC('info')}When you press Done you can choose whether to tell the players you shared it with. Places on the map have their own setting: tap a place while editing to pick who sees it.</div>`,
       `<button type="button" class="btn danger" data-a="sheet" data-v="mapDel" data-c="${esc(m.id)}" style="flex:0 0 auto">${IC('trash')}Delete map</button><button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+  }
+  /* ---------------- who sees one place on a map (GM) ---------------- */
+  case 'pinSet': {
+    const [mi, pi] = String(arg || '').split('|'), m = g.maps.find(x => x.id === mi), p = m && m.pins.find(x => x.id === pi); if (!p) return '';
+    const ma = N.audOf(m, 'map'), out = N.audSeats(p, 'pin').filter(s => !N.audSeats(m, 'map').includes(s));
+    return sheet(`Who sees ${esc(p.label)}`, `<div><h4>Who sees this place</h4>${N.audPick('pinAud', p, 'pin')}</div>
+      ${out.length ? `<div class="note">${IC('warn')}${esc(N.namesList(out))} can’t see the ${esc(m.name)} map yet. Share the map with them too, or they won’t see this place.</div>` : ''}
+      <div class="note">${IC('info')}${ma === '*' ? 'Every player sees this map.' : ma === 'gm' ? 'This map is hidden from every player.' : `This map is shared with ${esc(N.audLabel(m, 'map').replace(/^Only /, ''))}.`} When you press Done you can choose whether to tell the players who can now see this place.</div>`,
+      `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
   }
   /* ---------------- reveal parts of a card to single players (GM) ---------------- */
   case 'reveal': {
