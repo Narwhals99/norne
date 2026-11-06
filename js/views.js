@@ -211,7 +211,7 @@ function fightSeg(v){
 }
 N.sceneArt = (sc) => {
   if (!sc) return '';
-  if (sc.place) { const mp = G().maps.find(m => m.id === sc.place.map), u = mp ? N.imgUrl(mp.src) : ''; return `background-image:${u ? `url(${u})` : 'none'};background-size:420% auto;background-position:${(sc.place.rx*100).toFixed(1)}% ${(sc.place.ry*100).toFixed(1)}%`; }
+  if (sc.place) { const mp = G().maps.find(m => m.id === sc.place.map), u = mp ? N.mapMid(mp.src) : ''; return `background-image:${u ? `url(${u})` : 'none'};background-size:420% auto;background-position:${(sc.place.rx*100).toFixed(1)}% ${(sc.place.ry*100).toFixed(1)}%`; }
   return '';
 };
 /* a scene's own picture (not a map place) sits inside its box as a framed layer */
@@ -640,7 +640,7 @@ function popHtml(v){
     const up = here ? N.dirById(here).in : null, path = N.dirPath(here);
     const head = here ? `<div class="mdhead"><button type="button" class="opt" data-a="mapDirGo" data-v="${esc(N.dirById(up) ? up : '')}" aria-label="Back to ${esc(N.dirById(up)?.name || 'all maps')}">${IC('left')}<span><small>${esc(['All maps', ...path.slice(0, -1).map(d => d.name)].join(' › '))}</small>${esc(path[path.length - 1].name)}</span></button>${gm ? `<button type="button" class="ibtn sm" data-a="mdOpen" data-v="${esc(here)}" aria-label="Rename, move or delete this folder" title="Folder settings">${IC('pen')}</button>` : ''}</div><div class="sep"></div>` : '';
     const dirRow = ([d, n]) => `<button type="button" class="opt" data-a="mapDirGo" data-v="${esc(d.id)}">${tile('folder')}<span>${esc(d.name)}<small>${n} ${n === 1 ? 'map' : 'maps'}${gm && N.dirKids(d.id).length ? ` · ${N.dirKids(d.id).length} ${N.dirKids(d.id).length === 1 ? 'folder' : 'folders'}` : ''}</small></span><span class="ck" style="color:var(--ink-3)">${IC('right')}</span></button>`;
-    const mapRow = m => `<button type="button" class="opt" data-a="mapGo" data-v="${m.id}" aria-selected="${N.curMap(v)===m}"><span class="av sq" style="--s:40px;box-shadow:none;background:${N.imgUrl(m.src)?`url(${N.imgUrl(m.src)}) center/cover`:'var(--sunk)'}"></span><span>${esc(m.name)}${m.def ? ` <span class="tag" style="height:16px" title="Players open the Maps tab here">Default</span>` : ''}<small>${N.mapLvlName(m) ? esc(N.mapLvlName(m)) + ' · ' : ''}${m.pins.filter(p=>p.type!=='party'&&(gm||p.vis)).length} places${gm&&N.audOf(m,'map')!=='*'?' · '+esc(N.audOf(m,'map')==='gm'?'hidden from players':N.audLabel(m,'map')):''}</small></span>${N.curMap(v)===m?`<span class="ck">${IC('check')}</span>`:''}</button>`;
+    const mapRow = m => `<button type="button" class="opt" data-a="mapGo" data-v="${m.id}" aria-selected="${N.curMap(v)===m}"><span class="av sq" style="--s:40px;box-shadow:none;background:${N.mapThumb(m.src)?`url(${N.mapThumb(m.src)}) center/cover`:'var(--sunk)'}"></span><span>${esc(m.name)}${m.def ? ` <span class="tag" style="height:16px" title="Players open the Maps tab here">Default</span>` : ''}<small>${N.mapLvlName(m) ? esc(N.mapLvlName(m)) + ' · ' : ''}${m.pins.filter(p=>p.type!=='party'&&(gm||p.vis)).length} places${gm&&N.audOf(m,'map')!=='*'?' · '+esc(N.audOf(m,'map')==='gm'?'hidden from players':N.audLabel(m,'map')):''}</small></span>${N.curMap(v)===m?`<span class="ck">${IC('check')}</span>`:''}</button>`;
     const empty = !dirs.length && !maps.length ? `<p class="muted" style="margin:6px 10px 8px;font:600 13px/1.4 var(--f-ui)">${gm ? 'This folder is empty. Move a map in from its settings while editing the map.' : 'No maps here yet.'}</p>` : '';
     return `<div class="pop mapspop" style="${pos}" role="listbox" aria-label="Maps">${head}${dirs.map(dirRow).join('')}${maps.map(mapRow).join('')}${empty}
       ${gm?`<div class="sep"></div><button type="button" class="opt" data-a="mdOpen" data-in="${esc(here || '')}">${tile('folder', ';background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2);color:var(--ink-3)')}<span>New folder${here ? ' here' : ''}</span></button><button type="button" class="opt" data-a="mapUpload"><span class="av sq" style="--s:40px;box-shadow:inset 0 0 0 1.5px var(--line-2);background:transparent;color:var(--ink-3)">${IC('upload').replace('<svg','<svg style="width:18px;height:18px"')}</span><span>Add a map image${here ? ' here' : ''}</span></button>`:''}</div>`;
@@ -654,7 +654,8 @@ function mapPage(v){
   if (!m) return `<div class="mapv"><div class="mapov"><div class="row1">${v.dev==='phone' ? meBtn(v) : ''}<span style="flex:1"></span></div></div>
     <div class="quiet" style="position:absolute;inset:0;align-content:center"><div class="art"></div><p>${gm ? 'No maps yet. Import the lore file to add the atlases, or upload a map picture.' : 'No maps yet. The GM hasn’t shared one.'}</p>
     ${gm ? `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button type="button" class="btn primary" data-a="sheet" data-v="import">${IC('upload')}Import lore</button><button type="button" class="btn" data-a="mapUpload">${IC('image')}Upload a map</button></div>` : ''}</div></div>`;
-  const src = N.imgUrl(m.src);
+  /* the map with its style's colours painted in (js/mappic.js); until that copy is ready, the picture with a CSS filter */
+  const bk = N.mapBaked(m.src, v.style + '/' + v.theme), src = bk || N.imgUrl(m.src);
   const pins = m.pins.filter(p => p.type !== 'party');
   const types = ['all', ...Object.keys(N.PINT).filter(t => t !== 'party' && pins.some(p => p.type === t && (gm || p.vis)))];
   if (!types.includes(v.ui.mapType)) v.ui.mapType = 'all';
@@ -665,7 +666,7 @@ function mapPage(v){
   const q = v.ui.mapQ.trim().toLowerCase();
   const match = p => (v.ui.mapType === 'all' || p.type === v.ui.mapType) && (!q || p.label.toLowerCase().includes(q) || (p.note || '').toLowerCase().includes(q));
   return `<div class="mapv" data-map="${m.id}">
-    <div class="mapcv" data-mapcv="1"><div class="mapst" style="width:${m.w}px;height:${m.h}px">${src ? `<img src="${src}" alt="${esc(m.name)}" width="${m.w}" height="${m.h}" draggable="false">` : ''}
+    <div class="mapcv" data-mapcv="1"><div class="mapst" style="width:${m.w}px;height:${m.h}px">${src ? `<img${bk ? ' class="baked"' : ''} src="${src}" alt="${esc(m.name)}" width="${m.w}" height="${m.h}" draggable="false">` : ''}
       <div class="pins">${pins.filter(p => (gm || p.vis) && match(p)).map(p => {
         const t = N.PINT[p.type] || N.PINT.note, go = !(gm && v.ui.mapEdit) && N.pinTo(m, p), gm2 = go && g.maps.find(x => x.id === go && (gm || x.vis !== false)); return `<button type="button" class="pin${gm2?' go':''}${m.labeled?' dotp':''}${v.ui.pinSel===p.id?' sel':''}${!gm||p.vis?'':N.audOf(p,'pin')==='gm'?' hid':' some'}${p.type==='here'?' here':''}" data-pin="${p.id}" style="left:${p.rx*m.w}px;top:${p.ry*m.h}px;--pc:${t.col}" aria-label="${esc(p.label)}${gm2 ? `. Open ${esc(gm2.name)}` : ''}"${gm2 ? ` title="Open ${esc(gm2.name)}"` : ''}><span class="pm">${IC(t.ic)}</span><span class="pl">${esc(p.label)}${gm2 ? IC('right') : ''}</span></button>`; }).join('')}
         ${beacons.map(k => { const o = loc[k], next = o.to && g.maps.find(x => x.id === o.to && (gm || x.vis !== false)); return `<button type="button" class="beacon" data-a="locGo" data-v="${k}" style="left:${o.rx*m.w}px;top:${o.ry*m.h}px" aria-label="${gm ? 'The scene is' : 'You are'} in ${esc(o.l)}${next ? `. Open ${esc(next.name)}` : ''}"><span class="bd"></span><span class="bl">${gm ? 'Scene' : 'You'} · ${esc(o.l)}${next ? IC('right') : ''}</span></button>`; }).join('')}
@@ -674,7 +675,7 @@ function mapPage(v){
     <div class="mapov">
       <div class="row1">
         ${v.dev==='phone' ? meBtn(v) : ''}
-        <button type="button" class="mapsel glass" data-a="pop" data-v="maps"><span class="th" style="${src ? `background-image:url(${src})` : ''}"></span><span style="min-width:0"><small>${N.mapDirOf(m) ? esc(N.dirName(m.dir)) : 'Map'}${gm && N.audOf(m,'map') !== '*' ? ' · ' + (N.audOf(m,'map') === 'gm' ? 'hidden' : esc(N.audLabel(m,'map'))) : ''}</small><b>${esc(m.name)}</b></span>${IC('caret')}</button>
+        <button type="button" class="mapsel glass" data-a="pop" data-v="maps"><span class="th" style="${N.mapThumb(m.src) ? `background-image:url(${N.mapThumb(m.src)})` : ''}"></span><span style="min-width:0"><small>${N.mapDirOf(m) ? esc(N.dirName(m.dir)) : 'Map'}${gm && N.audOf(m,'map') !== '*' ? ' · ' + (N.audOf(m,'map') === 'gm' ? 'hidden' : esc(N.audLabel(m,'map'))) : ''}</small><b>${esc(m.name)}</b></span>${IC('caret')}</button>
         <div class="search only-dt" style="width:240px"><svg viewBox="0 0 256 256" fill="currentColor">${(window.ICONS.search||['',''])[1]}</svg><input class="inp glass" id="mapq-${v.id}" data-i="mapQ" placeholder="Find a place" value="${esc(v.ui.mapQ)}" style="border:0"></div>
         <span style="flex:1"></span>
         ${gm ? `<button type="button" class="btn ${v.ui.mapEdit?'primary':'glass'}" data-a="mapEdit">${IC('pen')}<span class="only-dt">${v.ui.mapEdit?'Done editing':'Edit map'}</span><span class="only-ph">${v.ui.mapEdit?'Done':'Edit'}</span></button>` : ''}
