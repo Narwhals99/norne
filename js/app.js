@@ -607,6 +607,7 @@ function input(v, el){
     case 'gifUrl': { v.ui.gifUrl = val; const b = v.root.querySelector('[data-a="gifLink"]'); if (b) b.disabled = !N.gifLinkOk(val); return; }
     case 'gifKey': v.ui.gifKeyD = val; return;
     case 'boostName': v.ui.boostName = val; return;
+    case 'cbBoName': v.ui.cbBoName = val; return;
     case 'wipeType': if (v.ui.wipe) { v.ui.wipe.typed = val; const b = v.root.querySelector('[data-a="wipeGo"]'); if (b) b.disabled = !N.wipeMatch(v.ui.wipe); } return;
     case 'med': if (v.ui.med) v.ui.med.text = val; { const b = v.root.querySelector('[data-a="msgSave"]'); if (b) b.disabled = !val.trim(); } return;
     case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .pl`); if (lab) lab.textContent = val; return; }
@@ -1213,6 +1214,7 @@ function act(v, a, el, e){
   case 'invBy': ui.invBy = val; break;
   /* add a situation aspect from the invoke sheet, then come back to it */
   case 'invAsp': ui.invBack = ui.sheetArg; ui.sheet = 'cbAspect'; break;
+  case 'invBoost': { const back = ui.sheetArg; openSheet(v, 'cbBoost'); ui.invBack = back; break; }
   case 'doInvoke': doInvoke(v, +d.i, d.how === 'reroll'); return;
   case 'readNews': case 'herald': { close(); ui.tab = 'news'; ui.newsEdit = null; const i = g.news.issues.find(x => x.id === d.id); if (i) openIssue(v, i); else newsTab(v); break; }
   case 'newsSel': { const i = g.news.issues.find(x => x.id === val); if (i) openIssue(v, i); const r = v.root.querySelector('[data-sk="nr"]'); if (r) r.scrollTop = 0; break; }
@@ -1925,6 +1927,17 @@ function act(v, a, el, e){
   case 'cbAspDel': cb.aspects.splice(+d.i, 1); renderAll(); return;
   case 'cbAspFree': ui.cbAspFree = +val; break;
   case 'cbAspOn': ui.cbAspOn = val || null; break;
+  /* the GM's hand-made boost (sheet cbBoost) */
+  case 'cbBoPick': ui.cbBo = val || null; if (ui.cbBoOn === ui.cbBo) ui.cbBoOn = null; break;
+  case 'cbBoOn': ui.cbBoOn = val || null; break;
+  case 'cbBoLast': ui.cbBoLast = +val; break;
+  case 'cbBoDel': { const a = cb.aspects[+d.i]; if (!a || !a.boost) break; cb.aspects.splice(+d.i, 1); fsys(`${N.gmName()} takes away ${a.by}’s boost “${a.t}”.`); renderAll(); return; }
+  case 'cbBoGive': { const own = ui.cbBo && N.tokById(ui.cbBo), t = (ui.cbBoName || '').trim(); if (!own) break;
+    if (!t) { toast(v, 'Give the boost a short name first.'); break; }
+    const on = ui.cbBoOn && ui.cbBoOn !== own.id ? N.tokById(ui.cbBoOn) : null, b = N.addBoost(own, on, t);
+    if (ui.cbBoLast === 0) { b.keep = true; delete b.left; }
+    fsys(`${N.gmName()} gives ${N.tokName(own)} a boost${on ? ` on ${N.tokName(on)}` : ''}: “${t}”, good for one free invoke${b.keep ? '' : ' in their next two rolls'}.`);
+    ui.cbBoName = ''; ui.cbBoOn = null; if (ui.invBack) { ui.sheet = 'invoke'; ui.sheetArg = ui.invBack; ui.invBack = null; } else ui.sheet = null; renderAll(); return; }
   }
   render(v);
 }
@@ -1932,6 +1945,7 @@ function act(v, a, el, e){
 function openSheet(v, s, d={}){
   const g = G(), ui = v.ui;
   ui.sheet = s; ui.sheetArg = d.c || d.v || null;
+  if (s === 'cbBoost') { ui.cbBo = d.c || null; ui.cbBoOn = null; ui.cbBoName = ''; ui.cbBoLast = 2; }
   if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats], party:!!gr.party, meta:!!gr.meta, hist:true} : {id:null, name:'', seats:[], party:!!d.party, meta:false, hist:true}; }
   if (s === 'scene') {
     const ch = ui.ch === 'gm' ? 'table' : ui.ch;
