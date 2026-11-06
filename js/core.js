@@ -286,7 +286,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], rev:{}, known:{}, hlocs:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, hlocs:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -523,6 +523,108 @@ N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
    PCs and NPCs reach players in the same shape, so their cards look alike.
    How the player's character knows them is set by the GM too, as one more key: met:met (Met) or met:heard (Heard of). */
 N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target'],['gearAmmo','Ranged ammo','arrowR'],['gearDef','Armor','shieldU']];
+/* ---------- the GM's item catalog: the weapons, armor and magical things that exist in the world ----------
+   G.items = [{id, name, kind, ic, d, gm, gearAtk, gearRng, gearAmmo, gearDef}] (GM only, its own doc gm/items, one unit per item).
+   d is what it does (copied into an inventory when the GM gives it), gm is the GM's own notes (never copied).
+   The ratings match the ones on a card (N.GEARK); giving the item can set them on the card too. */
+N.ITEMK = [['weapon','Weapons','sword'],['armor','Armor','shieldU'],['magic','Magical','magic'],['potion','Potions and food','potion'],['gear','Gear and tools','bag'],['other','Other','items']];
+N.ITEM_IC = ['bag','sword','target','arrowR','shieldU','helm','boots','knuckles','magic','sparkle','spellbook','potion','drink','scroll','coins','skull','items'];
+N.itemKind = k => N.ITEMK.find(x => x[0] === k) || N.ITEMK[N.ITEMK.length - 1];
+N.itemById = id => (N.G.items || []).find(x => x.id === id) || null;
+N.itemByName = n => { const k = String(n || '').trim().toLowerCase(); return k ? (N.G.items || []).find(x => x.name.toLowerCase() === k) || null : null; };
+/* ---------- equipped gear (Jake's weapon and armor rules) ----------
+   An inventory row is [name, qty, note, icon, x]; x = {eq:1 equipped, eq2:1 second dual-wield weapon, am:ammo 0..4, w:1 weapon or armor}.
+   Players' devices have no catalog, so what they need to see (equipped, ammo, weapon) lives on the row itself.
+   Equipping (GM only) fills the card from the equipped items' catalog entries, one slot each:
+   melee -> gearAtk (two dual-wield weapons: gearAtk + gearAtk2), ranged -> gearRng, ammo/thrown -> gearAmmo, armor -> gearDef,
+   shield -> shield. Silver melee/ammo -> silverAtk/silverAmmo, a crossbow -> reload, two-handed weapon and shield ->
+   extra stress boxes of (rating - 1) in gearBox. */
+N.AMMO_MAX = 4;
+N.invX = row => (row && row[4] && typeof row[4] === 'object') ? row[4] : {};
+N.invSetX = (row, patch) => { const x = {...N.invX(row), ...patch}; for (const k of Object.keys(x)) if (x[k] == null || x[k] === 0 && k !== 'am') delete x[k];
+  while (row.length < 4) row.push(row.length === 2 ? '' : 'bag'); if (!row[3]) row[3] = 'bag'; if (Object.keys(x).length) row[4] = x; else row.length = 4; };
+const SLOT_OF = {gearAtk:'melee', gearRng:'ranged', gearAmmo:'ammo', gearDef:'armor', shield:'shield'};
+N.SLOTS = {melee:['gearAtk','Melee weapon'], ranged:['gearRng','Ranged weapon'], ammo:['gearAmmo','Ranged ammo'], armor:['gearDef','Armor'], shield:['shield','Shield']};
+/* which slot a catalog item takes when equipped: its class first, else its first rating */
+N.itemSlot = it => { if (!it) return null;
+  const c = it.cls || '';
+  if (c === 'Thrown weapons' || c === 'Standard ranged ammo') return 'ammo';
+  if (c === 'Standard ranged weapons' || c === 'Crossbows') return 'ranged';
+  if (c === 'Worn armor') return 'armor'; if (c === 'Shields') return 'shield';
+  if (it.grp === 'Fighting') return 'melee';
+  const k = N.ITEM_RATE.map(([k]) => k).find(k => k in it); return k ? SLOT_OF[k] : null; };
+N.itemRating = it => { const sl = N.itemSlot(it); return sl ? (+it[N.SLOTS[sl][0]] || +it.r || 0) : 0; };
+/* the catalog item behind an inventory row (GM device only) */
+N.rowItem = row => N.itemByName(row && row[0]);
+N.isWeaponRow = row => !!(N.invX(row).w || N.itemSlot(N.rowItem(row)));
+/* recompute the card from what is equipped */
+N.applyGear = o => {
+  const eq = (o.inv || []).filter(r => N.invX(r).eq).map(r => N.rowItem(r)).filter(Boolean);
+  const of = sl => eq.filter(it => N.itemSlot(it) === sl).sort((a, b) => N.itemRating(b) - N.itemRating(a));
+  const mel = of('melee'), rng = of('ranged')[0], am = of('ammo')[0], arm = of('armor')[0], sh = of('shield')[0];
+  o.gearAtk = mel[0] ? N.itemRating(mel[0]) : 0;
+  o.gearAtk2 = mel[1] && mel[0].dual && mel[1].dual ? N.itemRating(mel[1]) : 0;
+  o.gearRng = rng ? N.itemRating(rng) : 0; o.gearAmmo = am ? N.itemRating(am) : 0; o.gearDef = arm ? N.itemRating(arm) : 0; o.shield = sh ? N.itemRating(sh) : 0;
+  o.silverAtk = mel.some(it => it.silver) ? 1 : 0; o.silverAmmo = am && am.silver ? 1 : 0; o.reload = rng && rng.reload ? 1 : 0;
+  o.gearBox = [...mel.filter(it => it.twoHand).slice(0, 1).map(it => N.itemRating(it) - 1), ...(sh ? [N.itemRating(sh) - 1] : [])].filter(x => x > 0);
+  for (const k of ['gearAtk2','shield','silverAtk','silverAmmo','reload']) if (!o[k]) delete o[k];
+  if (!o.gearBox.length) delete o.gearBox;
+  N.fitBoxes(o);
+  /* NPC fighters on the board carry their own copy of the card's gear */
+  if (!o.player) for (const t of (N.G.combat?.tokens || [])) if (t.kind === 'npc' && t.ref === o.id) { Object.assign(t, N.tokGearOf(o)); const v = N.physBoxes(o, t.type === 'nameless'); t.stress = v.map((x, i) => !!t.stress[i]); t.stressV = v; }
+};
+N.TOK_GEAR = ['gearAtk','gearDef','gearRng','gearAmmo','gearAtk2','shield','silverAtk','silverAmmo','reload'];
+N.tokGearOf = n => { const o = {}; for (const k of N.TOK_GEAR) o[k] = +n[k] || 0; o.gearBox = [...(n.gearBox || [])]; return o; };
+/* physical stress: from Strength, plus the extra boxes gear gives */
+N.physBoxes = (o, nameless) => [...(nameless ? [1] : N.stressVals((o.skills || {}).Strength || 0)), ...(o.gearBox || [])];
+N.fitBoxes = o => { if (!o.stressV) return; const v = N.physBoxes(o); if (v.join() === (o.stressV.phys || []).join()) return;
+  o.stress.phys = v.map((x, i) => !!(o.stress.phys || [])[i]); o.stressV.phys = v; };
+/* equip or unequip inventory row i of o. Returns a message for the GM, or null when it can't be done */
+N.equipRow = (o, i) => {
+  const row = (o.inv || [])[i], it = N.rowItem(row), sl = N.itemSlot(it); if (!row || !sl) return null;
+  const x = N.invX(row);
+  if (x.eq) { N.invSetX(row, {eq:0}); N.applyGear(o); return {ok:`${row[0]} unequipped.`}; }
+  const eqd = () => (o.inv || []).map((r, j) => ({r, j, it:N.rowItem(r)})).filter(e => e.j !== i && N.invX(e.r).eq && e.it);
+  /* arrows need a bow or crossbow, shot needs a sling (Jake's rule) */
+  if (it.needs) { const rng = eqd().find(e => N.itemSlot(e.it) === 'ranged')?.it, d = rng ? rng.disc || '' : '';
+    const ok = /sling/i.test(it.needs) ? d === 'Slings' : (d === 'Bows' || d === 'Crossbows');
+    if (!ok) return {no:`${row[0]} needs a ${it.needs.toLowerCase()} equipped first.`}; }
+  /* one item per slot, except two small one-handed weapons to dual-wield */
+  const same = eqd().filter(e => N.itemSlot(e.it) === sl);
+  const keep = sl === 'melee' && it.dual && same.length === 1 && same[0].it.dual ? same : [];
+  for (const e of same) if (!keep.includes(e)) N.invSetX(e.r, {eq:0});
+  N.invSetX(row, {eq:1, w:1});
+  const warn = [];
+  const all = eqd().map(e => e.it).concat(it);
+  if (all.some(y => N.itemSlot(y) === 'shield') && all.some(y => y.noShield)) warn.push('Jake’s note: that weapon isn’t meant to go with a shield.');
+  N.applyGear(o);
+  return {ok:`${row[0]} equipped${keep.length ? ', dual-wielding' : ''}.${warn.length ? ' ' + warn.join(' ') : ''}`};
+};
+/* a fighter's race, for silver against vampires and werewolves */
+N.tokRace = t => { if (!t) return ''; if (t.kind === 'pc') return N.G.chars[t.ref]?.race || ''; return (N.G.npcs.find(n => n.id === t.ref) || {}).race || t.race || ''; };
+N.silverFoe = t => /vampire|werewolf|lycan/i.test(N.tokRace(t));
+/* who an item is given to: 'c:<char id>' (a player character) or 'n:<npc id>' */
+N.itemTo = to => { const [t, id] = String(to || '').split(/:(.*)/s); const o = t === 'c' ? N.G.chars[id] : t === 'n' ? N.G.npcs.find(x => x.id === id) : null;
+  return o && (t === 'n' || o.built) ? {o, pc:t === 'c', label:t === 'c' ? o.short : o.name} : null; };
+/* an item's ratings: the four a card has, plus Shield (a shield's rating; no card field yet) */
+N.ITEM_RATE = [...N.GEARK, ['shield','Shield','shieldU']];
+N.itemGears = it => N.ITEM_RATE.filter(([k]) => +it[k] > 0);
+N.itemCardGears = it => N.GEARK.filter(([k]) => +it[k] > 0);
+/* where an item sits in Jake's lists: class (e.g. Small one-handed weapons), then sub-type and discipline */
+N.itemPath = it => [it.cls, it.sub, it.disc].filter(Boolean).join(' · ');
+/* merge an items file (norne-gm-items.json) into the catalog: same name = replaced, keeping its id */
+N.importItems = list => {
+  const g = N.G; if (!g.items) g.items = []; let add = 0, rep = 0;
+  for (const raw of list) {
+    const name = String(raw?.name || '').trim(); if (!name) continue;
+    const it = {...raw, name, kind:N.itemKind(raw.kind)[0]}; delete it.o;
+    const at = g.items.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
+    if (at >= 0) { it.id = g.items[at].id; g.items[at] = it; rep++; } else { it.id = N.uid('it'); g.items.push(it); add++; }
+  }
+  g.items.sort((a, b) => a.name.localeCompare(b.name)); return {add, rep};
+};
+/* the line an inventory gets: its ratings, then what it does */
+N.itemNote = it => [N.itemGears(it).map(([k, l]) => `${l} +${+it[k]}`).join(', '), (it.d || '').trim()].filter(Boolean).join(' · ');
 N.GOLD_MAX = 9999999; /* Gold on a card: whole numbers 0 to this, 7 digits like the box allows */
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 N.revParts = (c, pc) => {
@@ -634,9 +736,9 @@ N.tokStress = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref]; return c
 N.isMine = (t, role) => !!t && t.kind === 'pc' && role !== 'gm' && N.G.P[role]?.char === t.ref;
 N.ZCOL = ['#f4c46e','#6fd6c0','#ff9a7e','#a99bff','#9cd36b','#f39ad0'];
 N.tokFromNpc = (n, side, label) => {
-  const nameless = n.type === 'nameless', v = nameless ? [1] : stressVals((n.skills||{}).Strength||0);
+  const nameless = n.type === 'nameless', v = N.physBoxes(n, nameless);
   return {id:uid('t'), kind:'npc', ref:n.id, name:label || n.name, portrait:n.portrait || null, side, type:n.type || 'supporting', skills:{...(n.skills||{})},
-    aspects:[n.hc, ...(n.aspects||[])].filter(Boolean), stressV:v, stress:v.map(()=>false), cons:{...(n.cons||{})}, zone:null, out:false, gearAtk:+n.gearAtk || 0, gearDef:+n.gearDef || 0, gearRng:+n.gearRng || 0, gearAmmo:+n.gearAmmo || 0};
+    aspects:[n.hc, ...(n.aspects||[])].filter(Boolean), stressV:v, stress:v.map(()=>false), cons:{...(n.cons||{})}, zone:null, out:false, ...N.tokGearOf(n)};
 };
 N.tokFromPc = c => ({id:uid('t'), kind:'pc', ref:c.id, zone:null, out:false});
 })();

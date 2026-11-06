@@ -2310,6 +2310,38 @@
 .app .sddir-t small{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
 .app .sddir-t[aria-expanded="true"]{box-shadow:inset 0 0 0 1.5px var(--line-3)}
 .app:where([data-style="oak"],[data-style="parchment"]) .sddir-t{border-radius:6px}
+
+/* ---------- the GM's item catalog (GM tools > Item catalog) ---------- */
+.app .itc-bar{display:flex;gap:8px;align-items:center}
+.app .itc-q{flex:1;min-width:0;position:relative;display:block}
+.app .itc-q svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--ink-4);pointer-events:none}
+.app .itc-q .inp{width:100%;padding-left:36px}
+.app .itc-bar .btn{flex:none}
+.app .chips .cchip small{font:700 11px/1 var(--f-ui);color:var(--ink-4);margin-left:2px}
+.app .itc-list{display:grid;gap:8px}
+@media (min-width:760px){ .app .sheet.wide .itc-list{grid-template-columns:1fr 1fr} }
+.app .itc-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 12px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .itc-row.one{grid-template-columns:auto minmax(0,1fr)}
+.app .itc-ic{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--gold-soft);color:var(--gold-tx);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app .itc-ic svg{width:22px;height:22px}
+.app .itc-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.app .itc-t b{font:700 15px/1.3 var(--f-ui);color:var(--ink);overflow-wrap:anywhere}
+.app .itc-t small{font:600 12px/1.35 var(--f-ui);color:var(--ink-3);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.app .itc-g{display:inline-flex;align-items:center;gap:2px;color:var(--gold-tx);font-weight:800}
+.app .itc-g svg{width:13px;height:13px}
+.app .itc-d{font:500 13px/1.4 var(--f-ui);color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.app .itc-gm{font:600 12px/1.4 var(--f-ui);color:var(--ink-3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.app .itc-a{display:flex;gap:6px;align-items:center}
+.app .itc-ics button{width:38px;height:38px}
+.app .itc-gear{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.app .itc-q2 button{width:36px;height:36px}
+.app .itc-q2 .inp{height:36px;min-height:36px}
+.app .itc-ok[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--gold)}
+.app .itc-ok[aria-pressed="true"] .bx{background:var(--gold);color:var(--gold-ink)}
+.app .itc-ok .bx{color:var(--gold-tx)}
+.app .itc-chips{padding:0;flex-wrap:wrap;overflow:visible}
+.app .itc-chips .cchip{padding:0 12px;white-space:nowrap}
+.app .itc-chips .cchip svg{width:16px;height:16px;flex:none}
 .app .pincard .chips .cchip{gap:5px}
 .app .pincard .chips .cchip svg{width:14px;height:14px;flex:none}
 /* places on a map: shown to some players only (GM view) get a dashed ring; "You are here" pins pulse */
@@ -2319,3 +2351,28 @@
 .app .pin.here .pl{background:color-mix(in srgb,var(--pc,#ff6b5a) 45%,rgba(10,10,32,.92))}
 .app .pin.here.dotp .pl{display:block}
 @media (prefers-reduced-motion:reduce){.app .pin.here .pm::after{animation:none}}
+.app .itc-grp{display:grid;gap:8px}
+.app .itc-grp h4{margin:6px 0 0;display:flex;align-items:baseline;gap:6px}
+.app .itc-grp h4 small{font:700 11px/1 var(--f-ui);color:var(--ink-4);letter-spacing:0}
+.app .itc-chips.sub .cchip{height:30px;font-size:12.5px}
+.app .itc-tag{display:inline-flex;align-items:center;height:18px;padding:0 7px;border-radius:999px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-2);font:700 11px/1 var(--f-ui)}
+.app .itc-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:560px){ .app .itc-two{grid-template-columns:1fr} }
+
+/* ---------- equipped weapons and armor, ammo counts (Jake's weapon rules) ---------- */
+.app .inv-h{display:flex;align-items:center;gap:6px;margin:4px 2px 6px;font:800 11px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.app .inv-h svg{width:14px;height:14px;color:var(--gold-tx)}
+.app .inv + .inv-h{margin-top:12px}
+.app .inv .it.eq{box-shadow:inset 0 0 0 1.5px var(--gold)}
+.app .inv .eqtag{display:inline-flex;align-items:center;height:18px;padding:0 8px;margin:3px 0 2px;border-radius:999px;background:var(--gold);color:var(--gold-ink);font:800 10.5px/1 var(--f-ui);letter-spacing:.04em;text-transform:uppercase}
+.app .inv .mini .eqb[aria-pressed="true"]{background:var(--gold);color:var(--gold-ink);box-shadow:none}
+.app .inv .ammo{display:flex;align-items:center;gap:6px;margin-top:6px}
+.app .inv .ammo .eyebrow{margin-right:2px}
+.app .inv .ammo b{display:inline;font:700 15px/1 var(--f-display);color:var(--gold-tx)}
+.app .inv .ammo button{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--sunk);font:800 14px/1 var(--f-ui);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line)}
+.app .inv .ammo button:disabled{opacity:.4}
+.app .inv .eqtag{display:flex;width:max-content}
+@container dev (max-width:560px){
+  .app .inv .it:has(.eqb){grid-template-columns:36px 1fr auto}
+  .app .inv .it:has(.eqb) .mini{grid-column:1/-1;justify-content:flex-end}
+}

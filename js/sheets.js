@@ -9,6 +9,8 @@ const sheet = (title, body, foot, o={}) => `<div class="sheet${o.wide?' wide':''
 const PORTRAITS = ['human-fighter','rogue-woman','elf-archer','dwarf-warrior','mage-woman','soldier-woman','noble-duelist','priest','bandit-woman','thug','innkeeper','town-guard','noble-queen','goblin-spearman','wizard-old','vampire-lady'];
 N.PORTRAITS = PORTRAITS;
 const pName = s => G().P[s]?.name || 'A former player';
+/* the classes in Jake's weapon and armor list, in his order */
+const CLS_ORDER = ['Hand-to-hand enhancers','Small one-handed weapons','Standard one-handed weapons','Two-handed weapons','Thrown weapons','Standard ranged weapons','Crossbows','Standard ranged ammo','Worn armor','Shields'];
 const lockIc = IC('lock').replace('<svg','<svg style="width:13px;height:13px;display:inline;vertical-align:-2px;margin-right:4px"');
 /* who sees a wiki entry, map or edition: Everyone, single players, or (wiki and maps) only the GM */
 N.audPick = (act, x, kind) => {
@@ -474,6 +476,65 @@ N.sheetHtml = function(v){
     const n = m.pins.filter(p => p.type !== 'party').length, party = m.pins.some(p => p.type === 'party');
     return sheet(`Delete the ${esc(m.name)} map?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The map${n ? ` and its ${n} ${n>1?'places':'place'}` : ''} are removed for everyone.${party ? ' The party banner is on this map, so it goes too.' : ''} ${String(m.src||'').startsWith('fs:') ? 'Its picture is deleted after a few seconds, so you can still undo.' : ''} Importing the lore file again brings back the atlas maps.</p>`,
       `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="mapDelGo" data-v="${esc(m.id)}">${IC('trash')}Delete map</button>`);
+  }
+  /* ---------------- the GM's item catalog: everything that exists in the world, ready to hand out ---------------- */
+  case 'items': {
+    if (!gm) return '';
+    const all = g.items || [], q = (v.ui.itQ || '').trim().toLowerCase(), k = v.ui.itK || '', cl = v.ui.itC || '';
+    const hit = it => !q || [it.name, it.d, it.gm, N.itemKind(it.kind)[1], N.itemPath(it)].some(x => String(x || '').toLowerCase().includes(q));
+    const inK = it => !k || N.itemKind(it.kind)[0] === k;
+    const list = all.filter(it => inK(it) && (!cl || (it.cls || '') === cl) && hit(it));
+    const count = kk => all.filter(it => N.itemKind(it.kind)[0] === kk && hit(it)).length;
+    const kinds = N.ITEMK.filter(([kk]) => count(kk) || kk === k);
+    /* a kind with classes (Jake's lists) gets a second row to narrow it to one class */
+    const classes = k ? [...new Set(all.filter(it => inK(it) && it.cls).map(it => it.cls))] : [];
+    const row = it => { const [, kl] = N.itemKind(it.kind), gs = N.itemGears(it);
+      return `<div class="itc-row"><span class="itc-ic">${IC(it.ic || N.itemKind(it.kind)[2])}</span>
+        <span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(it.cls ? [it.sub, it.disc].filter(Boolean).join(' · ') || kl : kl)}${gs.map(([kk, l, ic]) => ` <span class="itc-g" title="${l}">${IC(ic)}+${+it[kk]}</span>`).join('')}${it.silver ? ' <span class="itc-tag">Silver</span>' : ''}</small>${it.d && !it.cls ? `<span class="itc-d">${N.emoText(N.marks(esc(it.d)))}</span>` : ''}${it.gm ? `<span class="itc-gm">${lockIc}${N.emoText(N.marks(esc(it.gm)))}</span>` : ''}</span>
+        <span class="itc-a"><button type="button" class="btn sm" data-a="itGive" data-v="${esc(it.id)}">${IC('hand')}Give</button><button type="button" class="ibtn sm" data-a="itEdit" data-v="${esc(it.id)}" aria-label="Edit ${esc(it.name)}">${IC('pen')}</button></span></div>`; };
+    /* grouped by class (then rating, then name); items without a class come last under their kind */
+    const groups = new Map();
+    for (const it of list) { const key = it.cls || N.itemKind(it.kind)[1]; if (!groups.has(key)) groups.set(key, []); groups.get(key).push(it); }
+    const order = [...groups.keys()].sort((a, b) => { const ia = all.findIndex(x => (x.cls || N.itemKind(x.kind)[1]) === a), fa = list.find(x => (x.cls || N.itemKind(x.kind)[1]) === a), fb = list.find(x => (x.cls || N.itemKind(x.kind)[1]) === b);
+      return (N.ITEMK.findIndex(x => x[0] === N.itemKind(fa.kind)[0]) - N.ITEMK.findIndex(x => x[0] === N.itemKind(fb.kind)[0])) || (!fa.cls - !fb.cls) || (CLS_ORDER.indexOf(a) + 1 || 99) - (CLS_ORDER.indexOf(b) + 1 || 99) || a.localeCompare(b) || ia; });
+    const lists = order.map(key => { const its = groups.get(key).sort((a, b) => (+a.r || 0) - (+b.r || 0) || a.name.localeCompare(b.name));
+      return `<section class="itc-grp"><h4>${esc(key)} <small>${its.length}</small></h4><div class="itc-list">${its.map(row).join('')}</div></section>`; }).join('');
+    const body = `<p class="muted" style="margin:0;font:600 13px/1.45 var(--f-ui)">The weapons, armor, magical things and gear that exist in your world. Only you see this list. Give an item to a character or NPC and it lands in their inventory.</p>
+      <div class="itc-bar"><label class="itc-q">${IC('search')}<input class="inp" id="itq-${v.id}" data-i="itQ" value="${esc(v.ui.itQ || '')}" placeholder="Search items" autocomplete="off" aria-label="Search items"></label><button type="button" class="btn sm" data-a="itImport" title="Load norne-gm-items.json">${IC('upload')}<span class="only-dt">Import</span></button><button type="button" class="btn primary sm" data-a="itNew">${IC('plus')}New item</button></div>
+      ${all.length ? `<div class="chips itc-chips" role="group" aria-label="Show"><button type="button" class="cchip" data-a="itKind" data-v="" aria-current="${!k}">All <small>${all.filter(hit).length}</small></button>${kinds.map(([kk, l, ic]) => `<button type="button" class="cchip" data-a="itKind" data-v="${kk}" aria-current="${k === kk}">${IC(ic)}${l} <small>${count(kk)}</small></button>`).join('')}</div>` : ''}
+      ${classes.length > 1 ? `<div class="chips itc-chips sub" role="group" aria-label="Class"><button type="button" class="cchip" data-a="itCls" data-v="" aria-current="${!cl}">Every kind</button>${classes.sort((a, b) => (CLS_ORDER.indexOf(a) + 1 || 99) - (CLS_ORDER.indexOf(b) + 1 || 99)).map(c => `<button type="button" class="cchip" data-a="itCls" data-v="${esc(c)}" aria-current="${cl === c}">${esc(c)}</button>`).join('')}</div>` : ''}
+      ${list.length ? lists : `<div class="note">${IC('info')}${all.length ? 'No items match.' : 'No items yet. Press New item to add one, or Import to load an items file.'}</div>`}`;
+    return sheet('Item catalog', body, `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true});
+  }
+  case 'itemEd': {
+    const d = v.ui.itd; if (!gm || !d) return '';
+    const ic = d.ic || N.itemKind(d.kind)[2], all = g.items || [];
+    const opts = key => [...new Set(all.map(x => x[key]).filter(Boolean))].sort().map(x => `<option value="${esc(x)}">`).join('');
+    const body = `<label class="field"><span>Name</span><input class="inp" id="itn-${v.id}" data-i="itd" data-k="name" value="${esc(d.name)}" placeholder="e.g. Silver dagger" autocomplete="off"></label>
+      <div><h4>Kind</h4><div class="chips itc-chips" role="group" aria-label="Kind">${N.ITEMK.map(([kk, l, i2]) => `<button type="button" class="cchip" data-a="itdKind" data-v="${kk}" aria-current="${N.itemKind(d.kind)[0] === kk}">${IC(i2)}${l}</button>`).join('')}</div></div>
+      <div class="itc-two"><label class="field"><span>Class · optional</span><input class="inp" id="itc-${v.id}" data-i="itd" data-k="cls" value="${esc(d.cls || '')}" list="itcl-${v.id}" placeholder="e.g. Small one-handed weapons" autocomplete="off"><datalist id="itcl-${v.id}">${opts('cls')}</datalist></label>
+        <label class="field"><span>Discipline · optional</span><input class="inp" id="itdi-${v.id}" data-i="itd" data-k="disc" value="${esc(d.disc || '')}" list="itdl-${v.id}" placeholder="e.g. Swords & Blades" autocomplete="off"><datalist id="itdl-${v.id}">${opts('disc')}</datalist></label></div>
+      <button type="button" class="wipe-ok itc-ok" data-a="itdSilver" aria-pressed="${!!d.silver}"><span class="bx">${d.silver ? IC('check') : ''}</span><span><b>Silver</b> · +1 shift on hits against vampires and werewolves</span></button>
+      <div><h4>Picture</h4><div class="ied-ics itc-ics" role="group" aria-label="Picture">${N.ITEM_IC.map(x => `<button type="button" data-a="itdIc" data-v="${x}" aria-pressed="${ic === x}" aria-label="${x}">${IC(x)}</button>`).join('')}</div></div>
+      <label class="field"><span>What it does · players read this when they get it</span><textarea class="inp" id="itdd-${v.id}" data-i="itd" data-k="d" rows="3" placeholder="e.g. A light blade that is easy to hide">${esc(d.d || '')}</textarea></label>
+      <div><h4>Ratings</h4><p class="muted" style="margin:0 0 8px;font:600 12.5px/1.4 var(--f-ui)">Optional. The same ratings as on a card. When you give the item you can set them on the card too.</p>
+        <div class="itc-gear">${N.ITEM_RATE.map(([kk, l]) => `<label class="field"><span>${l}</span>${N.gearSelect(`itg${kk}-${v.id}`, `data-i="itd" data-k="${kk}"`, d[kk])}</label>`).join('')}</div></div>
+      <label class="field"><span>${lockIc}Your notes · only you see these</span><textarea class="inp" id="itdg-${v.id}" data-i="itd" data-k="gm" rows="3" placeholder="Where it is, who made it, rules for it…">${esc(d.gm || '')}</textarea></label>`;
+    return sheet(d.id ? `Edit ${esc(d.name || 'item')}` : 'New item', body,
+      `${d.id ? `<button type="button" class="btn danger" data-a="itDel" data-v="${esc(d.id)}" style="flex:0 0 auto">${IC('trash')}Delete</button>` : ''}<button type="button" class="btn ghost" data-a="sheet" data-v="items">Cancel</button><button type="button" class="btn primary" data-a="itSave" ${d.name.trim() ? '' : 'disabled'}>${IC('check')}${d.id ? 'Save' : 'Add item'}</button>`);
+  }
+  case 'itemGive': {
+    const t = v.ui.itg, it = t && N.itemById(t.id); if (!gm || !it) return '';
+    const pcs = N.pcs().filter(c => c.built), npcs = g.npcs, gs = N.itemCardGears(it);
+    const who = t.to ? N.itemTo(t.to) : null;
+    const body = `<div class="itc-row one"><span class="itc-ic">${IC(it.ic || N.itemKind(it.kind)[2])}</span><span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemKind(it.kind)[1])}</small>${N.itemNote(it) ? `<span class="itc-d">${N.emoText(N.marks(esc(N.itemNote(it))))}</span>` : ''}</span></div>
+      <label class="field"><span>Give it to</span><select class="inp" id="itgt-${v.id}" data-i="itg" data-k="to"><option value="">Pick someone…</option>
+        ${pcs.length ? `<optgroup label="Player characters">${pcs.map(c => `<option value="c:${esc(c.id)}" ${t.to === 'c:' + c.id ? 'selected' : ''}>${esc(c.short)} (${esc(G().P[c.player]?.name || 'player')})</option>`).join('')}</optgroup>` : ''}
+        ${npcs.length ? `<optgroup label="NPCs">${npcs.map(n => `<option value="n:${esc(n.id)}" ${t.to === 'n:' + n.id ? 'selected' : ''}>${esc(n.name)}</option>`).join('')}</optgroup>` : ''}</select></label>
+      <div class="field"><span>How many</span><div class="gold-ed itc-q2"><button type="button" data-a="itgQ" data-d="-1" aria-label="One fewer" ${t.q <= 1 ? 'disabled' : ''}>−</button><input class="inp" id="itgq-${v.id}" data-i="itg" data-k="q" value="${t.q}" inputmode="numeric" pattern="[0-9]*" aria-label="How many"><button type="button" data-a="itgQ" data-d="1" aria-label="One more">+</button></div></div>
+      ${gs.length ? `<button type="button" class="wipe-ok itc-ok" data-a="itgGear" aria-pressed="${!!t.gear}"><span class="bx">${t.gear ? IC('check') : ''}</span><span>Also set ${who ? `${esc(who.label)}’s` : 'their'} ratings on the card: ${gs.map(([kk, l]) => `<b>${l} ${who ? `${sgn(+who.o[kk] || 0)} → ` : ''}+${+it[kk]}</b>`).join(', ')}</span></button>` : ''}
+      ${who && who.pc ? `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">${esc(G().P[who.o.player]?.name || 'The player')} gets a note in your private chat.</p>` : ''}`;
+    return sheet(`Give ${esc(it.name)}`, body, `<button type="button" class="btn ghost" data-a="sheet" data-v="items">${IC('left')}Back</button><button type="button" class="btn primary" data-a="itGiveGo" ${who ? '' : 'disabled'}>${IC('hand')}Give</button>`);
   }
   /* ---------------- custom emoji (GM) ---------------- */
   case 'emoji': {

@@ -587,6 +587,13 @@ N.cbEnd = function(){
   const g = G();
   /* the end note stays in the roleplay actions; tapping it opens everything that happened in the fight */
   const cb = g.combat; Object.assign(N.sys(`The fight on ${cb.title || 'the field'} is over. Stress stays on your cards until the scene ends.`, N.fightCh()), {fightEnd:cb.id});
+  /* Jake's ammo rule: everyone who took a Shooting action loses 1 ammo from their equipped ammo or thrown weapons */
+  const used = [];
+  for (const id of cb.shot || []) {
+    const t = cb.tokens.find(x => x.id === id); if (!t) continue;
+    const o = t.kind === 'pc' ? g.chars[t.ref] : t.type !== 'nameless' && g.npcs.find(n => n.id === t.ref); if (!o || used.includes(o)) continue; used.push(o);
+    for (const row of o.inv || []) { const x = N.invX(row); if (x.eq && x.am != null && x.am > 0) { N.invSetX(row, {am:x.am - 1}); N.sys(`${o.short || o.name}’s ${row[0]}: ammo ${x.am - 1} of ${N.AMMO_MAX}.`, o.player ? 'dm-' + o.player : 'gm'); } }
+  }
   g.combat = N.freshCombat();
 };
 N.cbMove = function(t, zid){
@@ -623,12 +630,18 @@ N.cbResolve = function(again){
   const a = N.tokById(p.att), d = N.tokById(p.def), am = g.msgs.find(m => m.id === p.msgId), dm = g.msgs.find(m => m.id === p.defMsg);
   if (!a || !d || !dm) { cb.pending = null; return; }
   const an = N.tokName(a), dn = N.tokName(d), dt = N.rollTotal(dm.roll), sh = p.total - dt;
-  const wpn = sh > 0 ? N.atkGear(a, p.skill).hit : 0, wpnL = N.atkGear(a, p.skill).hitL, arm = sh > 0 ? N.tokGear(d, 'gearDef') : 0;
-  const dmg = Math.max(0, sh + wpn - arm - (p.boosted ? 2 : 0)), fx = p.fx = p.fx || {};
+  let wpn = sh > 0 ? N.atkGear(a, p.skill).hit : 0, wpnL = N.atkGear(a, p.skill).hitL;
+  const arm = sh > 0 ? N.tokGear(d, 'gearDef') : 0;
+  /* Jake's weapon rules: two dual-wielded weapons both count on a hit with style (3+ on the rolls), and silver adds one shift
+     against a vampire or werewolf (a melee weapon on Fighting, the ammo on Shooting; only ever +1, dual-wielding or not) */
+  const dual = p.skill === 'Fighting' && sh >= 3 ? N.tokGear(a, 'gearAtk2') : 0;
+  const silver = sh > 0 && N.tokGear(a, p.skill === 'Shooting' ? 'silverAmmo' : p.skill === 'Fighting' ? 'silverAtk' : '_') && N.silverFoe(d) ? 1 : 0;
+  if (dual) { wpn += dual; wpnL = 'both weapons'; }
+  const dmg = Math.max(0, sh + wpn + silver - arm - (p.boosted ? 2 : 0)), fx = p.fx = p.fx || {};
   const boost = (o, on) => { (fx.boosts = fx.boosts || []).push(N.addBoost(o, on).id); };
   let out, after, calc = null, fo;
   if (sh > 0) {
-    if (wpn || arm || p.boosted) calc = `Hit by ${sh}${wpn ? ` · ${wpnL} +${wpn}` : ''}${arm ? ` · armor −${arm}` : ''}${p.boosted ? ' · traded −2 for a boost' : ''} = ${dmg} shift${dmg===1?'':'s'}`;
+    if (wpn || arm || silver || p.boosted) calc = `Hit by ${sh}${wpn ? ` · ${wpnL} +${wpn}` : ''}${silver ? ' · silver +1' : ''}${arm ? ` · armor −${arm}` : ''}${p.boosted ? ' · traded −2 for a boost' : ''} = ${dmg} shift${dmg===1?'':'s'}`;
     const style = sh >= 3 && dmg > 0 && !p.boosted;
     out = {k:'hit', t:dmg ? `Hit${style ? ' with style' : ''} · ${dmg} shift${dmg>1?'s':''}` : 'Hit · armor holds'};
     if (!dmg) { after = `${dn}’s armor takes the whole blow. No harm done.`; N.cbSettled(p); fo = 'armor'; }
@@ -636,6 +649,8 @@ N.cbResolve = function(again){
     else { p.stage = 'absorb'; p.shifts = dmg; after = `${dn} must soak ${dmg} shift${dmg>1?'s':''}: check a stress box or take a consequence.`; fo = 'hit'; }
   } else if (sh === 0) { out = {k:'tie', t:'Tie'}; after = `No harm done. ${an} gets a boost on ${dn}.`; N.cbSettled(p); boost(a, d); fo = 'tie'; }
   else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ` and gets a boost on ${an}` : ''}. No harm done.`; N.cbSettled(p); if (sh <= -3) boost(d, a); fo = sh <= -3 ? 'bstyle' : 'block'; }
+  /* a crossbow leaves its wielder with the negative Reloading boost after every attack, hit or miss: the defender can invoke it */
+  if (p.skill === 'Shooting' && N.tokGear(a, 'reload')) { (fx.boosts = fx.boosts || []).push(N.addBoost(d, a, 'Reloading').id); if (after) after += ` ${an} is Reloading.`; }
   const att = am ? rollLine(an, am.roll) : {n:an, sk:p.skill, b:0, g:0, tot:p.total}; att.tot = p.total;
   const title = `${an} attacks ${dn}${again ? ', after invokes' : ''}`;
   const res = {k:'clash', title, rows:[att, rollLine(dn, dm.roll)], out, after};
