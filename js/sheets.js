@@ -196,10 +196,14 @@ N.sheetHtml = function(v){
   /* ---------------- scene picker (GM) ---------------- */
   case 'scene': {
     const d = v.ui.sd, tab = d.tab;
+    /* the Pictures tab has two folders: the art that comes with Norne, and the GM's own uploads (opens on the one holding the current picture) */
+    const pf = d.pf || (d.art && g.pics.some(u => u.src === d.art) ? 'up' : 'app');
+    const fold = (k, name, n) => `<button type="button" data-a="sdFold" data-v="${k}" aria-pressed="${pf === k}">${IC('folder')}<span>${name}<small>${n} ${n === 1 ? 'picture' : 'pictures'}</small></span></button>`;
     const pins = g.maps.flatMap(mp => mp.pins.filter(p => ['city','town','hood','region','tavern','landmark','shop','temple','nation'].includes(p.type)).map(p => ({map:mp.id, id:p.id, rx:p.rx, ry:p.ry, label:p.label, sub:p.sub ? `${p.sub} · ${mp.name}` : mp.name})));
     const pics = tab === 'recent' ? g.recent.map(r => ({...r, sub:r.where}))
       : tab === 'maps' ? pins.map(p => ({id:`pl:${p.map}:${p.id}`, title:p.label, sub:p.sub, place:{map:p.map, rx:p.rx, ry:p.ry}}))
-      : [...g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your picture', up:true})), ...N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Picture'}))];
+      : pf === 'up' ? g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your upload', up:true}))
+      : N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Norne art'}));
     const isOn = p => p.place ? (d.place && d.place.map === p.place.map && d.place.rx === p.place.rx && d.place.ry === p.place.ry) : (d.art && d.art === p.art);
     const forwho = N.channelsFor('gm').filter(c => c !== 'gm'), has = g.scenes[d.ch], edit = has && d.mode === 'edit';
     /* a scene aspect can sit on someone in the scene (like a fight's situation aspect): the chat's player characters, its NPCs and one-offs */
@@ -210,8 +214,10 @@ N.sheetHtml = function(v){
         <p class="muted" style="margin:-6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${edit ? `Changes fix up “${esc(has.title)}” in place. No new scene line in the chat, and free invokes already spent stay spent.` : `“${esc(has.title)}” ends and a fresh scene starts in this chat.`}</p>` : ''}
       <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:c.startsWith('grp-')?`<span class="cic">${IC('whisper')}</span>${esc(N.chName(c,'gm'))}`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
       <div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">Picture</h4><div class="seg"><button type="button" data-a="sdTab" data-v="recent" aria-pressed="${tab==='recent'}">Recent</button><button type="button" data-a="sdTab" data-v="pics" aria-pressed="${tab==='pics'}">Pictures</button><button type="button" data-a="sdTab" data-v="maps" aria-pressed="${tab==='maps'}">Map places</button></div></div>
+        ${tab==='pics' ? `<div class="sdfold" role="group" aria-label="Picture folders">${fold('app', 'Norne art', N.ARTLIB.length)}${fold('up', 'Your uploads', g.pics.length)}</div>` : ''}
         <div class="thumbs">${pics.map(p => `<button type="button" class="thumb${isOn(p)?' on':''}" ${p.up ? `data-a="sdPickUp" data-v="${esc(p.art)}"` : `data-a="sdPick" data-v="${esc(p.id)}"`} style="${N.sceneArt(p)};${p.place?'background-size:420% auto':''}">${N.scenePic(p)}<span>${esc(p.title)}<small>${esc(p.sub||'')}</small></span>${isOn(p)?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
-          ${tab==='pics'?`<button type="button" class="thumb up" data-a="sdUpload"><span>${IC('upload')}Upload a picture</span></button>`:''}
+          ${tab==='pics' && pf==='up'?`<button type="button" class="thumb up" data-a="sdUpload"><span>${IC('upload')}Upload a picture</span></button>`:''}
+          ${tab==='pics' && pf==='up' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui);align-self:center">Pictures you upload land here, and on the Your pictures shelf on the GM screen.</p>' : ''}
           ${tab==='recent' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Scenes you set show up here for one-tap reuse.</p>' : ''}
           ${tab==='maps' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No places on the maps yet.</p>' : ''}</div>
           ${d.art && !d.place ? `<div style="margin-top:10px"><button type="button" class="btn sm ghost fr-adj" data-a="sdFrame">${IC('fit')}Adjust framing</button></div>` : ''}</div>
@@ -297,6 +303,7 @@ N.sheetHtml = function(v){
         <button type="button" data-a="sheet" data-v="import">${IC('upload')}<span>Import lore<small>Load the wiki and maps from your lore file</small></span><span class="end">${IC('right')}</span></button>
         <button type="button" data-a="sheet" data-v="export">${IC('export')}<span>Export the log<small>Copy or save chats as text</small></span><span class="end">${IC('right')}</span></button>`
         : `<button type="button" data-a="tab" data-v="hero">${IC('hero')}<span>My character<small>${c && c.built?N.emoText(N.marks(esc(N.pcTag(c)))):'Not made yet'}</small></span><span class="end">${IC('right')}</span></button>`}
+        ${N.figOk && N.figOk() ? `<button type="button" data-a="figOpen">${IC('hero')}<span>Toy figure maker<small>A test only you can see</small></span><span class="end">${IC('right')}</span></button>` : ''}
         <button type="button" data-a="sheet" data-v="credits">${IC('heart')}<span>Art credits<small>Free art used in this app</small></span><span class="end">${IC('right')}</span></button>
         <button type="button" data-a="signOut">${IC('signout')}<span>Sign out</span></button>
       </div>`;

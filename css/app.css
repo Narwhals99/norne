@@ -527,6 +527,14 @@
 .app .thumb .ck{position:absolute;z-index:1;top:8px;right:8px;width:24px;height:24px;border-radius:50%;background:var(--gold);color:var(--gold-ink);display:grid;place-items:center}
 .app .thumb .ck svg{width:15px;height:15px}
 .app .thumb.map{filter:none}
+/* scene picker: Norne art / Your uploads folders above the Pictures grid */
+.app .sdfold{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.app .sdfold button{display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 12px;border-radius:12px;text-align:left;color:var(--ink-2);background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);font:700 14px/1.2 var(--f-ui)}
+.app .sdfold button svg{width:22px;height:22px;flex:none;color:var(--ink-3)}
+.app .sdfold button span{display:grid;gap:2px;min-width:0}
+.app .sdfold button small{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .sdfold button[aria-pressed="true"]{color:var(--ink);background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.app .sdfold button[aria-pressed="true"] svg{color:var(--gold-tx)}
 .app .thumb.up{display:grid;place-items:center;background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2);color:var(--ink-3);border-style:dashed}
 .app .thumb.up::after{display:none}
 .app .thumb.up span{position:static;color:var(--ink-2);display:grid;justify-items:center;gap:6px;text-align:center}
@@ -2426,9 +2434,10 @@
 .app .ff .gsh{font-weight:800;color:var(--gold-tx)}
 .app .shnow .out{display:inline-flex;align-items:center;height:26px;padding:0 11px;border-radius:999px;font:800 11.5px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;flex:none}
 /* character lifetime stats (Character tab > Stats) */
-.app .statrow{display:flex;justify-content:center;margin:-4px 0 -2px}
+.app .statrow{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:-4px 0 -2px}
 .app .statbtn{min-width:180px;justify-content:center;height:42px;font-size:15px;color:var(--gold-tx);border-color:color-mix(in srgb,var(--gold) 55%,transparent)}
 .app .statbtn svg{width:18px;height:18px}
+.app .statrow:has(.statbtn+.statbtn) .statbtn{min-width:0;flex:1 1 0;max-width:180px}
 .app .stats .stathero{grid-template-columns:auto 1fr auto;align-items:center}
 .app .stiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media (min-width:900px){.app .stiles{grid-template-columns:repeat(4,minmax(0,1fr))}}

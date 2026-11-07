@@ -520,6 +520,7 @@ function askTell(v){
 }
 function backStep(v, home){
   const ui = v.ui;
+  if (ui.figs) return () => { ui.figs = false; if (N.figClose) N.figClose(); };
   if (ui.shelf) return () => { ui.shelf = false; };
   if (ui.pop) return () => { ui.pop = null; };
   if (ui.sheet === 'itemEd' || ui.sheet === 'itemGive') return () => { ui.sheet = 'items'; ui.itd = null; };
@@ -1161,6 +1162,8 @@ function act(v, a, el, e){
   /* players always land on the default map when they come to the Maps tab (the GM keeps the map they were on) */
   case 'tab': close(); if (val === 'map' && ui.tab !== 'map' && !gm) { const dm = N.defMap(false); if (dm) Object.assign(ui, {mapId:dm.id, mapBack:[], mapDir:null, pinSel:null, mapT:null, mapType:'all'}); } ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; ui.heroStats = null; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
   case 'heroInv': ui.heroInv = !!val; break;
+  /* the toy figure maker test (js/figures.js), one account only */
+  case 'figOpen': close(); if (N.figOk && N.figOk()) { ui.figs = true; N.figOpen(v); } break;
   case 'heroStats': ui.heroStats = val || null; v.root.querySelector('[data-sk=hero],[data-sk=herostats]')?.scrollTo?.(0, 0); break;
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
@@ -1817,6 +1820,7 @@ function act(v, a, el, e){
   case 'sdOneDel': ui.sd.extras.splice(+val, 1); break;
   case 'sdSave': { const s = ui.sd; sdKeep(s); if (!editScene(v, s)) { toast(v, 'That scene has ended. Start a new one instead.'); sdLoad(s, 'new'); break; } ui.sheet = null; renderAll(); return; }
   case 'sdTab': ui.sd.tab = val; break;
+  case 'sdFold': ui.sd.pf = val; break;
   case 'sdPick': {
     let p = null;
     if (val.startsWith('pl:')) { const [, map, pid] = val.split(':'); const mp = g.maps.find(m => m.id === map), pin = mp && mp.pins.find(x => x.id === pid); if (pin) p = {title:pin.label, where:mp.name, place:{map, rx:pin.rx, ry:pin.ry}}; }
@@ -1828,7 +1832,7 @@ function act(v, a, el, e){
   }
   case 'sdPickUp': ui.sd.art = val; ui.sd.place = null; ui.sd.touched = true; break;
   case 'sdFrame': if (ui.sd?.art) reframePic(v, ui.sd.art); return;
-  case 'sdUpload': uploadPicture(v, src => { ui.sd.art = src; ui.sd.place = null; ui.sd.touched = true; ui.sd.tab = 'pics'; }); return;
+  case 'sdUpload': uploadPicture(v, src => { ui.sd.art = src; ui.sd.place = null; ui.sd.touched = true; ui.sd.tab = 'pics'; ui.sd.pf = 'up'; }); return;
   case 'sdAspAdd': { const t = (ui.sd.newAsp || '').trim(); if (t) { ui.sd.aspects.push({t, free:0, k:uid('a')}); ui.sd.newAsp = ''; } break; }
   case 'sdAspFree': { const a = ui.sd.aspects[+d.i]; a.free = ((a.free || 0) + 1) % 3; break; }
   case 'sdAspDel': ui.sd.aspects.splice(+d.i, 1); break;
