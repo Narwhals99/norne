@@ -167,8 +167,13 @@ blush `#FFABAB`, peach `#FFC3A0`, rose `#FF677D`, dusty rose `#D4A5A5` and plum 
   blush tile for blank, all with plum glyphs, so the sign also reads without colour.
 - **Speaker colours** are eight shades of the palette; they are closer together than in other looks, so names and avatars carry
   the difference as before.
-- Hearts replace the star (`--star4`), free invokes are little heart drops, and the backdrop has two layers of soft polka dots
-  (`--g-dots`). Fonts: Quicksand (interface), Playfair Display (titles, italic wordmark and descriptions), both OFL.
+- **Art (Jack asked for "cutesy fonts, flowers, sparkles"):** Twemoji SVGs (CC BY 4.0, npm `@twemoji/svg`) recoloured to the palette
+  by mapping each fill to the nearest palette colour by hue and lightness, saved in `art/ui/gerleez/` (~80 KB): cherry blossom
+  wordmark, sparkles for every star (`.spark`, `.star4`, the open tab), hearts for fate points (`.coin`) and free invokes, a posy on
+  the scene banner (`.scene::after`), a bow on top of every sheet (replaces the drag handle), and a scattered flower/sparkle/heart
+  tile on the backdrop (`--g-dots`). All overlays are pseudo-elements with `pointer-events:none`; nothing moves.
+- Fonts: Cherry Bomb One (titles and wordmark, one weight only, so `font-synthesis-weight:none`), Fredoka (interface),
+  Playpen Sans (descriptions and aspect cards). All OFL.
 - Kept out on purpose: portraits, maps, GM-picked zone and pin colours, and the fixed attack animation colours (4.5).
 
 ## 3. The token contract
@@ -377,4 +382,4 @@ Quirk: the kit's `roll` screen does not open the roll sheet for a player (`role=
 - **2026-11-05** Sketchbook: Jack asked for a black and white look, "black coloured pencil, black pastel", artsy and notebook-like,
   with no colour anywhere. Kalam, Caveat and Fredericka the Great, Noto Emoji for emoji, and pencil art drawn by script.
 - **2026-11-07** 4-the-gerleez: Jack sent a five-colour palette (blush, peach, rose, dusty rose, plum) as the only colours allowed.
-  Plum velvet by night, blush paper by day, hearts and polka dots, Quicksand and Playfair Display.
+  Plum velvet by night, blush paper by day, recoloured Twemoji flowers, sparkles, hearts and a bow; Cherry Bomb One, Fredoka, Playpen Sans.

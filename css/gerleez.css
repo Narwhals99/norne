@@ -6,7 +6,9 @@
    dusty rose #D4A5A5 and plum #392F5A. Every colour below is one of those five, or one of them made lighter or darker
    (mixed with each other, with a whisper of white for Day paper, or a touch of black for the Night sky).
    Night = plum velvet with blush and peach ink. Day = blush paper with plum ink.
-   Hearts take the place of the four-point star; soft polka dots sit on the backdrop.
+   Cute art from Twemoji (CC BY 4.0), recoloured to the palette (art/ui/gerleez/): a cherry blossom for the wordmark,
+   sparkles for stars, hearts for fate points, a posy on the scene banner, a bow on sheets, flowers scattered on the backdrop.
+   Fonts: Cherry Bomb One (titles), Fredoka (interface), Playpen Sans (descriptions and aspects).
    Pictures, portraits, maps, GM-picked zone and pin colours and the attack animations keep their own colours.
    ===================================================================== */
 
@@ -29,8 +31,8 @@
   --scrim:rgba(20,16,34,.66);
   --shadow-1:0 1px 0 rgba(255,171,171,.05) inset, 0 10px 30px -12px rgba(15,11,28,.75);
   --shadow-2:0 24px 60px -20px rgba(15,11,28,.85), 0 0 0 1px rgba(255,171,171,.14);
-  --g-dots:radial-gradient(circle, rgba(255,171,171,.075) 0 1.6px, transparent 2.2px) 0 0/24px 24px,
-           radial-gradient(circle, rgba(255,195,160,.05) 0 1.2px, transparent 1.8px) 12px 12px/24px 24px;
+  --g-dots:url("../art/ui/gerleez/tile-night.svg") 0 0/168px 168px,
+           radial-gradient(circle, rgba(255,171,171,.06) 0 1.4px, transparent 2px) 12px 12px/24px 24px;
   --sky-art:radial-gradient(90% 55% at 85% -10%, rgba(255,103,125,.26), transparent 60%),
             radial-gradient(80% 55% at -10% 110%, rgba(255,195,160,.16), transparent 60%),
             var(--g-dots), linear-gradient(180deg, var(--sky-2), var(--sky-0));
@@ -45,9 +47,12 @@
   --glass-sheen:rgba(255,240,240,.18); --glass-rim:rgba(255,240,240,.55); --glass-rim-2:rgba(255,240,240,.06); --glass-rim-3:rgba(255,195,160,.4);
   --glass-shadow:0 8px 22px -12px rgba(15,11,28,.7); --glass-filter:blur(5px) saturate(150%) brightness(1.12);
 
-  --f-mark:'Playfair Display', 'Didot', Georgia, serif;
-  --f-display:'Playfair Display', 'Didot', Georgia, serif;
-  --f-ui:'Quicksand', 'Nunito', system-ui, -apple-system, sans-serif;
+  /* Cherry Bomb One (bubbly titles and wordmark), Fredoka (round interface), Playpen Sans (handwritten descriptions) */
+  --f-mark:'Cherry Bomb One', 'Fredoka', system-ui, sans-serif;
+  --f-display:'Cherry Bomb One', 'Fredoka', system-ui, sans-serif;
+  --f-ui:'Fredoka', 'Nunito', system-ui, -apple-system, sans-serif;
+  --f-hand:'Playpen Sans', 'Fredoka', cursive;
+  font-synthesis-weight:none;
   /* a heart wherever the app draws its four-point star */
   --star4:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.6S2 15.4 2 8.6A5.3 5.3 0 0 1 12 6a5.3 5.3 0 0 1 10 2.6c0 6.8-10 13-10 13z'/%3E%3C/svg%3E");
   accent-color:var(--g-rose);
@@ -69,8 +74,8 @@
   --scrim:rgba(57,47,90,.32);
   --shadow-1:0 1px 0 rgba(255,255,255,.75) inset, 0 10px 26px -14px rgba(146,72,106,.38);
   --shadow-2:0 24px 60px -24px rgba(146,72,106,.45), 0 0 0 1px rgba(57,47,90,.13);
-  --g-dots:radial-gradient(circle, rgba(255,103,125,.12) 0 1.6px, transparent 2.2px) 0 0/24px 24px,
-           radial-gradient(circle, rgba(212,165,165,.18) 0 1.2px, transparent 1.8px) 12px 12px/24px 24px;
+  --g-dots:url("../art/ui/gerleez/tile-day.svg") 0 0/168px 168px,
+           radial-gradient(circle, rgba(255,103,125,.1) 0 1.4px, transparent 2px) 12px 12px/24px 24px;
   --sky-art:radial-gradient(90% 60% at 90% -10%, rgba(255,195,160,.7), transparent 60%),
             radial-gradient(80% 60% at -10% 110%, rgba(255,171,171,.5), transparent 60%),
             var(--g-dots), linear-gradient(180deg, var(--sky-2), var(--sky-0));
@@ -138,6 +143,7 @@
 /* ---------- aspect cards: blush note cards, free invokes as little hearts ---------- */
 .app:where([data-style="gerleez"]) .icard{background:repeating-linear-gradient(180deg,transparent 0 15px,var(--card-line) 15px 16px) 0 18px/100% calc(100% - 18px) no-repeat,var(--card-paper);
   box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 0 0 1px rgba(212,165,165,.45),0 6px 14px -8px rgba(31,26,50,.6)}
+.app:where([data-style="gerleez"]) .icard{font-family:var(--f-hand);font-weight:600}
 .app:where([data-style="gerleez"]) .icard .k{color:#a64e6d}
 .app:where([data-style="gerleez"]) .icard .fi i,.app:where([data-style="gerleez"]) .icard .fib i{border-radius:0;background:linear-gradient(160deg,#ff8994,#FF677D 55%,#a64e6d);
   -webkit-mask:var(--star4) center/contain no-repeat;mask:var(--star4) center/contain no-repeat;box-shadow:none}
@@ -151,14 +157,13 @@
 /* ---------- shell ---------- */
 .app:where([data-style="gerleez"]) .tabbar button{font-weight:700}
 .app:where([data-style="gerleez"]) .tabbar button[aria-current="page"] .ti{color:var(--accent-tx)}
-.app:where([data-style="gerleez"]) .mark b{font-family:var(--f-mark);font-style:italic;font-weight:600;letter-spacing:.02em}
+.app:where([data-style="gerleez"]) .mark b{font-family:var(--f-mark);font-weight:400;letter-spacing:.04em}
 .app:where([data-style="gerleez"])[data-theme="night"] .mark b{color:var(--g-pink);text-shadow:0 0 16px rgba(255,103,125,.3)}
 .app:where([data-style="gerleez"])[data-theme="day"] .mark b{color:#392F5A}
-.app:where([data-style="gerleez"]) .top h1{font-style:italic}
 
 /* ---------- chat ---------- */
 .app:where([data-style="gerleez"]) .m .bub{font-weight:500}
-.app:where([data-style="gerleez"]) .m .bub em,.app:where([data-style="gerleez"]) .m .bub .rpd{font-family:var(--f-display);font-style:italic}
+.app:where([data-style="gerleez"]) .m .bub em,.app:where([data-style="gerleez"]) .m .bub .rpd{font-family:var(--f-hand);font-style:normal}
 /* your own lines: blush-to-rose by night with plum ink, berry by day with blush ink */
 .app:where([data-style="gerleez"])[data-theme] .m.mine:not(.ooc) .bub{color:#1f1a32;background:linear-gradient(180deg,#FFABAB,#ff8994);
   box-shadow:inset 0 1px 0 rgba(255,240,240,.55),0 6px 16px -10px rgba(255,103,125,.6)}
@@ -227,3 +232,31 @@
 .app:where([data-style="gerleez"])[data-theme="night"] .av{color:#1f1a32;text-shadow:0 1px 0 rgba(255,240,240,.35)}
 /* "You act for" on the GM turn banner was peach on blush by day */
 .app:where([data-style="gerleez"]) .gmban .t small{color:var(--gold-tx)}
+
+/* ---------- art: recoloured Twemoji flowers, sparkles, bows and hearts (CC BY 4.0), art/ui/gerleez/ ---------- */
+/* the wordmark star becomes a cherry blossom */
+.app:where([data-style="gerleez"]) :is(.mark,.gmark){position:relative}
+.app:where([data-style="gerleez"]) :is(.mark,.gmark) svg{visibility:hidden}
+.app:where([data-style="gerleez"]) .mark::before{content:"";position:absolute;left:var(--mk-x,0px);top:50%;width:32px;height:32px;margin-top:-16px;pointer-events:none;
+  background:url("../art/ui/gerleez/blossom.svg") center/contain no-repeat;filter:drop-shadow(0 2px 4px rgba(31,26,50,.4))}
+.app:where([data-style="gerleez"]) .nav .mark{--mk-x:-1px}
+.app:where([data-style="gerleez"]) .gmark::before{content:"";position:absolute;left:50%;top:50%;width:64px;height:64px;translate:-50% -50%;pointer-events:none;
+  background:url("../art/ui/gerleez/blossom.svg") center/contain no-repeat;filter:drop-shadow(0 4px 10px rgba(255,103,125,.45))}
+/* sparkles instead of stars */
+.app:where([data-style="gerleez"]) .spark::after{background:url("../art/ui/gerleez/sparkles.svg") center/contain no-repeat;-webkit-mask:none;mask:none;filter:none}
+.app:where([data-style="gerleez"]) .star4,.app:where([data-style="gerleez"])[data-theme="night"] .star4{background:url("../art/ui/gerleez/sparkles.svg") center/contain no-repeat;-webkit-mask:none;mask:none}
+/* fate points and gold are little hearts */
+.app:where([data-style="gerleez"]) .coin{background:url("../art/ui/gerleez/heart.svg") center/88% no-repeat;border-radius:0;box-shadow:none;filter:drop-shadow(0 1px 1px rgba(31,26,50,.35))}
+.app:where([data-style="gerleez"]) .coin::after{display:none}
+/* the open tab wears a sparkle */
+.app:where([data-style="gerleez"]) .tabbar .ti{position:relative}
+.app:where([data-style="gerleez"]) .tabbar button[aria-current="page"] .ti::after{content:"";position:absolute;right:2px;top:-5px;width:13px;height:13px;pointer-events:none;
+  background:url("../art/ui/gerleez/sparkles.svg") center/contain no-repeat}
+.app:where([data-style="gerleez"]) .nav .ni[aria-current]::after{content:"";position:absolute;right:-3px;top:-4px;width:13px;height:13px;pointer-events:none;
+  background:url("../art/ui/gerleez/sparkles.svg") center/contain no-repeat}
+/* a posy of flowers in the corner of the scene banner, a bow on top of every sheet */
+.app:where([data-style="gerleez"]) .scene::after{content:"";position:absolute;right:-6px;bottom:-8px;width:92px;height:83px;z-index:0;pointer-events:none;
+  background:url("../art/ui/gerleez/cluster.svg") center/contain no-repeat;transform:scaleX(-1);filter:drop-shadow(0 3px 6px rgba(31,26,50,.35))}
+.app:where([data-style="gerleez"]) .sheet::after{content:"";position:absolute;left:50%;top:-15px;width:44px;height:34px;translate:-50% 0;pointer-events:none;z-index:2;
+  background:url("../art/ui/gerleez/bow.svg") center/contain no-repeat;filter:drop-shadow(0 3px 5px rgba(31,26,50,.35))}
+.app:where([data-style="gerleez"]) .sheet::before{display:none}
