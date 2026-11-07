@@ -1158,8 +1158,9 @@ function act(v, a, el, e){
   case 'signOut': N.signOut(); return;
   /* navigation */
   /* players always land on the default map when they come to the Maps tab (the GM keeps the map they were on) */
-  case 'tab': close(); if (val === 'map' && ui.tab !== 'map' && !gm) { const dm = N.defMap(false); if (dm) Object.assign(ui, {mapId:dm.id, mapBack:[], mapDir:null, pinSel:null, mapT:null, mapType:'all'}); } ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
+  case 'tab': close(); if (val === 'map' && ui.tab !== 'map' && !gm) { const dm = N.defMap(false); if (dm) Object.assign(ui, {mapId:dm.id, mapBack:[], mapDir:null, pinSel:null, mapT:null, mapType:'all'}); } ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; ui.heroStats = null; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
   case 'heroInv': ui.heroInv = !!val; break;
+  case 'heroStats': ui.heroStats = val || null; v.root.querySelector('[data-sk=hero],[data-sk=herostats]')?.scrollTo?.(0, 0); break;
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
   case 'mode': if (val === 'cb') { ui.fightOpen = true; ui.fightPane = 'fight'; } else { ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; ui.stick = true; } break;
@@ -1584,7 +1585,7 @@ function act(v, a, el, e){
     ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
   }
   /* character + cast */
-  case 'charSel': ui.charSel = val; render(v); v.root.querySelector('.party-row [aria-current="true"]')?.scrollIntoView({block:'nearest', inline:'nearest', behavior:'smooth'}); return;
+  case 'charSel': ui.charSel = val; ui.heroStats = null; render(v); v.root.querySelector('.party-row [aria-current="true"]')?.scrollIntoView({block:'nearest', inline:'nearest', behavior:'smooth'}); return;
   /* sheet reveals (GM) */
   case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; ui.askRev = {id:val, base:JSON.parse(JSON.stringify((g.rev || {})[val] || {}))}; break;
   case 'revSeat': ui.revSeat = val; break;

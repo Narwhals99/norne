@@ -2412,3 +2412,32 @@
 .app .shbtn svg{width:14px;height:14px}
 .app .ff .gsh{font-weight:800;color:var(--gold-tx)}
 .app .shnow .out{display:inline-flex;align-items:center;height:26px;padding:0 11px;border-radius:999px;font:800 11.5px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;flex:none}
+/* character lifetime stats (Character tab > Stats) */
+.app .statrow{display:flex;justify-content:center;margin:-4px 0 -2px}
+.app .statbtn{min-width:180px;justify-content:center;height:42px;font-size:15px;color:var(--gold-tx);border-color:color-mix(in srgb,var(--gold) 55%,transparent)}
+.app .statbtn svg{width:18px;height:18px}
+.app .stats .stathero{grid-template-columns:auto 1fr auto;align-items:center}
+.app .stiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (min-width:900px){.app .stiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.app .stile{display:grid;justify-items:center;gap:3px;padding:14px 8px 12px;border:1px solid var(--line);border-radius:14px;background:var(--panel-2,rgba(255,255,255,.04));text-align:center}
+.app .stile svg{width:22px;height:22px;color:var(--ink-3)}
+.app .stile b{font:800 28px/1.05 var(--f-ui);color:var(--ink)}
+.app .stile span{font:700 11px/1.2 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.app .stile.hot svg{color:var(--ember)} .app .stile.good svg{color:var(--jade)}
+.app .srow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line);font:600 14.5px/1.3 var(--f-ui);color:var(--ink-2)}
+.app .srow small{display:block;font:600 12px/1.35 var(--f-ui);color:var(--ink-3);margin-top:2px}
+.app .srow b{font:800 17px/1 var(--f-ui);color:var(--ink);white-space:nowrap}
+.app .sbar{display:flex;height:12px;border-radius:999px;overflow:hidden;gap:2px;background:var(--line)}
+.app .sbar i,.app .skey i{display:block}
+.app .sbar .succ,.app .skey .succ{background:var(--jade)} .app .sbar .tie,.app .skey .tie{background:var(--ink-4)} .app .sbar .fail,.app .skey .fail{background:var(--ember)}
+.app .skey{display:flex;flex-wrap:wrap;gap:6px 14px;font:600 12.5px/1.3 var(--f-ui);color:var(--ink-2)}
+.app .skey span{display:inline-flex;align-items:center;gap:6px} .app .skey i{width:10px;height:10px;border-radius:3px} .app .skey small{color:var(--ink-3)}
+.app .ssub{display:grid;gap:7px;padding:4px 0 2px}
+.app .schips{display:flex;flex-wrap:wrap;gap:6px}
+.app .schip{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);font:600 13px/1.2 var(--f-ui);color:var(--ink-2)}
+.app .schip svg{width:14px;height:14px;color:var(--gold-tx)} .app .schip small{color:var(--ink-3)}
+.app .snpcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.app .snpc{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:12px}
+.app .snpc .av{grid-row:1/3} .app .snpc span{font:700 13px/1.2 var(--f-ui);color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .app .snpc small{font:600 11.5px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .sfoot{display:flex;gap:8px;align-items:flex-start;font:600 12.5px/1.45 var(--f-ui);margin:0}
+.app .sfoot svg{width:16px;height:16px;flex:none;margin-top:1px}

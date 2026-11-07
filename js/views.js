@@ -869,6 +869,7 @@ function heroPage(v){
   if (!sel && !kn) return `<div class="scroll" data-sk="hero" style="min-height:0">${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>Character</h1></div>` : ''}<div class="quiet"><div class="art"></div><p>No character yet.</p></div></div>`;
   const bag = N.heroBag(v) && !!sel;
   if (bag && v.ui.heroInv) return heroInv(v, sel, mine);
+  if (sel && sel.built && !isGM(v) && sel.player === v.role && v.ui.heroStats === sel.id) return heroStats(v, sel, mine);
   const chip = (id, avo, b, sm) => `<button type="button" class="pchip" data-a="charSel" data-v="${esc(id)}" aria-current="${id===selId}">${N.av(avo,36)}<span><b>${esc(b)}</b><small>${sm}</small></span></button>`;
   const chips = [...(mine ? [chip(mine.id, {name:mine.built ? mine.short : pn(mine), portrait:mine.built ? mine.portrait : null, color:mine.color}, 'You', mine.built ? N.emoText(N.marks(esc(N.pcTag(mine)))) : 'No card yet')] : []),
     ...known.map(k => chip(k.id, {name:k.name, portrait:k.portrait, color:'var(--c-npc)'}, k.name, N.MET[k.met] || 'Not marked'))];
@@ -897,6 +898,100 @@ function knownBody(v, k){
     + (k.people ? sec('Important people', `<p style="margin:0;white-space:pre-line">${tx(k.people)}</p>`) : '');
   return hero + (body || `<div class="quiet full"><div class="art"></div><p>That’s all you know about ${esc(k.name)} so far.</p></div>`);
 }
+/* A character's lifetime stats, counted from the chat history the app already keeps: nothing new is saved and the GM does
+   nothing. Only chats the character's player can read count (Everyone, their DM, their group chats and parties). */
+N.charStats = function(c){
+  const g = G(), key = 'pc:' + c.id, names = new Set([c.short, c.name].filter(Boolean)), seat = c.player;
+  const sees = m => m.ch === 'table' || m.ch === 'dm-' + seat || (N.grpOf(m.ch)?.seats || []).includes(seat);
+  const mineRoll = r => r.whoKey ? r.whoKey === key : names.has(r.who);
+  const st = {rolls:0, succ:0, style:0, tie:0, fail:0, open:0, best:null, skills:{}, invokes:0, fp:0,
+    fights:0, attacks:0, hits:0, hitStyle:0, hitBy:0, defended:0, kills:0, killed:[], out:0, cons:0,
+    scenes:0, ic:0, places:{c:new Map(), t:new Map(), n:new Map()}, wheres:new Set(), npcs:new Map(), met:0, heard:0, first:null};
+  const lastClash = {}, fightIds = new Set();
+  const ms = g.msgs.filter(sees).sort((a, b) => a.t - b.t);
+  for (const m of ms) {
+    if (m.kind === 'roll' && m.roll && mineRoll(m.roll)) {
+      const r = m.roll, o = N.outcome(r), tot = N.rollTotal(r);
+      st.rolls++; st.skills[r.skill] = (st.skills[r.skill] || 0) + 1;
+      st.invokes += r.invokes.filter(x => !x.by).length; st.fp += r.invokes.filter(x => !x.by && x.how === 'fp').length;
+      if (!o) st.open++; else if (o.k === 'style') { st.succ++; st.style++; } else st[o.k]++;
+      if (!st.best || tot > st.best.tot) st.best = {tot, skill:r.skill, t:m.t};
+      if (r.fight && m.fc) fightIds.add(m.fc);
+      st.first = st.first ?? m.t;
+    }
+    if (m.kind === 'sys' && m.res && m.res.k === 'clash') {
+      const [a, d] = m.res.rows || [], k = m.res.out?.k; lastClash[m.ch] = m.res;
+      if (a && names.has(a.n)) { st.attacks++; if (k === 'hit') { st.hits++; if (/with style/.test(m.res.out.t)) st.hitStyle++; } }
+      if (d && names.has(d.n)) { if (k === 'hit') st.hitBy++; else st.defended++; }
+    }
+    if (m.kind === 'sys' && !m.res && m.text) {
+      const t = m.text, who = [...names].find(n => t.startsWith(n + ' '));
+      const outM = /^(.+?) (?:can’t soak the \d+ shifts? and )?is taken out\.$/.exec(t);
+      if (outM) {
+        if (names.has(outM[1])) st.out++;
+        else { const cl = /can’t soak/.test(t) && lastClash[m.ch]; if (cl && names.has(cl.rows?.[0]?.n) && cl.rows?.[1]?.n === outM[1]) { st.kills++; st.killed.push(outM[1].replace(/ \d+$/, '')); } }
+      }
+      if (who && / consequence\./.test(t) && / soaks the /.test(t)) st.cons++;
+    }
+    if (m.kind === 'combat' || m.kind === 'fight') {
+      /* a fight counts when the character rolled in it or was attacked in it */
+      const all = N.fightMsgs(m.cid);
+      if (all.some(x => (x.kind === 'roll' && x.roll && mineRoll(x.roll)) || (x.kind === 'sys' && x.res?.k === 'clash' && (x.res.rows || []).some(r => names.has(r.n))))) st.fights++;
+    }
+    if (m.kind === 'scene' && m.scene) {
+      st.scenes++;
+      const L = m.scene.loc; if (L) for (const k of N.LOCK) if (L[k]?.l) st.places[k].set(L[k].l, (st.places[k].get(L[k].l) || 0) + 1);
+      if (m.scene.where) st.wheres.add(m.scene.where.trim());
+    }
+    if (m.kind === 'rp' && m.by === 'gm' && m.as && m.as !== 'Narrator') st.npcs.set(m.as, (st.npcs.get(m.as) || 0) + 1);
+    if (m.kind === 'rp' && m.by === seat) st.ic++;
+  }
+  for (const k of Object.values(g.known || {})) { if (k.met === 'met') st.met++; else if (k.met === 'heard') st.heard++; }
+  return st;
+};
+function heroStats(v, c, mine){
+  const s = N.charStats(c), own = c === mine, nm = esc(c.short || c.name);
+  const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '–';
+  const tile = (n, l, ic, tone='') => `<div class="stile${tone ? ' ' + tone : ''}">${IC(ic)}<b>${n}</b><span>${l}</span></div>`;
+  const row = (l, n, sub='') => `<div class="srow"><span>${l}${sub ? `<small>${sub}</small>` : ''}</span><b>${n}</b></div>`;
+  const decided = s.succ + s.tie + s.fail;
+  const bar = decided ? `<div class="sbar" role="img" aria-label="${s.succ} successes, ${s.tie} ties, ${s.fail} fails">${[['succ', s.succ], ['tie', s.tie], ['fail', s.fail]].filter(x => x[1]).map(([k, n]) => `<i class="${k}" style="flex:${n}"></i>`).join('')}</div>
+    <div class="skey"><span><i class="succ"></i>Success ${s.succ}${s.style ? ` <small>(${s.style} with style)</small>` : ''}</span><span><i class="tie"></i>Tie ${s.tie}</span><span><i class="fail"></i>Fail ${s.fail}</span></div>` : '<p class="muted">No rolls against a difficulty yet.</p>';
+  const topSk = Object.entries(s.skills).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  const chips = (map, ic) => map.size ? `<div class="schips">${[...map].sort((a, b) => b[1] - a[1]).map(([n, x]) => `<span class="schip">${IC(ic)}${esc(n)}${x > 1 ? ` <small>×${x}</small>` : ''}</span>`).join('')}</div>` : '<p class="muted">None yet.</p>';
+  const npcs = [...s.npcs].sort((a, b) => b[1] - a[1]);
+  const kills = [...s.killed.reduce((m, n) => m.set(n, (m.get(n) || 0) + 1), new Map())];
+  const head = `<div class="top ph" style="display:flex"><button type="button" class="ibtn" data-a="heroStats" data-v="" aria-label="Back to the character sheet">${IC('left')}</button><h1>${own ? 'My stats' : `${nm}’s stats`}</h1><button type="button" class="btn sm" data-a="heroStats" data-v="">${IC('x')}Close</button></div>`;
+  return `<div class="scroll" data-sk="herostats" style="min-height:0">${head}
+    <div class="sheetv stats">
+      <section class="pc-hero full stathero" style="--who:${c.color}">${N.av(c, 64)}<div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">Lifetime stats${s.first ? ` · since ${new Date(s.first).toLocaleDateString(undefined, {month:'short', day:'numeric'})}` : ''}</div></div></section>
+      <div class="full stiles">${tile(s.fights, 'Fights', 'swords')}${tile(s.kills, 'Foes taken out', 'skull', 'hot')}${tile(s.rolls, 'Rolls', 'dice')}${tile(pct(s.succ, decided), 'Success rate', 'check', 'good')}</div>
+      <section class="sec"><h3>Rolls</h3>${bar}
+        ${row('Rolls made', s.rolls, s.open ? `${s.open} with no difficulty to beat` : '')}
+        ${s.best ? row('Best roll', sgn(s.best.tot), esc(s.best.skill)) : ''}
+        ${topSk.length ? row('Most used skill', esc(topSk[0][0]), topSk.map(([k, n]) => `${esc(k)} ${n}`).join(' · ')) : ''}
+        ${row('Aspects invoked', s.invokes, s.fp ? `${s.fp} paid with a fate point` : '')}</section>
+      <section class="sec"><h3>Fights</h3>
+        ${row('Fights joined', s.fights)}
+        ${row('Attacks made', s.attacks, s.attacks ? `${pct(s.hits, s.attacks)} landed` : '')}
+        ${row('Hits landed', s.hits, s.hitStyle ? `${s.hitStyle} with style` : '')}
+        ${row('Foes taken out', s.kills, kills.map(([n, x]) => esc(n) + (x > 1 ? ` ×${x}` : '')).join(' · '))}
+        ${row('Attacks turned aside', s.defended)}
+        ${row('Times hit', s.hitBy, s.cons ? `${s.cons} consequence${s.cons === 1 ? '' : 's'} taken` : '')}
+        ${row('Times taken out', s.out)}</section>
+      <section class="sec"><h3>Travels</h3>
+        ${row('Scenes played', s.scenes)}
+        <div class="ssub"><span class="eyebrow">Countries · ${s.places.c.size}</span>${chips(s.places.c, 'flag')}</div>
+        <div class="ssub"><span class="eyebrow">Cities and towns · ${s.places.t.size}</span>${chips(s.places.t, 'castle')}</div>
+        ${s.places.n.size ? `<div class="ssub"><span class="eyebrow">Neighborhoods · ${s.places.n.size}</span>${chips(s.places.n, 'pin')}</div>` : ''}</section>
+      <section class="sec"><h3>People</h3>
+        ${row('NPCs who spoke with you', npcs.length)}
+        ${row('Characters met', s.met, s.heard ? `${s.heard} more heard of` : '')}
+        ${npcs.length ? `<div class="snpcs">${npcs.slice(0, 6).map(([n, x]) => { const o = N.npcByName(n); return `<div class="snpc">${N.av({name:n, portrait:o?.portrait || null, color:'var(--c-npc)'}, 30)}<span>${esc(n)}</span><small>${x} line${x === 1 ? '' : 's'}</small></div>`; }).join('')}</div>` : ''}
+        ${row('Lines said in character', s.ic)}</section>
+      <p class="full muted sfoot">${IC('info')}Counted automatically from the chat history. Wins and losses aren’t counted, because the app doesn’t record who won a fight.</p>
+    </div></div>`;
+}
 /* phone, player: the sheet's items open in their own view with a way back */
 N.heroBag = v => v.dev === 'phone' && !isGM(v) && v.ui.tab === 'hero';
 function heroInv(v, c, mine){
@@ -921,6 +1016,7 @@ N.sheetBody = function(v, c){
       <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${N.emoText(N.marks(esc(N.pcTag(c))))}</div>`:''}</div>
       <div class="fp"><div class="res"><div><span class="eyebrow">Fate points · refresh ${c.refresh}</span><div class="coins">${coinsHtml(c, gm)}</div></div>${goldHtml(c, 'c', gm)}</div>${gm?`<div class="gmbar"><button type="button" class="btn sm" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Edit card</button>${revBtn(c.id)}<button type="button" class="btn sm danger" data-a="sheet" data-v="pcDel" data-c="${c.id}">${IC('trash')}Delete</button></div>`:''}</div>
     </section>
+    ${v.ui.tab === 'hero' && mine && !gm ? `<div class="full statrow"><button type="button" class="btn statbtn" data-a="heroStats" data-v="${c.id}">${IC('scroll')}Stats</button></div>` : ''}
     <section class="sec"><h3>Aspects</h3><div class="asps">${asps(N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a])) || '<p class="muted">None yet.</p>'}</div></section>
     <section class="sec"><h3>Skills${canRoll?' · tap one to roll':''}</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung${x < 0 ? ' neg' : ''}"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(n => canRoll ? `<button type="button" data-a="roll" data-skill="${esc(n)}" data-c="${c.id}">${esc(n)}${N.discOf(c, n).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(c, n).join(', '))}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>` : `<button type="button" disabled>${esc(n)}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div></section>
     <section class="sec"><h3>Stress</h3><div class="stress2">${[['phys','Physical','Strength'],['ment','Mental','Will']].map(([k,l,s]) => `<div class="trk"><span class="eyebrow">${l} <span style="letter-spacing:0;text-transform:none;font-weight:600">· from ${s}</span></span><div class="boxes">${c.stressV[k].map((x,i)=>`<button type="button" class="sbox${c.stress[k][i]?' on':''}" ${gm?`data-a="stress" data-c="${c.id}" data-k="${k}" data-i="${i}"`:'disabled'} aria-pressed="${!!c.stress[k][i]}" aria-label="${l} ${x}">${x}</button>`).join('')}</div></div>`).join('')}</div></section>
