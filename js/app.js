@@ -304,6 +304,7 @@ function bind(v){
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
     if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'fcDraft') { e.preventDefault(); fcSend(v); }
+    if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'dOth') { e.preventDefault(); e.target.parentElement.querySelector('button')?.click(); }
     if (e.key === 'Enter' && e.target.dataset.i === 'gold') { e.preventDefault(); e.target.blur(); }
     if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
@@ -612,6 +613,7 @@ function input(v, el){
     case 'med': if (v.ui.med) v.ui.med.text = val; { const b = v.root.querySelector('[data-a="msgSave"]'); if (b) b.disabled = !val.trim(); } return;
     case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .pl`); if (lab) lab.textContent = val; return; }
     case 'pinNote': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (pin) pin.note = val; return; }
+    case 'dOth': { (v.ui.dOth = v.ui.dOth || {})[el.dataset.act + '|' + el.dataset.s] = val; const b = el.parentElement.querySelector('button'); if (b) b.disabled = !val.trim(); return; }
     case 'pd': {
       const d = v.ui.pd, n = +el.dataset.n;
       if (k === 'asp') d.aspects[n] = val; else if (k === 'stn') d.stunts[n][0] = val; else if (k === 'std') d.stunts[n][1] = val; else d[k] = val;
@@ -1606,6 +1608,7 @@ function act(v, a, el, e){
   case 'pdStuntAdd': ui.pd.stunts.push(['','']); break;
   case 'pdStuntDel': ui.pd.stunts.splice(+d.i, 1); break;
   case 'pdDisc': pickDisc(ui.pd, d.s, val); break;
+  case 'pdDiscOther': otherDisc(v, ui.pd, 'pdDisc', d.s); break;
   case 'pdStep': ui.pd[d.k] = clamp(ui.pd[d.k] + (+d.d), 0, 10); break;
   case 'pcSave': savePc(v); return;
   case 'pcDelete': {
@@ -1721,6 +1724,7 @@ function act(v, a, el, e){
   case 'ndSkillDel': delete ui.nd.skills[val]; break;
   case 'ndSkillMv': ui.nd.skills[val] = N.skillStep(ui.nd.skills[val], +d.d); break;
   case 'ndDisc': pickDisc(ui.nd, d.s, val); break;
+  case 'ndDiscOther': otherDisc(v, ui.nd, 'ndDisc', d.s); break;
   case 'ndStuntAdd': ui.nd.stunts.push(['','']); break;
   case 'ndStuntDel': ui.nd.stunts.splice(+d.i, 1); break;
   case 'ndStep': ui.nd[d.k] = clamp(ui.nd[d.k] + (+d.d), 0, 10); break;
@@ -2050,6 +2054,14 @@ function pickDisc(d, k, x){
   const have = N.discOf(d, k);
   d.disc = d.disc || {};
   d.disc[k] = have.includes(x) ? have.filter(y => y !== x) : N.MAGIC.includes(k) ? [x] : [...have, x];
+}
+/* the "Other" box under a skill's disciplines: adds what the GM typed (a magic swaps its one discipline for it) */
+function otherDisc(v, d, act, k){
+  const o = v.ui.dOth = v.ui.dOth || {}, key = act + '|' + k, x = (o[key] || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+  delete o[key];
+  if (!x) return;
+  const same = (N.DISC[k] || []).concat(N.discOf(d, k)).find(y => y.toLowerCase() === x.toLowerCase()) || x;
+  if (!N.discOf(d, k).includes(same)) pickDisc(d, k, same);
 }
 function saveNpc(v){
   const g = G(), d = v.ui.nd, old = d.edit && g.npcs.find(x => x.id === d.edit);
