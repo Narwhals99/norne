@@ -1185,6 +1185,8 @@ function act(v, a, el, e){
       /* where the caret was: the box is drawn again before the emoji is picked, which would lose it */
       ui.pop.fld = f?.id; ui.pop.sel = f && last ? [f.selectionStart ?? f.value.length, f.selectionEnd ?? f.value.length] : f ? [f.value.length, f.value.length] : null; } if (val === 'emo' && ui.emoTab === 'gif' && !ui.gifRes?.length && g.gifKey) gifSearch(v); } break;
   case 'toast': toast(v, val); break;
+  case 'appReload': location.reload(); return;
+  case 'appLater': N.updReady = false; N.updSeen = N.updNew; renderAll(); return;
   case 'undo': if (ui.toast && ui.toast.undo) { ui.toast.undo(); ui.toast = null; renderAll(); return; } break;
   case 'notify': N.toggleNotify(v); return;
   case 'theme': v.theme = val; try { localStorage.setItem('norne-theme', val); } catch(e) {} if (N.onTheme) N.onTheme(v); break;
