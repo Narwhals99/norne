@@ -581,6 +581,7 @@ function input(v, el){
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
+    case 'charQ': v.ui.charQ = val; render(v); return;
     case 'castQ': v.ui.sd.castQ = val; render(v); return;
     case 'expFrom': case 'expTo': { const ex = v.ui.exp; if (!ex) return; ex[i === 'expFrom' ? 'from' : 'to'] = val; ex.when = !ex.from && !ex.to ? 'all' : null;
       const o = v.root.querySelector('#exOut'), w = v.root.querySelector('#exWhen'); if (o) o.value = N.buildExport(ex); if (w) w.textContent = N.cap1(N.expRangeWords(ex)) + '. Leave a box empty for no limit on that side.';
@@ -1183,7 +1184,7 @@ function act(v, a, el, e){
     renderAll(); return;
   }
   case 'closePop': ui.pop = null; break;
-  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); openPop(v, val, el);
+  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); if (val === 'chars') ui.charQ = ''; openPop(v, val, el);
     /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box */
     if (val === 'emof') { const box = el.closest('.sheet, .page') || v.root, last = v._fld && box.querySelector('#' + CSS.escape(v._fld)); const f = last || box.querySelector('textarea[id], input.inp[id]:not([type]), input.inp[id][type=text]');
       /* where the caret was: the box is drawn again before the emoji is picked, which would lose it */
@@ -1588,7 +1589,7 @@ function act(v, a, el, e){
     ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
   }
   /* character + cast */
-  case 'charSel': ui.charSel = val; ui.heroStats = null; render(v); v.root.querySelector('.party-row [aria-current="true"]')?.scrollIntoView({block:'nearest', inline:'nearest', behavior:'smooth'}); return;
+  case 'charSel': ui.charSel = val; ui.heroStats = null; ui.pop = null; ui.heroInv = false; v.root.querySelector('[data-sk="hero"]')?.scrollTo?.(0, 0); break;
   /* sheet reveals (GM) */
   case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; ui.askRev = {id:val, base:JSON.parse(JSON.stringify((g.rev || {})[val] || {}))}; break;
   case 'revSeat': ui.revSeat = val; break;
