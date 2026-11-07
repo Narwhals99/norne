@@ -633,6 +633,7 @@ N.revParts = (c, pc) => {
   add('name', 'Who they are', 'Name', (c.name || c.short || '') + ' · needed before they see anything');
   add('pic', 'Who they are', 'Picture', c.portrait ? 'Their portrait' : 'No picture yet');
   add('race', 'Who they are', 'Race', c.race || 'Not set');
+  if (!pc) add('job', 'Who they are', 'Job or faction', c.job || 'Not set');
   add('age', 'Who they are', 'Age', c.age ? 'Age ' + c.age : 'Not set');
   N.pcAspects(c).forEach((a, i) => add('a:' + i, 'Aspects', `Aspect ${i + 1}`, a));
   N.revSkills(c).forEach(([n, x]) => add('sk:' + n, 'Skills', n, sgn(x) + ' ' + ladderWord(x)));
@@ -653,6 +654,7 @@ N.revealed = (c, pc, keys0) => {
   const r = {id:c.id, name:c.name || c.short || ''};
   if (has('pic') && c.portrait) r.portrait = c.portrait;
   if (has('race') && c.race) r.race = c.race;
+  if (!pc && has('job') && c.job) r.job = c.job;
   if (has('age') && c.age) r.age = c.age;
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
   const sk = N.revSkills(c).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;
