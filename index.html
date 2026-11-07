@@ -78,25 +78,36 @@ noscript{position:fixed;inset:0;display:grid;place-items:center;padding:24px;col
   N.boot(v);
   /* A phone can keep Norne open for days (an iPhone home-screen app is never reloaded, only woken), still running
      the scripts it loaded back then, so a fix merged since never reaches it. When Norne comes back on screen (and every
-     10 minutes while it stays there) ask the server whether any script or stylesheet changed since this page loaded,
-     and if one did, show "Norne was updated" with a Reload button. */
+     10 minutes while it stays there) fetch its own scripts and stylesheets again and compare their contents with the
+     ones this page started with; if one really changed, show "Norne was updated" with a Reload button.
+     Contents, not ETag/Last-Modified headers: GitHub Pages gives every file new headers on every deploy and its
+     cache servers don't all switch at once, so the headers flipped back and forth and the prompt showed for nothing.
+     The browser revalidates (cache:'no-cache'), so an unchanged file costs a 304, not a download.
+     A change has to be seen twice in a row, 30 seconds apart, so one cache server still holding the old copy can't
+     raise it either. */
   const FILES = [...document.querySelectorAll('script[src^="js/"],link[rel="stylesheet"][href^="css/"]')].map(e => e.getAttribute('src') || e.getAttribute('href'));
-  const tag = f => fetch(f, {method:'HEAD', cache:'no-store'}).then(r => r.ok ? r.headers.get('etag') || r.headers.get('last-modified') || '' : '').catch(() => '');
-  const stamps = () => Promise.all(FILES.map(tag));
-  let base = null, last = 0;
-  const check = () => {
-    if (document.hidden || Date.now() - last < 60000) return; last = Date.now();
-    stamps().then(now => {
+  const sum = f => fetch(f, {cache:'no-cache'}).then(r => r.ok ? r.arrayBuffer() : null)
+    .then(b => b && crypto.subtle ? crypto.subtle.digest('SHA-1', b) : null)
+    .then(h => h ? Array.from(new Uint8Array(h), x => x.toString(16).padStart(2, '0')).join('') : '').catch(() => '');
+  const sums = () => Promise.all(FILES.map(sum));
+  let base = null, last = 0, busy = false, maybe = null;
+  const check = (confirm) => {
+    if (busy || document.hidden || (!confirm && Date.now() - last < 60000)) return; last = Date.now(); busy = true;
+    sums().then(now => {
+      busy = false;
       if (!base) { base = now; return; }
-      /* a file that couldn't be asked about (offline, no tag) counts as unchanged */
-      const key = now.join('|'), moved = now.some((t, i) => t && base[i] && t !== base[i]);
-      if (moved && key !== N.updSeen && !N.updReady) { N.updReady = true; N.updNew = key; N.renderAll(); }
+      /* a file that couldn't be fetched (offline) counts as unchanged */
+      const moved = now.some((h, i) => h && base[i] && h !== base[i]), key = now.join('|');
+      if (!moved) { maybe = null; return; }
+      if (key === N.updSeen || N.updReady) return;
+      if (maybe !== key) { maybe = key; setTimeout(() => check(true), 30000); return; }
+      N.updReady = true; N.updNew = key; N.renderAll();
     });
   };
-  N.updCheck = () => { last = 0; check(); };
+  N.updCheck = () => { last = 0; check(true); };
   setTimeout(check, 3000);
-  document.addEventListener('visibilitychange', check);
-  window.addEventListener('focus', check);
+  document.addEventListener('visibilitychange', () => check());
+  window.addEventListener('focus', () => check());
   setInterval(check, 600000);
   /* sw.js makes every visit check for the newest scripts (see the note at its top) */
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
