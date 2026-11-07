@@ -477,6 +477,8 @@
 .app .prof .facebtn{flex:none}
 .app .prof .facebtn .badge{width:22px;height:22px;box-shadow:0 0 0 2px var(--page-solid)}
 .app .prof .facebtn .badge svg{width:12px;height:12px}
+.app .gdpic .badge{width:22px;height:22px;box-shadow:0 0 0 2px var(--page-solid)}
+.app .gdpic .badge svg{width:12px;height:12px}
 @media (hover:hover){.app .facebtn:hover .av{filter:brightness(1.08)}}
 .app .skills{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .app .sk{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:48px;padding:6px 8px 6px 12px;border-radius:14px;text-align:left;

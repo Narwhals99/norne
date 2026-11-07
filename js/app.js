@@ -1301,11 +1301,15 @@ function act(v, a, el, e){
   case 'gdParty': ui.gd.party = val === '1'; break;
   case 'gdMeta': ui.gd.meta = val === '1'; break;
   case 'gdHist': ui.gd.hist = val === '1'; break;
+  /* a group chat's picture in the chat list: small and kept in the group's own document, like a Meta picture */
+  case 'gdPic': if (!gm) break; pickFramed(v, 'face', (img, f) => { if (ui.gd) { ui.gd.pic = N.withFrame(N.shrink(img, 360, 60000), f); render(v); } }); return;
+  case 'gdPicFrame': if (gm && ui.gd?.pic) reframe(v, 'face', ui.gd.pic, nu => { if (ui.gd) { ui.gd.pic = nu; render(v); } }); return;
+  case 'gdPicNone': ui.gd.pic = null; break;
   case 'gdSeat': { const ss = ui.gd.seats, i = ss.indexOf(val); if (i < 0) ss.push(val); else ss.splice(i, 1); break; }
   case 'gdSave': {
     const d = ui.gd, name = d.name.trim(); if (!gm || !name || !d.seats.length) break;
     const old = d.id && g.groups.find(x => x.id === d.id), seats = N.seats().filter(s => d.seats.includes(s));
-    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {}), ...(d.meta ? {meta:true} : {})};
+    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {}), ...(d.meta ? {meta:true} : {}), ...(d.pic ? {pic:d.pic} : {})};
     /* a player is in one party at a time: putting them in this one takes them out of any other */
     if (gr.party) for (const o of g.groups.filter(x => x.party && x.id !== gr.id && x.seats.some(s => seats.includes(s)))) { const was = [...o.seats]; N.saveGroup({...o, seats:o.seats.filter(s => !seats.includes(s))}, was); }
     const added = old ? seats.filter(s => !old.seats.includes(s)) : [], hist = d.hist !== false;
@@ -1955,7 +1959,7 @@ function openSheet(v, s, d={}){
   const g = G(), ui = v.ui;
   ui.sheet = s; ui.sheetArg = d.c || d.v || null;
   if (s === 'cbBoost') { ui.cbBo = d.c || null; ui.cbBoOn = null; ui.cbBoName = ''; ui.cbBoLast = 2; }
-  if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats], party:!!gr.party, meta:!!gr.meta, hist:true} : {id:null, name:'', seats:[], party:!!d.party, meta:false, hist:true}; }
+  if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats], party:!!gr.party, meta:!!gr.meta, pic:gr.pic || null, hist:true} : {id:null, name:'', seats:[], party:!!d.party, meta:false, pic:null, hist:true}; }
   if (s === 'scene') {
     const ch = ui.ch === 'gm' ? 'table' : ui.ch;
     ui.sd = {ch, post:true, tab:g.recent.length ? 'recent' : 'pics', newAsp:'', castQ:'', oneName:'', oneSkill:'', oneRate:'2'};

@@ -56,6 +56,7 @@ function chanIcon(v, c){
   const g = G();
   if (c === 'table') return `<span class="cic">${IC('users')}</span>`;
   if (c === 'gm') return `<span class="cic">${IC('lock')}</span>`;
+  if (c.startsWith('grp-') && N.grpOf(c)?.pic) return N.av({name:N.grpOf(c).name, portrait:N.grpOf(c).pic}, 24, 'grpav');
   if (c.startsWith('grp-')) return `<span class="cic grp">${IC(N.grpOf(c)?.party ? 'banner' : 'whisper')}</span>`;
   if (isGM(v)) return N.av(g.P[c.slice(3)] ? N.personObj(c.slice(3)) : {name:'?'}, 24);
   return N.av(N.personObj('gm'), 24);
