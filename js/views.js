@@ -879,7 +879,7 @@ function heroPage(v){
 }
 /* someone else's card as a player sees it: only the parts the GM revealed. PCs and NPCs look exactly alike here */
 function knownBody(v, k){
-  const sub = [k.race, k.age ? `Age ${k.age}` : ''].filter(Boolean).map(esc).join(' · ');
+  const sub = [k.race, k.job, k.age ? `Age ${k.age}` : ''].filter(Boolean).map(esc).join(' · ');
   const hero = `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:k.name, portrait:k.portrait || null, color:'var(--c-npc)'}, 84)}<div style="min-width:0"><h2>${esc(k.name)}</h2>${sub ? `<div class="by">${sub}</div>` : ''}
     ${k.met ? `<div class="metbadge">${IC(k.met === 'met' ? 'hand' : 'chat')}${N.MET[k.met]}</div>` : ''}</div></section>`;
   const sec = (h, body, full) => `<section class="sec${full ? ' full' : ''}"><h3>${h}</h3>${body}</section>`;
