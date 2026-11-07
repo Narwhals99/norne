@@ -177,7 +177,11 @@ let GROUPS_OK = false, GROUPS_DONE = false;
 const CH = {base:{}, party:{}};
 function mergeChars(){
   const all = {...CH.base}; for (const u of Object.values(CH.party)) Object.assign(all, u);
-  G().chars = Object.fromEntries(Object.entries(all).map(([k, j]) => [k, N.decorate(JSON.parse(j))]));
+  const g = G(), prev = g.chars || {}, next = Object.fromEntries(Object.entries(all).map(([k, j]) => [k, N.decorate(JSON.parse(j))]));
+  /* the GM never loses a seated player's card just because its document moved (party made, changed, deleted or
+     switched off): without this the card vanished here, ensureChars made a blank one and the save wrote the blank over it */
+  if (isGM()) for (const s of N.seats()) { const id = g.P[s]?.char; if (id && !next[id] && prev[id]) next[id] = prev[id]; }
+  g.chars = next;
   nameSeats(); keepSeatCard();
 }
 /* a player's other characters can sit in a party this seat can't read, so this device remembers the name and face
@@ -343,6 +347,9 @@ function syncNow(){
       const inParty = new Set(g.groups.filter(x => x.party).flatMap(x => x.seats));
       writeUnits('game/chars', Object.fromEntries(Object.entries(g.chars).filter(([, c]) => !inParty.has(c.player))));
       for (const pt of g.groups.filter(x => x.party)) writeUnits('parties/' + pt.id, Object.fromEntries(Object.entries(g.chars).filter(([, c]) => pt.seats.includes(c.player))));
+      /* this device's own writes don't come back as changes, so keep its copies of those documents in step with what it wrote */
+      if (KNOWN.get('game/chars')) CH.base = {...KNOWN.get('game/chars').units};
+      for (const pt of g.groups.filter(x => x.party)) if (KNOWN.get('parties/' + pt.id)) CH.party[pt.id] = {...KNOWN.get('parties/' + pt.id).units};
     }
     /* fights being set up, fights in private chats and fights in GM notes stay in gm/combat, one unit per chat */
     const all = N.allFights(), mine = Object.fromEntries(Object.entries(all).filter(([ch, cb]) => gmKept(ch, cb)));
