@@ -9,6 +9,9 @@
 .app[data-style="oak"][data-theme="day"]{--vg-rgb:62,38,12}
 /* Sketchbook: plain charcoal, no colour in the shading either */
 .app[data-style="sketch"],.app[data-style="sketch"][data-theme="day"]{--vg-rgb:0,0,0}
+/* 4-the-gerleez: plum shading by night, dusty rose by day */
+.app[data-style="gerleez"]{--vg-rgb:20,15,36}
+.app[data-style="gerleez"][data-theme="day"]{--vg-rgb:212,165,165}
 .app[data-vg="soft"]{--vg-a:.55;--vg-b:120px;--vg-s:6px}
 .app[data-vg="strong"]{--vg-a:.85;--vg-b:170px;--vg-s:14px}
 .app[data-theme="day"][data-vg="soft"]{--vg-a:.16;--vg-b:80px;--vg-s:0px}
