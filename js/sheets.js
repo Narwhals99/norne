@@ -987,8 +987,9 @@ N.creditsHtml = () => `<div class="note">${IC('heart')}Everything here is free t
     ['Phosphor Icons','Interface icons','MIT'],
     ['Nörne maps and lore','Maps and wiki text','The GM’s own campaign notes'],
     ['Kenney UI Pack: Adventure','Frames, buttons, the ribbon, rings and the star of the Oak & Iron style, some recoloured · by Kenney','CC0 (public domain) · kenney.nl'],
-    ['Fonts','Cinzel, Fraunces, Nunito Sans, Nunito, IM Fell English, IM Fell DW Pica, Alegreya, UnifrakturMaguntia, Vollkorn, Grenze, Grenze Gotisch, Kalam, Caveat, Fredericka the Great, Noto Emoji','SIL Open Font License · Google Fonts'],
+    ['Fonts','Cinzel, Fraunces, Nunito Sans, Nunito, IM Fell English, IM Fell DW Pica, Alegreya, UnifrakturMaguntia, Vollkorn, Grenze, Grenze Gotisch, Kalam, Caveat, Fredericka the Great, Noto Emoji, Fredoka, Cherry Bomb One, Playpen Sans','SIL Open Font License · Google Fonts'],
     ['Parchment & Wax textures','Papyrus, vellum and the wax seal were drawn for Norne','Free to use'],
     ['Sketchbook art','Drawing paper, black pastel paper, pencil frames, charcoal blocks and hatching were drawn for Norne','Free to use'],
+    ['Twemoji','Flowers, sparkles, hearts and the bow in the 4-the-gerleez style · by Twitter and contributors (recoloured)','CC BY 4.0 · github.com/jdecked/twemoji'],
   ].map(([a,b,c]) => `<div class="mem" style="grid-template-columns:1fr"><span><b>${a}</b><small>${b}</small><small style="display:block;color:var(--gold-tx)">${c}</small></span></div>`).join('')}</div>`;
 })();

@@ -1,0 +1,262 @@
+/* =====================================================================
+   NORNE — 4-the-gerleez style: a look, nothing else.
+   Picked under Profile > Style. Every rule here only applies while the app has data-style="gerleez",
+   and :where() keeps each selector exactly as specific as the app.css rule it reskins.
+   Jack's palette is the whole colour box (2026-11-07): blush #FFABAB, peach #FFC3A0, rose #FF677D,
+   dusty rose #D4A5A5 and plum #392F5A. Every colour below is one of those five, or one of them made lighter or darker
+   (mixed with each other, with a whisper of white for Day paper, or a touch of black for the Night sky).
+   Night = plum velvet with blush and peach ink. Day = blush paper with plum ink.
+   Cute art from Twemoji (CC BY 4.0), recoloured to the palette (art/ui/gerleez/): a cherry blossom for the wordmark,
+   sparkles for stars, hearts for fate points, a posy on the scene banner, a bow on sheets, flowers scattered on the backdrop.
+   Fonts: Cherry Bomb One (titles), Fredoka (interface), Playpen Sans (descriptions and aspects).
+   Pictures, portraits, maps, GM-picked zone and pin colours and the attack animations keep their own colours.
+   ===================================================================== */
+
+.app:where([data-style="gerleez"]){
+  /* ---- Night: plum velvet ---- */
+  --g-pink:#FFABAB; --g-peach:#FFC3A0; --g-rose:#FF677D; --g-dusty:#D4A5A5; --g-plum:#392F5A;
+  --g-berry:#a64e6d; --g-berry-2:#92486a; --g-pinkrose:#ff8994; --g-blush:#fff0f0;
+  --sky-0:#1f1a32; --sky-1:#292241; --sky-2:#392F5A;
+  --page:rgba(48,40,76,.9); --page-solid:#30284c;
+  --raise:#392F5A; --raise-2:#483b62; --sunk:#241e3b;
+  --line:rgba(255,171,171,.14); --line-2:rgba(255,171,171,.26); --line-3:rgba(255,171,171,.42);
+  --ink:#fff0f0; --ink-2:#FFC3A0; --ink-3:#e6b6b6; --ink-4:#D4A5A5;
+  --accent:#FF677D; --accent-2:#a64e6d; --accent-3:#92486a; --accent-ink:#1f1a32;
+  --accent-soft:rgba(255,103,125,.16); --accent-glow:rgba(255,103,125,.45);
+  --gold:#FFC3A0; --gold-2:#ffb7a6; --gold-3:#D4A5A5; --gold-ink:#392F5A; --gold-soft:rgba(255,195,160,.14);
+  --ember:#ff8994; --ember-soft:rgba(255,103,125,.16); --jade:#FFC3A0; --jade-soft:rgba(255,195,160,.15);
+  --link:#FFABAB;
+  --gold-tx:#FFC3A0; --accent-tx:#ff8994; --ember-ink:#1f1a32;
+  --card-paper:#fff6f1; --card-ink:#392F5A; --card-rule:#FF677D; --card-line:rgba(212,165,165,.32);
+  --scrim:rgba(20,16,34,.66);
+  --shadow-1:0 1px 0 rgba(255,171,171,.05) inset, 0 10px 30px -12px rgba(15,11,28,.75);
+  --shadow-2:0 24px 60px -20px rgba(15,11,28,.85), 0 0 0 1px rgba(255,171,171,.14);
+  --g-dots:url("../art/ui/gerleez/tile-night.svg") 0 0/168px 168px,
+           radial-gradient(circle, rgba(255,171,171,.06) 0 1.4px, transparent 2px) 12px 12px/24px 24px;
+  --sky-art:radial-gradient(90% 55% at 85% -10%, rgba(255,103,125,.26), transparent 60%),
+            radial-gradient(80% 55% at -10% 110%, rgba(255,195,160,.16), transparent 60%),
+            var(--g-dots), linear-gradient(180deg, var(--sky-2), var(--sky-0));
+  --engrave:#FFABAB;
+  --c-p1:#FFABAB; --c-p2:#ff9a8f; --c-gm:#FFC3A0; --c-npc:#D4A5A5; --c-foe:#FF677D;
+  --c-p3:#ff8994; --c-p4:#ffd6c4; --c-p5:#e7c0c4; --c-p6:#ffb7a6; --c-p7:#ff7f89; --c-p8:#eab4a2;
+  --map-grade:saturate(.75) brightness(.64) contrast(1.05);
+  --map-tint:linear-gradient(180deg, rgba(57,47,90,.42), rgba(31,26,50,.55));
+  --say-top:20%; --say-bot:11%;
+  /* Meta glass: dusty rose for others, rose for you */
+  --glass-tint:rgba(212,165,165,.16); --glass-tint-2:rgba(212,165,165,.04); --glass-mine:rgba(255,103,125,.38); --glass-mine-2:rgba(166,78,109,.2); --glass-mine-rim:rgba(255,171,171,.85);
+  --glass-sheen:rgba(255,240,240,.18); --glass-rim:rgba(255,240,240,.55); --glass-rim-2:rgba(255,240,240,.06); --glass-rim-3:rgba(255,195,160,.4);
+  --glass-shadow:0 8px 22px -12px rgba(15,11,28,.7); --glass-filter:blur(5px) saturate(150%) brightness(1.12);
+
+  /* Cherry Bomb One (bubbly titles and wordmark), Fredoka (round interface), Playpen Sans (handwritten descriptions) */
+  --f-mark:'Cherry Bomb One', 'Fredoka', system-ui, sans-serif;
+  --f-display:'Cherry Bomb One', 'Fredoka', system-ui, sans-serif;
+  --f-ui:'Fredoka', 'Nunito', system-ui, -apple-system, sans-serif;
+  --f-hand:'Playpen Sans', 'Fredoka', cursive;
+  font-synthesis-weight:none;
+  /* a heart wherever the app draws its four-point star */
+  --star4:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 21.6S2 15.4 2 8.6A5.3 5.3 0 0 1 12 6a5.3 5.3 0 0 1 10 2.6c0 6.8-10 13-10 13z'/%3E%3C/svg%3E");
+  accent-color:var(--g-rose);
+}
+.app:where([data-style="gerleez"])[data-theme="day"]{
+  /* ---- Day: blush paper ---- */
+  --sky-0:#ffd9cf; --sky-1:#ffe6e0; --sky-2:#fff6f1;
+  --page:rgba(255,246,241,.9); --page-solid:#fff6f1;
+  --raise:#fff0ea; --raise-2:#ffe6e0; --sunk:#ffe2d8;
+  --line:rgba(57,47,90,.13); --line-2:rgba(57,47,90,.23); --line-3:rgba(57,47,90,.38);
+  --ink:#392F5A; --ink-2:#483b62; --ink-3:#584769; --ink-4:#66526f;
+  --accent:#FF677D; --accent-2:#a64e6d; --accent-3:#92486a; --accent-ink:#fff6f1;
+  --accent-soft:rgba(255,103,125,.13); --accent-glow:rgba(255,103,125,.38);
+  --gold:#FFC3A0; --gold-2:#D4A5A5; --gold-3:#967687; --gold-ink:#392F5A; --gold-soft:rgba(255,195,160,.32);
+  --ember:#92486a; --ember-soft:rgba(255,103,125,.14); --jade:#584769; --jade-soft:rgba(57,47,90,.1);
+  --link:#92486a;
+  --gold-tx:#92486a; --accent-tx:#92486a; --ember-ink:#fff6f1;
+  --card-paper:#fffaf7; --card-ink:#392F5A; --card-rule:#FF677D; --card-line:rgba(212,165,165,.3);
+  --scrim:rgba(57,47,90,.32);
+  --shadow-1:0 1px 0 rgba(255,255,255,.75) inset, 0 10px 26px -14px rgba(146,72,106,.38);
+  --shadow-2:0 24px 60px -24px rgba(146,72,106,.45), 0 0 0 1px rgba(57,47,90,.13);
+  --g-dots:url("../art/ui/gerleez/tile-day.svg") 0 0/168px 168px,
+           radial-gradient(circle, rgba(255,103,125,.1) 0 1.4px, transparent 2px) 12px 12px/24px 24px;
+  --sky-art:radial-gradient(90% 60% at 90% -10%, rgba(255,195,160,.7), transparent 60%),
+            radial-gradient(80% 60% at -10% 110%, rgba(255,171,171,.5), transparent 60%),
+            var(--g-dots), linear-gradient(180deg, var(--sky-2), var(--sky-0));
+  --engrave:#a64e6d;
+  --c-p1:#a64e6d; --c-p2:#584769; --c-gm:#392F5A; --c-npc:#66526f; --c-foe:#b8566f;
+  --c-p3:#92486a; --c-p4:#6d5878; --c-p5:#8a4a6d; --c-p6:#4c3f6e; --c-p7:#b8566f; --c-p8:#7f647c;
+  --map-grade:saturate(.92) brightness(1);
+  --map-tint:linear-gradient(180deg, rgba(255,171,171,.08), rgba(255,195,160,.12));
+  --say-top:14%; --say-bot:7%;
+  --glass-tint:rgba(255,195,160,.55); --glass-tint-2:rgba(255,230,215,.35); --glass-mine:rgba(255,137,148,.5); --glass-mine-2:rgba(255,103,125,.28); --glass-mine-rim:rgba(166,78,109,.7);
+  --glass-sheen:rgba(255,255,255,.7); --glass-rim:rgba(255,255,255,.95); --glass-rim-2:rgba(255,255,255,.25); --glass-rim-3:rgba(166,78,109,.35);
+  --glass-shadow:0 8px 20px -12px rgba(146,72,106,.4); --glass-filter:blur(6px) saturate(160%) brightness(1.04);
+}
+
+/* ---------- base ---------- */
+.app:where([data-style="gerleez"]) .stars{display:none}
+.app:where([data-style="gerleez"]) ::selection{background:rgba(255,103,125,.35)}
+.app:where([data-style="gerleez"]) :focus-visible{outline-color:var(--g-rose)}
+.app:where([data-style="gerleez"]) .scroll{scrollbar-color:var(--line-3) transparent}
+.app:where([data-style="gerleez"]) .scroll::-webkit-scrollbar-thumb{background:var(--line-3)}
+.app:where([data-style="gerleez"]) .eyebrow{font-weight:700;letter-spacing:.14em}
+.app:where([data-style="gerleez"]) .ttl{font-weight:600;letter-spacing:0}
+.app:where([data-style="gerleez"]) .spark::after{background:var(--g-rose);filter:drop-shadow(0 0 4px rgba(255,103,125,.6))}
+.app:where([data-style="gerleez"]) .star4{background:var(--g-rose)}
+.app:where([data-style="gerleez"])[data-theme="night"] .star4{background:var(--g-pink)}
+
+/* ---------- buttons: soft pills, rose for the main action, peach for the gold one ---------- */
+.app:where([data-style="gerleez"]) .btn{font-weight:700;
+  box-shadow:0 1px 0 rgba(255,240,240,.08) inset,0 4px 12px -6px rgba(15,11,28,.55)}
+.app:where([data-style="gerleez"])[data-theme="day"] .btn{box-shadow:0 1px 0 rgba(255,255,255,.8) inset,0 4px 12px -7px rgba(146,72,106,.4)}
+.app:where([data-style="gerleez"]) .btn.primary{color:#1f1a32;
+  background:linear-gradient(180deg,#ff8994,#FF677D) padding-box,linear-gradient(180deg,#FFC3A0,#a64e6d) border-box;
+  box-shadow:inset 0 1px 0 rgba(255,240,240,.55),inset 0 -6px 12px -6px rgba(146,72,106,.55),0 8px 22px -10px var(--accent-glow)}
+.app:where([data-style="gerleez"])[data-theme="day"] .btn.primary{color:#fff6f1;
+  background:linear-gradient(180deg,#a64e6d,#92486a 60%,#7c4268) padding-box,linear-gradient(180deg,#FFABAB,#392F5A) border-box;
+  box-shadow:inset 0 1px 0 rgba(255,171,171,.55),inset 0 -6px 12px -6px rgba(57,47,90,.45),0 8px 22px -10px rgba(166,78,109,.6)}
+.app:where([data-style="gerleez"]) .btn.gold,.app:where([data-style="gerleez"])[data-theme="day"] .btn.gold{color:#392F5A;text-shadow:0 1px 0 rgba(255,240,240,.5);
+  background:linear-gradient(180deg,#ffd6c4,#FFC3A0 45%,#FFABAB) padding-box,linear-gradient(180deg,#fff0f0,#D4A5A5) border-box;
+  box-shadow:inset 0 1px 0 #fff6f1,inset 0 -6px 12px -6px rgba(255,103,125,.4),0 10px 24px -10px rgba(255,171,171,.75)}
+.app:where([data-style="gerleez"]) .btn.ghost,.app:where([data-style="gerleez"])[data-theme="day"] .btn.ghost{background:transparent;border-color:var(--line-3);box-shadow:none}
+.app:where([data-style="gerleez"]) .btn.danger,.app:where([data-style="gerleez"])[data-theme="day"] .btn.danger{box-shadow:none}
+.app:where([data-style="gerleez"]) .ibtn.solid{background:var(--raise)}
+
+.app:where([data-style="gerleez"]) .badge{color:var(--ember-ink)}
+.app:where([data-style="gerleez"]) .badge.gold{color:#392F5A}
+.app:where([data-style="gerleez"]) .tag{font-weight:700}
+.app:where([data-style="gerleez"]) .toggle[aria-pressed="true"] .sw::after{background:#fff6f1}
+.app:where([data-style="gerleez"]) .seg button[aria-pressed="true"]{box-shadow:0 1px 0 rgba(255,240,240,.08) inset,0 2px 8px -2px rgba(15,11,28,.45),0 0 0 1px var(--line-3)}
+
+/* pressed tool buttons: rose with dark plum, berry with blush by day */
+.app:where([data-style="gerleez"]) :is(.gmtools,.gmrow,.fight-tools) button[aria-pressed="true"]{background:var(--g-rose);color:#1f1a32}
+.app:where([data-style="gerleez"]) :is(.gmrow,.fight-tools) button[aria-pressed="true"] svg{color:#1f1a32}
+.app:where([data-style="gerleez"])[data-theme="day"] :is(.gmtools,.gmrow,.fight-tools) button[aria-pressed="true"]{background:var(--g-berry);color:#fff6f1}
+.app:where([data-style="gerleez"])[data-theme="day"] :is(.gmrow,.fight-tools) button[aria-pressed="true"] svg{color:#fff6f1}
+.app:where([data-style="gerleez"]) .gmban .go,.app:where([data-style="gerleez"]) .bigcta .ic,.app:where([data-style="gerleez"]) .tabbar .fightdot,.app:where([data-style="gerleez"]) .modeseg .nb{color:var(--ember-ink)}
+.app:where([data-style="gerleez"]) .gmban .go{background:var(--g-rose);color:#1f1a32}
+.app:where([data-style="gerleez"])[data-theme="day"] .gmban .go{background:var(--g-berry);color:#fff6f1}
+
+/* ---------- avatars ---------- */
+.app:where([data-style="gerleez"]) .av{background:radial-gradient(circle at 35% 28%,color-mix(in srgb,var(--c) 70%,#fff0f0),color-mix(in srgb,var(--c) 45%,#392F5A) 78%);
+  box-shadow:0 0 0 2px var(--page-solid),0 0 0 3.5px color-mix(in srgb,var(--c) 85%,transparent),0 4px 10px -4px rgba(15,11,28,.55);color:#fff6f1;text-shadow:0 1px 2px rgba(31,26,50,.55)}
+.app:where([data-style="gerleez"]) .av.narrav{background:radial-gradient(circle at 35% 30%,#ff8994,#a64e6d 60%,#392F5A);box-shadow:0 0 0 2px var(--page-solid),0 0 0 3.5px var(--g-pink)}
+.app:where([data-style="gerleez"]) .av.narrav svg{color:#fff0f0}
+
+/* ---------- aspect cards: blush note cards, free invokes as little hearts ---------- */
+.app:where([data-style="gerleez"]) .icard{background:repeating-linear-gradient(180deg,transparent 0 15px,var(--card-line) 15px 16px) 0 18px/100% calc(100% - 18px) no-repeat,var(--card-paper);
+  box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 0 0 1px rgba(212,165,165,.45),0 6px 14px -8px rgba(31,26,50,.6)}
+.app:where([data-style="gerleez"]) .icard{font-family:var(--f-hand);font-weight:600}
+.app:where([data-style="gerleez"]) .icard .k{color:#a64e6d}
+.app:where([data-style="gerleez"]) .icard .fi i,.app:where([data-style="gerleez"]) .icard .fib i{border-radius:0;background:linear-gradient(160deg,#ff8994,#FF677D 55%,#a64e6d);
+  -webkit-mask:var(--star4) center/contain no-repeat;mask:var(--star4) center/contain no-repeat;box-shadow:none}
+.app:where([data-style="gerleez"]) .icard .fib em{color:#92486a}
+.app:where([data-style="gerleez"]) .icard .xb{color:#7a6079}
+.app:where([data-style="gerleez"]) .icard.add{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)}
+.app:where([data-style="gerleez"]) .coin{background:radial-gradient(circle at 35% 30%,#fff0f0,#FFC3A0 55%,#D4A5A5)}
+.app:where([data-style="gerleez"]) .coin::after{box-shadow:inset 0 0 0 1px rgba(166,78,109,.45)}
+.app:where([data-style="gerleez"]) .secret .seal{background:radial-gradient(circle at 35% 30%,#ff8994,#a64e6d);color:#fff0f0}
+
+/* ---------- shell ---------- */
+.app:where([data-style="gerleez"]) .tabbar button{font-weight:700}
+.app:where([data-style="gerleez"]) .tabbar button[aria-current="page"] .ti{color:var(--accent-tx)}
+.app:where([data-style="gerleez"]) .mark b{font-family:var(--f-mark);font-weight:400;letter-spacing:.04em}
+.app:where([data-style="gerleez"])[data-theme="night"] .mark b{color:var(--g-pink);text-shadow:0 0 16px rgba(255,103,125,.3)}
+.app:where([data-style="gerleez"])[data-theme="day"] .mark b{color:#392F5A}
+
+/* ---------- chat ---------- */
+.app:where([data-style="gerleez"]) .m .bub{font-weight:500}
+.app:where([data-style="gerleez"]) .m .bub em,.app:where([data-style="gerleez"]) .m .bub .rpd{font-family:var(--f-hand);font-style:normal}
+/* your own lines: blush-to-rose by night with plum ink, berry by day with blush ink */
+.app:where([data-style="gerleez"])[data-theme] .m.mine:not(.ooc) .bub{color:#1f1a32;background:linear-gradient(180deg,#FFABAB,#ff8994);
+  box-shadow:inset 0 1px 0 rgba(255,240,240,.55),0 6px 16px -10px rgba(255,103,125,.6)}
+.app:where([data-style="gerleez"])[data-theme] .m.mine:not(.ooc) .bub :is(em,.rpd){color:#392F5A}
+.app:where([data-style="gerleez"])[data-theme] .m.mine:not(.ooc) .bub .ed{color:rgba(57,47,90,.75)}
+.app:where([data-style="gerleez"])[data-theme="day"] .m.mine:not(.ooc) .bub{color:#fff6f1;background:linear-gradient(180deg,#a64e6d,#92486a);
+  box-shadow:inset 0 1px 0 rgba(255,171,171,.4),0 6px 16px -10px rgba(146,72,106,.6)}
+.app:where([data-style="gerleez"])[data-theme="day"] .m.mine:not(.ooc) .bub :is(em,.rpd){color:#fff0f0}
+.app:where([data-style="gerleez"])[data-theme="day"] .m.mine:not(.ooc) .bub .ed{color:rgba(255,240,240,.8)}
+.app:where([data-style="gerleez"]) .sendb{color:#1f1a32;background:linear-gradient(180deg,#ff8994,#FF677D)}
+.app:where([data-style="gerleez"])[data-theme="day"] .sendb{color:#fff6f1;background:linear-gradient(180deg,#a64e6d,#92486a)}
+.app:where([data-style="gerleez"]) .diceb{color:#392F5A;background:radial-gradient(circle at 35% 25%,#fff0f0,#FFC3A0 50%,#FFABAB);
+  box-shadow:inset 0 1px 0 #fff6f1,inset 0 -3px 6px rgba(255,103,125,.35),0 6px 14px -6px rgba(255,171,171,.85)}
+
+/* scene banner and pictures under text: plum glaze by night, blush glaze by day */
+.app:where([data-style="gerleez"]) .scene::before{background:linear-gradient(90deg,rgba(41,34,65,.92) 0%,rgba(41,34,65,.62) 55%,rgba(41,34,65,0) 100%),linear-gradient(0deg,rgba(41,34,65,.55),transparent 70%)}
+.app:where([data-style="gerleez"])[data-theme="day"] .scene::before{background:linear-gradient(90deg,rgba(255,246,241,.95) 0%,rgba(255,246,241,.72) 55%,rgba(255,246,241,0) 100%)}
+.app:where([data-style="gerleez"])[data-theme="day"] .scene .ctl .btn{background:linear-gradient(rgba(255,246,241,.85),rgba(255,246,241,.85)) padding-box,linear-gradient(180deg,var(--line-3),var(--line)) border-box}
+.app:where([data-style="gerleez"]) .scene .eyebrow{color:var(--accent-tx)}
+.app:where([data-style="gerleez"]) .thumb::after{background:linear-gradient(0deg,rgba(31,26,50,.88),transparent 60%)}
+.app:where([data-style="gerleez"]) .scenecard::after{background:linear-gradient(0deg,rgba(31,26,50,.9),rgba(31,26,50,.1) 75%)}
+.app:where([data-style="gerleez"]) .fightcard::before{background:linear-gradient(180deg,rgba(41,34,65,.5),rgba(41,34,65,.95) 62%)}
+.app:where([data-style="gerleez"])[data-theme="day"] .fightcard::before{background:linear-gradient(180deg,rgba(255,246,241,.45),rgba(255,246,241,.97) 50%)}
+@container dev (max-width: 759px){
+  .app:where([data-style="gerleez"]) .msgs .fightcard::before{background:linear-gradient(90deg,rgba(41,34,65,.94) 45%,rgba(41,34,65,.6))}
+  .app:where([data-style="gerleez"])[data-theme="day"] .msgs .fightcard::before{background:linear-gradient(90deg,rgba(255,246,241,.97) 45%,rgba(255,246,241,.7))}
+}
+
+/* ---------- dice and outcomes: peach for +, rose for −, blush for blank, all in plum ink ---------- */
+.app:where([data-style="gerleez"]) .die{background:linear-gradient(160deg,#fff6f1,#ffe6e0);color:#392F5A;box-shadow:inset 0 -3px 0 rgba(166,78,109,.22),inset 0 1px 0 #fff,0 3px 6px -2px rgba(31,26,50,.55)}
+.app:where([data-style="gerleez"]) .die.p{background:linear-gradient(160deg,#ffd6c4,#FFC3A0);color:#392F5A}
+.app:where([data-style="gerleez"]) .die.m{background:linear-gradient(160deg,#ff8994,#FF677D);color:#1f1a32}
+.app:where([data-style="gerleez"]) .die.z{color:transparent}
+.app:where([data-style="gerleez"]) :is(.ff .ffd i,.rl .rld i,.roll .oppd .od span){background:#fff0f0;color:#392F5A}
+.app:where([data-style="gerleez"]) :is(.ff .ffd i.p,.rl .rld i.p,.oppd .od span.op){background:#FFC3A0;color:#392F5A}
+.app:where([data-style="gerleez"]) :is(.ff .ffd i.m,.rl .rld i.m,.oppd .od span.om){background:#FF677D;color:#1f1a32}
+.app:where([data-style="gerleez"]) .rfx .f{background:linear-gradient(145deg,#fff6f1,#ffe6e0);color:#392F5A}
+.app:where([data-style="gerleez"]) .rfx .f.p{background:linear-gradient(145deg,#ffd6c4,#FFC3A0);color:#392F5A}
+.app:where([data-style="gerleez"]) .rfx .f.m{background:linear-gradient(145deg,#ff8994,#FF677D);color:#1f1a32}
+.app:where([data-style="gerleez"]) .out.style{color:#392F5A;background:var(--g-peach)}
+
+/* ---------- board and map ---------- */
+.app:where([data-style="gerleez"]) .tok .nm{background:rgba(31,26,50,.82);color:#fff0f0}
+.app:where([data-style="gerleez"])[data-theme="day"] .tok .nm{background:rgba(255,246,241,.94);color:var(--ink)}
+.app:where([data-style="gerleez"]) .zone .tok.now .nm,.app:where([data-style="gerleez"]) .zone .tok.now.me .nm{background:var(--g-peach);color:#392F5A}
+.app:where([data-style="gerleez"]) .tok .ji{color:#392F5A}
+.app:where([data-style="gerleez"]) .pin .pl{background:rgba(31,26,50,.88);color:#fff0f0}
+.app:where([data-style="gerleez"]) .pin.party .pm{box-shadow:0 0 0 2px #fff0f0,0 0 22px 4px var(--accent-glow)}
+.app:where([data-style="gerleez"]) .beacon .bd{background:radial-gradient(circle at 38% 34%,#FFABAB,#FF677D 55%,#a64e6d);box-shadow:0 0 0 2.5px #fff0f0,0 0 14px 4px rgba(255,103,125,.75)}
+.app:where([data-style="gerleez"]) .beacon::before,.app:where([data-style="gerleez"]) .beacon::after{border-color:#FF677D}
+.app:where([data-style="gerleez"]) .beacon .bl{background:#a64e6d;color:#fff0f0}
+.app:where([data-style="gerleez"]) .cchip .bdot{background:#FF677D;box-shadow:0 0 0 2px #fff0f0}
+.app:where([data-style="gerleez"]) .swdim{background:rgba(31,26,50,.32)}
+.app:where([data-style="gerleez"])[data-theme="day"] .swdim{background:rgba(146,72,106,.12)}
+.app:where([data-style="gerleez"]) .fr-win{box-shadow:0 0 0 2px var(--g-peach),0 0 0 9999px rgba(31,26,50,.62)}
+
+/* the wordmark star, in blush to rose */
+.app:where([data-style="gerleez"]) :is(.mark,.gmark) svg stop:first-child{stop-color:#FFABAB}
+.app:where([data-style="gerleez"]) :is(.mark,.gmark) svg stop:last-child{stop-color:#FF677D}
+.app:where([data-style="gerleez"]) .mark svg{filter:drop-shadow(0 0 8px rgba(255,103,125,.5))}
+.app:where([data-style="gerleez"]) .gmark svg{filter:drop-shadow(0 0 14px rgba(255,103,125,.5))}
+/* blank dice need an edge on blush paper */
+.app:where([data-style="gerleez"])[data-theme="day"] :is(.die,.ff .ffd i,.rl .rld i,.roll .oppd .od span,.rfx .f){box-shadow:inset 0 0 0 1px rgba(166,78,109,.38),0 2px 5px -2px rgba(146,72,106,.45)}
+
+/* initials on light avatars at night are plum, on dark avatars by day blush */
+.app:where([data-style="gerleez"])[data-theme="night"] .av{color:#1f1a32;text-shadow:0 1px 0 rgba(255,240,240,.35)}
+/* "You act for" on the GM turn banner was peach on blush by day */
+.app:where([data-style="gerleez"]) .gmban .t small{color:var(--gold-tx)}
+
+/* ---------- art: recoloured Twemoji flowers, sparkles, bows and hearts (CC BY 4.0), art/ui/gerleez/ ---------- */
+/* the wordmark star becomes a cherry blossom */
+.app:where([data-style="gerleez"]) :is(.mark,.gmark){position:relative}
+.app:where([data-style="gerleez"]) :is(.mark,.gmark) svg{visibility:hidden}
+.app:where([data-style="gerleez"]) .mark::before{content:"";position:absolute;left:var(--mk-x,0px);top:50%;width:32px;height:32px;margin-top:-16px;pointer-events:none;
+  background:url("../art/ui/gerleez/blossom.svg") center/contain no-repeat;filter:drop-shadow(0 2px 4px rgba(31,26,50,.4))}
+.app:where([data-style="gerleez"]) .nav .mark{--mk-x:-1px}
+.app:where([data-style="gerleez"]) .gmark::before{content:"";position:absolute;left:50%;top:50%;width:64px;height:64px;translate:-50% -50%;pointer-events:none;
+  background:url("../art/ui/gerleez/blossom.svg") center/contain no-repeat;filter:drop-shadow(0 4px 10px rgba(255,103,125,.45))}
+/* sparkles instead of stars */
+.app:where([data-style="gerleez"]) .spark::after{background:url("../art/ui/gerleez/sparkles.svg") center/contain no-repeat;-webkit-mask:none;mask:none;filter:none}
+.app:where([data-style="gerleez"]) .star4,.app:where([data-style="gerleez"])[data-theme="night"] .star4{background:url("../art/ui/gerleez/sparkles.svg") center/contain no-repeat;-webkit-mask:none;mask:none}
+/* fate points and gold are little hearts */
+.app:where([data-style="gerleez"]) .coin{background:url("../art/ui/gerleez/heart.svg") center/88% no-repeat;border-radius:0;box-shadow:none;filter:drop-shadow(0 1px 1px rgba(31,26,50,.35))}
+.app:where([data-style="gerleez"]) .coin::after{display:none}
+/* the open tab wears a sparkle */
+.app:where([data-style="gerleez"]) .tabbar .ti{position:relative}
+.app:where([data-style="gerleez"]) .tabbar button[aria-current="page"] .ti::after{content:"";position:absolute;right:2px;top:-5px;width:13px;height:13px;pointer-events:none;
+  background:url("../art/ui/gerleez/sparkles.svg") center/contain no-repeat}
+.app:where([data-style="gerleez"]) .nav .ni[aria-current]::after{content:"";position:absolute;right:-3px;top:-4px;width:13px;height:13px;pointer-events:none;
+  background:url("../art/ui/gerleez/sparkles.svg") center/contain no-repeat}
+/* a posy of flowers in the corner of the scene banner, a bow on top of every sheet */
+.app:where([data-style="gerleez"]) .scene::after{content:"";position:absolute;right:-6px;bottom:-8px;width:92px;height:83px;z-index:0;pointer-events:none;
+  background:url("../art/ui/gerleez/cluster.svg") center/contain no-repeat;transform:scaleX(-1);filter:drop-shadow(0 3px 6px rgba(31,26,50,.35))}
+.app:where([data-style="gerleez"]) .sheet::after{content:"";position:absolute;left:50%;top:-15px;width:44px;height:34px;translate:-50% 0;pointer-events:none;z-index:2;
+  background:url("../art/ui/gerleez/bow.svg") center/contain no-repeat;filter:drop-shadow(0 3px 5px rgba(31,26,50,.35))}
+.app:where([data-style="gerleez"]) .sheet::before{display:none}

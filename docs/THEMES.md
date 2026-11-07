@@ -6,8 +6,8 @@ Read it before you add a style, change a colour, or build any new screen (new sc
 **Words used here**
 
 - A **style** is a whole look that people pick under Profile > **Style**: today *Storybook* (the default), *Parchment & Wax*,
-  *Oak & Iron* and *Sketchbook*.
-- A **theme** is **Night** or **Day** (Profile > **Appearance**). Every style has both, so there are eight looks today.
+  *Oak & Iron*, *Sketchbook* and *4-the-gerleez*.
+- A **theme** is **Night** or **Day** (Profile > **Appearance**). Every style has both, so there are ten looks today.
 - Both are saved per device in `localStorage` (`norne-style`, `norne-theme`), like the text size (`norne-fz`).
   Two devices on the same account can each show a different look.
 
@@ -151,6 +151,30 @@ or green. What it learned:
 - The art (paper, pencil frames, charcoal blocks, hatch tiles) is drawn by `make_sketch_art.py` in the same folder and saved as
   grey-only PNG/JPG (`L`/`LA`), so it cannot carry colour. The stylesheet is written as `sketch.src.css` with short placeholders
   (`@S`, `@D`...) and expanded by `build.sh`.
+
+### 2.9 A look from a fixed palette (4-the-gerleez)
+
+*4-the-gerleez* (`css/gerleez.css`, id `gerleez`) was built on 2026-11-07 from a five-colour palette Jack sent as a picture:
+blush `#FFABAB`, peach `#FFC3A0`, rose `#FF677D`, dusty rose `#D4A5A5` and plum `#392F5A`. What it learned:
+
+- **Four light colours and one dark one.** Every light colour fails contrast against the others (1.2–1.8:1), so the look is
+  plum against lights: Night is a plum ground with blush/peach ink, Day is blush paper with plum ink. Only shades of the five
+  are used: plum with a touch of black for the Night sky, the lights with a whisper of white for Day paper, and rose mixed into
+  plum (`#a64e6d`, `#92486a`, "berry") wherever Day needs a coloured text or a button dark enough for light ink.
+- **Rose fails as text on Day paper** (2.8:1), so Day text uses berry (`--accent-tx`, `--gold-tx`, `--ember`), and rose is
+  kept for fills. Plum ink on rose is 4.3:1, so things on rose use the darker sky plum `#1f1a32` (6:1).
+- **No green in the palette:** success is peach and failure/harm is rose; dice are a peach tile for +, a rose tile for − and a
+  blush tile for blank, all with plum glyphs, so the sign also reads without colour.
+- **Speaker colours** are eight shades of the palette; they are closer together than in other looks, so names and avatars carry
+  the difference as before.
+- **Art (Jack asked for "cutesy fonts, flowers, sparkles"):** Twemoji SVGs (CC BY 4.0, npm `@twemoji/svg`) recoloured to the palette
+  by mapping each fill to the nearest palette colour by hue and lightness, saved in `art/ui/gerleez/` (~80 KB): cherry blossom
+  wordmark, sparkles for every star (`.spark`, `.star4`, the open tab), hearts for fate points (`.coin`) and free invokes, a posy on
+  the scene banner (`.scene::after`), a bow on top of every sheet (replaces the drag handle), and a scattered flower/sparkle/heart
+  tile on the backdrop (`--g-dots`). All overlays are pseudo-elements with `pointer-events:none`; nothing moves.
+- Fonts: Cherry Bomb One (titles and wordmark, one weight only, so `font-synthesis-weight:none`), Fredoka (interface),
+  Playpen Sans (descriptions and aspect cards). All OFL.
+- Kept out on purpose: portraits, maps, GM-picked zone and pin colours, and the fixed attack animation colours (4.5).
 
 ## 3. The token contract
 
@@ -357,3 +381,5 @@ Quirk: the kit's `roll` screen does not open the roll sheet for a player (`role=
   free options because the earlier styles looked like "plain panels with color schemes".
 - **2026-11-05** Sketchbook: Jack asked for a black and white look, "black coloured pencil, black pastel", artsy and notebook-like,
   with no colour anywhere. Kalam, Caveat and Fredericka the Great, Noto Emoji for emoji, and pencil art drawn by script.
+- **2026-11-07** 4-the-gerleez: Jack sent a five-colour palette (blush, peach, rose, dusty rose, plum) as the only colours allowed.
+  Plum velvet by night, blush paper by day, recoloured Twemoji flowers, sparkles, hearts and a bow; Cherry Bomb One, Fredoka, Playpen Sans.
