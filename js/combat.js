@@ -58,7 +58,7 @@ function boardHtml(v){
   else if (v.ui.placing) hint = `<div class="hint-chip">${IC('pinL')}Tap a zone to place ${esc(N.tokName(N.tokById(v.ui.placing)))}<button type="button" class="btn sm ghost" data-a="cbCancel" style="--h:26px">Cancel</button></div>`;
   else if (edit && !cb.zones.length) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag on the map to draw a zone</div>`;
   else if (edit) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag to draw · drag a name to move · corner to resize</div>`;
-  const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.left!=null?` · ${a.left>0?`for ${a.left} roll${a.left>1?'s':''}`:'last roll'}`:''}</span>`:a.on?`<span class="k">On ${esc(a.on)}</span>`:''}<span>${N.emoText(N.marks(esc(a.t || 'Unnamed boost')))}</span>${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
+  const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.keep?' · until used':''}${a.left!=null?` · ${a.left>0?`for ${a.left} roll${a.left>1?'s':''}`:'last roll'}`:''}</span>`:a.on?`<span class="k">On ${esc(a.on)}</span>`:''}<span>${N.emoText(N.marks(esc(a.t || 'Unnamed boost')))}</span>${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
   return `<div class="boardwrap"><div class="board${edit?' edit drawing':''}" data-board="1" aria-label="Battlefield: ${esc(cb.title)}">
     <div class="bg">${N.bgPic(N.imgUrl(cb.bg) ? cb.bg : N.FIGHTBG)}</div>
     <div class="cam">${zones}</div>${sasp}${hint}${diceFx(v)}
@@ -95,7 +95,7 @@ function orderStrip(v, ph){
 function toolList(v){
   const cb = G().combat, tool = v.ui.cbTool || 'move';
   return [[`data-a="cbTool" data-v="move" aria-pressed="${tool==='move'}"`, 'hand', 'Move'], [`data-a="cbTool" data-v="zone" aria-pressed="${tool==='zone'}"`, 'zone', 'Zones'],
-    [`data-a="sheet" data-v="addFoe"`, 'person-plus', 'Add'], [`data-a="sheet" data-v="cbAspect"`, 'cards', 'Situation aspect'], cb.state === 'live' ? [`data-a="sheet" data-v="cbEnd"`, 'stop', 'End fight', 1] : null].filter(Boolean)
+    [`data-a="sheet" data-v="addFoe"`, 'person-plus', 'Add'], [`data-a="sheet" data-v="cbAspect"`, 'cards', 'Situation aspect'], [`data-a="sheet" data-v="cbBoost"`, 'sparkle', 'Boost'], cb.state === 'live' ? [`data-a="sheet" data-v="cbEnd"`, 'stop', 'End fight', 1] : null].filter(Boolean)
     .map(([a, ic, l, end]) => `${end ? '<span class="sep"></span>' : ''}<button type="button" ${a}${end ? ' class="end"' : ''}>${IC(ic)}<span class="lab">${l}</span></button>`).join('');
 }
 function toolsHtml(v, ph){
@@ -288,6 +288,7 @@ function gmRow(v){
     <button type="button" data-a="cbTool" data-v="zone" aria-pressed="${tool==='zone'}">${IC('zone')}Zones</button>
     <button type="button" data-a="sheet" data-v="addFoe">${IC('person-plus')}Add</button>
     <button type="button" data-a="sheet" data-v="cbAspect">${IC('cards')}Situation aspect</button>
+    <button type="button" data-a="sheet" data-v="cbBoost">${IC('sparkle')}Boost</button>
     ${cb.state==='live'?`<button type="button" class="end" data-a="sheet" data-v="cbEnd">${IC('stop')}End fight</button>`:''}
   </div>`;
 }
@@ -341,6 +342,9 @@ N.tokCard = function(v, t){
     ${(() => { /* situation aspects the GM pinned on this fighter, and boosts others put on them */
       const on = g.combat.aspects.filter(a => a.onTok === t.id || (a.boost && a.on && a.on === N.tokName(t)));
       return on.length ? `<div class="icards tok-on"><span class="tok-on-l">On them</span>${on.map((a,i)=>`<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.6:-.6}deg"><span class="k">${a.boost ? `Boost · ${esc(a.by)}` : 'Situation'}</span><span>${N.emoText(N.marks(esc(a.t || 'Unnamed boost')))}</span>${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : ''; })()}
+    ${(() => { /* boosts this fighter holds: their own free invokes */
+      const mine = g.combat.aspects.filter(a => a.boost && a.tok === t.id && a.t && a.free);
+      return mine.length ? `<div class="icards tok-on"><span class="tok-on-l">Their boosts</span>${mine.map((a,i)=>`<span class="icard boost" style="--rot:${i%2?.6:-.6}deg"><span class="k">Boost${a.on ? ` · on ${esc(a.on)}` : ''}${a.keep ? ' · until used' : a.left != null ? ` · ${a.left > 0 ? `for ${a.left} roll${a.left > 1 ? 's' : ''}` : 'last roll'}` : ''}</span><span>${N.emoText(N.marks(esc(a.t)))}</span><span class="fi"><i></i></span></span>`).join('')}</div>` : ''; })()}
     <div class="kv"><span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
       ${(() => {
         /* the same pool an invoke spends (N.invokePayer): the PC's character card or the named NPC's card */
@@ -360,6 +364,7 @@ N.tokCard = function(v, t){
     ${N.tokKit(v, t)}
     ${gm ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
       ${t.kind==='npc'?`<button type="button" class="btn sm" data-a="voice" data-v="${esc(t.name.replace(/ \d+$/,''))}" data-go="side">${IC('chatL')}Speak as</button><button type="button" class="btn sm" data-a="roll" data-who="tok:${t.id}">${N.fateDie}Roll</button>`:''}
+      ${t.zone && !t.out ? `<button type="button" class="btn sm" data-a="sheet" data-v="cbBoost" data-c="${t.id}">${IC('sparkle')}Give a boost</button>` : ''}
       ${G().combat.state==='live' && !t.out ? `<button type="button" class="btn sm" data-a="tokTurn" data-t="${t.id}">${IC('play')}Give them the turn</button>`:''}
       <button type="button" class="btn sm ${t.out?'':'danger'}" data-a="tokOut" data-t="${t.id}">${t.out?IC('undo')+'Back in':IC('skull')+'Taken out'}</button>
     </div>` : ''}
@@ -612,6 +617,7 @@ N.boostTick = t => {
   const cb = G().combat; if (!t) return;
   cb.aspects = cb.aspects.filter(a => {
     if (!a.boost || a.tok !== t.id) return true;
+    if (a.keep) return true; /* a GM-made boost that lasts until it's used */
     if ((a.left ?? 2) <= 0) { sys(`${a.by}’s boost${a.t ? ` “${a.t}”` : ''} fades unused.`); return false; }
     a.left = (a.left ?? 2) - 1; return true;
   });

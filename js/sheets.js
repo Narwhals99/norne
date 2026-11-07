@@ -164,7 +164,8 @@ N.sheetHtml = function(v){
     /* the GM's buff or debuff on this roll, after the fact (defense and Notice rolls never pass the roll sheet) */
     const mr = m.roll, md = mr.mod || 0;
     const modRow = gm ? `<div class="invmod"><span class="grow"><b>Buff or debuff this roll</b><small>${md ? `${esc(mr.who)}’s roll has ${md > 0 ? 'a buff of' : 'a debuff of'} ${sgn(md)}. ` : ''}Up to +6 or −6, the total follows.</small></span><span class="seg"><button type="button" data-a="invMod" data-d="-1" aria-label="Debuff 1 more" ${md <= -6 ? 'disabled' : ''}>${IC('minus')}</button><b class="${md > 0 ? 'buf' : md < 0 ? 'deb' : ''}">${md ? sgn(md) : '0'}</b><button type="button" data-a="invMod" data-d="1" aria-label="Buff 1 more" ${md >= 6 ? 'disabled' : ''}>${IC('plus')}</button></span></div>` : '';
-    return sheet('Invoke an aspect', body + modRow, addAsp);
+    const addBoost = addAsp && `<button type="button" class="btn ghost" data-a="invBoost">${IC('sparkle')}Give a boost</button>`;
+    return sheet('Invoke an aspect', body + modRow, addAsp + addBoost);
   }
   /* ---------------- the GM's shifts on a result (after the roll) ---------------- */
   case 'shifts': {
@@ -389,6 +390,21 @@ N.sheetHtml = function(v){
           <p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${on ? `Pinned to ${esc(N.tokName(on))}, like <i>On Fire</i> or <i>Pinned Under the Cart</i>. It shows on their card, and anyone can still invoke it.` : 'Leave it on the whole fight, or pin it to one fighter.'}</p></div>` : ''; })()}
       <div class="seg"><button type="button" data-a="cbAspFree" data-v="0" aria-pressed="${!v.ui.cbAspFree}">No free invoke</button><button type="button" data-a="cbAspFree" data-v="1" aria-pressed="${v.ui.cbAspFree==1}">1 free</button><button type="button" data-a="cbAspFree" data-v="2" aria-pressed="${v.ui.cbAspFree==2}">2 free</button></div>`,
       `<button type="button" class="btn primary" data-a="cbAspAdd">${IC('plus')}Add situation aspect</button>`);
+  /* the GM gives a fighter a boost by hand: a free invoke for its owner that fades after their next two rolls (or lasts until used) */
+  case 'cbBoost': {
+    const cb = g.combat, toks = cb.tokens.filter(t => t.zone && !t.out), own = v.ui.cbBo && toks.find(t => t.id === v.ui.cbBo), on = v.ui.cbBoOn && toks.find(t => t.id === v.ui.cbBoOn);
+    const bs = cb.aspects.map((a,i) => [a,i]).filter(([a]) => a.boost && a.t);
+    const pick = (act, sel, list, none) => `<div class="forwho aspon" role="group">${none ? `<button type="button" data-a="${act}" data-v="" aria-pressed="${!sel}"><span class="cic">${IC('cards')}</span>${none}</button>` : ''}${list.map(t => `<button type="button" data-a="${act}" data-v="${t.id}" aria-pressed="${sel === t}">${N.av(N.tokObj(t), 28)}${esc(N.tokName(t))}</button>`).join('')}</div>`;
+    return sheet('Give a boost', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">A boost is one free invoke for one fighter. Only they can use it, and it’s gone once they do.${bs.length ? ' Tap a boost below to take it away.' : ''}</p>
+      ${bs.length ? `<div class="icards">${bs.map(([a,i]) => `<button type="button" class="icard boost" data-a="cbBoDel" data-i="${i}" title="Tap to take it away"><span class="k">Boost · ${esc(a.by)}${a.on ? ` · on ${esc(a.on)}` : ''}</span><span>${N.emoText(N.marks(esc(a.t)))}</span><span class="fi"><i></i></span></button>`).join('')}</div>` : ''}
+      ${toks.length ? `<div><h4>Who gets it</h4>${pick('cbBoPick', own, toks)}</div>
+      <label class="field"><span>Name the boost</span><input class="inp" id="cbbn-${v.id}" data-i="cbBoName" value="${esc(v.ui.cbBoName||'')}" placeholder="e.g. Off Balance, Higher Ground"></label>
+      <div><h4>On someone (optional)</h4>${pick('cbBoOn', on, toks.filter(t => t !== own), 'Nobody in particular')}
+        <p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${on ? `It shows on ${esc(N.tokName(on))}’s card, like <i>Off Balance</i> after a shove.` : 'Pin it to the fighter it works against, or leave it loose.'}</p></div>
+      <div><h4>How long it lasts</h4><div class="seg"><button type="button" data-a="cbBoLast" data-v="2" aria-pressed="${v.ui.cbBoLast !== 0}">Their next 2 rolls</button><button type="button" data-a="cbBoLast" data-v="0" aria-pressed="${v.ui.cbBoLast === 0}">Until they use it</button></div></div>`
+        : `<p class="muted" style="margin:0">Put someone in a zone first.</p>`}`,
+      toks.length ? `<button type="button" class="btn primary" data-a="cbBoGive" ${own ? '' : 'disabled'}>${IC('sparkle')}${own ? `Give ${esc(N.tokName(own))} the boost` : 'Pick who gets it'}</button>` : '');
+  }
   /* ---------------- character editor (GM) ---------------- */
   case 'pcEdit': return sheet(v.ui.pd.isNew ? `Make ${esc(pName(v.ui.pd.player))}’s card` : `Edit ${esc(v.ui.pd.short)}’s card`, N.textTools(v) + pcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="pcSave" ${v.ui.pd.name.trim()?'':'disabled'}>${IC('check')}${v.ui.pd.isNew?'Save and send to '+esc(pName(v.ui.pd.player)):'Save card'}</button>`, {wide:true});
   case 'npcNew': return sheet(v.ui.nd.edit ? `Edit ${esc(v.ui.nd.name || 'NPC')}` : 'New NPC', N.textTools(v) + npcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="npcSave" ${v.ui.nd.name.trim()?'':'disabled'}>${IC('check')}Save NPC</button>`, {wide:true});
