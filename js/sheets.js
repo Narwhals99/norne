@@ -722,12 +722,18 @@ function skillLadder(v, d, sel, del, rungs){
   const mv = del.replace('Del', 'Mv'), top = rungs[0][0], low = rungs[rungs.length-1][0];
   return `<div class="lad">${rungs.map(([x,w,n]) => { const here = used.filter(k => d.skills[k] === x); return `<div class="rung"><span class="lv"><b>${sgn(x)}</b>${w}${n?` · ${here.length}/${n}`:''}</span><span class="sks">${here.map(k => `<span class="skc"><b>${esc(k)}</b><button type="button" data-a="${mv}" data-v="${esc(k)}" data-d="-1" aria-label="Lower ${esc(k)}" title="Lower" ${x<=low?'disabled':''}>${IC('minus')}</button><button type="button" data-a="${mv}" data-v="${esc(k)}" data-d="1" aria-label="Raise ${esc(k)}" title="Raise" ${x>=top?'disabled':''}>${IC('plus')}</button><button type="button" data-a="${del}" data-v="${esc(k)}" aria-label="Remove ${esc(k)}" title="Remove">${IC('x')}</button></span>`).join('')}${!n || here.length < n ? `<select class="inp" data-i="${sel}" data-x="${x}" id="${sel}${x}-${v.id}" style="width:auto;min-height:34px;padding:4px 10px;border-radius:999px;font-size:14px"><option value="">+ Add</option>${opts}</select>` : ''}</span></div>`; }).join('')}</div>`;
 }
-/* disciplines for the skills that need one: a magic takes exactly one, the others can take several */
-function discPick(d, act){
+/* disciplines for the skills that need one: a magic takes exactly one, the others can take several.
+   "Other" lets the GM write in a discipline that isn't on the list; ones already written in elsewhere are suggested */
+function discPick(v, d, act){
   const ks = Object.keys(d.skills).filter(k => (N.DISC[k] || []).length).sort((a,b) => d.skills[b] - d.skills[a]);
   if (!ks.length) return '';
-  return `<div style="display:grid;gap:10px;margin-top:12px">${ks.map(k => { const mag = N.MAGIC.includes(k), have = N.discOf(d, k);
-    return `<div class="field"><span>${esc(k)} · ${mag ? 'pick its one discipline' : 'disciplines'}${have.length ? '' : ' <b style="color:var(--ember)">· none picked</b>'}</span><div class="dchips">${N.DISC[k].map(x => `<button type="button" class="cchip" data-a="${act}" data-s="${esc(k)}" data-v="${esc(x)}" aria-current="${have.includes(x)}" style="padding:0 12px">${esc(x)}</button>`).join('')}</div></div>`; }).join('')}</div>`;
+  const g = G(), all = [...Object.values(g.chars || {}), ...(g.npcs || [])], oth = v.ui.dOth || {};
+  return `<div style="display:grid;gap:10px;margin-top:12px">${ks.map((k, ki) => { const mag = N.MAGIC.includes(k), have = N.discOf(d, k), list = N.DISC[k];
+    const own = have.filter(x => !list.includes(x)), seen = [...new Set(all.flatMap(o => N.discOf(o, k)))].filter(x => !list.includes(x) && !have.includes(x));
+    const chip = (x, on, ic) => `<button type="button" class="cchip" data-a="${act}" data-s="${esc(k)}" data-v="${esc(x)}" aria-current="${on}" style="padding:0 12px"${ic ? ` aria-label="Remove ${esc(x)}"` : ''}>${esc(x)}${ic ? IC('x') : ''}</button>`;
+    const id = `dot${ki}-${act}-${v.id}`, txt = oth[act + '|' + k] || '';
+    return `<div class="field"><span>${esc(k)} · ${mag ? 'pick its one discipline' : 'disciplines'}${have.length ? '' : ' <b style="color:var(--ember)">· none picked</b>'}</span><div class="dchips">${list.map(x => chip(x, have.includes(x))).join('')}${own.map(x => chip(x, true, 1)).join('')}</div>
+      <div class="dother"><input class="inp" id="${id}" data-i="dOth" data-s="${esc(k)}" data-act="${act}" value="${esc(txt)}" placeholder="Other discipline" list="${id}l" autocomplete="off" maxlength="40"><datalist id="${id}l">${seen.map(x => `<option value="${esc(x)}">`).join('')}</datalist><button type="button" class="btn sm ghost" data-a="${act}Other" data-s="${esc(k)}" ${txt.trim() ? '' : 'disabled'}>${IC('plus')}Add</button></div></div>`; }).join('')}</div>`;
 }
 const raceList = v => `<datalist id="races-${v.id}">${N.RACES.map(r => `<option value="${r}">`).join('')}</datalist>`;
 const stunts = (v, d, pre) => `<div style="display:grid;gap:8px">${d.stunts.map(([n,t],i) => `<div style="display:grid;gap:6px;padding:10px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)"><div style="display:flex;gap:6px"><input class="inp" id="${pre}sn${i}-${v.id}" data-i="${pre}" data-k="stn" data-n="${i}" value="${esc(n)}" placeholder="Stunt name"><button type="button" class="ibtn sm" data-a="${pre}StuntDel" data-i="${i}" aria-label="Remove stunt">${IC('trash')}</button></div><textarea class="inp" id="${pre}sd${i}-${v.id}" data-i="${pre}" data-k="std" data-n="${i}" rows="2" placeholder="What it does" style="min-height:60px">${esc(t)}</textarea></div>`).join('')}
@@ -751,7 +757,7 @@ function pcEditor(v){
     </div></div>
     <div><h4>Skills · a starting character usually has one Great, two Good, three Fair and four Average</h4>${skillLadder(v, d, 'pdSkill', 'pdSkillDel', RUNGS)}
       ${extra.length ? `<p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">Also: ${extra.map(([k,x]) => `<button type="button" class="btn sm ghost" data-a="pdSkillDel" data-v="${esc(k)}" style="--h:28px">${esc(k)} ${sgn(x)} ${IC('x')}</button>`).join(' ')}</p>` : ''}
-      ${discPick(d, 'pdDisc')}</div>
+      ${discPick(v, d, 'pdDisc')}</div>
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
       <label class="field"><span>Melee weapon rating · Fighting, shifts added to a hit</span>${N.gearSelect(`pdga-${v.id}`, 'data-i="pd" data-k="gearAtk"', d.gearAtk)}</label>
       <label class="field"><span>Ranged weapon rating · Shooting, added to the attack roll</span>${N.gearSelect(`pdgr-${v.id}`, 'data-i="pd" data-k="gearRng"', d.gearRng)}</label>
@@ -779,7 +785,7 @@ function npcEditor(v){
     <div><h4>Aspects</h4><div style="display:grid;gap:8px">
       ${d.aspects.map((a,i) => `<label class="field"><span>Aspect ${i+1}</span><input class="inp" id="nda${i}-${v.id}" data-i="nd" data-k="asp" data-n="${i}" value="${esc(a||'')}" placeholder="Optional"></label>`).join('')}
     </div></div>
-    <div><h4>Skills</h4>${skillLadder(v, d, 'ndSkill', 'ndSkillDel', RUNGS)}${discPick(d, 'ndDisc')}</div>
+    <div><h4>Skills</h4>${skillLadder(v, d, 'ndSkill', 'ndSkillDel', RUNGS)}${discPick(v, d, 'ndDisc')}</div>
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
       <label class="field"><span>Melee weapon rating · Fighting, shifts added to a hit</span>${N.gearSelect(`ndga-${v.id}`, 'data-i="nd" data-k="gearAtk"', d.gearAtk)}</label>
       <label class="field"><span>Ranged weapon rating · Shooting, added to the attack roll</span>${N.gearSelect(`ndgr-${v.id}`, 'data-i="nd" data-k="gearRng"', d.gearRng)}</label>
