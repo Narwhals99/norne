@@ -18,7 +18,7 @@
   const LRU = 10;                  /* full-size baked maps kept (about 1 MB each as a file, decoded only while shown) */
   const THUMB = 160, MID = 1280;   /* longest side in px */
   const MAXPX = 8.4e6;             /* the biggest lore map is 7.5 million pixels; bigger ones are painted a little smaller */
-  const thumbs = new Map(), mids = new Map(), baked = new Map(), want = new Set();
+  const thumbs = new Map(), mids = new Map(), baked = new Map(), want = new Set(), fails = new Map();
   const queue = []; let busy = false, redraw = 0;
   const idOf = src => N.picBase(src);
   const later = () => { clearTimeout(redraw); redraw = setTimeout(() => N.renderAll && N.renderAll(), 60); };
@@ -102,17 +102,21 @@
   };
   N.mapBaked = (src, key) => baked.get(idOf(src) + '|' + key) || '';
   N.mapBake = (src, key, filter, el) => {
-    const id = idOf(src), k = id + '|' + key; if (baked.has(k)) return;
+    const id = idOf(src), k = id + '|' + key; if (baked.has(k) || (fails.get(k) || 0) >= 2) return;
     const u = N.imgUrl(src), M = N.mapMatrix(filter); if (!u || !M) return;
     const plain = M.m.join() === '1,0,0,0,1,0,0,0,1' && !M.o[0] && !M.o[1] && !M.o[2];
     /* no colour change: a picture file stays as it is; a data: picture just becomes a short blob: address */
     if (plain && !u.startsWith('data:')) { baked.set(k, u); return; }
-    if (plain) { add('b' + k, () => fetch(u).then(r => r.blob()).then(b => keep(k, b))); return; }
+    if (plain) { add('b' + k, () => fetch(u).then(r => r.blob()).then(b => keep(k, b)).catch(e => { failed(k); throw e; })); return; }
     /* the picture already on screen is used when it has loaded, so the map isn't opened a second time */
     add('b' + k, () => (el && el.complete && el.naturalWidth && el.src === u ? Promise.resolve(el) : load(u)).then(im => {
       const w = im.naturalWidth, h = im.naturalHeight, f = Math.min(1, Math.sqrt(MAXPX / (w * h)));
       const c = document.createElement('canvas'); c.width = Math.round(w * f); c.height = Math.round(h * f);
       const x = c.getContext('2d', {willReadFrequently:true}); x.drawImage(im, 0, 0, c.width, c.height);
+      /* an iPhone short of memory (often just after the app comes back from the background) can hand over a picture that
+         draws as nothing. Saved as a JPEG, nothing is solid black, and the map showed black under its pins (Jack,
+         2026-11-07). So look at a few spots first and keep the map as it was if the copy came out empty */
+      if (empty(x, c.width, c.height)) { free(c); throw new Error('map drew empty'); }
       /* a band of rows at a time, so the pixels being changed are a few MB, not a second copy of the whole map */
       const m = M.m, o = M.o, W = c.width, H = c.height;
       for (let y = 0; y < H; y += 128) {
@@ -126,8 +130,38 @@
         x.putImageData(band, 0, y);
       }
       return blobOf(c, .9).then(b => { free(c); keep(k, b); });
-    }));
+    }).catch(e => { failed(k); throw e; }));
   };
+  function empty(x, W, H){
+    for (let i = 1; i < 6; i++) for (let j = 1; j < 6; j++) {
+      if (x.getImageData(Math.floor(W * i / 6), Math.floor(H * j / 6), 1, 1).data[3]) return false;
+    }
+    return true;
+  }
+  /* a copy that failed is tried once more, then the map just keeps its CSS colour filter for this visit. (Without this a
+     failed copy was tried again after every redraw, and every try redraws the page.) */
+  function failed(k){ fails.set(k, (fails.get(k) || 0) + 1); }
+
+  /* blob: copies live only in memory. When iOS clears memory while the app sits in the background, an address can die
+     while the page lives on, and the map picture then fails to load and shows black. Any copy that fails to load, or
+     no longer reads back when the app comes to the front, is dropped, so the next redraw shows the original map */
+  function drop(url){
+    let hit = false;
+    for (const [k, u] of baked) if (u === url) { baked.delete(k); failed(k); hit = true; }
+    for (const [k, u] of mids) if (u === url) { mids.delete(k); hit = true; }
+    if (hit) later();
+    return hit;
+  }
+  document.addEventListener('error', e => {
+    const t = e.target;
+    if (t && t.tagName === 'IMG' && String(t.getAttribute('src') || '').startsWith('blob:')) drop(t.getAttribute('src'));
+  }, true);
+  N.mapCheck = () => {
+    const urls = [...new Set([...baked.values(), ...mids.values()])].filter(u => u.startsWith('blob:'));
+    return Promise.all(urls.map(u => fetch(u).then(r => r.blob()).then(b => { if (!b || !b.size) throw 0; }).catch(() => drop(u))));
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) N.mapCheck(); });
+  addEventListener('pageshow', e => { if (e.persisted) N.mapCheck(); });
   function keep(k, b){
     if (!b) return;
     baked.set(k, URL.createObjectURL(b));
