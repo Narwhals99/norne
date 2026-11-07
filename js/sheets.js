@@ -199,7 +199,7 @@ N.sheetHtml = function(v){
     /* the Pictures tab has two folders: the art that comes with Norne, and the GM's own uploads (opens on the one holding the current picture) */
     const pf = d.pf || (d.art && g.pics.some(u => u.src === d.art) ? 'up' : 'app');
     const fold = (k, name, n) => `<button type="button" data-a="sdFold" data-v="${k}" aria-pressed="${pf === k}">${IC('folder')}<span>${name}<small>${n} ${n === 1 ? 'picture' : 'pictures'}</small></span></button>`;
-    const pins = g.maps.flatMap(mp => mp.pins.filter(p => ['city','town','hood','region','tavern','landmark','shop','temple','nation'].includes(p.type)).map(p => ({map:mp.id, id:p.id, rx:p.rx, ry:p.ry, label:p.label, sub:mp.name})));
+    const pins = g.maps.flatMap(mp => mp.pins.filter(p => ['city','town','hood','region','tavern','landmark','shop','temple','nation'].includes(p.type)).map(p => ({map:mp.id, id:p.id, rx:p.rx, ry:p.ry, label:p.label, sub:p.sub ? `${p.sub} · ${mp.name}` : mp.name})));
     const pics = tab === 'recent' ? g.recent.map(r => ({...r, sub:r.where}))
       : tab === 'maps' ? pins.map(p => ({id:`pl:${p.map}:${p.id}`, title:p.label, sub:p.sub, place:{map:p.map, rx:p.rx, ry:p.ry}}))
       : pf === 'up' ? g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your upload', up:true}))

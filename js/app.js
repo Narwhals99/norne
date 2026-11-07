@@ -613,7 +613,8 @@ function input(v, el){
     case 'cbBoName': v.ui.cbBoName = val; return;
     case 'wipeType': if (v.ui.wipe) { v.ui.wipe.typed = val; const b = v.root.querySelector('[data-a="wipeGo"]'); if (b) b.disabled = !N.wipeMatch(v.ui.wipe); } return;
     case 'med': if (v.ui.med) v.ui.med.text = val; { const b = v.root.querySelector('[data-a="msgSave"]'); if (b) b.disabled = !val.trim(); } return;
-    case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .pl`); if (lab) lab.textContent = val; return; }
+    case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .plt`); if (lab) lab.textContent = val; return; }
+    case 'pinSub': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; const t = val.trim(); if (t) pin.sub = val; else delete pin.sub; const el = v.root.querySelector(`[data-pin="${pin.id}"]`), pl = el && el.querySelector('.pl'), pw = el && el.querySelector('.pw'); if (pw) { let sm = pw.querySelector('.psub'); if (t && !sm) { sm = document.createElement('small'); sm.className = 'psub'; pw.appendChild(sm); } if (sm) { if (t) sm.textContent = val; else sm.remove(); } pl.classList.toggle('two', !!t); } return; }
     case 'pinNote': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (pin) pin.note = val; return; }
     case 'dOth': { (v.ui.dOth = v.ui.dOth || {})[el.dataset.act + '|' + el.dataset.s] = val; const b = el.parentElement.querySelector('button'); if (b) b.disabled = !val.trim(); return; }
     case 'pd': {
