@@ -14,4 +14,6 @@ Everything in `art/` and `img/` is free to use. Some licenses ask for credit, so
 | Papyrus and vellum textures, wax seal (`art/ui/`) | Parchment & Wax style | Made for Norne (generated, no outside art) |
 | Paper, pencil frames, charcoal and pastel blocks, hatching (`art/ui/sketch/`) | Sketchbook style | Made for Norne (generated in greys, no outside art) |
 | Flowers, sparkles, hearts, bow and the backdrop pattern (`art/ui/gerleez/`), from [Twemoji](https://github.com/jdecked/twemoji) by Twitter and contributors, recoloured to the palette | 4-the-gerleez style | CC BY 4.0 |
+| [three.js](https://threejs.org/) r160 (`vendor/three.module.min.js`), by the three.js authors | 3D toy figures in the figure maker test | MIT |
+| Toy figures (`js/figkit.js`) | Figure maker test | Made for Norne (built from shapes in code, no outside art) |
 | Nörne maps and lore | Maps and wiki text | The GM's own campaign notes |
