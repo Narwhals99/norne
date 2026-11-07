@@ -650,6 +650,15 @@ function popHtml(v){
     const row = (a, ic, l, sub, x='') => `<button type="button" class="opt" data-a="${a}" ${x}><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${l}<small>${sub}</small></span></button>`;
     return `<div class="pop" style="${pos}" role="menu" aria-label="New">${row('wNew', 'quill', 'Wiki entry', 'A person, place or rule')}${row('writeNews', 'newsL', 'News edition', 'Players get a ping')}<div class="sep"></div>${row('sheet', 'gear', 'Categories', 'Rename, reorder, icons', 'data-v="wCats"')}</div>`;
   }
+  if (p.type === 'chars') {
+    /* the Character tab's dropdown: you, then every revealed character; a search box once the list gets long */
+    const list = heroList(v), mine = N.charOf(v.role), q = (v.ui.charQ || '').trim().toLowerCase();
+    const selId = v.ui.charSel && g.known?.[v.ui.charSel]?.name ? v.ui.charSel : mine?.id;
+    const me = list.filter(c => c.me), others = list.filter(c => !c.me), hit = others.filter(c => !q || c.b.toLowerCase().includes(q));
+    const row = c => `<button type="button" class="opt" role="option" data-a="charSel" data-v="${esc(c.id)}" aria-selected="${c.id === selId}">${N.av(c.av, 36)}<span style="min-width:0">${esc(c.me ? c.av.name : c.b)}<small>${c.me ? 'You · ' + c.sm : c.sm}</small></span>${c.id === selId ? `<span class="ck">${IC('check')}</span>` : ''}</button>`;
+    const find = others.length > 6 ? `<div class="pop-find">${IC('search')}<input class="inp" id="chq-${v.id}" data-i="charQ" placeholder="Find a character" value="${esc(v.ui.charQ || '')}" autocomplete="off" enterkeyhint="search"></div>` : '';
+    return `<div class="pop charpop" style="${pos}" role="listbox" aria-label="Characters">${me.map(row).join('')}${me.length && others.length ? '<div class="sep"></div>' : ''}${others.length ? `<div class="lbl">Characters you know</div>${find}${hit.map(row).join('') || `<p class="muted" style="margin:6px 10px 8px;font:600 13px/1.4 var(--f-ui)">No one by that name.</p>`}` : ''}</div>`;
+  }
   if (p.type === 'maps') {
     /* maps sit in folders; the dropdown opens one folder at a time, players only see folders that hold a map they can see */
     const gm = isGM(v), see = m => gm || m.vis !== false, here = N.dirById(v.ui.mapDir) ? v.ui.mapDir : null;
@@ -860,6 +869,13 @@ function paperHtml(p, prev){
 }
 
 /* ================= character / cast ================= */
+/* who the Character tab can show: your own card first, then everyone the GM revealed a name for (PCs and NPCs alike), by name */
+function heroList(v){
+  const g = G(), mine = N.charOf(v.role);
+  const known = Object.values(g.known || {}).filter(k => k.name).sort((a, b) => a.name.localeCompare(b.name));
+  return [...(mine ? [{id:mine.id, me:true, av:{name:mine.built ? mine.short : pn(mine), portrait:mine.built ? mine.portrait : null, color:mine.color}, b:'You', sm:mine.built ? N.emoText(N.marks(esc(N.pcTag(mine)))) : 'No card yet'}] : []),
+    ...known.map(k => ({id:k.id, av:{name:k.name, portrait:k.portrait, color:'var(--c-npc)'}, b:k.name, sm:N.MET[k.met] || 'Not marked', met:k.met}))];
+}
 function heroPage(v){
   const g = G(), mine = N.charOf(v.role);
   /* a player sees their own card in full, and other characters (PCs and NPCs alike) only once the GM revealed their name */
@@ -870,13 +886,11 @@ function heroPage(v){
   const bag = N.heroBag(v) && !!sel;
   if (bag && v.ui.heroInv) return heroInv(v, sel, mine);
   if (sel && sel.built && !isGM(v) && sel.player === v.role && v.ui.heroStats === sel.id) return heroStats(v, sel, mine);
-  const chip = (id, avo, b, sm) => `<button type="button" class="pchip" data-a="charSel" data-v="${esc(id)}" aria-current="${id===selId}">${N.av(avo,36)}<span><b>${esc(b)}</b><small>${sm}</small></span></button>`;
-  const chips = [...(mine ? [chip(mine.id, {name:mine.built ? mine.short : pn(mine), portrait:mine.built ? mine.portrait : null, color:mine.color}, 'You', mine.built ? N.emoText(N.marks(esc(N.pcTag(mine)))) : 'No card yet')] : []),
-    ...known.map(k => chip(k.id, {name:k.name, portrait:k.portrait, color:'var(--c-npc)'}, k.name, N.MET[k.met] || 'Not marked'))];
+  const list = heroList(v), cur = list.find(c => c.id === selId) || list[0];
   return `<div class="scroll" data-sk="hero" style="min-height:0">
     ${v.dev==='phone' ? `<div class="top ph">${meBtn(v)}<h1>${sel ? 'My character' : esc(kn.name)}</h1>${bag && sel.built ? `<button type="button" class="btn sm" data-a="heroInv" data-v="1">${IC('bag')}Inventory${sel.inv?.length ? ` <span class="tag" style="height:16px">${sel.inv.length}</span>` : ''}</button>` : ''}</div>` : ''}
     <div class="sheetv">
-      ${chips.length > 1 ? `<div class="hsw full"><button type="button" class="hsa l" data-hs="-1" aria-label="Scroll left" tabindex="-1">${IC('left')}</button><div class="party-row">${chips.join('')}</div><button type="button" class="hsa r" data-hs="1" aria-label="Scroll right" tabindex="-1">${IC('right')}</button></div>` : ''}
+      ${list.length > 1 ? `<div class="charbar full"><button type="button" class="pchip charsel" data-a="pop" data-v="chars" aria-haspopup="listbox" aria-expanded="${v.ui.pop?.type === 'chars'}" aria-label="Pick a character to look at">${N.av(cur.av, 36)}<span><small>${cur.id === mine?.id ? 'Your character' : 'Viewing'}</small><b>${esc(cur.id === mine?.id ? cur.av.name : cur.b)}</b></span><span class="cnt">${list.length - (mine ? 1 : 0)} known</span>${IC('caret')}</button></div>` : ''}
       ${sel ? N.sheetBody(v, sel) : knownBody(v, kn)}
     </div></div>`;
 }
