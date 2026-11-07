@@ -1819,6 +1819,7 @@ function act(v, a, el, e){
   case 'sdOneDel': ui.sd.extras.splice(+val, 1); break;
   case 'sdSave': { const s = ui.sd; sdKeep(s); if (!editScene(v, s)) { toast(v, 'That scene has ended. Start a new one instead.'); sdLoad(s, 'new'); break; } ui.sheet = null; renderAll(); return; }
   case 'sdTab': ui.sd.tab = val; break;
+  case 'sdFold': ui.sd.pf = val; break;
   case 'sdPick': {
     let p = null;
     if (val.startsWith('pl:')) { const [, map, pid] = val.split(':'); const mp = g.maps.find(m => m.id === map), pin = mp && mp.pins.find(x => x.id === pid); if (pin) p = {title:pin.label, where:mp.name, place:{map, rx:pin.rx, ry:pin.ry}}; }
@@ -1830,7 +1831,7 @@ function act(v, a, el, e){
   }
   case 'sdPickUp': ui.sd.art = val; ui.sd.place = null; ui.sd.touched = true; break;
   case 'sdFrame': if (ui.sd?.art) reframePic(v, ui.sd.art); return;
-  case 'sdUpload': uploadPicture(v, src => { ui.sd.art = src; ui.sd.place = null; ui.sd.touched = true; ui.sd.tab = 'pics'; }); return;
+  case 'sdUpload': uploadPicture(v, src => { ui.sd.art = src; ui.sd.place = null; ui.sd.touched = true; ui.sd.tab = 'pics'; ui.sd.pf = 'up'; }); return;
   case 'sdAspAdd': { const t = (ui.sd.newAsp || '').trim(); if (t) { ui.sd.aspects.push({t, free:0, k:uid('a')}); ui.sd.newAsp = ''; } break; }
   case 'sdAspFree': { const a = ui.sd.aspects[+d.i]; a.free = ((a.free || 0) + 1) % 3; break; }
   case 'sdAspDel': ui.sd.aspects.splice(+d.i, 1); break;
