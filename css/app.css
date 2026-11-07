@@ -2396,3 +2396,12 @@
   .app .inv .it:has(.eqb){grid-template-columns:36px 1fr auto}
   .app .inv .it:has(.eqb) .mini{grid-column:1/-1;justify-content:flex-end}
 }
+/* the GM's shifts on a result, after the roll (sheet 'shifts', Shifts button on roll and result cards) */
+.app .shmod{margin-top:4px}
+.app .shnow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 13px/1.2 var(--f-ui);color:var(--ink-2)}
+.app .roll .rf .gsh{font-weight:800}
+.app .roll .rf .gsh.buf{color:var(--jade)}
+.app .resm .rs-out .shbtn{margin-left:auto;flex:none}
+.app .shbtn svg{width:14px;height:14px}
+.app .ff .gsh{font-weight:800;color:var(--gold-tx)}
+.app .shnow .out{display:inline-flex;align-items:center;height:26px;padding:0 11px;border-radius:999px;font:800 11.5px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;flex:none}

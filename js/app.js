@@ -1210,6 +1210,9 @@ function act(v, a, el, e){
   case 'newVoice': ui.pop = null; openSheet(v, 'npcNew', {from:'voice'}); break;
   case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; ui.invBy = null; ui.invName = ''; break;
   case 'invMod': invMod(v, +d.d); return;
+  case 'shifts': ui.pop = null; ui.sheet = 'shifts'; ui.sheetArg = d.id; ui.shDraft = null; break;
+  case 'shAdj': { const was = shiftOf(v); ui.shDraft = clamp((ui.shDraft ?? was) + (+d.d), -6, 6); break; }
+  case 'shApply': shApply(v); return;
   case 'invBy': ui.invBy = val; break;
   /* add a situation aspect from the invoke sheet, then come back to it */
   case 'invAsp': ui.invBack = ui.sheetArg; ui.sheet = 'cbAspect'; break;
@@ -2057,6 +2060,23 @@ function invMod(v, d){
   r.bonus += now - was; if (now) r.mod = now; else delete r.mod;
   const p = g.combat.pending; if (p && p.msgId === m.id) p.total = N.rollTotal(r);
   N.cbReresolve(m);
+  renderAll();
+}
+/* the GM's shifts on a result, after the roll (sheet 'shifts'): on a roll with a difficulty, or on the open attack's result */
+function shiftOf(v){
+  const g = G(), a = v.ui.sheetArg;
+  if (a === 'fight') { const q = N.cbOpen(); return q ? q.shift || 0 : 0; }
+  const m = g.msgs.find(x => x.id === a); return m && m.kind === 'roll' ? m.roll.shift || 0 : 0;
+}
+function shApply(v){
+  const g = G(), ui = v.ui, n = clamp(ui.shDraft ?? shiftOf(v), -6, 6); if (!isGM(v)) return;
+  if (ui.sheetArg === 'fight') { if (!N.cbShift(n)) return; }
+  else {
+    const m = g.msgs.find(x => x.id === ui.sheetArg); if (!m || m.kind !== 'roll' || m.roll.opp == null) return;
+    if (n) m.roll.shift = n; else delete m.roll.shift;
+  }
+  ui.sheet = null; ui.shDraft = null;
+  toast(v, n ? `${n > 0 ? 'Added' : 'Took away'} ${Math.abs(n)} shift${Math.abs(n) === 1 ? '' : 's'} on the result.` : 'Shifts back to the roll.');
   renderAll();
 }
 function doInvoke(v, i, reroll){
