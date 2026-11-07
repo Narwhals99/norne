@@ -17,7 +17,8 @@
 .app[data-vg] :is(.page,.rail-a,.rcnt,.shelf:not(.drawer),.nav)::before{
   content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;
   box-shadow:inset 0 0 var(--vg-b) var(--vg-s) rgba(var(--vg-rgb),var(--vg-a))}
-.app[data-vg] :is(.rail-a,.rcnt,.shelf,.nav){position:relative}
+/* not the phone chat drawer: it must stay pinned to the screen (position:absolute) or it grows past the bottom and its list cannot scroll */
+.app[data-vg] :is(.rail-a,.rcnt,.shelf:not(.drawer),.nav){position:relative}
 @container dev (max-width: 759px){
   .app[data-vg] .tabbar{isolation:isolate}
   .app[data-vg] .tabbar::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;box-shadow:inset 0 0 40px -4px rgba(var(--vg-rgb),calc(var(--vg-a)*.8))}
