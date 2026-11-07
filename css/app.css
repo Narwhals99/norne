@@ -2413,9 +2413,10 @@
 .app .ff .gsh{font-weight:800;color:var(--gold-tx)}
 .app .shnow .out{display:inline-flex;align-items:center;height:26px;padding:0 11px;border-radius:999px;font:800 11.5px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;flex:none}
 /* character lifetime stats (Character tab > Stats) */
-.app .statrow{display:flex;justify-content:center;margin:-4px 0 -2px}
+.app .statrow{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:-4px 0 -2px}
 .app .statbtn{min-width:180px;justify-content:center;height:42px;font-size:15px;color:var(--gold-tx);border-color:color-mix(in srgb,var(--gold) 55%,transparent)}
 .app .statbtn svg{width:18px;height:18px}
+.app .statrow:has(.statbtn+.statbtn) .statbtn{min-width:0;flex:1 1 0;max-width:180px}
 .app .stats .stathero{grid-template-columns:auto 1fr auto;align-items:center}
 .app .stiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media (min-width:900px){.app .stiles{grid-template-columns:repeat(4,minmax(0,1fr))}}

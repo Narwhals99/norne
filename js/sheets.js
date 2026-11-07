@@ -297,6 +297,7 @@ N.sheetHtml = function(v){
         <button type="button" data-a="sheet" data-v="import">${IC('upload')}<span>Import lore<small>Load the wiki and maps from your lore file</small></span><span class="end">${IC('right')}</span></button>
         <button type="button" data-a="sheet" data-v="export">${IC('export')}<span>Export the log<small>Copy or save chats as text</small></span><span class="end">${IC('right')}</span></button>`
         : `<button type="button" data-a="tab" data-v="hero">${IC('hero')}<span>My character<small>${c && c.built?N.emoText(N.marks(esc(N.pcTag(c)))):'Not made yet'}</small></span><span class="end">${IC('right')}</span></button>`}
+        ${N.figOk && N.figOk() ? `<button type="button" data-a="figOpen">${IC('hero')}<span>Toy figure maker<small>A test only you can see</small></span><span class="end">${IC('right')}</span></button>` : ''}
         <button type="button" data-a="sheet" data-v="credits">${IC('heart')}<span>Art credits<small>Free art used in this app</small></span><span class="end">${IC('right')}</span></button>
         <button type="button" data-a="signOut">${IC('signout')}<span>Sign out</span></button>
       </div>`;
