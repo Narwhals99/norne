@@ -196,7 +196,7 @@ N.sheetHtml = function(v){
   /* ---------------- scene picker (GM) ---------------- */
   case 'scene': {
     const d = v.ui.sd, tab = d.tab;
-    const pins = g.maps.flatMap(mp => mp.pins.filter(p => ['city','town','hood','region','tavern','landmark','shop','temple','nation'].includes(p.type)).map(p => ({map:mp.id, id:p.id, rx:p.rx, ry:p.ry, label:p.label, sub:mp.name})));
+    const pins = g.maps.flatMap(mp => mp.pins.filter(p => ['city','town','hood','region','tavern','landmark','shop','temple','nation'].includes(p.type)).map(p => ({map:mp.id, id:p.id, rx:p.rx, ry:p.ry, label:p.label, sub:p.sub ? `${p.sub} · ${mp.name}` : mp.name})));
     const pics = tab === 'recent' ? g.recent.map(r => ({...r, sub:r.where}))
       : tab === 'maps' ? pins.map(p => ({id:`pl:${p.map}:${p.id}`, title:p.label, sub:p.sub, place:{map:p.map, rx:p.rx, ry:p.ry}}))
       : [...g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your picture', up:true})), ...N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Picture'}))];
