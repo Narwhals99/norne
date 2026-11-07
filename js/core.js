@@ -118,7 +118,8 @@ const rollTotal = r => diceSum(r) + r.bonus + 2*plusInvokes(r);
 N.skillPart = r => r.bonus - (r.gear||0) + (r.dist||0) - (r.mod||0);
 function outcome(r){
   if (r.opp == null) return null;
-  const sh = rollTotal(r) - r.opp;
+  /* r.shift: the GM's shifts added to or taken off the result afterwards (−6..+6); the roll itself stays as rolled */
+  const sh = rollTotal(r) - r.opp + (r.shift || 0);
   if (sh < 0) return {k:'fail', t:'Fail', sh};
   if (sh === 0) return {k:'tie', t:'Tie', sh};
   if (sh < 3) return {k:'succ', t:'Success', sh};

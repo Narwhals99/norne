@@ -194,7 +194,7 @@ function latestHtml(v){
   if (!res && !roll) return '';
   const keep = v._lastRoll; if (roll) v._lastRoll = roll.id;
   const rh = roll ? N.rRoll(v, roll) : ''; v._lastRoll = keep;
-  return `<div class="fight-latest"><span class="eyebrow">Last in the fight<button type="button" class="lnk" data-a="pane" data-v="chat">Whole chat${IC('right')}</button></span>${res && (!roll || res.t > roll.t) ? N.resCard(res.res) + rh : rh + (res ? N.resCard(res.res) : '')}</div>`;
+  return `<div class="fight-latest"><span class="eyebrow">Last in the fight<button type="button" class="lnk" data-a="pane" data-v="chat">Whole chat${IC('right')}</button></span>${res && (!roll || res.t > roll.t) ? N.resCard(res.res, v) + rh : rh + (res ? N.resCard(res.res, v) : '')}</div>`;
 }
 /* a GM's secret custom event in this fight: it lives in GM notes (players never get it) but shows in the GM's fight log */
 /* a roll in GM notes is a secret one, unless the fight itself is in GM notes */
@@ -225,8 +225,8 @@ function actRows(v, ms, past, near){
   const g = G(), cb = g.combat, keep = v._lastRoll; v._lastRoll = past ? null : (ms.findLast(m => m.kind === 'roll') || {}).id;
   const live = m => (m.kind === 'fight' || m.kind === 'combat') && cb.state !== 'off' && m.cid === cb.id;
   const go = m => near ? ` data-a="nearMsg" data-v="${m.id}" title="Show this moment in the chat"` : '';
-  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll${near ? ' near' : ''}" data-mid="${m.id}"${go(m)}><div class="who">${esc(m.roll.who)}${secretM(m) ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time>${near ? `<span class="inchat">${IC('chatL')}In chat</span>` : ''}</div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
-    : m.kind === 'sys' && m.res ? N.resCard(m.res).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
+  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll${near ? ' near' : ''}" data-mid="${m.id}"${go(m)}><div class="who">${esc(m.roll.who)}${secretM(m) ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time>${near ? `<span class="inchat">${IC('chatL')}In chat</span>` : ''}</div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '').replace(/<button type="button" class="btn sm shbtn"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
+    : m.kind === 'sys' && m.res ? N.resCard(m.res, past ? null : v).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
     : m.fc ? `<div class="fcm${m.by === v.role ? ' mine' : ''}"><b>${esc(N.personObj(m.by).name)}</b><span>${N.emoText(N.marks(esc(m.text)))}</span><time>${N.hhmm(m.t)}</time></div>`
     : m.fightEnd ? `<div data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}" title="See what happened" class="go ff end"><span class="ffi">${IC('swords')}</span><span class="fft">${esc(m.text)} <b>See what happened</b></span></div>`
     : live(m) ? feedRow(m, false).replace('<div class="ff', `<div data-a="mode" data-v="cb" title="Open the fight" class="go ff`)
@@ -249,11 +249,12 @@ function feedRow(m, live){
     const r = m.roll, tot = N.rollTotal(r), dice = r.dice.map(d => `<i class="${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':''}</i>`).join('');
     const inv = r.invokes.length ? ` · ${r.invokes.length} invoke${pl(r.invokes.length)}` : '';
     if (r.event) return line(`<span class="ffd">${dice}</span>`, `<b>${esc(r.who)}</b> ${esc(r.skill)} event${N.evText(r) ? `: ${esc(N.evText(r))}` : ''}${r.vs ? ` against ${esc(r.vs.name || r.vs.skill)}` : ''}${secretM(m) ? ' · secret' : ''}${inv}`, ' roll ev',
-      `<b class="ffv">${sgn(tot)}${r.opp != null ? `<small> vs ${sgn(r.opp)}</small>` : ''}</b>${live && !secretM(m) ? `<button type="button" class="ffb" data-a="invoke" data-id="${m.id}">${IC('cards')}Invoke</button>` : ''}`);
+      `<b class="ffv">${sgn(tot)}${r.opp != null ? `<small> vs ${sgn(r.opp)}</small>` : ''}</b>${live && r.opp != null && G().role === 'gm' ? `<button type="button" class="ffb" data-a="shifts" data-id="${m.id}" title="Add or take away shifts from the result">${IC('swap')}Shifts</button>` : ''}${live && !secretM(m) ? `<button type="button" class="ffb" data-a="invoke" data-id="${m.id}">${IC('cards')}Invoke</button>` : ''}`);
     return line(`<span class="ffd">${dice}</span>`, `<b>${esc(r.who)}</b> ${esc(r.skill)} ${esc(r.action.toLowerCase())}${r.target ? ` ${r.action === 'Defend' ? 'against' : 'on'} ${esc(r.target)}` : ''}${inv}`, ' roll',
       `<b class="ffv">${sgn(tot)}</b>${live && !secretM(m) ? `<button type="button" class="ffb" data-a="invoke" data-id="${m.id}">${IC('cards')}Invoke</button>` : ''}`);
   }
-  if (m.kind === 'sys' && m.res && m.res.k === 'clash') return line(IC('swords'), `<b>${esc(m.res.out?.t || '')}</b> ${esc(m.res.after || '')}`, ` res ${m.res.out?.k || ''}`);
+  if (m.kind === 'sys' && m.res && m.res.k === 'clash') return line(IC('swords'), `<b>${esc(m.res.out?.t || '')}</b>${m.res.shift ? ` <span class="gsh">${esc(N.gmName())} ${sgn(m.res.shift)} shift${Math.abs(m.res.shift) === 1 ? '' : 's'}</span>` : ''} ${esc(m.res.after || '')}`, ` res ${m.res.out?.k || ''}`,
+    G().role === 'gm' && m.res.rid && N.cbOpen()?.resId === m.res.rid ? `<button type="button" class="ffb" data-a="shifts" data-id="fight" title="Add or take away shifts from this result">${IC('swap')}Shifts</button>` : '');
   if (m.kind === 'sys' && m.res && m.res.k === 'order') return line(IC('clock'), `<b>Turn order</b> ${(m.res.rows || []).map(x => `${esc(x.n)} ${sgn(x.tot)}`).join(' · ')}`);
   if (m.kind === 'sys') return line(IC('info'), esc(m.text || ''));
   if (m.kind === 'combat' || m.kind === 'fight') return line(IC('swords'), `<b>The fight begins</b> ${esc(m.text || '')}`);
@@ -635,7 +636,9 @@ N.cbResolve = function(again){
   const g = G(), cb = g.combat, p = cb.pending; if (!p || !p.defMsg) return;
   const a = N.tokById(p.att), d = N.tokById(p.def), am = g.msgs.find(m => m.id === p.msgId), dm = g.msgs.find(m => m.id === p.defMsg);
   if (!a || !d || !dm) { cb.pending = null; return; }
-  const an = N.tokName(a), dn = N.tokName(d), dt = N.rollTotal(dm.roll), sh = p.total - dt;
+  /* p.shift: the GM's shifts added to or taken off this result after the rolls (N.cbShift), −6..+6 */
+  const an = N.tokName(a), dn = N.tokName(d), dt = N.rollTotal(dm.roll), sh0 = p.total - dt, gs = p.shift || 0, sh = sh0 + gs;
+  const gsL = gs ? `Rolls ${sgn(sh0)} · ${N.gmName()} ${sgn(gs)} shift${Math.abs(gs) === 1 ? '' : 's'}` : '';
   let wpn = sh > 0 ? N.atkGear(a, p.skill).hit : 0, wpnL = N.atkGear(a, p.skill).hitL;
   const arm = sh > 0 ? N.tokGear(d, 'gearDef') : 0;
   /* Jake's weapon rules: two dual-wielded weapons both count on a hit with style (3+ on the rolls), and silver adds one shift
@@ -647,7 +650,7 @@ N.cbResolve = function(again){
   const boost = (o, on) => { (fx.boosts = fx.boosts || []).push(N.addBoost(o, on).id); };
   let out, after, calc = null, fo;
   if (sh > 0) {
-    if (wpn || arm || silver || p.boosted) calc = `Hit by ${sh}${wpn ? ` · ${wpnL} +${wpn}` : ''}${silver ? ' · silver +1' : ''}${arm ? ` · armor −${arm}` : ''}${p.boosted ? ' · traded −2 for a boost' : ''} = ${dmg} shift${dmg===1?'':'s'}`;
+    if (wpn || arm || silver || p.boosted || gs) calc = `${gs ? gsL + ' → hit' : 'Hit'} by ${sh}${wpn ? ` · ${wpnL} +${wpn}` : ''}${silver ? ' · silver +1' : ''}${arm ? ` · armor −${arm}` : ''}${p.boosted ? ' · traded −2 for a boost' : ''} = ${dmg} shift${dmg===1?'':'s'}`;
     const style = sh >= 3 && dmg > 0 && !p.boosted;
     out = {k:'hit', t:dmg ? `Hit${style ? ' with style' : ''} · ${dmg} shift${dmg>1?'s':''}` : 'Hit · armor holds'};
     if (!dmg) { after = `${dn}’s armor takes the whole blow. No harm done.`; N.cbSettled(p); fo = 'armor'; }
@@ -657,10 +660,13 @@ N.cbResolve = function(again){
   else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ` and gets a boost on ${an}` : ''}. No harm done.`; N.cbSettled(p); if (sh <= -3) boost(d, a); fo = sh <= -3 ? 'bstyle' : 'block'; }
   /* a crossbow leaves its wielder with the negative Reloading boost after every attack, hit or miss: the defender can invoke it */
   if (p.skill === 'Shooting' && N.tokGear(a, 'reload')) { (fx.boosts = fx.boosts || []).push(N.addBoost(d, a, 'Reloading').id); if (after) after += ` ${an} is Reloading.`; }
+  if (gs && sh <= 0) calc = `${gsL} = ${sh ? sgn(sh) : 'a tie'}`;
   const att = am ? rollLine(an, am.roll) : {n:an, sk:p.skill, b:0, g:0, tot:p.total}; att.tot = p.total;
-  const title = `${an} attacks ${dn}${again ? ', after invokes' : ''}`;
+  const title = `${an} attacks ${dn}${again === 'shift' ? `, after ${N.gmName()}’s shifts` : again ? ', after invokes' : ''}`;
   const res = {k:'clash', title, rows:[att, rollLine(dn, dm.roll)], out, after};
   if (calc) res.calc = calc;
+  /* only the newest card of an attack offers the GM's shifts button */
+  res.rid = p.resId = N.uid('r'); if (gs) res.shift = gs;
   /* what every screen's board plays (js/fx.js): the weapon from the attack skill, the outcome, and the box the hit checked */
   res.anim = {att:a.id, def:d.id, wpn:N.fxWeapon ? N.fxWeapon(p.skill) : 'sword', out:fo, dmg};
   if (fx.box != null) res.anim.box = fx.box;
@@ -713,6 +719,20 @@ N.cbAbsorb = function(k, i){
   else if (k === 'out') { t.out = true; sys(`${nm} can’t soak the ${sh} and is taken out.`); }
   else { N.tokSrcCons(t)[k] = 'Hurt in the fight'; const sl = N.tokCons(t).find(x => x.k === k); sys(`${nm} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
   N.cbSettled(p); return true;
+};
+/* the attack the GM can still change: the one waiting on its soak or style pick, or the last one settled */
+N.cbOpen = () => { const cb = G().combat, p = cb.pending; return p && p.defMsg ? p : !p && cb.last ? cb.last : null; };
+/* the GM adds shifts to or takes them off the result of the open attack (−6..+6): the rolls stay as rolled, the outcome
+   (hit, tie, miss, with style, damage) is worked out again like after an invoke */
+N.cbShift = function(n){
+  const g = G(), cb = g.combat, q = N.cbOpen(); if (!q) return false;
+  n = Math.max(-6, Math.min(6, n | 0)); if (n === (q.shift || 0)) return false;
+  if (n) q.shift = n; else delete q.shift;
+  /* the defense roll's own card follows: what the attacker gains, the defender loses */
+  const dm = g.msgs.find(x => x.id === q.defMsg); if (dm) { if (n) dm.roll.shift = -n; else delete dm.roll.shift; }
+  N.cbUndo(q); cb.pending = q; cb.last = null;
+  N.cbResolve('shift');
+  return true;
 };
 N.cbReresolve = function(m){
   const g = G(), cb = g.combat, p = cb.pending, l = cb.last;

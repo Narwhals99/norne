@@ -167,6 +167,32 @@ N.sheetHtml = function(v){
     const addBoost = addAsp && `<button type="button" class="btn ghost" data-a="invBoost">${IC('sparkle')}Give a boost</button>`;
     return sheet('Invoke an aspect', body + modRow, addAsp + addBoost);
   }
+  /* ---------------- the GM's shifts on a result (after the roll) ---------------- */
+  case 'shifts': {
+    if (!gm) return '';
+    /* arg is a roll's id, or 'fight' for the open attack's result card */
+    const fight = arg === 'fight', q = fight && N.cbOpen(), m = !fight && g.msgs.find(x => x.id === arg);
+    if (fight ? !q : !m || m.kind !== 'roll' || m.roll.opp == null) return '';
+    const was = (fight ? q.shift : m.roll.shift) || 0, n = v.ui.shDraft ?? was;
+    let base, who, what;
+    if (fight) {
+      const dm = g.msgs.find(x => x.id === q.defMsg), dt = dm ? N.rollTotal(dm.roll) : 0;
+      who = `${N.tokName(N.tokById(q.att)) || 'The attacker'}`; base = q.total - dt;
+      what = `${esc(who)} rolled ${sgn(q.total)} against ${esc(N.tokName(N.tokById(q.def)) || 'the defense')}’s ${sgn(dt)}`;
+    } else {
+      const r = m.roll; who = r.who; base = N.rollTotal(r) - r.opp;
+      what = `${esc(who)} rolled ${sgn(N.rollTotal(r))} against ${sgn(r.opp)}`;
+    }
+    const sh = base + n;
+    const word = fight ? (sh > 0 ? `Hit by ${sh}` : sh === 0 ? 'Tie' : sh <= -3 ? 'Defended with style' : 'Defended')
+      : N.outcome({dice:[0], bonus:sh, opp:0, invokes:[]}).t + (sh ? ` · ${sh > 0 ? '+' : '−'}${Math.abs(sh)}` : '');
+    const k = fight ? (sh > 0 ? 'fail' : sh === 0 ? 'tie' : 'succ') : (sh < 0 ? 'fail' : sh === 0 ? 'tie' : sh < 3 ? 'succ' : 'style');
+    const body = `<div class="note">${IC('swap')}Change the outcome after the dice. The roll stays as rolled, the shifts move. ${fight ? 'Hit, tie or miss, damage and boosts follow, like after an invoke.' : ''}</div>
+      <p class="rollsum" style="margin:0">${what}: ${base > 0 ? `${base} shift${base === 1 ? '' : 's'} up` : base < 0 ? `${-base} shift${base === -1 ? '' : 's'} short` : 'a tie'}.</p>
+      <div class="invmod shmod"><span class="grow"><b>${n > 0 ? 'Add shifts' : n < 0 ? 'Take away shifts' : 'No change'}</b><small>Up to +6 or −6. Everyone sees it on the result.</small></span><span class="seg"><button type="button" data-a="shAdj" data-d="-1" aria-label="One shift less" ${n <= -6 ? 'disabled' : ''}>${IC('minus')}</button><b class="${n > 0 ? 'buf' : n < 0 ? 'deb' : ''}">${n ? sgn(n) : '0'}</b><button type="button" data-a="shAdj" data-d="1" aria-label="One shift more" ${n >= 6 ? 'disabled' : ''}>${IC('plus')}</button></span></div>
+      <div class="shnow"><span>Result</span><span class="out ${k}">${esc(word)}</span></div>`;
+    return sheet('Shifts on the result', body, `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn gold" data-a="shApply" ${n === was ? 'disabled' : ''}>${IC('check')}Apply ${n ? sgn(n) : 'no'} shift${Math.abs(n) === 1 ? '' : 's'}</button>`);
+  }
   /* ---------------- scene picker (GM) ---------------- */
   case 'scene': {
     const d = v.ui.sd, tab = d.tab;
@@ -842,7 +868,7 @@ const hhmm = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-
 function rollText(r){
   const tot = N.rollTotal(r), o = N.outcome(r);
   const pl = N.plusInvokes(r), rr = r.invokes.filter(i => i.reroll), ag = r.invokes.filter(i => i.opp), by = i => i.by ? ` by ${i.by}` : '';
-  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''}${r.dist?` incl. distance −${r.dist}`:''}${r.mod?` incl. ${r.mod > 0 ? 'buff' : 'debuff'} ${sgn(r.mod)}`:''} (${r.event ? `event${typeof r.event === 'string' ? ` “${r.event}”` : ''}, ` : ''}${r.action}${r.target?` on ${r.target}`:''}${r.oppDice?`, opposed roll ${r.oppDice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')} ${sgn(r.oppBase)}`:''}${r.vs?` against ${r.vs.name ? r.vs.name + (r.vs.skill ? `’s ${r.vs.skill}` : '') : r.vs.skill}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll && !i.opp).map(i => '“' + i.aspect + '”' + by(i)).join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”' + by(i)).join(', ')}`:''}${ag.length?`, the other side invoked ${ag.map(i => '“' + i.aspect + '”' + by(i)).join(', ')} (+${2*ag.length} to beat)`:''} → ${sgn(tot)} (${ladderWord(tot)})${o?` vs ${sgn(r.opp)} (${ladderWord(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}`:''}.`;
+  return `${r.who}, ${r.skill} ${sgn(r.bonus)}${r.gear?` incl. gear ${sgn(r.gear)}`:''}${r.dist?` incl. distance −${r.dist}`:''}${r.mod?` incl. ${r.mod > 0 ? 'buff' : 'debuff'} ${sgn(r.mod)}`:''} (${r.event ? `event${typeof r.event === 'string' ? ` “${r.event}”` : ''}, ` : ''}${r.action}${r.target?` on ${r.target}`:''}${r.oppDice?`, opposed roll ${r.oppDice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')} ${sgn(r.oppBase)}`:''}${r.vs?` against ${r.vs.name ? r.vs.name + (r.vs.skill ? `’s ${r.vs.skill}` : '') : r.vs.skill}`:''}). Dice ${r.dice.map(d => d > 0 ? '+' : d < 0 ? '−' : '0').join(' ')}${pl?`, invoked ${r.invokes.filter(i => !i.reroll && !i.opp).map(i => '“' + i.aspect + '”' + by(i)).join(', ')} (+${2*pl})`:''}${rr.length?`, rerolled with ${rr.map(i => '“' + i.aspect + '”' + by(i)).join(', ')}`:''}${ag.length?`, the other side invoked ${ag.map(i => '“' + i.aspect + '”' + by(i)).join(', ')} (+${2*ag.length} to beat)`:''} → ${sgn(tot)} (${ladderWord(tot)})${o?` vs ${sgn(r.opp)} (${ladderWord(r.opp)}): ${o.t}${o.sh?`, ${Math.abs(o.sh)} shift${Math.abs(o.sh)===1?'':'s'}`:''}${r.shift?` (GM ${sgn(r.shift)} shift${Math.abs(r.shift)===1?'':'s'} after the roll)`:''}`:''}.`;
 }
 function exLine(m){
   const t = `[${hhmm(m.t)}]`;
@@ -860,7 +886,7 @@ function exLine(m){
    results and notices. A fight's own chat (fc) is never exported. */
 function exEntry(m){
   const t = new Date(m.t).toISOString();
-  if (m.kind === 'roll') { const r = m.roll, o = N.outcome(r); return {t, type:'roll', who:r.who, action:r.action, skill:r.skill, skillBonus:N.skillPart(r), gear:r.gear || 0, ...(r.dist ? {distance:-r.dist} : {}), ...(r.mod ? {buff:r.mod} : {}), target:r.target || null, vs:r.vs || null, opposedDice:r.oppDice || null, opposedBonus:r.oppDice ? r.oppBase : null, dice:r.dice, invokes:r.invokes.map(i => ({aspect:i.aspect, reroll:!!i.reroll, ...(i.opp ? {againstRoll:true} : {}), ...(i.by ? {by:i.by} : {})})), total:N.rollTotal(r), ladder:ladderWord(N.rollTotal(r)), against:r.opp ?? null, outcome:o ? o.t : null, shifts:o ? o.sh : null, secret:m.ch === 'gm'}; }
+  if (m.kind === 'roll') { const r = m.roll, o = N.outcome(r); return {t, type:'roll', who:r.who, action:r.action, skill:r.skill, skillBonus:N.skillPart(r), gear:r.gear || 0, ...(r.dist ? {distance:-r.dist} : {}), ...(r.mod ? {buff:r.mod} : {}), target:r.target || null, vs:r.vs || null, opposedDice:r.oppDice || null, opposedBonus:r.oppDice ? r.oppBase : null, dice:r.dice, invokes:r.invokes.map(i => ({aspect:i.aspect, reroll:!!i.reroll, ...(i.opp ? {againstRoll:true} : {}), ...(i.by ? {by:i.by} : {})})), total:N.rollTotal(r), ladder:ladderWord(N.rollTotal(r)), against:r.opp ?? null, outcome:o ? o.t : null, shifts:o ? o.sh : null, ...(r.shift ? {gmShifts:r.shift} : {}), secret:m.ch === 'gm'}; }
   if (m.kind === 'sys' && m.res && m.res.k === 'order') return {t, type:'turn_order', order:(m.res.rows || []).map(x => ({name:x.n, notice:x.sk, total:x.tot}))};
   if (m.kind === 'sys' && m.res) { const [a, d] = m.res.rows || [], side = x => x && {name:x.n, skill:x.sk, skillBonus:x.b - (x.g||0), gear:x.g || 0, total:x.tot}; return {t, type:'attack_result', title:m.res.title, attack:side(a), defense:side(d), damage:m.res.calc || null, outcome:m.res.out?.t || null, after:m.res.after || null}; }
   if (m.kind === 'sys') return {t, type:'note', text:m.text};
