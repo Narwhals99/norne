@@ -7,7 +7,7 @@
    The maker is its own layer over the app (outside #app), so redraws of the app never touch its canvas. */
 (function(){
 const N = window.N;
-const ALLOW = ['6cbce0351eb3c3d6fd8a839fbce2ede284dee6981a0b6dad5f4a5691a1a064e5'];
+const ALLOW = ['b5253f6572ed46d2835da08cf45e30be033423abbc64525079af9632bd1bc952'];
 let hashFor = null, allowed = false;
 N.figOk = () => {
   const e = ((N.me && N.me()) || {}).email; if (!e) return false;
