@@ -26,6 +26,8 @@ function tokHtml(v, t, size){
   const hit = p && (p.def === t.id) ? ' style="--ring:var(--ember)"' : '';
   const mine = N.isMine(t, v.role);
   if (mine) cls.push('me');
+  /* standing as a 3D figure (js/figboard.js): the circle hides, the name and stress boxes stay */
+  if (N.figHas && N.figHas(v, t)) cls.push('fig');
   return `<button type="button" class="${cls.join(' ')}" data-tok="${t.id}" aria-label="${esc(name)}${out?' (taken out)':''}"${hit}>${N.av(o, size)}<span class="nm">${mine?'You':esc(name)}</span>${out?'':`<span class="st">${st.v.map((x,i)=>`<i class="${on(i)?'on':''}"></i>`).join('')}</span>`}${t.kind==='npc'&&t.side==='ally'?`<span class="ji" title="Ally">${IC('heart')}</span>`:''}</button>`;
 }
 N.tokHtml = tokHtml;
@@ -59,7 +61,7 @@ function boardHtml(v){
   else if (edit && !cb.zones.length) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag on the map to draw a zone</div>`;
   else if (edit) hint = `<div class="hint-chip" style="padding-right:14px">${IC('zone')}Drag to draw · drag a name to move · corner to resize</div>`;
   const sasp = cb.aspects.length ? `<div class="sasp">${cb.aspects.map((a,i) => `<span class="icard${a.boost?' boost':''}" style="--rot:${i%2?.8:-.8}deg">${a.boost?`<span class="k">Boost · ${esc(a.by)}${a.keep?' · until used':''}${a.left!=null?` · ${a.left>0?`for ${a.left} roll${a.left>1?'s':''}`:'last roll'}`:''}</span>`:a.on?`<span class="k">On ${esc(a.on)}</span>`:''}<span>${N.emoText(N.marks(esc(a.t || 'Unnamed boost')))}</span>${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`).join('')}</div>` : '';
-  return `<div class="boardwrap"><div class="board${edit?' edit drawing':''}" data-board="1" aria-label="Battlefield: ${esc(cb.title)}">
+  return `<div class="boardwrap"><div class="board${edit?' edit drawing':''}${N.figOn && N.figOn(v)?' figs':''}" data-board="1" aria-label="Battlefield: ${esc(cb.title)}">
     <div class="bg">${N.bgPic(N.imgUrl(cb.bg) ? cb.bg : N.FIGHTBG)}</div>
     <div class="cam">${zones}</div>${sasp}${hint}${diceFx(v)}
   </div></div>`;

@@ -1,4 +1,4 @@
-/* Toy figure maker: a test to explore, not wired into fights yet (2026-11-07).
+/* Toy figure maker (2026-11-07). The saved figures stand on the fight board (js/figboard.js, 2026-11-08).
    Opened from the Character tab (next to Stats) and from Profile, and shown to one player account only while it is tried out:
    N.figOk() compares a SHA-256 hash of the signed-in email, so the address itself is not in this public code.
    The GM always has it, from an NPC card (Make figure) and from fight setup (Figures, with random looks for NPCs without a card).
@@ -181,6 +181,9 @@ const url = f => new URL(f, document.baseURI).href;
 let kitP = null;
 const kitLoad = () => kitP || (kitP = Promise.all([import(url('vendor/three.module.min.js')), import(url('js/figkit.js'))])
   .then(([THREE, kit]) => ({THREE, K:kit.makeKit(THREE)})).catch(e => { kitP = null; throw e; }));
+N.figKit = kitLoad;
+/* the fight board's figures (js/figboard.js) stop drawing while the maker covers the screen */
+N.figMakerOpen = () => !!box;
 /* a still picture of a figure, made once per look and kept while the app is open. One small renderer does them all,
    one at a time, and lets go of its 3D context when it has had nothing to do for a while (phones have few). */
 const PICS = new Map(), PEND = new Set();
@@ -235,7 +238,7 @@ N.figRows = v => {
       : `<span class="figbtns"><button type="button" class="btn sm" data-a="figRand" data-v="${esc(t.id)}" style="--h:30px"${busy ? ' disabled' : ''}>${IC('sparkle')}${f ? 'Another look' : 'Random look'}</button>${f ? `<button type="button" class="btn sm ghost" data-a="figOpen" data-v="tok:${esc(t.id)}" style="--h:30px">Change</button>` : ''}</span>`;
     return `<div class="zi figrow">${pic(f)}<span>${esc(t.name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span>${btns}</div>`;
   }).join('');
-  return `<div class="figrows"><small class="foe-sc">${IC('hero')}Figures</small><div class="zlist">${rows}</div><small>Figures aren’t shown in fights yet. A card NPC’s figure is made from its card.</small></div>`;
+  return `<div class="figrows"><small class="foe-sc">${IC('hero')}Figures</small><div class="zlist">${rows}</div><small>Each fighter stands on the board as their figure. A card NPC’s figure is made from its card.</small></div>`;
 };
 
 function start(box, THREE, K){
@@ -272,9 +275,9 @@ function start(box, THREE, K){
   $('tag').textContent = tagText;
   $('lede').innerHTML = '<b>Build a figure from parts.</b> Pick a race, body, head, hair and outfit, then try the moves under the picture. Drag the figure to turn it. '
     + (!who ? 'Only a character, an NPC card or a fighter can keep a figure, so nothing you make here is saved.'
-      : T.kind === 'npc' ? `Press <b>Save figure</b> to put it on ${n}’s card. It stays until you save a new one, and every fight ${n} joins uses it. Fights don’t show the figures yet.`
-      : T.kind === 'tok' ? `Press <b>Save figure</b> to use it for ${n} in this fight only. Fights don’t show the figures yet.`
-      : `Press <b>Save figure</b> to make it ${n}’s figure for fights. It stays theirs until you save a new one. Fights don’t show the figures yet.`);
+      : T.kind === 'npc' ? `Press <b>Save figure</b> to put it on ${n}’s card. It stays until you save a new one, and ${n} stands as it on the board in every fight.`
+      : T.kind === 'tok' ? `Press <b>Save figure</b> to use it for ${n} in this fight only.`
+      : `Press <b>Save figure</b> to make it ${n}’s figure for fights. It stays theirs until you save a new one, and ${n} stands as it on the fight board.`);
   /* the Save button in the top bar and the line under the moves say whether this is the saved figure */
   function mark(){
     const c = mine(), b = $('save'), line = $('saved'), d = c && dirty();

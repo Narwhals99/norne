@@ -1520,5 +1520,5 @@ function dispose(rig){
   if (rig.faces) Object.values(rig.faces).forEach(t => t.dispose());
 }
 return {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS, randomSpec,
-  defaultSpec, faceFix, buildFigure, animate, addFx, dispose, faceIcon, ANIMS, pick, hoodOf, loadHair, hairId, setHairBase};
+  defaultSpec, faceFix, buildFigure, animate, pose, flash, addFx, dispose, faceIcon, ANIMS, pick, hoodOf, loadHair, hairId, setHairBase};
 }

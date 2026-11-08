@@ -1680,6 +1680,30 @@
 .app .fxt b{font:700 var(--fs,22px)/1 var(--f-display);font-variation-settings:"SOFT" 100;letter-spacing:.02em;color:var(--k)}
 .app .fxt small{font:900 calc(var(--fs,22px) * .44)/1.1 var(--f-ui);letter-spacing:.07em;text-transform:uppercase;color:#fff8ea}
 .app:where([data-style="parchment"]) .fxt b{font-family:"Alegreya",Georgia,serif;font-weight:900;font-variation-settings:normal}
+/* 3D figures on the board (js/figboard.js): the canvas sits over the zones and under the names, stress boxes,
+   zone labels and attack effects. A token standing as a figure keeps its circle's space (it is still what you tap
+   and drag) but hides it; its turn, picked and target rings are drawn under the figure instead */
+.app .board .cam>.figcv{position:absolute;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none;z-index:1}
+.app .board.figs .tok{z-index:2}
+.app .board.figs .tok.fxa{z-index:5}
+.app .board.figs .tok.fxd{z-index:4}
+.app .board.figs .zone .zl,.app .board.figs .zone .za{z-index:2}
+/* a figure's stress boxes and name float over its head like a game's health bar (--fh: how tall the figure stands,
+   set by figboard.js), so they never sit on the face of the figure in front. The zone's name moves to its bottom edge
+   and its aspect just under the zone, out of the way of heads. Rows get a little more room, and the top row starts lower */
+.app .board.figs .tok.fig .st{top:auto;right:auto;left:50%;bottom:calc(50% + var(--fh,60px));translate:-50% 0}
+.app .board.figs .tok.fig .nm{position:absolute;left:50%;bottom:calc(50% + var(--fh,60px) + 9px);translate:-50% 0}
+.app .board.figs .tok.fig.out .nm{bottom:calc(50% + 12px)}
+.app .board.figs .tok.fig.out .st{display:none}
+.app .board.figs .zone .zl{top:auto;bottom:-12px}
+.app .board.figs .zone .za{bottom:auto;top:calc(100% + 15px);right:-4px}
+.app .board.figs .zone .ztoks{padding-top:calc(var(--tk,42px) * 1.1 + 10px);padding-bottom:18px;row-gap:calc(var(--tk,42px) * .45)}
+.app .board.figs .zone .ztoks.sides .zs{row-gap:calc(var(--tk,42px) * .45)}
+.app .tok.fig .av{opacity:0}
+.app .tok.fig.target{animation:none}
+.app .tok.fig.out{filter:none;opacity:1}
+.app .tok.fig.out .nm{opacity:.6}
+.app .tok.fig.out::after{display:none}
 /* the GM's fight log on phones: fills the space between his tools and the turn bar, and scrolls on its own */
 .app .fight.cmd>.fight-scroll>.ffeed{flex:1 1 0;min-height:150px;display:flex;flex-direction:column;gap:6px;padding:0 12px}
 .app .ffeed>.eyebrow{display:flex;justify-content:space-between;align-items:center}

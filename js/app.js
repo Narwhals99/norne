@@ -161,7 +161,8 @@ function morphKids(p, np){
       used.add(n);
     }
   }
-  for (let c = p.firstChild; c;) { const nx = c.nextSibling; if (!used.has(c)) p.removeChild(c); c = nx; }
+  /* data-keep: something a module put there itself and keeps across redraws (the fight board's 3D figures canvas) */
+  for (let c = p.firstChild; c;) { const nx = c.nextSibling; if (!used.has(c) && !(c.nodeType === 1 && c.hasAttribute('data-keep'))) p.removeChild(c); c = nx; }
 }
 function morphHtml(v, html){
   const root = v.root, tpl = document.createElement('template'); tpl.innerHTML = html;
@@ -1315,6 +1316,7 @@ function act(v, a, el, e){
   case 'fz': v.fz = N.fzOk(val); try { localStorage.setItem('norne-fz', v.fz); } catch(e) {} break;
   case 'vg': v.vg = val === 'on'; try { localStorage.setItem('norne-vg', v.vg ? '1' : '0'); } catch(e) {} break;
   case 'dp': v.dp = val === 'on'; try { localStorage.setItem('norne-dp', v.dp ? '1' : '0'); } catch(e) {} break;
+  case 'figsOn': if (N.figPref) N.figPref(val === 'on'); break;
   case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {} break;
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;
