@@ -264,7 +264,10 @@ function bind(v){
   });
   /* long-press a message on a phone to react, reply or (GM) edit it; a right-click does the same on a computer */
   let lp = null;
-  root.addEventListener('pointerdown', () => { if (!lp) v.lpHold = false; }, true);
+  /* a new finger down is a new tap: the 'swallow the lift' guard below is only for the press that opened the menu.
+     iPhone sends no click after a long-press, and its touchend never reaches us (the pressed message was redrawn),
+     so lp and the guard would otherwise linger and eat the first tap on Reply, Copy text or Edit message */
+  root.addEventListener('pointerdown', () => { v.lpHold = false; if (lp?.fired) { clearTimeout(lp.tm); lp = null; } }, true);
   const lpOpen = id => { if (v.ui.pop?.mid === id || !v.root.querySelector(`[data-mid="${CSS.escape(id)}"]`)) return; v.ui.sheet = null; act(v, 'msgMenu', {dataset:{v:id, lp:1}}); render(v); };
   root.addEventListener('touchstart', e => {
     clearTimeout(lp?.tm); lp = null;
