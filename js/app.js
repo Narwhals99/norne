@@ -572,6 +572,10 @@ function input(v, el){
     case 'fcDraft': v.ui.fcDraft = val; return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
     case 'itQ': v.ui.itQ = val; render(v); return;
+    case 'shopQ': v.ui.shopQ = val; render(v); return;
+    case 'shopName': { const s = isGM(v) && N.shopOf(el.dataset.c); if (s) s.name = val; return; }
+    case 'shopPrice': { const s = isGM(v) && N.shopOf(el.dataset.c), x = s && s.items.find(y => y.k === k); if (!x) return;
+      const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; x.price = Math.min(N.GOLD_MAX, parseInt(t, 10) || 0); return; }
     case 'itd': { const d = v.ui.itd; if (!d) return; d[k] = N.ITEM_RATE.some(([x]) => x === k) ? +val || 0 : val;
       if (k === 'name') { const b = v.root.querySelector('[data-a="itSave"]'); if (b) b.disabled = !val.trim(); } return; }
     case 'itg': { const t = v.ui.itg; if (!t) return;
@@ -650,6 +654,7 @@ function change(v, el){
   if (i === 'mapName') renderAll();
   if (i === 'gold' && isGM(v)) { const g = G(), o = el.dataset.c ? g.chars[el.dataset.c] : g.npcs.find(x => x.id === el.dataset.n);
     if (o) { o.gold = clamp(parseInt(val, 10) || 0, 0, N.GOLD_MAX); renderAll(); } }
+  if (i === 'shopName' || i === 'shopPrice') renderAll();
   if (i === 'memName') { N.renameMember(el.dataset.v, val); toast(v, 'Name saved.'); render(v); }
   if (i === 'sdAspOn') { const a = v.ui.sd.aspects[+el.dataset.n]; if (a) { if (val) a.on = val; else delete a.on; } render(v); }
   if (i === 'invQ') { const n = parseInt(val, 10); v.ui.invQ = n > 0 ? n : 1; }
@@ -1958,6 +1963,33 @@ function act(v, a, el, e){
     if (ui.cbBoLast === 0) { b.keep = true; delete b.left; }
     fsys(`${N.gmName()} gives ${N.tokName(own)} a boost${on ? ` on ${N.tokName(on)}` : ''}: “${t}”, good for one free invoke${b.keep ? '' : ' in their next two rolls'}.`);
     ui.cbBoName = ''; ui.cbBoOn = null; if (ui.invBack) { ui.sheet = 'invoke'; ui.sheetArg = ui.invBack; ui.invBack = null; } else ui.sheet = null; renderAll(); return; }
+  /* storefronts (Jake): the GM sets up a store in a chat like a fight; players see it only once it is open */
+  case 'shopBegin': { const ch = ui.ch; if (!gm) break;
+    if (!N.shopOk(ch)) { toast(v, 'Stores open in a private chat, a group chat or a party that isn’t Meta only. Open one of those first.'); break; }
+    if (!g.shops[ch]) g.shops[ch] = {id:uid('shop'), ch, state:'setup', name:'', pcs:N.chPcs(ch).map(c => c.id), npcs:[], items:[], t:N.now()};
+    openSheet(v, 'shop', {c:ch}); renderAll(); return; }
+  case 'shopWho': { const s = gm && N.shopOf(d.c); if (!s) break; const [k, id] = String(val).split(/:(.*)/s);
+    if (k === 'pc') s.pcs = s.pcs.includes(id) ? s.pcs.filter(x => x !== id) : [...s.pcs, id];
+    else { const at = s.npcs.findIndex(n => n.name === id); if (at >= 0) s.npcs.splice(at, 1); else { const n = N.npcByName(id); s.npcs.push({name:id, ...(n?.portrait ? {portrait:n.portrait} : {})}); } }
+    renderAll(); return; }
+  case 'shopAdd': { const s = gm && N.shopOf(d.c), it = N.itemById(val); if (!s || !it) break;
+    const at = s.items.findIndex(x => x.it === it.id);
+    if (at >= 0) s.items.splice(at, 1); else s.items.push(N.shopItem(it));
+    renderAll(); return; }
+  case 'shopRm': { const s = gm && N.shopOf(d.c); if (!s) break; const at = s.items.findIndex(x => x.k === val); if (at < 0) break;
+    const [x] = s.items.splice(at, 1); toast(v, `${x.name} taken off the shelf.`, () => { s.items.splice(at, 0, x); renderAll(); }); renderAll(); return; }
+  case 'shopKind': ui.shopK = val || ''; break;
+  case 'storeKind': ui.storeK = val || ''; break;
+  case 'shopGo': { const s = gm && N.shopOf(d.c); if (!s) break; s.name = (s.name || '').trim();
+    if (!s.name) { toast(v, 'Give the store a name first.'); break; }
+    if (!s.items.length) { toast(v, 'Put at least one item up for sale first.'); break; }
+    s.state = 'open'; s.t = N.now();
+    push({ch:s.ch, kind:'sys', by:'gm', text:`${s.name} is open for shopping.`, shop:'open', shopName:s.name, shopId:s.id});
+    ui.sheet = null; toast(v, `${s.name} is open. ${s.ch.startsWith('dm-') ? N.chName(s.ch, 'gm') + ' sees' : 'Everyone in ' + N.chName(s.ch, 'gm') + ' sees'} it now.`); renderAll(); return; }
+  /* End shopping takes the store down for the players (Undo puts it back); a store still being set up is just deleted */
+  case 'shopEnd': { const ch = d.c, s = gm && N.shopOf(ch); if (!s) break; delete g.shops[ch]; ui.sheet = null;
+    const note = s.state === 'open' ? push({ch, kind:'sys', by:'gm', text:`Shopping at ${s.name} is over.`, shop:'end', shopName:s.name, shopId:s.id}) : null;
+    toast(v, note ? `Shopping at ${s.name} ended.` : 'Store deleted.', () => { if (note) N.delMsg(note.id); g.shops[ch] = s; renderAll(); }); renderAll(); return; }
   }
   render(v);
 }

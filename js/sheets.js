@@ -555,6 +555,59 @@ N.sheetHtml = function(v){
       ${list.length ? lists : `<div class="note">${IC('info')}${all.length ? 'No items match.' : 'No items yet. Press New item to add one, or Import to load an items file.'}</div>`}`;
     return sheet('Item catalog', body, `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true});
   }
+  /* ---------------- storefronts (Jake): the GM's setup, the catalog picker, and the store players browse ---------------- */
+  case 'shop': {
+    const sh = gm && N.shopOf(arg); if (!sh) return '';
+    const ch = sh.ch, open = sh.state === 'open', c = esc(ch), folk = N.sceneFolk(ch);
+    const where = ch.startsWith('dm-') ? `your chat with ${esc(N.chName(ch, 'gm'))}` : esc(N.chName(ch, 'gm'));
+    const npcNames = [...new Set([...folk.npcs.map(n => n.name), ...folk.once.map(x => x.name), ...sh.npcs.map(n => n.name)])];
+    const who = `<div class="forwho shop-who" role="group" aria-label="Who is there">
+      ${folk.pcs.map(p => `<button type="button" data-a="shopWho" data-c="${c}" data-v="pc:${esc(p.id)}" aria-pressed="${sh.pcs.includes(p.id)}">${N.av(p, 28)}${esc(p.short)}</button>`).join('')}
+      ${npcNames.map(nm => { const n = N.npcByName(nm); return `<button type="button" data-a="shopWho" data-c="${c}" data-v="npc:${esc(nm)}" aria-pressed="${sh.npcs.some(x => x.name === nm)}">${N.av({name:nm, portrait:n?.portrait, color:'var(--c-npc)'}, 28)}${esc(nm)}<small>${n ? 'NPC' : 'One-off'}</small></button>`; }).join('')}</div>
+      ${npcNames.length ? '' : `<p class="muted shop-tip">No NPCs in this chat’s scene. Add the shopkeeper to the scene in the Scene changer and they show up here.</p>`}`;
+    const row = x => `<div class="itc-row shop-row"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
+      <span class="itc-t"><b>${N.emoText(N.marks(esc(x.name)))}</b><small>${esc(x.path || N.itemKind(x.kind)[1])}${(x.gears || []).map(([k, r]) => { const gk = N.ITEM_RATE.find(y => y[0] === k); return gk ? ` <span class="itc-g" title="${gk[1]}">${IC(gk[2])}+${r}</span>` : ''; }).join('')}${x.silver ? ' <span class="itc-tag">Silver</span>' : ''}</small>${x.d ? `<span class="itc-d">${N.emoText(N.marks(esc(x.d)))}</span>` : ''}</span>
+      <span class="itc-a shop-price"><label><span class="coin"></span><input class="inp" id="sp-${esc(x.k)}-${v.id}" data-i="shopPrice" data-c="${c}" data-k="${esc(x.k)}" value="${x.price ? x.price : ''}" placeholder="0" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" aria-label="Price of ${esc(x.name)} in gold"></label><button type="button" class="ibtn sm" data-a="shopRm" data-c="${c}" data-v="${esc(x.k)}" aria-label="Take ${esc(x.name)} off the shelf" title="Take it off the shelf">${IC('x')}</button></span></div>`;
+    const body = `<div class="note">${IC(open ? 'users' : 'lock')}${open ? `Open in ${where}. Changes reach the players right away.` : `Only you see this until you open the store. Then everyone in ${where} sees it.`}</div>
+      <label class="shop-f"><span class="eyebrow">Store name</span><input class="inp" id="sn-${v.id}" data-i="shopName" data-c="${c}" value="${esc(sh.name || '')}" placeholder="Like The Rusty Anvil" autocomplete="off" maxlength="60"></label>
+      <section class="shop-sec"><h4>Who’s there <small>from the scene</small></h4>${who}</section>
+      <section class="shop-sec"><h4>For sale <small>${sh.items.length}</small></h4>
+        <div class="shop-acts"><button type="button" class="btn sm primary" data-a="sheet" data-v="shopAdd" data-c="${c}">${IC('plus')}Add from the item catalog</button>${sh.items.length ? `<button type="button" class="btn sm" data-a="sheet" data-v="store" data-c="${c}">${IC('eye')}See what players see</button>` : ''}</div>
+        ${sh.items.length ? `<div class="itc-list">${sh.items.map(row).join('')}</div><p class="muted shop-tip">Prices are in gold. An empty price shows as Free.</p>` : `<div class="note">${IC('info')}Nothing for sale yet. Add items from the item catalog, then set their prices.</div>`}</section>`;
+    const foot = open ? `<button type="button" class="btn danger" data-a="shopEnd" data-c="${c}" style="flex:0 0 auto">${IC('stop')}End shopping</button><button type="button" class="btn primary" data-a="closeSheet">Done</button>`
+      : `<button type="button" class="btn ghost" data-a="shopEnd" data-c="${c}" style="flex:0 0 auto">${IC('trash')}Delete</button><button type="button" class="btn primary lg" data-a="shopGo" data-c="${c}">${IC('coins')}Open the store</button>`;
+    return sheet(open ? `Manage ${esc(sh.name || 'the store')}` : 'Set up a store', body, foot, {wide:true, lead:`<span class="shop-lead">${IC('coins')}</span>`});
+  }
+  case 'shopAdd': {
+    const sh = gm && N.shopOf(arg); if (!sh) return '';
+    const c = esc(sh.ch), all = g.items || [], q = (v.ui.shopQ || '').trim().toLowerCase(), k = v.ui.shopK || '';
+    const hit = it => !q || [it.name, it.d, N.itemKind(it.kind)[1], N.itemPath(it)].some(x => String(x || '').toLowerCase().includes(q));
+    const list = all.filter(it => (!k || N.itemKind(it.kind)[0] === k) && hit(it));
+    const count = kk => all.filter(it => N.itemKind(it.kind)[0] === kk && hit(it)).length;
+    const row = it => { const on = sh.items.some(x => x.it === it.id), gs = N.itemGears(it);
+      return `<div class="itc-row"><span class="itc-ic">${IC(it.ic || N.itemKind(it.kind)[2])}</span><span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemPath(it) || N.itemKind(it.kind)[1])}${gs.map(([kk, l, ic]) => ` <span class="itc-g" title="${l}">${IC(ic)}+${+it[kk]}</span>`).join('')}</small></span>
+        <span class="itc-a"><button type="button" class="btn sm${on ? ' gold' : ''}" data-a="shopAdd" data-c="${c}" data-v="${esc(it.id)}" aria-pressed="${on}">${on ? `${IC('check')}In the store` : `${IC('plus')}Add`}</button></span></div>`; };
+    const body = `<div class="itc-bar"><label class="itc-q">${IC('search')}<input class="inp" id="saq-${v.id}" data-i="shopQ" value="${esc(v.ui.shopQ || '')}" placeholder="Search the catalog" autocomplete="off" aria-label="Search the item catalog"></label></div>
+      ${all.length ? `<div class="chips itc-chips" role="group" aria-label="Show"><button type="button" class="cchip" data-a="shopKind" data-v="" aria-current="${!k}">All <small>${all.filter(hit).length}</small></button>${N.ITEMK.filter(([kk]) => count(kk) || kk === k).map(([kk, l, ic]) => `<button type="button" class="cchip" data-a="shopKind" data-v="${kk}" aria-current="${k === kk}">${IC(ic)}${l} <small>${count(kk)}</small></button>`).join('')}</div>` : ''}
+      ${list.length ? `<div class="itc-list">${list.map(row).join('')}</div>` : `<div class="note">${IC('info')}${all.length ? 'No items match.' : 'The item catalog is empty. Add items in GM tools > Item catalog first.'}</div>`}`;
+    return sheet(`Add to ${esc(sh.name || 'the store')}`, body, `<button type="button" class="btn primary" data-a="sheet" data-v="shop" data-c="${c}">${IC('check')}Done · ${sh.items.length} for sale</button>`, {wide:true});
+  }
+  case 'store': {
+    const sh = N.shopOf(arg); if (!sh || (!gm && sh.state !== 'open')) return '';
+    const items = sh.items || [], k = v.ui.storeK || '', kinds = N.ITEMK.filter(([kk]) => items.some(x => x.kind === kk));
+    const shown = items.filter(x => !k || x.kind === k), me = !gm && N.charOf(v.role), pcs = N.shopPcs(sh), keep = sh.npcs || [];
+    const card = x => `<article class="shop-it"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
+      <div class="shop-it-t"><b>${N.emoText(N.marks(esc(x.name)))}</b><small>${esc(x.path || N.itemKind(x.kind)[1])}</small>
+        ${(x.gears || []).length || x.silver ? `<span class="shop-rates">${(x.gears || []).map(([kk, r]) => { const gk = N.ITEM_RATE.find(y => y[0] === kk); return gk ? `<span class="itc-g">${IC(gk[2])}${gk[1]} +${r}</span>` : ''; }).join('')}${x.silver ? '<span class="itc-tag">Silver</span>' : ''}</span>` : ''}
+        ${x.d ? `<p>${N.emoText(N.marks(esc(x.d)))}</p>` : ''}</div>
+      <span class="shop-tag${x.price ? '' : ' free'}">${x.price ? `<span class="coin"></span>${N.goldTxt(x.price)}` : 'Free'}</span></article>`;
+    const people = keep.length || pcs.length ? `<div class="shop-folk">${keep.length ? `<span><span class="avs">${keep.map(n => N.av({name:n.name, portrait:n.portrait, color:'var(--c-npc)'}, 32)).join('')}</span><span class="tx"><small>${keep.length > 1 ? 'Shopkeepers' : 'Shopkeeper'}</small><b>${esc(keep.map(n => n.name).join(', '))}</b></span></span>` : ''}${pcs.length ? `<span><span class="avs">${pcs.map(p => N.av(p, 32)).join('')}</span><span class="tx"><small>Shopping</small><b>${esc(pcs.map(p => p.name).join(', '))}</b></span></span>` : ''}</div>` : '';
+    const body = `${gm ? `<div class="note">${IC('eye')}${sh.state === 'open' ? 'This is what the players see.' : 'This is what the players will see once you open the store.'}</div>` : ''}
+      ${people}${me && me.built ? `<div class="shop-purse"><span class="coin"></span>${esc(me.short)} has <b>${N.goldTxt(me.gold)}</b></div>` : ''}
+      ${kinds.length > 1 ? `<div class="chips itc-chips" role="group" aria-label="Show"><button type="button" class="cchip" data-a="storeKind" data-v="" aria-current="${!k}">All <small>${items.length}</small></button>${kinds.map(([kk, l, ic]) => `<button type="button" class="cchip" data-a="storeKind" data-v="${kk}" aria-current="${k === kk}">${IC(ic)}${l} <small>${items.filter(x => x.kind === kk).length}</small></button>`).join('')}</div>` : ''}
+      ${shown.length ? `<div class="shop-grid">${shown.map(card).join('')}</div>` : `<div class="note">${IC('info')}Nothing on the shelves right now.</div>`}`;
+    return sheet(esc(sh.name || 'The store'), body, gm ? `<button type="button" class="btn" data-a="sheet" data-v="shop" data-c="${esc(sh.ch)}">${IC('left')}Back to setup</button>` : `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true, lead:`<span class="shop-lead">${IC('coins')}</span>`});
+  }
   case 'itemEd': {
     const d = v.ui.itd; if (!gm || !d) return '';
     const ic = d.ic || N.itemKind(d.kind)[2], all = g.items || [];

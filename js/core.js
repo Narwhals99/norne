@@ -290,7 +290,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, hlocs:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, hlocs:{}, shops:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -629,6 +629,27 @@ N.importItems = list => {
 };
 /* the line an inventory gets: its ratings, then what it does */
 N.itemNote = it => [N.itemGears(it).map(([k, l]) => `${l} +${+it[k]}`).join(', '), (it.d || '').trim()].filter(Boolean).join(' · ');
+/* ---------- storefronts (Jake): a store the GM sets up in a chat, like a fight ----------
+   G.shops = {<chat>: {id, ch, state:'setup'|'open', name, pcs:[char ids], npcs:[{name, portrait}], items:[shop item], t}}
+   One store per chat, only in a player's private chat or a group chat / party that isn't Meta only.
+   The GM keeps every store in gm/shops; an open one is also written to that chat's fights/<seat or group> document (unit s),
+   so only the players of that chat receive it. A store being set up never leaves the GM's device.
+   A shop item is a copy of the catalog item's player-safe parts (never the GM's notes) plus its price in gold:
+   {k, it:catalog id, name, kind, ic, d, path, gears:[[rating key, value]], silver, price} */
+N.shopOf = ch => (N.G.shops || {})[ch] || null;
+N.shopOpen = ch => { const s = N.shopOf(ch); return s && s.state === 'open' ? s : null; };
+N.shopOk = ch => !!N.chKey(ch) && !N.metaOnly(ch);
+N.shopItem = it => ({k:N.uid('si'), it:it.id, name:it.name, kind:N.itemKind(it.kind)[0], ic:it.ic || '',
+  /* items from Jake's lists carry their class as the description, so like the catalog they show only the class line */
+  d:it.cls ? '' : String(it.d || '').trim(), path:[...new Set([it.cls, it.sub, it.disc].filter(Boolean))].join(' · '),
+  gears:N.itemGears(it).map(([k]) => [k, +it[k]]), ...(it.silver ? {silver:1} : {}), price:0});
+/* what the players of the chat receive: names and pictures instead of card ids */
+N.shopOut = s => ({id:s.id, ch:s.ch, state:s.state, name:s.name || '', t:s.t || 0,
+  pcs:(s.pcs || []).map(id => { const c = N.G.chars[id]; return c && c.built ? {id, name:c.short || c.name, portrait:c.portrait || null, color:c.color || ''} : null; }).filter(Boolean),
+  npcs:(s.npcs || []).map(n => ({name:n.name, portrait:n.portrait || null})), items:(s.items || []).map(x => { const {it, ...o} = x; return o; })});
+/* the people of a store as {name, portrait, color}: on the GM's device from the cards, on a player's from the copy */
+N.shopPcs = s => (s.pcs || []).map(x => typeof x === 'string' ? (c => c && c.built ? {id:x, name:c.short || c.name, portrait:c.portrait, color:c.color} : null)(N.G.chars[x]) : x).filter(Boolean);
+N.goldTxt = n => `${Math.max(0, parseInt(n, 10) || 0).toLocaleString('en-US')} gold`;
 N.GOLD_MAX = 9999999; /* Gold on a card: whole numbers 0 to this, 7 digits like the box allows */
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 N.revParts = (c, pc) => {
