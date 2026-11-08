@@ -767,8 +767,15 @@ async function start(role){
 function readyCheck(){
   const g = G();
   if (isGM() || g.chars[g.P[g.role]?.char]) { if (N.gated) gate(null); return true; }
-  gate(STALE.size ? '<p class="fine">Opening the campaign book…</p>' : `<p>You’re in. Your character card appears as soon as the GM has Norne open.</p>${outBtn}`); return false;
+  if (STALE.size && !SLOW_T) SLOW_T = setTimeout(() => { SLOW = true; if (N.gated && STALE.size) readyCheck(); }, 15000);
+  gate(STALE.size ? '<p class="fine">Opening the campaign book…</p>' + (SLOW ? slowHtml() : '') : `<p>You’re in. Your character card appears as soon as the GM has Norne open.</p>${outBtn}`); return false;
 }
+/* a phone that waits on the server for good gets a way out: reload, or sign out (which also clears this device's
+   saved copy, so the next sign-in loads everything fresh). The small line says what it is still waiting for. */
+let SLOW_T = 0, SLOW = false;
+const slowHtml = () => `<p>This is taking longer than it should. Try reloading. If it still stops here, sign out and sign in again: that clears the copy of the campaign saved on this device.</p>
+  <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button type="button" class="btn gold" data-a="appReload">Reload</button>${outBtn}</div>
+  <p class="fine">Waiting on: ${esc([...STALE].join(', '))}</p>`;
 
 /* ---------- account actions ---------- */
 N.signIn = () => F.signInWithPopup(auth, new F.GoogleAuthProvider()).catch(e => { if (!/popup-closed|cancelled-popup/.test(e?.code || '')) signInGate(e?.code === 'auth/popup-blocked' ? 'Your browser blocked the sign-in window. Allow pop-ups for this page and try again.' : 'Sign-in didn’t work. Try again.'); });
