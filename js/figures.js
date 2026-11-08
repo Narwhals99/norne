@@ -45,6 +45,8 @@ const CSS = `
   background:radial-gradient(70% 60% at 50% 38%,#343a86 0%,#1a1e4d 55%,#0d1030 100%);box-shadow:0 24px 60px -20px rgba(0,0,0,.75),0 0 0 1px var(--line-2);touch-action:pan-y;cursor:grab}
 .figx .stage.all{height:clamp(300px,42vh,400px)}
 @media (max-width:560px){.figx .stage.all{height:540px}}
+/* phones and narrow windows: the figure stays in view under the top bar while the options scroll, so changes (like the hair length) show as you make them */
+@media (max-width:919px){.figx .stagecol{display:contents}.figx .stage{position:sticky;top:var(--barh,64px);z-index:1;height:clamp(250px,40vh,380px)}.figx .stage.all{position:relative;top:auto}}
 .figx .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 .figx .labels{position:absolute;inset:0;pointer-events:none}
 .figx .labels span{position:absolute;transform:translate(-50%,0);padding:2px 7px;border-radius:999px;background:rgba(8,8,26,.82);color:#fff;font:800 10px/1.2 var(--f-ui);white-space:nowrap}
@@ -73,6 +75,9 @@ const CSS = `
 .figx .sw i{display:block;width:38px;height:38px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px rgba(0,0,0,.4),inset 0 -6px 10px rgba(0,0,0,.25)}
 .figx .sw[aria-pressed="true"]{color:var(--ink)}
 .figx .sw[aria-pressed="true"] i{box-shadow:0 0 0 2px var(--sky-0),0 0 0 4px var(--gold)}
+.figx .len{display:flex;align-items:center;gap:10px;min-height:44px}
+.figx .len span{flex:none;color:var(--ink-3);font:800 11.5px/1 var(--f-ui)}
+.figx .len input{flex:1;min-width:0;height:44px;margin:0;accent-color:var(--gold);cursor:pointer;touch-action:pan-y}
 .figx .note{margin:0;color:var(--ink-3);font:600 12.5px/1.45 var(--f-ui)}
 .figx .note b{color:var(--ink-2)}
 .figx .foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
@@ -210,6 +215,7 @@ function start(box, THREE, K){
   const sw = (id, label, color, on, key) => `<button type="button" class="sw" data-k="${key}" data-v="${id}" aria-pressed="${on}"><i style="--c:${color}"></i>${esc(label)}</button>`;
   const opt = (id, label, on, key, extra = '') => `<button type="button" class="opt" data-k="${key}" data-v="${id}" aria-pressed="${on}">${extra}${esc(label)}</button>`;
   const hairWord = () => { const r = R(); return spec.race === 'Kenku' ? 'Feather colour' : spec.race === 'Lizardfolk' ? 'Crest colour' : spec.race === 'Gorgon' ? 'Snake colour' : spec.race === 'Fishfolk' ? 'Fin colour' : r.coat ? 'Hair and coat colour' : 'Hair colour'; };
+  const lenWord = () => { const L = spec.len ?? .5, tall = K.HAIR_LEN[spec.hair] === 'Height'; return L < .34 ? (tall ? 'Low' : 'Short') : L < .67 ? 'Medium' : (tall ? 'Tall' : 'Long'); };
   function opts(){
     const r = R(), o = [];
     const grp = (k, val, body, cls = 'grid') => o.push(`<div class="grp"><span class="k">${k}${val ? `<b>${esc(val)}</b>` : ''}</span><div class="${cls}">${body}</div></div>`);
@@ -223,7 +229,11 @@ function start(box, THREE, K){
       grp('Eye colour', K.pick(K.EYES, spec.eyes)[1], K.EYES.map(([id, n, c]) => sw(id, n, c, id === spec.eyes, 'eyes')).join(''), 'sws');
     } else if (tab === 'hair') {
       if (r.nohair || r.nohairStyle) o.push(`<p class="note">${spec.race === 'Gorgon' ? 'Gorgons have serpent locks instead of hair (from the lore). Pick the snakes\' colour below.' : `${esc(spec.race)} have no hair, so only the colour below changes.`}</p>`);
-      else grp('Hairstyle', K.pick(K.HAIRS, spec.hair)[1], K.HAIRS.map(([id, n]) => opt(id, n, id === spec.hair, 'hair')).join(''));
+      else {
+        grp('Hairstyle', K.pick(K.HAIRS, spec.hair)[1], K.HAIRS.map(([id, n]) => opt(id, n, id === spec.hair, 'hair')).join(''));
+        const lw = K.HAIR_LEN && K.HAIR_LEN[spec.hair];
+        if (lw) grp(lw, lenWord(), `<span>${lw === 'Height' ? 'Low' : 'Short'}</span><input type="range" min="0" max="100" step="5" value="${Math.round((spec.len ?? .5) * 100)}" data-len aria-label="${lw}"><span>${lw === 'Height' ? 'Tall' : 'Long'}</span>`, 'len');
+      }
       grp(hairWord(), K.pick(K.HAIRC, spec.hairCol)[1], K.HAIRC.map(([id, n, c]) => sw(id, n, c, id === spec.hairCol, 'hairCol')).join(''), 'sws');
       if (!r.nohair && !r.snakes) grp('Beard', '', K.BEARDS.map(([id, n]) => opt(id, n, id === spec.beard, 'beard')).join(''));
     } else {
@@ -245,6 +255,13 @@ function start(box, THREE, K){
     else spec[k] = val;
     rebuild(); opts();
   });
+  /* the length slider rebuilds at most once a frame while it is dragged, and leaves the slider in place */
+  let lenFrame = 0;
+  $('opts').addEventListener('input', e => {
+    const s = e.target.closest('[data-len]'); if (!s) return;
+    spec.len = Math.round(+s.value) / 100; const k = s.closest('.grp').querySelector('.k b'); if (k) k.textContent = lenWord();
+    if (!lenFrame) lenFrame = requestAnimationFrame(() => { lenFrame = 0; if (running) rebuild(); });
+  });
   $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; tab = b.dataset.t; opts(); });
   let toastT = 0;
   $('reset').addEventListener('click', () => { spec = K.defaultSpec(spec.race, spec.body); rebuild(); opts(); $('toast').textContent = `Back to the ${spec.race} default`; clearTimeout(toastT); toastT = setTimeout(() => { $('toast').textContent = ''; }, 2200); });
@@ -261,7 +278,8 @@ function start(box, THREE, K){
     if (rig) rig.root.visible = w === 'one'; all.forEach(r => { r.root.visible = w === 'all'; });
     requestAnimationFrame(() => { layoutAll(); frame(); });
   }
-  const ro = new ResizeObserver(() => { if (view === 'all') layoutAll(); else frame(); }); ro.observe(stage);
+  const bar = box.querySelector('.fx-bar'), barH = () => box.style.setProperty('--barh', bar.offsetHeight + 'px');
+  const ro = new ResizeObserver(() => { barH(); if (view === 'all') layoutAll(); else frame(); }); ro.observe(stage); ro.observe(bar); barH();
   rebuild(); opts(); requestAnimationFrame(tick);
   /* test hook for screenshots: set a look, freeze a move */
   N.figTest = {set(s, o){ spec = Object.assign(K.defaultSpec(s.race || spec.race, s.body || spec.body), s); rebuild(); if (o && o.tab) tab = o.tab; opts(); },
