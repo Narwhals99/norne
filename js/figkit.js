@@ -307,6 +307,21 @@ function defaultSpec(race, body){
   return faceFix({race, body:body || 'm', skin:0, face:d.face, eyes:s0.eye || R.eye || 'brown', hair:R.nohair || R.nohairStyle ? 'bald' : hairId(d.hair),
     hairCol:s0.hair || R.hairC || 'brown', beard:body === 'f' ? 'none' : d.beard || 'none', outfit:d.outfit, cloth:pick(OUTFITS, d.outfit)[2].cloth});
 }
+/* a random look for a fighter with no card (one-off NPCs, Jack 2026-11-08): the race stays as given, and a human's hair and
+   eye colour come with their people (lore), like picking a people in the maker */
+function randomSpec(race, rnd = Math.random){
+  const one = a => a[Math.floor(rnd() * a.length)], R = RACES[race] ? race : 'Human', r = RACES[R], body = rnd() < .5 ? 'f' : 'm', s = defaultSpec(R, body);
+  s.skin = Math.floor(rnd() * r.skins.length); const p = r.skins[s.skin];
+  s.eyes = p.eye || (R === 'Human' ? s.eyes : one(EYES)[0]); s.hairCol = p.hair || (R === 'Human' || r.hairC ? s.hairCol : one(HAIRC)[0]);
+  if (!r.nohair && !r.nohairStyle) { s.hair = rnd() < .08 ? 'bald' : one(HAIRS.slice(1))[0]; s.len = one([0, .5, .5, 1]); }
+  s.beard = body === 'm' && !r.nohair && !r.snakes && rnd() < .45 ? one(BEARDS.slice(1))[0] : 'none';
+  const o = one(OUTFITS); s.outfit = o[0]; s.cloth = rnd() < .5 ? o[2].cloth : one(CLOTH)[0]; delete s.hood;
+  s.headSize = one(['s', 'm', 'm', 'l']); s.headShape = one(HEAD_SHAPES)[0]; s.jaw = one(JAWS)[0];
+  s.eyeShape = one(EYE_SHAPES.slice(0, -1))[0]; s.eyeSize = one(['s', 'm', 'm', 'l']); s.brows = one(BROWS.slice(0, -1))[0];
+  s.nose = one(NOSES)[0]; s.mouth = one(MOUTHS)[0]; s.expr = one(['calm', 'calm', 'smile', 'grin', 'angry', 'glare', 'fierce', 'smug', 'tired', 'worried']);
+  s.marks = rnd() < .35 ? [one(MARKS.filter(m => body === 'f' || m[0] !== 'lipstick'))[0]] : [];
+  delete s.face; return faceFix(s);
+}
 const hoodOf = spec => { const o = pick(OUTFITS, spec.outfit)[2]; return o.hood ? (spec.hood === 'up' || spec.hood === 'down' ? spec.hood : o.hood) : null; };
 
 /* ---------- hair: models made by 3D artists (art/hair/, credits in CREDITS.md and art/hair/README.md) ----------
@@ -1504,6 +1519,6 @@ function dispose(rig){
       if (m.map && m.map !== GLOW && m.map !== SHADOW && !m.map.userData.keep && ![...hairTexCache.values()].includes(m.map)) m.map.dispose(); m.dispose(); }); });
   if (rig.faces) Object.values(rig.faces).forEach(t => t.dispose());
 }
-return {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS,
+return {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS, randomSpec,
   defaultSpec, faceFix, buildFigure, animate, addFx, dispose, faceIcon, ANIMS, pick, hoodOf, loadHair, hairId, setHairBase};
 }

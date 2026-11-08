@@ -1277,8 +1277,10 @@ function act(v, a, el, e){
   /* players always land on the default map when they come to the Maps tab (the GM keeps the map they were on) */
   case 'tab': close(); if (val === 'map' && ui.tab !== 'map' && !gm) { const dm = N.defMap(false); if (dm) Object.assign(ui, {mapId:dm.id, mapBack:[], mapDir:null, pinSel:null, mapT:null, mapType:'all'}); } ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; ui.heroStats = null; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
   case 'heroInv': ui.heroInv = !!val; break;
-  /* the toy figure maker test (js/figures.js), one account only */
-  case 'figOpen': close(); if (N.figOk && N.figOk()) { ui.figs = true; N.figOpen(v); } break;
+  /* the toy figure maker test (js/figures.js): one player account, and the GM for NPC cards and fighters (val npc:<id> / tok:<id>) */
+  case 'figOpen': close(); if (N.figOk && N.figOk()) { ui.figs = true; N.figOpen(v, val); } break;
+  /* a random look for a fighter in the fight being set up (js/figures.js) */
+  case 'figRand': if (gm && N.figRand) N.figRand(val); return;
   case 'heroStats': ui.heroStats = val || null; v.root.querySelector('[data-sk=hero],[data-sk=herostats]')?.scrollTo?.(0, 0); break;
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
