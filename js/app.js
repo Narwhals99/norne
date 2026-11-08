@@ -11,6 +11,12 @@ N.now = () => { const ms = G().msgs; const last = ms.length ? ms[ms.length - 1].
 N.msgEditable = m => ['rp','ooc','meta','note'].includes(m.kind) && typeof m.text === 'string';
 /* the GM can edit any typed message, a player only their own */
 N.canEdit = (v, m) => N.msgEditable(m) && (isGM(v) || m.by === v.role);
+/* the voice a typed message went out in can be changed afterwards (sent as Meta by mistake, or as the wrong NPC):
+   not in GM notes, fight talk or Meta-only chats, where there is only one voice */
+N.voiceFixable = m => ['rp','ooc','meta'].includes(m.kind) && typeof m.text === 'string' && m.ch !== 'gm' && !m.fc && !N.metaOnly(m.ch);
+/* the voice as one value: 'meta', or for the GM's lines who spoke (Narrator or an NPC), or for a player's 'char' */
+N.msgVoice = m => m.kind !== 'rp' ? 'meta' : m.by === 'gm' ? (m.as || 'Narrator') : 'char';
+N.charVoiceName = seat => { const c = N.charOf(seat); return c && c.built ? c.short : G().P[seat]?.name || 'Your character'; };
 N.msgWho = m => m.kind === 'roll' ? m.roll.who : m.kind === 'rp' && !N.metaRp(m) ? N.speakerObj(m).name : N.msgPerson(m).name;
 /* messages anyone can react to or reply to: not scene changes, fight cards or small grey lines */
 /* a pasted GIF link: any https picture address */
@@ -306,7 +312,7 @@ function bind(v){
     if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'fcDraft') { e.preventDefault(); fcSend(v); }
     if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'dOth') { e.preventDefault(); e.target.parentElement.querySelector('button')?.click(); }
     if (e.key === 'Enter' && e.target.dataset.i === 'gold') { e.preventDefault(); e.target.blur(); }
-    if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
+    if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = v.ui.sheet === 'scenePics' ? 'scene' : null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
   root.addEventListener('pointerdown', e => { hsDrag(v, e); down(v, e); });
   /* mouse wheel over a sideways row that doesn't fit scrolls it sideways (until its end, then the page scrolls as usual) */
@@ -524,6 +530,7 @@ function backStep(v, home){
   if (ui.shelf) return () => { ui.shelf = false; };
   if (ui.pop) return () => { ui.pop = null; };
   if (ui.sheet === 'itemEd' || ui.sheet === 'itemGive') return () => { ui.sheet = 'items'; ui.itd = null; };
+  if (ui.sheet === 'scenePics') return () => { ui.sheet = 'scene'; };
   if (ui.sheet) return () => { if (!askTell(v)) ui.sheet = null; };
   if (ui.tab === 'chat' && (ui.targeting || ui.placing)) return () => { ui.targeting = null; ui.placing = null; };
   /* any page with its own back arrow (wiki, news, cast card, inventory) goes back the way that arrow does */
@@ -616,6 +623,7 @@ function input(v, el){
     case 'boostName': v.ui.boostName = val; return;
     case 'cbBoName': v.ui.cbBoName = val; return;
     case 'wipeType': if (v.ui.wipe) { v.ui.wipe.typed = val; const b = v.root.querySelector('[data-a="wipeGo"]'); if (b) b.disabled = !N.wipeMatch(v.ui.wipe); } return;
+    case 'medAs': if (v.ui.med) v.ui.med.as = val; return;
     case 'med': if (v.ui.med) v.ui.med.text = val; { const b = v.root.querySelector('[data-a="msgSave"]'); if (b) b.disabled = !val.trim(); } return;
     case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .plt`); if (lab) lab.textContent = val; return; }
     case 'pinSub': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; const t = val.trim(); if (t) pin.sub = val; else delete pin.sub; const el = v.root.querySelector(`[data-pin="${pin.id}"]`), pl = el && el.querySelector('.pl'), pw = el && el.querySelector('.pw'); if (pw) { let sm = pw.querySelector('.psub'); if (t && !sm) { sm = document.createElement('small'); sm.className = 'psub'; pw.appendChild(sm); } if (sm) { if (t) sm.textContent = val; else sm.remove(); } pl.classList.toggle('two', !!t); } return; }
@@ -1179,7 +1187,7 @@ function act(v, a, el, e){
   case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); if (val === 'search') { render(v); const f = v.root.querySelector(`#cq-${v.id}`); if (f) { f.focus({preventScroll:true}); f.select(); } return; } break;
-  case 'closeSheet': if (!askTell(v)) { ui.sheet = null; ui.tellAsk = null; } break;
+  case 'closeSheet': if (ui.sheet === 'scenePics') { ui.sheet = 'scene'; break; } if (!askTell(v)) { ui.sheet = null; ui.tellAsk = null; } break;
   /* the GM's answer to "Send notifications?" after revealing something */
   case 'tellTog': { const it = ui.tellAsk?.items[+val]; if (it) it.on = !it.on; break; }
   case 'tellGo': case 'tellSkip': {
@@ -1408,12 +1416,22 @@ function act(v, a, el, e){
     let undone = false; if (x.a) setTimeout(() => { if (!undone && !g.emoji.some(y => y.d === x.d)) N.dropImg(x.d); }, 9000);
     toast(v, `Removed :${x.n}:.`, () => { undone = true; if (!g.emoji.some(y => y.n === x.n)) g.emoji.splice(at, 0, x); }); renderAll(); return; }
   /* the GM editing or deleting a chat message */
-  case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m || !N.canEdit(v, m)) break; ui.med = {id:m.id, text:m.text}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
+  case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m || !N.canEdit(v, m)) break; ui.med = {id:m.id, text:m.text, as:N.msgVoice(m)}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
   case 'msgSave': {
     const m = g.msgs.find(x => x.id === ui.med?.id), t = (ui.med?.text || '').trim(); if (!m || !t || !N.canEdit(v, m)) break;
+    const was = N.msgVoice(m), as = ui.med.as || was, newVoice = N.voiceFixable(m) && as !== was;
     if (t !== m.text) { m.text = t; m.ed = 1; }
-    ui.sheet = null; ui.med = null; toast(v, 'Message edited.'); renderAll(); return;
+    /* a null is written to the saved message (so the old speaker goes) and dropped again when it comes back */
+    if (newVoice) {
+      if (as === 'meta') { m.kind = 'meta'; m.as = null; if (m.pt) m.pt = null; }
+      else if (m.by === 'gm') { const n = N.npcByName(as) || N.extraByName(m.ch, as); m.kind = 'rp'; m.as = as; m.pt = as !== 'Narrator' && n?.portrait || null; }
+      else { m.kind = 'rp'; m.as = N.charVoiceName(m.by); }
+      m.ed = 1;
+    }
+    ui.sheet = null; ui.med = null; toast(v, newVoice && t === m.text ? 'Voice changed.' : 'Message edited.'); renderAll(); return;
   }
+  case 'medAs': if (ui.med) ui.med.as = val; break;
+
   case 'msgDelGo': {
     const m = g.msgs.find(x => x.id === val); ui.sheet = null; if (!gm || !m) break;
     N.delMsg(m.id);
@@ -1826,7 +1844,7 @@ function act(v, a, el, e){
   case 'sdOneDel': ui.sd.extras.splice(+val, 1); break;
   case 'sdSave': { const s = ui.sd; sdKeep(s); if (!editScene(v, s)) { toast(v, 'That scene has ended. Start a new one instead.'); sdLoad(s, 'new'); break; } ui.sheet = null; renderAll(); return; }
   case 'sdTab': ui.sd.tab = val; break;
-  case 'sdFold': ui.sd.pf = val; break;
+  case 'sdFold': if (ui.sd) { ui.sheet = 'scenePics'; ui.sheetArg = val === 'up' ? 'up' : 'app'; } break;
   case 'sdPick': {
     let p = null;
     if (val.startsWith('pl:')) { const [, map, pid] = val.split(':'); const mp = g.maps.find(m => m.id === map), pin = mp && mp.pins.find(x => x.id === pid); if (pin) p = {title:pin.label, where:mp.name, place:{map, rx:pin.rx, ry:pin.ry}}; }
@@ -1834,11 +1852,12 @@ function act(v, a, el, e){
     if (!p) break;
     ui.sd.art = p.art || null; ui.sd.place = p.place || null; ui.sd.touched = true;
     if (p.title && (!ui.sd.title || ui.sd.autoTitle)) { ui.sd.title = p.title; ui.sd.where = p.where || ui.sd.where; ui.sd.autoTitle = true; }
+    if (ui.sheet === 'scenePics') ui.sheet = 'scene';
     break;
   }
-  case 'sdPickUp': ui.sd.art = val; ui.sd.place = null; ui.sd.touched = true; break;
+  case 'sdPickUp': ui.sd.art = val; ui.sd.place = null; ui.sd.touched = true; if (ui.sheet === 'scenePics') ui.sheet = 'scene'; break;
   case 'sdFrame': if (ui.sd?.art) reframePic(v, ui.sd.art); return;
-  case 'sdUpload': uploadPicture(v, src => { ui.sd.art = src; ui.sd.place = null; ui.sd.touched = true; ui.sd.tab = 'pics'; ui.sd.pf = 'up'; }); return;
+  case 'sdUpload': uploadPicture(v, src => { ui.sd.art = src; ui.sd.place = null; ui.sd.touched = true; ui.sd.tab = 'pics'; if (ui.sheet === 'scenePics') ui.sheet = 'scene'; }); return;
   case 'sdAspAdd': { const t = (ui.sd.newAsp || '').trim(); if (t) { ui.sd.aspects.push({t, free:0, k:uid('a')}); ui.sd.newAsp = ''; } break; }
   case 'sdAspFree': { const a = ui.sd.aspects[+d.i]; a.free = ((a.free || 0) + 1) % 3; break; }
   case 'sdAspDel': ui.sd.aspects.splice(+d.i, 1); break;
