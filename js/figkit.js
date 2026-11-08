@@ -190,11 +190,11 @@ const HEAD_SIZES = [['s', 'Small', .9], ['m', 'Medium', 1], ['l', 'Large', 1.1]]
 const HEAD_SHAPES = [['round', 'Round', [1, 1, 1]], ['tall', 'Tall', [.96, 1.07, .99]], ['wide', 'Wide', [1.1, .96, 1.02]]];
 const JAWS = [
   ['soft', 'Soft', {jaw:.17, chin:.07, cheek:.02}],
-  ['round', 'Round', {jaw:0, chin:0, cheek:.06}],
-  ['pointed', 'Pointed', {jaw:.22, chin:.12, narrow:1}],
-  ['heart', 'Heart', {jaw:.2, chin:.07, cheek:.07, narrow:1}],
-  ['square', 'Square', {jaw:.03, sq:.09, chin:.03, line:1}],
-  ['strong', 'Strong', {sq:.14, chin:.08, fwd:.05, line:1}],
+  ['round', 'Round', {jaw:0, chin:-.03, cheek:.09}],
+  ['pointed', 'Pointed', {jaw:.3, chin:.16, narrow:1}],
+  ['heart', 'Heart', {jaw:.27, chin:.1, cheek:.1, narrow:1}],
+  ['square', 'Square', {jaw:.03, sq:.12, chin:.03, line:1}],
+  ['strong', 'Strong', {sq:.17, chin:.1, fwd:.06, line:1}],
 ];
 /* faces: eye shape, eye size, brows, nose, mouth, marks and an expression, drawn on a sheet over the front of the head (faceSheet).
    Units: 1 = the head's radius, seen from the front, +x the figure's left, +y up. */
@@ -423,7 +423,7 @@ function headWarp(spec, R, HR){
   return p => {
     const L = p.length(); if (L < 1e-6) return p;
     const l = L / HR, dx = p.x / L, dy = p.y / L, dz = p.z / L;
-    const f = 1 - sstep(1.35, 1.9, l), wf = sstep(-.3, .45, dz) * (1 - sstep(1.12, 1.5, l)), t = sstep(-.15, -.95, dy);
+    const f = 1 - sstep(1.35, 1.9, l), wf = sstep(-.55, .15, dz) * (1 - sstep(1.12, 1.5, l)), t = sstep(-.12, -.92, dy);
     const kx = 1 - jaw * wf * Math.pow(t, 1.3) + cheek * wf * Math.exp(-Math.pow((dy + .28) / .22, 2)) + sq * wf * Math.exp(-Math.pow((dy + .6) / .17, 2));
     const cz = wf * t * t * Math.exp(-Math.pow(dx / cw, 2));
     p.x *= lerp(1, sx, f) * kx; p.y = p.y * lerp(1, sy, f) - chin * HR * cz; p.z = p.z * lerp(1, sz, f) + fwd * HR * cz;
