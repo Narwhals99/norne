@@ -2527,6 +2527,18 @@
 .app .scenem.shopm .th svg{width:17px;height:17px}
 .app .scenem.shopm.end .th{background:var(--sunk);color:var(--ink-3)}
 .app .scenem.shopm .btn{margin-left:4px;flex:none}
+.app .scenem.askm{flex-wrap:wrap;justify-content:center;border-radius:22px;padding:6px 12px 6px 6px;row-gap:6px}
+.app .scenem.askm .tx{display:block;min-width:0;flex:0 1 auto}
+.app .scenem.askm .tx small{display:block;margin-top:2px;font:600 12px/1.3 var(--f-ui);color:var(--ink-3);letter-spacing:0;text-transform:none}
+.app .scenem.askm .askb{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;letter-spacing:0;text-transform:none}
+.app .scenem.askm .askb .btn{margin-left:0}
+.app .scenem.askm.st-ok .th{background:var(--jade-soft);color:var(--jade)}
+.app .scenem.askm.st-no .th,.app .scenem.askm.st-done .th{background:var(--sunk);color:var(--ink-3)}
+.app .sysm.purse svg{color:var(--gold-tx)}
+.app .shop-it .shop-buy{display:flex;flex-direction:column;gap:6px;align-items:stretch;grid-column:1/-1}
+.app .shop-it .shop-buy .btn{width:100%;justify-content:center}
+.app .shop-it .shop-buy .btn[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(1)}
+.app .shop-it .shop-buy small{font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3);text-align:center}
 .app .shop-lead{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--gold-soft);color:var(--gold-tx);flex:none}
 .app .shop-lead svg{width:19px;height:19px}
 .app .shop-f{display:grid;gap:6px}
@@ -2579,3 +2591,18 @@
 .app .m.gifm .gifbox.gifbad{display:flex;align-items:center;gap:8px;padding:10px 14px;color:var(--ink-3);font:600 13px/1.3 var(--f-ui)}
 .app .m.gifm .gifbad svg{width:18px;height:18px;flex:none;opacity:.7}
 .app .m.gifm .gifbad a{color:var(--accent-tx,var(--accent));font-weight:700;text-decoration:underline;white-space:nowrap}
+/* a party chat the GM paused (Jake): players get a notice instead of the message box, the GM a bar with Resume */
+.app .composer.paused{display:flex;align-items:center;gap:10px;margin:8px 10px 10px;padding:10px 14px;border-radius:20px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-2)}
+.app .composer.paused svg,.app .pausebar svg{width:18px;height:18px;flex:none;color:var(--gold-tx)}
+.app .composer.paused span,.app .pausebar span{display:flex;flex-direction:column;gap:2px;min-width:0}
+.app .composer.paused b,.app .pausebar b{font:700 14px/1.2 var(--f-ui);color:var(--ink)}
+.app .composer.paused small,.app .pausebar small{font:600 12.5px/1.35 var(--f-ui);color:var(--ink-3)}
+.app .pausebar{position:relative;z-index:5;display:flex;align-items:center;gap:10px;margin:8px 10px 0;padding:8px 8px 8px 14px;border-radius:18px;background:var(--gold-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-tx) 40%,transparent)}
+.app .pausebar span{flex:1}
+.app .pausebar .btn{flex:none}
+.app .ibtn.on{color:var(--gold-tx);background:var(--gold-soft)}
+/* a skill level the GM hasn't revealed to this player (Jake): the roll keeps its total, the skill shows as ? */
+.app .skh{display:inline-grid;place-items:center;min-width:1.35em;height:1.35em;padding:0 .2em;border-radius:6px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-3);font:800 .85em/1 var(--f-ui);vertical-align:.05em}
+.app .scenem.askm .tx{text-transform:none;letter-spacing:0;color:inherit;font:inherit}
+.app .scenem.askm .tx > span{display:block;font:700 10px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold-tx)}
+.app .scenem.askm .tx > b{display:block;margin-top:2px;font:600 14px/1.2 var(--f-display);letter-spacing:0;text-transform:none;color:var(--ink)}

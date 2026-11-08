@@ -54,6 +54,24 @@ const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as
   G().msgs.push(m); return m; };
 /* a small grey line in the chat; players write their own (the rules only let them post as themselves) */
 const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, text});
+/* Jake: fate point and gold changes of a player character are noted in their party's chat, and in no other chat.
+   Taps close together (−/+ several times) fold into one line: the first value stays on the line (purse.from) and only its
+   words change, which is all a player may change on their own message. A GM's line that ends back where it began is removed */
+const PURSE_MS = 120000;
+N.purseNote = (c, k, before) => {
+  if (!c || !c.player || !c.built) return null;
+  const pt = N.partyOf(c.player); if (!pt) return null;
+  const ch = 'grp-' + pt.id, now = k === 'fp' ? (c.fp || 0) : (parseInt(c.gold, 10) || 0), g = G();
+  let last = null; for (let i = g.msgs.length - 1; i >= 0; i--) if (g.msgs[i].ch === ch) { last = g.msgs[i]; break; }
+  const join = last && last.purse && last.purse.c === c.id && last.purse.k === k && last.by === g.role && N.now() - last.t < PURSE_MS;
+  const from = join ? last.purse.from : before;
+  if (!join && from === now) return null;
+  const d = now - from, unit = k === 'fp' ? (Math.abs(d) === 1 ? 'fate point' : 'fate points') : 'gold';
+  const n = k === 'fp' ? String(Math.abs(d)) : Math.abs(d).toLocaleString('en-US'), fmt = x => k === 'fp' ? x : x.toLocaleString('en-US');
+  const text = d ? `${c.short}: ${d > 0 ? '+' : '−'}${n} ${unit} (${fmt(from)} → ${fmt(now)})` : `${c.short}: ${unit === 'gold' ? 'gold' : 'fate points'} back to ${fmt(now)}`;
+  if (join) { if (!d && g.role === 'gm') { N.delMsg(last.id); return null; } last.text = text; return last; }
+  return push({ch, kind:'sys', by:g.role, purse:{c:c.id, k, from}, text});
+};
 /* a line about the fight goes to the chat the fight lives in */
 const fsys = text => Object.assign(sys(text, N.fightCh()), {fight:true});
 /* tell the players who can see something: in Everyone when it's for all, otherwise in each one's chat with the GM */
@@ -762,7 +780,7 @@ function change(v, el){
   if (i === 'cdTo') v.ui.cd[+el.dataset.n].to = val;
   if (i === 'mapName') renderAll();
   if (i === 'gold' && isGM(v)) { const g = G(), o = el.dataset.c ? g.chars[el.dataset.c] : g.npcs.find(x => x.id === el.dataset.n);
-    if (o) { o.gold = clamp(parseInt(val, 10) || 0, 0, N.GOLD_MAX); renderAll(); } }
+    if (o) { const before = parseInt(o.gold, 10) || 0; o.gold = clamp(parseInt(val, 10) || 0, 0, N.GOLD_MAX); if (el.dataset.c) N.purseNote(o, 'gold', before); renderAll(); } }
   if (i === 'shopName' || i === 'shopPrice') renderAll();
   if (i === 'memName') { N.renameMember(el.dataset.v, val); toast(v, 'Name saved.'); render(v); }
   if (i === 'sdAspOn') { const a = v.ui.sd.aspects[+el.dataset.n]; if (a) { if (val) a.on = val; else delete a.on; } render(v); }
@@ -770,8 +788,11 @@ function change(v, el){
 }
 
 /* ---------------- chat ---------------- */
+/* a paused party chat (Jake) takes nothing from its players: no messages, pictures, GIFs or rolls */
+function hushed(v, ch){ if (isGM(v) || !N.chPaused(ch)) return false; toast(v, 'The GM paused this chat. You can read it, but not send anything until they resume it.'); render(v); return true; }
 function send(v){
   const text = v.ui.draft.trim(); if (!text) return;
+  if (hushed(v, v.ui.ch)) return;
   const ch = v.ui.ch, gm = isGM(v), g = G(), c = N.charOf(v.role);
   let m;
   if (ch === 'gm') m = {kind:'note'};
@@ -789,7 +810,7 @@ function send(v){
 N.send = send;
 /* the fight's own chat: table talk that stays with the fight (fc = the fight's id) and out of the roleplay chat and exports */
 function fcSend(v){
-  const text = (v.ui.fcDraft || '').trim(), cb = G().combat; if (!text || cb.state !== 'live') return;
+  const text = (v.ui.fcDraft || '').trim(), cb = G().combat; if (!text || cb.state !== 'live' || hushed(v, N.fightCh())) return;
   push({ch:N.fightCh(), kind:'meta', by:v.role, text, fc:cb.id});
   v.ui.fcDraft = ''; v.ui.stick = true; renderAll();
   const el = v.root.querySelector(`#fc-${v.id}`); if (el) el.focus({preventScroll:true});
@@ -797,6 +818,7 @@ function fcSend(v){
 /* a picture from the device, kept in the message itself (players can't write the picture store), so it is scaled to
    at most 1280px and about 260 KB. Whatever is typed in the box goes with it as a caption. Posted as the person, like a GIF. */
 function sendPic(v){
+  if (hushed(v, v.ui.ch)) return;
   N.pickImage(img => {
     const ch = v.ui.ch, u = N.shrink(img, 1280, 260000), k = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
     const m = {kind:'pic', ch, by:v.role, text:(v.ui.draft || '').trim(), pic:{u, w:Math.round(img.naturalWidth * k), h:Math.round(img.naturalHeight * k)}};
@@ -805,6 +827,7 @@ function sendPic(v){
   });
 }
 function sendGif(v, gif){
+  if (hushed(v, v.ui.ch)) return;
   gif = {...gif, u:N.gifSrc(gif.u)};
   const ch = v.ui.ch, m = {kind:'gif', ch, by:v.role, text:'', gif};
   if (v.ui.reply && G().msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
@@ -853,6 +876,7 @@ function openRoll(v, o={}){
 N.openRoll = openRoll;
 function doRoll(v){
   const g = G(), r = v.ui.roll, who = N.rollerOf(v, r.who); if (!who) return;
+  if (!isGM(v) && hushed(v, v.ui.ch === 'gm' ? 'table' : v.ui.ch)) return;
   const other = who.key === 'other';
   const tgt = r.target && N.tokById(r.target);
   const skill = other ? 'Bonus' : r.skill, bonus = other ? clamp(+r.otherBonus || 0, -4, 10) : (who.skills[r.skill] || 0);
@@ -1423,6 +1447,11 @@ function act(v, a, el, e){
   case 'grpNew': if (!gm) break; openSheet(v, 'grpEdit', {party:d.party === '1'}); break;
   case 'grpEdit': if (!gm) break; openSheet(v, 'grpEdit', {v:val}); break;
   case 'gdParty': ui.gd.party = val === '1'; break;
+  /* Jake: the GM pauses a party's chat; its players can read but not send until the GM lets them talk again */
+  case 'grpPause': { const gr = gm && N.grpOf('grp-' + val); if (!gr || !gr.party) break; const on = !gr.paused;
+    N.saveGroup(on ? {...gr, paused:true} : (({paused, ...x}) => x)(gr), null);
+    sys(on ? `${N.gmName()} paused this chat. Players can read but not send until it’s resumed.` : `${N.gmName()} resumed the chat. Everyone can talk again.`, 'grp-' + gr.id);
+    toast(v, on ? 'Chat paused. Players can’t send messages.' : 'Chat resumed.'); renderAll(); return; }
   case 'gdMeta': ui.gd.meta = val === '1'; break;
   case 'gdHist': ui.gd.hist = val === '1'; break;
   /* a group chat's picture in the chat list: small and kept in the group's own document, like a Meta picture */
@@ -1433,7 +1462,7 @@ function act(v, a, el, e){
   case 'gdSave': {
     const d = ui.gd, name = d.name.trim(); if (!gm || !name || !d.seats.length) break;
     const old = d.id && g.groups.find(x => x.id === d.id), seats = N.seats().filter(s => d.seats.includes(s));
-    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {}), ...(d.meta ? {meta:true} : {}), ...(d.pic ? {pic:d.pic} : {})};
+    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {}), ...(d.meta ? {meta:true} : {}), ...(d.party && old?.paused ? {paused:true} : {}), ...(d.pic ? {pic:d.pic} : {})};
     /* a player is in one party at a time: putting them in this one takes them out of any other. A party whose
        players all come along (a Solo party) stays as their group chat with all its history, so the 1-on-1
        roleplay with the GM is never lost; from a bigger party only the players who move leave. */
@@ -1573,7 +1602,7 @@ function act(v, a, el, e){
     /* a box the GM ticks by hand goes in the open chat's actions, so the table can see what happened */
     sys(`${N.gmName()} ${on ? 'checked' : 'cleared'} ${c.short}’s ${c.stressV[d.k][+d.i]}-point ${d.k === 'phys' ? 'physical' : 'mental'} stress box.`, ui.ch === 'gm' ? 'table' : ui.ch).act = 'stress';
     renderAll(); return; }
-  case 'fp': { const c = g.chars[d.c], before = c.fp; c.fp = clamp(c.fp + (+d.d), 0, 10); if (c.fp !== before) sys(+d.d > 0 ? `${N.gmName()} gave ${c.short} a fate point.` : `${c.short} spent a fate point.`, N.homeCh(c.player)); renderAll(); return; }
+  case 'fp': { const c = g.chars[d.c], before = c.fp; c.fp = clamp(c.fp + (+d.d), 0, 10); if (c.fp !== before) N.purseNote(c, 'fp', before); renderAll(); return; }
   case 'gmFor': ui.ch = val; break;
   case 'mapEditGo': close(); ui.tab = 'map'; ui.mapEdit = true; ui.addPin = false; break;
   case 'castNpcs': close(); ui.tab = 'cast'; ui.castSeg = 'npcs'; ui.castSel = null; break;
@@ -1895,7 +1924,7 @@ function act(v, a, el, e){
   /* an NPC's fate points change right on its card, without opening Edit. Secret, so nothing is posted */
   case 'npcFp': { const n = g.npcs.find(x => x.id === d.n); if (!n || !gm) break; n.fp = clamp((+n.fp || 0) + (+d.d), 0, 10); renderAll(); return; }
   /* Gold on a character (data-c) or NPC (data-n) card, whole numbers only, GM only */
-  case 'gold': { if (!gm) break; const o = d.c ? g.chars[d.c] : g.npcs.find(x => x.id === d.n); if (!o) break; o.gold = clamp((parseInt(o.gold, 10) || 0) + (+d.d), 0, N.GOLD_MAX); renderAll(); return; }
+  case 'gold': { if (!gm) break; const o = d.c ? g.chars[d.c] : g.npcs.find(x => x.id === d.n); if (!o) break; const before = parseInt(o.gold, 10) || 0; o.gold = clamp(before + (+d.d), 0, N.GOLD_MAX); if (d.c) N.purseNote(o, 'gold', before); renderAll(); return; }
   case 'npcStress': { const n = g.npcs.find(x => x.id === d.n); n.stress[d.k][+d.i] = !n.stress[d.k][+d.i]; renderAll(); return; }
   case 'npcToFight': { if (cb.state === 'off') { toast(v, 'Begin a fight first.'); break; } const t = N.cbAddNpc(val, 'foe', cb.zones[0]?.id); toast(v, `${t.name} joins the fight${cb.zones[0] ? ' in ' + cb.zones[0].name : ''}.`); renderAll(); return; }
   /* players and sign-ins */
@@ -2056,7 +2085,8 @@ function act(v, a, el, e){
   case 'tokClose': ui.tokSel = null; break;
   case 'tokFp': { const t = N.tokById(d.t), pool = t && N.tokFpPool(t); if (!pool) return; const o = pool.o, before = o.fp || 0; o.fp = clamp(before + (+d.d), 0, 10);
     /* a PC's change goes in the fight chat; an NPC's pool stays the GM's secret */
-    if (o.fp !== before && pool.pc) Object.assign(N.sys(+d.d > 0 ? `${N.gmName()} gave ${pool.name} a fate point.` : `${N.gmName()} took a fate point from ${pool.name}.`, N.fightCh()), {fight:true});
+    if (o.fp !== before && pool.pc) { const pn = N.purseNote(o, 'fp', before);
+      if (!pn || pn.ch !== N.fightCh()) Object.assign(N.sys(+d.d > 0 ? `${N.gmName()} gave ${pool.name} a fate point.` : `${N.gmName()} took a fate point from ${pool.name}.`, N.fightCh()), {fight:true}); }
     renderAll(); return; }
   case 'tokStress': { const t = N.tokById(d.t), s = N.tokStress(t); s.s[+d.i] = !s.s[+d.i]; renderAll(); return; }
   case 'tokTurn': { const o = N.order(), i = o.findIndex(t => t.id === d.t); if (i >= 0) { cb.turn = i; cb.acted = false; cb.moved = false; cb.pending = null; } ui.tokSel = null; ui.sheet = null; renderAll(); return; }
@@ -2131,6 +2161,37 @@ function act(v, a, el, e){
     s.state = 'open'; s.t = N.now();
     push({ch:s.ch, kind:'sys', by:'gm', text:`${s.name} is open for shopping.`, shop:'open', shopName:s.name, shopId:s.id});
     ui.sheet = null; toast(v, `${s.name} is open. ${s.ch.startsWith('dm-') ? N.chName(s.ch, 'gm') + ' sees' : 'Everyone in ' + N.chName(s.ch, 'gm') + ' sees'} it now.`); renderAll(); return; }
+  /* Jake: a player asks to buy an item; nothing is paid until the GM confirms the request in the chat */
+  case 'shopBuy': { const s = N.shopOpen(d.c), x = s && s.items.find(y => y.k === val), me = N.charOf(v.role); if (!x || gm || !me || !me.built || hushed(v, s.ch)) break;
+    const price = +x.price || 0;
+    if ((parseInt(me.gold, 10) || 0) < price) { toast(v, `${me.short} doesn’t have enough gold for ${x.name}.`); break; }
+    if (N.shopAsk(s.ch, me.id, x.k, 'buy')) { toast(v, 'Already asked. The GM still has to answer.'); break; }
+    push({ch:s.ch, kind:'sys', by:v.role, buy:{shop:s.id, k:x.k, it:x.it || '', name:x.name, price, c:me.id, who:me.short, st:'ask'}, text:`${me.short} wants to buy ${x.name} for ${N.goldTxt(price)}.`});
+    toast(v, `Sent to the GM. ${x.name} is ${me.short}’s once they confirm, and the gold is paid then.`); renderAll(); return; }
+  /* Bargain: tells the GM the character wants to roll a skill to bring the price down */
+  case 'shopHaggle': { const s = N.shopOpen(d.c), x = s && s.items.find(y => y.k === val), me = N.charOf(v.role); if (!x || gm || !me || !me.built || hushed(v, s.ch)) break;
+    if (N.shopAsk(s.ch, me.id, x.k, 'haggle')) { toast(v, 'Already asked. The GM still has to answer.'); break; }
+    push({ch:s.ch, kind:'sys', by:v.role, haggle:{shop:s.id, k:x.k, name:x.name, price:+x.price || 0, c:me.id, who:me.short, st:'ask'}, text:`${me.short} wants to bargain for ${x.name} (${N.goldTxt(+x.price || 0)}).`});
+    toast(v, 'The GM got your bargain. They’ll ask for a roll.'); renderAll(); return; }
+  case 'buyOk': { const m = gm && g.msgs.find(x => x.id === val), b = m && m.buy, c = b && g.chars[b.c]; if (!b || b.st !== 'ask') break;
+    if (!c) { toast(v, 'That character card is gone.'); break; }
+    const before = parseInt(c.gold, 10) || 0;
+    if (before < b.price) { toast(v, `${c.short} has only ${N.goldTxt(before)} now. Decline it, or give them gold first.`); break; }
+    c.gold = before - b.price;
+    const it = N.itemById(b.it) || N.itemByName(b.name), note = it ? N.itemNote(it) : '', ic = it ? it.ic || N.itemKind(it.kind)[2] : 'bag';
+    if (!c.inv) c.inv = [];
+    let row = c.inv.find(x => x[0].toLowerCase() === b.name.toLowerCase());
+    if (row) { row[1] += 1; if (note) row[2] = note; if (ic !== 'bag') row[3] = ic; } else { row = ic !== 'bag' ? [b.name, 1, note, ic] : note ? [b.name, 1, note] : [b.name, 1]; c.inv.push(row); }
+    if (it && N.itemSlot(it)) N.invSetX(row, {w:1, ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})});
+    b.st = 'ok'; m.text = `${b.who} bought ${b.name} for ${N.goldTxt(b.price)}.`;
+    N.purseNote(c, 'gold', before);
+    toast(v, `${c.short} paid ${N.goldTxt(b.price)}. ${b.name} is in their inventory.`); renderAll(); return; }
+  case 'buyNo': { const m = gm && g.msgs.find(x => x.id === val), b = m && (m.buy || m.haggle); if (!b || (m.buy ? b.st !== 'ask' : b.st === 'done')) break;
+    if (m.buy) { b.st = 'no'; m.text = `${N.gmName()} turned down ${b.who}’s purchase of ${b.name}.`; } else b.st = 'done';
+    renderAll(); return; }
+  case 'haggleRoll': { const m = gm && g.msgs.find(x => x.id === val), b = m && m.haggle; if (!b) break;
+    if (b.st === 'ask') b.st = 'roll';
+    openRoll(v, {who:'pc:' + b.c, action:'overcome', skill:'Rapport'}); return; }
   /* End shopping takes the store down for the players (Undo puts it back); a store still being set up is just deleted */
   case 'shopEnd': { const ch = d.c, s = gm && N.shopOf(ch); if (!s) break; delete g.shops[ch]; ui.sheet = null;
     const note = s.state === 'open' ? push({ch, kind:'sys', by:'gm', text:`Shopping at ${s.name} is over.`, shop:'end', shopName:s.name, shopId:s.id}) : null;
@@ -2162,11 +2223,11 @@ function openSheet(v, s, d={}){
   }
   if (s === 'npcNew') {
     const n = d.edit && g.npcs.find(x => x.id === d.edit);
-    ui.nd = n ? Object.assign(JSON.parse(JSON.stringify(n)), {edit:n.id}) : {name:'', race:'', job:'', age:'', disc:{}, hc:'', trouble:'', aspects:[], type:'supporting', skills:{}, stunts:[], magic:'', bio:'', notes:'', refresh:3, fp:3, portrait:null, from:d.from || null, dir:ui.tab === 'cast' && N.nd.byId(ui.npcDir) ? ui.npcDir : null};
+    ui.nd = n ? Object.assign(JSON.parse(JSON.stringify(n)), {edit:n.id}) : {name:'', race:'', nat:'', job:'', age:'', disc:{}, hc:'', trouble:'', aspects:[], type:'supporting', skills:{}, stunts:[], magic:'', bio:'', notes:'', refresh:3, fp:3, portrait:null, from:d.from || null, dir:ui.tab === 'cast' && N.nd.byId(ui.npcDir) ? ui.npcDir : null};
     /* "Copy as NPC" on a PC's card: a new NPC card filled from the PC's sheet, saved only when the GM presses Save */
     const pc = !n && d.pc && g.chars[d.pc];
     if (pc) { const c = JSON.parse(JSON.stringify(pc)), extra = [c.people ? `Important people: ${c.people}` : '', c.invText ? `Inventory notes: ${c.invText}` : ''].filter(Boolean).join('\n\n');
-      Object.assign(ui.nd, {name:`${c.name || c.short} (copy)`, race:c.race || '', age:c.age || '', hc:c.hc || '', trouble:c.trouble || '', aspects:c.aspects || [], skills:c.skills || {}, disc:c.disc || {},
+      Object.assign(ui.nd, {name:`${c.name || c.short} (copy)`, race:c.race || '', nat:c.nat || '', age:c.age || '', hc:c.hc || '', trouble:c.trouble || '', aspects:c.aspects || [], skills:c.skills || {}, disc:c.disc || {},
         stunts:c.stunts || [], magic:c.magic || '', bio:c.bio || '', notes:extra, refresh:c.refresh ?? 3, fp:c.fp ?? 3, portrait:c.portrait || null, type:'supporting',
         gearAtk:c.gearAtk || 0, gearDef:c.gearDef || 0, gearRng:c.gearRng || 0, gearAmmo:c.gearAmmo || 0, inv:c.inv || [], gold:c.gold || 0, copyOf:c.id}); }
     ui.nd.from = d.from || null;
@@ -2234,7 +2295,7 @@ function savePc(v){
   const sv = N.stressVals;
   const pv = [...sv(d.skills.Strength || 0), ...(c.gearBox || [])], mv = sv(d.skills.Will || 0);
   Object.assign(c, {name:d.name.trim(), short:(d.short.trim() || d.name.trim().split(' ')[0]), portrait:d.portrait || null, hc:'', trouble:'',
-    aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), race:(d.race || '').trim(), age:(d.age || '').trim(), bio:d.bio || '', people:d.people || '', invText:d.invText || '', skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), refresh:d.refresh, fp:d.fp, built:true,
+    aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), race:(d.race || '').trim(), nat:(d.nat || '').trim(), age:(d.age || '').trim(), bio:d.bio || '', people:d.people || '', invText:d.invText || '', skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), refresh:d.refresh, fp:d.fp, built:true,
     stressV:{phys:pv, ment:mv}, stress:{phys:pv.map((x,i) => !!c.stress.phys[i]), ment:mv.map((x,i) => !!c.stress.ment[i])}, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0});
   delete c.disc; c.disc = keepDisc(d);
   v.ui.sheet = null;
@@ -2261,7 +2322,7 @@ function otherDisc(v, d, act, k){
 }
 function saveNpc(v){
   const g = G(), d = v.ui.nd, old = d.edit && g.npcs.find(x => x.id === d.edit);
-  const base = {name:d.name.trim(), race:d.race.trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
+  const base = {name:d.name.trim(), race:d.race.trim(), nat:(d.nat || '').trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
     skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0,
     inv:(d.inv || []).map(x => [...x]), dir:N.nd.byId(d.dir) ? d.dir : null};
   if (d.copyOf && !old) base.gold = +d.gold || 0;
@@ -2312,7 +2373,7 @@ function doInvoke(v, i, reroll){
     how = 'free';
     if (o.kind === 'cb') { const asp = g.combat.aspects[o.i]; asp.free--; if (asp.boost && asp.free <= 0) g.combat.aspects.splice(o.i, 1); }
     if (o.kind === 'zone') g.combat.zones.find(z => z.id === o.z).free--;
-  } else if (x.pay) { if ((x.pay.o.fp || 0) < 1) { toast(v, x.pay.o === N.charOf(v.role) ? 'No fate points left.' : `${x.pay.name} has no fate points left.`); return; } x.pay.o.fp--; how = 'fp'; }
+  } else if (x.pay) { if ((x.pay.o.fp || 0) < 1) { toast(v, x.pay.o === N.charOf(v.role) ? 'No fate points left.' : `${x.pay.name} has no fate points left.`); return; } x.pay.o.fp--; how = 'fp'; N.purseNote(x.pay.o, 'fp', x.pay.o.fp + 1); }
   else if (!isGM(v)) { toast(v, 'No fate points left.'); return; }
   /* the invoke goes on the invoker's own roll (see N.invokeSides); by names them when that roll isn't theirs */
   const t = x.onto, iv = Object.assign({aspect:o.t, how}, o.ref ? {ref:o.ref} : {}, x.by && N.tokName(x.by) !== t.roll.who ? {by:N.tokName(x.by)} : {});
