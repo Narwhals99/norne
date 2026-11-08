@@ -3,7 +3,9 @@
    N.figOk() compares a SHA-256 hash of the signed-in email, so the address itself is not in this public code.
    Nothing goes to the database: the figure being made is kept on this device (localStorage norne-fig-test).
    three.js (vendor/three.module.min.js, r160) and the figure kit (js/figkit.js) load only when the maker opens,
-   and each hairstyle's model (art/hair/) loads the first time it is picked; the figure is rebuilt once it has arrived.
+   and each hairstyle's model (art/hair/) loads the first time it is picked; the figure is rebuilt once it has arrived,
+   The Head tab picks the head's size, shape and jawline and the face's eyes, brows, nose, mouth, marks and expression
+   (figkit: headWarp, faceSheet; the button pictures come from faceIcon).
    and the 3D scene is thrown away when it closes, so phones don't keep holding the memory.
    The maker is its own layer over the app (outside #app), so redraws of the app never touch its canvas. */
 (function(){
@@ -90,7 +92,7 @@ const CSS = `
 const HTML = `
 <header class="fx-bar"><h1><small>Test · only you can see this</small>Toy figure maker</h1><button type="button" class="fx-x" data-x>Close</button></header>
 <div class="wrap">
-  <p class="lede"><b>Build a figure from parts.</b> Pick a race, body, face, hair and outfit, then try the moves under the picture. Drag the figure to turn it. This is a test: the figure is kept on this device only, and nothing else in Norne changes.</p>
+  <p class="lede"><b>Build a figure from parts.</b> Pick a race, body, head, hair and outfit, then try the moves under the picture. Drag the figure to turn it. This is a test: the figure is kept on this device only, and nothing else in Norne changes.</p>
   <div class="main">
     <section class="stagecol" aria-label="Figure preview">
       <div class="stage" data-r="stage"><canvas aria-hidden="true"></canvas><div class="labels" data-r="labels"></div><span class="tag" data-r="tag">Your figure</span><span class="spin" data-r="spin">Drag to turn</span><div class="load" data-r="load">Loading the figure maker…</div></div>
@@ -103,7 +105,7 @@ const HTML = `
     <section class="panel" aria-label="Figure maker">
       <div class="tabs" role="tablist" data-r="tabs">
         <button type="button" class="tab" role="tab" data-t="body" aria-selected="true">Body</button>
-        <button type="button" class="tab" role="tab" data-t="face" aria-selected="false">Face</button>
+        <button type="button" class="tab" role="tab" data-t="head" aria-selected="false">Head</button>
         <button type="button" class="tab" role="tab" data-t="hair" aria-selected="false">Hair</button>
         <button type="button" class="tab" role="tab" data-t="outfit" aria-selected="false">Outfit</button>
       </div>
@@ -150,7 +152,7 @@ function start(box, THREE, K){
 
   const ANIM_NAMES = [['idle', 'Stand'], ['walk', 'Walk'], ['sword', 'Sword'], ['bow', 'Bow'], ['magic', 'Magic'], ['hit', 'Hit'], ['block', 'Block'], ['down', 'Knocked down']];
   let spec = null, rig = null, all = [], view = 'one', tab = 'body', anim = 'idle', t0 = performance.now(), spin = .35, frozen = null, running = true;
-  try { const s = JSON.parse(localStorage.getItem('norne-fig-test') || 'null'); if (s && K.RACES[s.race]) { spec = s; spec.hair = K.hairId(s.hair || 'bald'); } } catch (e) {}
+  try { const s = JSON.parse(localStorage.getItem('norne-fig-test') || 'null'); if (s && K.RACES[s.race]) { spec = K.faceFix(s); spec.hair = K.hairId(s.hair || 'bald'); } } catch (e) {}
   if (!spec) spec = K.defaultSpec('Human', 'm');
   const save = () => { try { localStorage.setItem('norne-fig-test', JSON.stringify(spec)); } catch (e) {} };
 
@@ -236,9 +238,24 @@ function start(box, THREE, K){
       grp('Body shape', '', opt('f', 'Female', spec.body === 'f', 'body') + opt('m', 'Male', spec.body === 'm', 'body'));
       grp(spec.race === 'Human' ? 'People' : r.beast === 'bird' ? 'Feathers' : r.beast ? 'Skin, scales or fur' : 'Skin', r.skins[spec.skin].n, r.skins.map((s, i) => sw(i, s.n, s.c, i === +spec.skin, 'skin')).join(''), 'sws');
       if (spec.race === 'Human') o.push(`<p class="note">Picking a people also sets the hair and eye colour the lore gives them. You can still change both.</p>`);
-    } else if (tab === 'face') {
-      grp('Face', K.pick(K.FACES, spec.face)[1], K.FACES.map(([id, n]) => opt(id, n, id === spec.face, 'face', `<img alt="" src="${K.faceIcon(spec, id)}">`)).join(''), 'grid faces');
-      grp('Eye colour', K.pick(K.EYES, spec.eyes)[1], K.EYES.map(([id, n, c]) => sw(id, n, c, id === spec.eyes, 'eyes')).join(''), 'sws');
+    } else if (tab === 'head') {
+      const ic = (over, mode) => `<img alt="" src="${K.faceIcon(spec, over, mode)}">`, nm = (list, v) => K.pick(list, v)[1], beast = r.beast;
+      grp('Head size', nm(K.HEAD_SIZES, spec.headSize), K.HEAD_SIZES.map(([id, n]) => opt(id, n, id === spec.headSize, 'headSize')).join(''), 'grid steps');
+      grp('Head shape', nm(K.HEAD_SHAPES, spec.headShape), K.HEAD_SHAPES.map(([id, n]) => opt(id, n, id === spec.headShape, 'headShape', ic({headShape:id}))).join(''), 'grid faces');
+      if (beast) o.push(`<p class="note">${beast === 'bug' ? 'Bugfolk have big round eyes instead of a drawn face, so only the head\'s size and shape change.' : `${esc(spec.race)} keep their own snout or beak, so there is no jawline, nose or mouth to pick.`}</p>`);
+      else grp('Jawline', nm(K.JAWS, spec.jaw), K.JAWS.map(([id, n]) => opt(id, n, id === spec.jaw, 'jaw', ic({jaw:id}))).join(''), 'grid faces');
+      if (beast !== 'bug') {
+        grp('Eyes', nm(K.EYE_SHAPES, spec.eyeShape), K.EYE_SHAPES.map(([id, n]) => opt(id, n, id === spec.eyeShape, 'eyeShape', ic({eyeShape:id, expr:'calm'}, 'eyes'))).join(''), 'grid faces');
+        grp('Eye size', nm(K.EYE_SIZES, spec.eyeSize), K.EYE_SIZES.map(([id, n]) => opt(id, n, id === spec.eyeSize, 'eyeSize')).join(''), 'grid steps');
+        grp('Eye colour', K.pick(K.EYES, spec.eyes)[1], K.EYES.map(([id, n, c]) => sw(id, n, c, id === spec.eyes, 'eyes')).join(''), 'sws');
+        grp('Brows', nm(K.BROWS, spec.brows), K.BROWS.map(([id, n]) => opt(id, n, id === spec.brows, 'brows', ic({brows:id, expr:'calm'}, 'eyes'))).join(''), 'grid faces');
+        if (!beast) {
+          grp('Nose', nm(K.NOSES, spec.nose), K.NOSES.map(([id, n]) => opt(id, n, id === spec.nose, 'nose')).join(''), 'grid steps');
+          grp('Mouth', nm(K.MOUTHS, spec.mouth), K.MOUTHS.map(([id, n]) => opt(id, n, id === spec.mouth, 'mouth', ic({mouth:id}, 'mouth'))).join(''), 'grid faces');
+        }
+        grp('Expression', nm(K.EXPRS, spec.expr), K.EXPRS.map(([id, n]) => opt(id, n, id === spec.expr, 'expr', ic({expr:id}, 'expr'))).join(''), 'grid faces');
+        if (!beast) grp('Marks', (spec.marks || []).length ? '' : 'None', K.MARKS.map(([id, n]) => opt(id, n, (spec.marks || []).includes(id), 'mark')).join(''));
+      }
     } else if (tab === 'hair') {
       if (r.nohair || r.nohairStyle) o.push(`<p class="note">${spec.race === 'Gorgon' ? 'Gorgons have serpent locks instead of hair (from the lore). Pick the snakes\' colour below.' : `${esc(spec.race)} have no hair, so only the colour below changes.`}</p>`);
       else {
@@ -266,6 +283,7 @@ function start(box, THREE, K){
     else if (k === 'skin') { spec.skin = +val; const p = R().skins[+val]; if (p.eye) spec.eyes = p.eye; if (p.hair) spec.hairCol = p.hair; }
     else if (k === 'outfit') { spec.outfit = val; spec.cloth = K.pick(K.OUTFITS, val)[2].cloth; delete spec.hood; }
     else if (k === 'len') spec.len = +val;
+    else if (k === 'mark') { const m = new Set(spec.marks || []); m.has(val) ? m.delete(val) : m.add(val); spec.marks = K.MARKS.map(x => x[0]).filter(x => m.has(x)); }
     else spec[k] = val;
     rebuild(); opts();
   });
