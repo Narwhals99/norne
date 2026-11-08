@@ -1680,6 +1680,30 @@
 .app .fxt b{font:700 var(--fs,22px)/1 var(--f-display);font-variation-settings:"SOFT" 100;letter-spacing:.02em;color:var(--k)}
 .app .fxt small{font:900 calc(var(--fs,22px) * .44)/1.1 var(--f-ui);letter-spacing:.07em;text-transform:uppercase;color:#fff8ea}
 .app:where([data-style="parchment"]) .fxt b{font-family:"Alegreya",Georgia,serif;font-weight:900;font-variation-settings:normal}
+/* 3D figures on the board (js/figboard.js): the canvas sits over the zones and under the names, stress boxes,
+   zone labels and attack effects. A token standing as a figure keeps its circle's space (it is still what you tap
+   and drag) but hides it; its turn, picked and target rings are drawn under the figure instead */
+.app .board .cam>.figcv{position:absolute;left:0;top:0;width:100%;height:100%;display:block;pointer-events:none;z-index:1}
+.app .board.figs .tok{z-index:2}
+.app .board.figs .tok.fxa{z-index:5}
+.app .board.figs .tok.fxd{z-index:4}
+.app .board.figs .zone .zl,.app .board.figs .zone .za{z-index:2}
+/* a figure's stress boxes and name float over its head like a game's health bar (--fh: how tall the figure stands,
+   set by figboard.js), so they never sit on the face of the figure in front. The zone's name moves to its bottom edge
+   and its aspect just under the zone, out of the way of heads. Rows get a little more room, and the top row starts lower */
+.app .board.figs .tok.fig .st{top:auto;right:auto;left:50%;bottom:calc(50% + var(--fh,60px));translate:-50% 0}
+.app .board.figs .tok.fig .nm{position:absolute;left:50%;bottom:calc(50% + var(--fh,60px) + 9px);translate:-50% 0}
+.app .board.figs .tok.fig.out .nm{bottom:calc(50% + 12px)}
+.app .board.figs .tok.fig.out .st{display:none}
+.app .board.figs .zone .zl{top:auto;bottom:-12px}
+.app .board.figs .zone .za{bottom:auto;top:calc(100% + 15px);right:-4px}
+.app .board.figs .zone .ztoks{padding-top:calc(var(--tk,42px) * 1.1 + 10px);padding-bottom:18px;row-gap:calc(var(--tk,42px) * .45)}
+.app .board.figs .zone .ztoks.sides .zs{row-gap:calc(var(--tk,42px) * .45)}
+.app .tok.fig .av{opacity:0}
+.app .tok.fig.target{animation:none}
+.app .tok.fig.out{filter:none;opacity:1}
+.app .tok.fig.out .nm{opacity:.6}
+.app .tok.fig.out::after{display:none}
 /* the GM's fight log on phones: fills the space between his tools and the turn bar, and scrolls on its own */
 .app .fight.cmd>.fight-scroll>.ffeed{flex:1 1 0;min-height:150px;display:flex;flex-direction:column;gap:6px;padding:0 12px}
 .app .ffeed>.eyebrow{display:flex;justify-content:space-between;align-items:center}
@@ -2278,6 +2302,18 @@
 .app .tokcard .tk-none{margin:0;font:600 12.5px/1.3 var(--f-ui)}
 .app .foe-sc{display:flex;align-items:center;gap:6px;font:600 12px/1.3 var(--f-ui);color:var(--gold-tx)}
 .app .foe-sc svg{width:13px;height:13px;flex:none}
+/* figures in fight setup (js/figures.js N.figRows): a small picture of each NPC's toy figure */
+.app .figrows{display:grid;gap:6px;margin-top:6px}
+.app .figrows>small:last-child{font:600 12px/1.4 var(--f-ui);color:var(--ink-3)}
+.app .zlist .zi.figrow{padding:4px 6px 4px 4px;flex-wrap:wrap}
+.app .zlist .zi.figrow>span:not(.figpic):not(.figbtns){flex:1 1 120px}
+.app .zlist .zi.figrow>span.figbtns{flex:none;display:flex;gap:6px;margin-left:auto}
+.app .zlist .zi.figrow>span.figpic{flex:none;width:40px;height:50px;border-radius:9px;overflow:hidden;display:grid;place-items:center;background:radial-gradient(70% 60% at 50% 38%,#343a86,#1a1e4d 70%,#0d1030)}
+.app .zlist .zi .figpic img{display:block;width:100%;height:100%;object-fit:cover}
+.app .zlist .zi .figpic i{width:16px;height:16px;border-radius:50%;background:rgba(255,255,255,.14)}
+.app .zlist .zi .figpic i.wait{animation:figwait .9s ease-in-out infinite alternate}
+@keyframes figwait{to{opacity:.25}}
+@media (prefers-reduced-motion:reduce){.app .zlist .zi .figpic i.wait{animation:none}}
 /* a player's Met / Heard of note on a character they know */
 .app .metseg{margin-top:10px;justify-self:start;width:max-content;max-width:100%}
 .app .metseg button svg{width:15px;height:15px}

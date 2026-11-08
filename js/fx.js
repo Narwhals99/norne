@@ -83,7 +83,11 @@ function geo(cam, id){
   const el = cam.querySelector(`.tok[data-tok="${CSS.escape(id)}"]`), av = el && el.querySelector('.av');
   if (!av) return null;
   const r = av.getBoundingClientRect(), c = cam.getBoundingClientRect();
-  return {el, av, x:r.left - c.left + r.width / 2, y:r.top - c.top + r.height / 2, R:r.width / 2};
+  const g = {el, av, x:r.left - c.left + r.width / 2, y:r.top - c.top + r.height / 2, R:r.width / 2};
+  /* a fighter standing as a 3D figure (js/figboard.js): aim at the figure's chest, and keep the words clear of its head */
+  const f = N.figGeo && N.figGeo(el);
+  if (f) { g.y -= f.lift; g.up = f.up; g.dn = f.dn; g.fig = true; }
+  return g;
 }
 function build(board, s){
   const cam = board.querySelector('.cam'), bg = board.querySelector('.bg'), an = s.a, at = N.tokById(an.att), dt = N.tokById(an.def);
@@ -95,6 +99,8 @@ function build(board, s){
   let nx = uy, ny = -ux; if (ny > 0 || (ny === 0 && nx > 0)) { nx = -nx; ny = -ny; }
   const R = A.R, Rd = D.R, sg = ux >= 0 ? 1 : -1, phi = Math.atan2(uy, ux) * 180 / Math.PI;
   const fx = {cam, bg, o, A, D, W, H, d, ux, uy, nx, ny, R, Rd, s:sg, phi, wpn, out:an.out, box:an.box, rng:rnd(hash(s.id)), filled:[]};
+  /* how far a fighter reaches above and below the middle the effects aim at: a token's circle, or a figure's head and base */
+  const Du = D.up || Rd, Dn = D.dn || Rd, Au = A.up || 0, An = A.dn || 0;
   fx.rot0 = fx.rng() * Math.PI;
   const at2 = (al, k) => ({x:D.x - ux * Rd * al + nx * Rd * (k || 0), y:D.y - uy * Rd * al + ny * Rd * (k || 0)});
   /* where the blow lands, by outcome */
@@ -129,7 +135,7 @@ function build(board, s){
   const tw = Array.from({length:4}, () => `<path d="M0,-10 C1,-2 2,-1 10,0 C2,1 1,2 0,10 C-1,2 -2,1 -10,0 C-2,-1 -1,-2 0,-10Z" fill="${o.twinkle || '#fff'}" stroke="${INK}" stroke-width="1.2" opacity="0"/>`).join('');
   svg.innerHTML = `${DEFS}<g class="g-trail" opacity="0"><path class="t1" fill="none" stroke="#ffffff" stroke-linecap="round"/><path class="t2" fill="none" stroke="#ffffff" stroke-linecap="round"/></g>
     <g class="g-tr">${trail}</g><g class="g-pt">${parts}</g>
-    <g class="g-wpn" opacity="0">${wpn === 'sword' ? SWORD : wpn === 'bow' ? BOW(0) : ''}</g>
+    <g class="g-wpn" opacity="0">${A.fig ? '' : wpn === 'sword' ? SWORD : wpn === 'bow' ? BOW(0) : ''}</g>
     <g class="g-proj" opacity="0">${wpn === 'bow' ? ARROW : wpn === 'bolt' ? '<circle class="og" fill="url(#fxGlow)"/><circle class="oc" fill="url(#fxOrb)" stroke="#eaf7ff"/><circle class="oh" fill="#fff"/>' : ''}</g>
     <g class="g-sh" opacity="0">${SHIELD}</g>
     <g class="g-fx"><circle class="ring" fill="none" opacity="0"/><path class="b1" opacity="0"/><path class="b2" opacity="0"/><g class="sp" stroke="${o.core}">${sparks}</g><g class="lt" opacity="0">${bolts}</g></g>
@@ -160,13 +166,14 @@ function build(board, s){
   /* friendly fire: two fighters on one side stand in one column, so the attacker can be right above the target.
      Then the words go under the target's feet instead of on top of the attacker. */
   const below = uy > .5;
-  const Zmax = RM ? 1 : W < 600 ? 1.7 : 1.25, top = below ? D.y - Rd - 6 : D.y - Rd - 6 - fx.th - rise;
+  const Zmax = RM ? 1 : W < 600 ? 1.7 : 1.25, top = below ? D.y - Du - 6 : D.y - Du - 6 - fx.th - rise;
   const fit = b => Math.min(W / Math.max(b.x1 - b.x0, b.tw || 0), H / (b.y1 - b.y0));
   const shot = (b, cx, cy) => ({TX:clamp(clamp(W / 2 - Z * cx, -Z * b.x0, W - Z * b.x1), W - Z * W, 0), TY:clamp(clamp(H / 2 - Z * cy, -Z * b.y0, H - Z * b.y1), H - Z * H, 0)});
-  const foot = below ? D.y + Rd + 10 + fx.th * 1.15 : 0;
-  const both = {x0:Math.min(A.x, D.x) - 3.4 * R, x1:Math.max(A.x, D.x) + 3.4 * R, y0:Math.min(A.y - 1.4 * R, top), y1:Math.max(A.y + 1.9 * R, D.y + 1.9 * R, foot), tw:fx.tw + 12};
-  const atk = {x0:A.x - 3.4 * R, x1:A.x + 3.4 * R, y0:A.y - 3.2 * R, y1:A.y + 1.9 * R};
-  const tgt = {x0:D.x - 3.4 * R, x1:D.x + 3.4 * R, y0:top, y1:Math.max(D.y + 1.9 * R, foot), tw:fx.tw + 12};
+  const foot = below ? D.y + Dn + 10 + fx.th * 1.15 : 0;
+  const aDn = Math.max(1.9 * R, An + .3 * R), dDn = Math.max(1.9 * R, (D.dn || 0) + .3 * R);
+  const both = {x0:Math.min(A.x, D.x) - 3.4 * R, x1:Math.max(A.x, D.x) + 3.4 * R, y0:Math.min(A.y - Math.max(1.4 * R, Au + .3 * R), top), y1:Math.max(A.y + aDn, D.y + dDn, foot), tw:fx.tw + 12};
+  const atk = {x0:A.x - 3.4 * R, x1:A.x + 3.4 * R, y0:A.y - Math.max(3.2 * R, Au + .5 * R), y1:A.y + aDn};
+  const tgt = {x0:D.x - 3.4 * R, x1:D.x + 3.4 * R, y0:top, y1:Math.max(D.y + dDn, foot), tw:fx.tw + 12};
   /* one shot when both fit at the zoom the travelling camera would use anyway */
   const fb = fit(both), Zp = Math.min(Zmax, fit(atk), fit(tgt)), close = fb >= Zp, Z = close ? Math.min(Zmax, fb) : Zp;
   fx.Z = Z > 1.05 ? Z : 1;
@@ -182,7 +189,7 @@ function build(board, s){
   const vx0 = -fx.cD.TX / fx.Z, vx1 = (W - fx.cD.TX) / fx.Z, vy0 = -fx.cD.TY / fx.Z;
   fx.txX = clamp(D.x, vx0 + fx.tw * .64 + 4, vx1 - fx.tw * .64 - 4);
   /* txY is the words' bottom edge before they rise by `rise` */
-  fx.txY = below ? Math.min(D.y + Rd + 8 + fx.th, (H - fx.cD.TY) / fx.Z - 4) + rise : Math.max(D.y - Rd - 6, vy0 + fx.th + rise + 6);
+  fx.txY = below ? Math.min(D.y + Dn + 8 + fx.th, (H - fx.cD.TY) / fx.Z - 4) + rise : Math.max(D.y - Du - 6, vy0 + fx.th + rise + 6);
   A.el.classList.add('fxa'); D.el.classList.add('fxd');
   board.classList.add('playing');
   fx.board = board;
@@ -201,8 +208,10 @@ function clear(fx, end){
 
 /* moves a token along the attack line (al) and across it (pp) */
 function place(fx, el, al, pp, rot, down){
-  el.style.translate = `${(fx.ux * al + fx.nx * pp).toFixed(2)}px ${(fx.uy * al + fx.ny * pp + (down || 0)).toFixed(2)}px`;
-  el.style.rotate = `${(rot || 0).toFixed(2)}deg`;
+  /* a figure does its own reeling and falling; its token (name and stress boxes) only moves, so they stay upright */
+  const fig = el === fx.A.el ? fx.A.fig : fx.D.fig;
+  el.style.translate = `${(fx.ux * al + fx.nx * pp).toFixed(2)}px ${(fx.uy * al + fx.ny * pp + (fig ? 0 : down || 0)).toFixed(2)}px`;
+  el.style.rotate = fig ? '' : `${(rot || 0).toFixed(2)}deg`;
 }
 function tgtOff(fx, t){
   const TI = fx.TI, o = fx.o;
@@ -256,10 +265,11 @@ function bowAt(fx, t){
   const bx = ax + Math.cos(br) * R * 1.05, by = ay + Math.sin(br) * R * 1.05;
   const draw = t < 260 ? 0 : t < TR ? 24 * eOut(seg(t, 260, 800)) : -7 * Math.sin((t - TR) * .075) * Math.exp(-(t - TR) / 85);
   set(fx.g.wpn, {transform:`translate(${bx.toFixed(2)} ${by.toFixed(2)}) rotate(${ang.toFixed(2)}) scale(${(kb * (t < 220 ? eBack(seg(t, 0, 220)) : 1)).toFixed(4)})`, opacity:(1 - seg(t, TR + 380, TR + 600)).toFixed(3)});
-  set(fx.g.str, {d:`M-6,-46 L${(-6 - draw).toFixed(2)},0 L-6,46`});
+  if (fx.g.str) set(fx.g.str, {d:`M-6,-46 L${(-6 - draw).toFixed(2)},0 L-6,46`});
   /* the arrow: nocked, in flight, then stuck or knocked away */
   let x, y, a, op = 1;
-  if (t < TR) { const tl = (68 - draw) * kb; x = bx + Math.cos(br) * tl; y = by + Math.sin(br) * tl; a = ang; op = seg(t, 150, 260); }
+  /* a figure holds its own bow, so the arrow only shows once it is loosed */
+  if (t < TR) { const tl = (68 - draw) * kb; x = bx + Math.cos(br) * tl; y = by + Math.sin(br) * tl; a = ang; op = fx.A.fig ? 0 : seg(t, 150, 260); }
   else if (t < TI) {
     const v = seg(t, TR, TI), S = fx.S, C = fx.C, E = fx.E, m = 1 - v;
     x = m * m * S.x + 2 * m * v * C.x + v * v * E.x; y = m * m * S.y + 2 * m * v * C.y + v * v * E.y;
@@ -283,7 +293,7 @@ function boltAt(fx, t){
   const pp = R * .06 * trem * Math.sin(t * .55), rot = 3 * trem * Math.sin(t * .43);
   place(fx, fx.A.el, al, pp, rot);
   const glow = t < TF ? eOut(seg(t, 0, 650)) : 1 - seg(t, TF, TF + 320);
-  fx.A.el.style.filter = glow > .01 ? `drop-shadow(0 0 ${(R * .5 * glow).toFixed(1)}px rgba(90,170,255,${(.95 * glow).toFixed(2)})) brightness(${(1 + .2 * glow).toFixed(3)})` : '';
+  fx.A.el.style.filter = glow > .01 && !fx.A.fig ? `drop-shadow(0 0 ${(R * .5 * glow).toFixed(1)}px rgba(90,170,255,${(.95 * glow).toFixed(2)})) brightness(${(1 + .2 * glow).toFixed(3)})` : '';
   const ax = fx.A.x + fx.ux * al + fx.nx * pp, ay = fx.A.y + fx.uy * al + fx.ny * pp;
   const rr0 = .42 * R * eBack(seg(t, 40, 600)) * (1 + .07 * Math.sin(t * .035));
   const pos = tt => { const v = seg(tt, TF, TI), w = Math.pow(v, 1.15), wob = R * .14 * Math.sin(v * Math.PI * 2) * (1 - v); return {x:lerp(fx.S.x, fx.E.x, w) + fx.nx * wob, y:lerp(fx.S.y, fx.E.y, w) + fx.ny * wob}; };
@@ -350,7 +360,7 @@ function impactAt(fx, t){
   if (o.out && t >= TI + 520) { const u = seg(t, TI + 520, TI + 820); rot += fx.s * 88 * eBack(u); down = .25 * Rd * eOut(u); if (u >= 1 && !el.classList.contains('out')) { el.classList.add('out'); fx.addedOut = true; } }
   place(fx, el, g.al, g.pp, rot, down);
   const fl = t >= TI && t < TI + 320 ? 1 - seg(t, TI, TI + 320) : 0;
-  el.style.filter = fl > 0 ? `brightness(${(1 + (o.hit ? .9 : .5) * fl).toFixed(3)}) drop-shadow(0 0 ${(Rd * .55 * fl).toFixed(1)}px ${o.glow})` : '';
+  el.style.filter = fl > 0 && !fx.D.fig ? `brightness(${(1 + (o.hit ? .9 : .5) * fl).toFixed(3)}) drop-shadow(0 0 ${(Rd * .55 * fl).toFixed(1)}px ${o.glow})` : '';
   if (o.hit && t >= TI + 120 && !fx.filled.length) {
     /* the box the hit really checked; taken out lights every box that was left */
     const boxes = [...el.querySelectorAll('.st i')];
@@ -453,6 +463,7 @@ function go(v){
     const t = Date.now() - s.start;
     if (t >= fx.total) { finish(v); return; }
     draw(fx, Math.max(0, t));
+    if (N.figFrame) N.figFrame(v);
     run.raf = requestAnimationFrame(tick);
   };
   tick();

@@ -1,7 +1,11 @@
-/* Toy figure maker: a test to explore, not wired into fights yet (2026-11-07).
-   Opened from the Character tab (next to Stats) and from Profile, and shown to one account only while it is tried out:
+/* Toy figure maker (2026-11-07). The saved figures stand on the fight board (js/figboard.js, 2026-11-08).
+   Opened from the Character tab (next to Stats) and from Profile, and shown to one player account only while it is tried out:
    N.figOk() compares a SHA-256 hash of the signed-in email, so the address itself is not in this public code.
-   Nothing goes to the database: the figure being made is kept on this device (localStorage norne-fig-test).
+   The GM always has it, from an NPC card (Make figure) and from fight setup (Figures, with random looks for NPCs without a card).
+   The figure being made is kept on this device (localStorage norne-fig-test: {spec, char, base}) until Save figure puts it
+   on the player's character card (fig, figAt): that is the character's figure until they save another. The card already
+   goes out with the character (game/chars or parties/<id>), so no new security rules are needed. On another device the
+   saved figure wins over a draft that was started from an older save (base = the figAt it began from).
    three.js (vendor/three.module.min.js, r160) and the figure kit (js/figkit.js) load only when the maker opens,
    and each hairstyle's model (art/hair/) loads the first time it is picked; the figure is rebuilt once it has arrived,
    The Head tab picks the head's size, shape and jawline and the face's eyes, brows, nose, mouth, marks and expression
@@ -13,6 +17,7 @@ const N = window.N;
 const ALLOW = ['b5253f6572ed46d2835da08cf45e30be033423abbc64525079af9632bd1bc952'];
 let hashFor = null, allowed = false;
 N.figOk = () => {
+  if (N.G && N.G.role === 'gm') return true; /* the GM makes figures for NPC cards and fighters (Jack, 2026-11-08) */
   const e = ((N.me && N.me()) || {}).email; if (!e) return false;
   if (hashFor !== e) {
     hashFor = e; allowed = false;
@@ -33,11 +38,26 @@ const CSS = `
   color:var(--ink);font:400 15px/1.5 var(--f-ui);-webkit-text-size-adjust:100%;
   background:radial-gradient(120% 60% at 85% -10%,rgba(126,92,255,.28),transparent 55%),radial-gradient(90% 50% at -10% 100%,rgba(40,90,200,.22),transparent 60%),linear-gradient(180deg,var(--sky-1),var(--sky-0))}
 .figx *{box-sizing:border-box}
+.figx [hidden]{display:none!important}
 .figx .fx-bar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;padding:calc(10px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));
   background:rgba(8,10,32,.86);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 1px 0 var(--line)}
 .figx .fx-bar h1{margin:0;flex:1;min-width:0;font:800 clamp(18px,3.4vw,24px)/1.1 var(--f-mark);letter-spacing:.02em}
 .figx .fx-bar h1 small{display:block;margin-top:3px;font:800 10.5px/1.2 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.figx .fx-bar{flex-wrap:wrap}
 .figx .fx-x{flex:none;min-height:44px;padding:0 16px;border:0;border-radius:12px;background:var(--raise);color:var(--ink);font:900 14px/1 var(--f-ui);cursor:pointer;box-shadow:0 0 0 1px var(--line-2)}
+.figx .fx-save{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 16px;border:0;border-radius:12px;background:var(--gold);color:var(--gold-ink);font:900 14px/1 var(--f-ui);cursor:pointer;box-shadow:0 6px 18px -8px rgba(244,196,110,.7)}
+.figx .fx-save.done{background:var(--raise);color:var(--jade);box-shadow:0 0 0 1px var(--line-2)}
+.figx .fx-save svg{width:16px;height:16px;flex:none}
+.figx .fx-ask{flex:1 0 100%;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-radius:14px;background:var(--raise);box-shadow:0 0 0 1px var(--gold)}
+.figx .fx-ask span{flex:1 1 180px;font:800 14px/1.3 var(--f-ui)}
+.figx .fx-ask .fx-x{min-height:40px;padding:0 13px;font-size:13.5px}
+.figx .fx-ask .fx-save{min-height:40px;padding:0 13px;font-size:13.5px}
+.figx .saved{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:10px 14px;border-radius:16px;background:rgba(16,19,52,.82);box-shadow:0 0 0 1px var(--line);color:var(--ink-2);font:600 13px/1.4 var(--f-ui);min-width:0}
+.figx .saved>span{flex:1 1 200px;min-width:0}
+.figx .saved b{color:var(--ink)}
+.figx .saved i{flex:none;width:10px;height:10px;border-radius:50%;background:var(--jade);box-shadow:0 0 0 3px rgba(98,214,168,.18)}
+.figx .saved.dirty i{background:var(--gold);box-shadow:0 0 0 3px rgba(244,196,110,.18)}
+.figx .saved button{min-height:36px;padding:0 12px;border:0;border-radius:10px;background:var(--raise);color:var(--ink);font:800 12.5px/1 var(--f-ui);cursor:pointer;box-shadow:0 0 0 1px var(--line-2)}
 .figx .wrap{max-width:1180px;margin:0 auto;display:grid;gap:16px;padding:16px max(16px,env(safe-area-inset-right,0px)) calc(40px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 .figx .lede{margin:0;max-width:70ch;color:var(--ink-2)}
 .figx .lede b{color:var(--ink)}
@@ -90,17 +110,19 @@ const CSS = `
 @media (prefers-reduced-motion:reduce){.figx *{scroll-behavior:auto}}
 `;
 const HTML = `
-<header class="fx-bar"><h1><small>Test · only you can see this</small>Toy figure maker</h1><button type="button" class="fx-x" data-x>Close</button></header>
+<header class="fx-bar"><h1><small>Test · only you can see this</small>Toy figure maker</h1><button type="button" class="fx-save" data-r="save" hidden>Save figure</button><button type="button" class="fx-x" data-x>Close</button>
+  <div class="fx-ask" data-r="ask" role="alertdialog" aria-label="Unsaved figure" hidden><span>Your changes to the figure aren’t saved.</span><button type="button" class="fx-save" data-r="askSave">Save and close</button><button type="button" class="fx-x" data-r="askDrop">Close without saving</button><button type="button" class="fx-x" data-r="askKeep">Keep editing</button></div></header>
 <div class="wrap">
-  <p class="lede"><b>Build a figure from parts.</b> Pick a race, body, head, hair and outfit, then try the moves under the picture. Drag the figure to turn it. This is a test: the figure is kept on this device only, and nothing else in Norne changes.</p>
+  <p class="lede" data-r="lede"><b>Build a figure from parts.</b> Pick a race, body, head, hair and outfit, then try the moves under the picture. Drag the figure to turn it.</p>
   <div class="main">
     <section class="stagecol" aria-label="Figure preview">
-      <div class="stage" data-r="stage"><canvas aria-hidden="true"></canvas><div class="labels" data-r="labels"></div><span class="tag" data-r="tag">Your figure</span><span class="spin" data-r="spin">Drag to turn</span><div class="load" data-r="load">Loading the figure maker…</div></div>
+      <div class="stage" data-r="stage"><canvas aria-hidden="true"></canvas><div class="labels" data-r="labels"></div><span class="tag" data-r="tag"></span><span class="spin" data-r="spin">Drag to turn</span><div class="load" data-r="load">Loading the figure maker…</div></div>
       <div class="bar" data-r="anims" role="group" aria-label="Moves"></div>
       <div class="bar" data-r="views" role="group" aria-label="View">
         <button type="button" class="chip" data-v="one" aria-pressed="true">My figure</button>
         <button type="button" class="chip" data-v="all" aria-pressed="false">Every race's default</button>
       </div>
+      <div class="saved" data-r="saved" aria-live="polite"></div>
     </section>
     <section class="panel" aria-label="Figure maker">
       <div class="tabs" role="tablist" data-r="tabs">
@@ -116,18 +138,32 @@ const HTML = `
   </div>
 </div>`;
 
-let box = null, stop = null, cssDone = false, openV = null;
+let box = null, stop = null, cssDone = false, openV = null, openT = null;
+/* who the figure is for: the player's own character (no target), an NPC card ('npc:<id>') or a fighter in the fight being
+   set up ('tok:<id>'). get() reads it fresh each time, since a sync can swap the object. */
+function targetOf(v, tg){
+  const g = N.G, at = s => String(s || '').trim();
+  if (tg && tg.startsWith('npc:')) { const id = tg.slice(4), get = () => g.npcs.find(n => n.id === id), n = get(); return n ? {kind:'npc', id, get, name:n.name || 'This NPC', race:n.race} : null; }
+  if (tg && tg.startsWith('tok:')) { const id = tg.slice(4), get = () => (g.combat.tokens || []).find(t => t.id === id), t = get();
+    const n = t && g.npcs.find(x => x.id === t.ref); return t ? {kind:'tok', id, get, name:t.name || 'This fighter', race:n && n.race} : null; }
+  const role = v && v.role, get = () => role && role !== 'gm' ? N.charOf(role) : null, c = get();
+  return c ? {kind:'pc', id:c.id, get, name:at(c.short) || at(c.name) || 'your character', race:c.race} : null;
+}
 const shut = () => { if (stop) { stop(); stop = null; } if (box) { box.remove(); box = null; } };
-N.figOpen = v => {
+N.figOpen = (v, tg) => {
   if (box || !N.figOk()) return;
+  openT = targetOf(v, tg);
   if (!cssDone) { const st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st); cssDone = true; }
   openV = v;
   box = document.createElement('div'); box.className = 'figx'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Toy figure maker');
   box.innerHTML = HTML;
+  if (v && v.role === 'gm') box.querySelector('.fx-bar h1 small').textContent = 'Test · players can’t see this';
   (document.querySelector('.device') || document.body).appendChild(box);
-  const leave = () => { const w = openV; shut(); if (w && w.ui.figs) { w.ui.figs = false; N.render(w); } };
-  box.querySelector('[data-x]').addEventListener('click', leave);
-  box.addEventListener('keydown', e => { if (e.key === 'Escape') leave(); });
+  const leave = leaveNow;
+  /* with changes that aren't saved, Close asks first (box.ask, set up in start) */
+  const tryLeave = () => { if (box && box.ask && box.ask(leave)) return; leave(); };
+  box.querySelector('[data-x]').addEventListener('click', tryLeave);
+  box.addEventListener('keydown', e => { if (e.key === 'Escape') tryLeave(); });
   box.querySelector('[data-x]').focus({preventScroll:true});
   const me = box, url = f => new URL(f, document.baseURI).href;
   Promise.all([import(url('vendor/three.module.min.js')), import(url('js/figkit.js'))]).then(([THREE, kit]) => {
@@ -135,8 +171,75 @@ N.figOpen = v => {
     stop = start(me, THREE, kit.makeKit(THREE));
   }).catch(() => { if (box === me) me.querySelector('[data-r=load]').textContent = 'The figure maker could not load. Check the connection, close it and try again.'; });
 };
-/* the app's back step (Android back, phone edge swipe) closes it too, see backStep in js/app.js */
-N.figClose = shut;
+/* the app's back step (Android back, phone edge swipe) closes it too, see backStep in js/app.js; with changes that
+   aren't saved it asks first, like Close, and the maker stays open until that is answered */
+function leaveNow(){ const w = openV; shut(); if (w && w.ui.figs) { w.ui.figs = false; N.render(w); } }
+N.figClose = () => { if (box && box.ask && box.ask(leaveNow)) { if (openV) openV.ui.figs = true; return; } shut(); };
+
+/* ---------- figures outside the maker: random looks and small pictures for the GM's fight setup ---------- */
+const url = f => new URL(f, document.baseURI).href;
+let kitP = null;
+const kitLoad = () => kitP || (kitP = Promise.all([import(url('vendor/three.module.min.js')), import(url('js/figkit.js'))])
+  .then(([THREE, kit]) => ({THREE, K:kit.makeKit(THREE)})).catch(e => { kitP = null; throw e; }));
+N.figKit = kitLoad;
+/* the fight board's figures (js/figboard.js) stop drawing while the maker covers the screen */
+N.figMakerOpen = () => !!box;
+/* a still picture of a figure, made once per look and kept while the app is open. One small renderer does them all,
+   one at a time, and lets go of its 3D context when it has had nothing to do for a while (phones have few). */
+const PICS = new Map(), PEND = new Set();
+let shotQ = Promise.resolve(), shotR = null, shotIdle = 0;
+N.figPic = spec => {
+  if (!spec || !spec.race) return null;
+  const key = JSON.stringify(spec);
+  if (PICS.has(key)) return PICS.get(key);
+  if (!PEND.has(key)) { PEND.add(key);
+    shotQ = shotQ.then(() => shoot(spec)).then(src => { PICS.set(key, src); if (PICS.size > 80) PICS.delete(PICS.keys().next().value); })
+      .catch(() => { PICS.set(key, null); }).then(() => { PEND.delete(key); if (N.renderAll) N.renderAll(); }); }
+  return null;
+};
+function shoot(spec){
+  return kitLoad().then(({THREE, K}) => K.loadHair(K.hairId(spec.hair || 'bald')).catch(() => {}).then(() => {
+    const W = 96, H = 120;
+    if (!shotR) { shotR = new THREE.WebGLRenderer({antialias:true, alpha:true, preserveDrawingBuffer:true, powerPreference:'low-power'});
+      shotR.setPixelRatio(2); shotR.setSize(W, H, false); shotR.outputColorSpace = THREE.SRGBColorSpace; }
+    const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xfff0dc, 0x40386a, 1.9));
+    const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(-300, 700, 600); sc.add(sun);
+    const s = K.faceFix(JSON.parse(JSON.stringify(spec))); s.hair = K.hairId(s.hair || 'bald');
+    const rig = K.buildFigure(s); sc.add(rig.root); rig.root.rotation.y = .35; rig.root.updateMatrixWorld(true); K.animate(rig, 'idle', 0);
+    const cam = new THREE.PerspectiveCamera(28, W / H, 1, 5000), h = rig.h + 8;
+    const d = h * .6 / Math.tan(THREE.MathUtils.degToRad(14)) / (W / H < .8 ? (W / H) / .8 : 1);
+    cam.position.set(0, h * .5 + d * .2, d); cam.lookAt(0, h * .47, 0);
+    shotR.render(sc, cam); const src = shotR.domElement.toDataURL('image/png');
+    sc.remove(rig.root); K.dispose(rig);
+    clearTimeout(shotIdle); shotIdle = setTimeout(() => { if (shotR) { shotR.dispose(); try { shotR.forceContextLoss(); } catch (e) {} shotR = null; } }, 20000);
+    return src;
+  }));
+}
+/* the GM's fight setup (step 4): every NPC in the fight with its figure. A card NPC uses the figure saved on its card;
+   a one-off or an enemy built earlier has no card, so it gets a random look for this fight, which can be rolled again
+   or changed in the maker. */
+const RAND = new Set();
+N.figRand = id => {
+  const cb = N.G.combat, t0 = (cb.tokens || []).find(x => x.id === id); if (!t0) return;
+  RAND.add(id); if (N.renderAll) N.renderAll();
+  kitLoad().then(({K}) => { const t = (N.G.combat.tokens || []).find(x => x.id === id); if (!t) return;
+    t.fig = K.randomSpec(t.fig && t.fig.race || 'Human'); t.figAt = Date.now(); if (N.syncNow) N.syncNow(); })
+    .catch(() => {}).then(() => { RAND.delete(id); if (N.renderAll) N.renderAll(); });
+};
+N.figRows = v => {
+  if (!N.figOk() || !v || v.role !== 'gm') return '';
+  const g = N.G, toks = (g.combat.tokens || []).filter(t => t.kind === 'npc'); if (!toks.length) return '';
+  const IC = N.IC || (() => '');
+  const pic = f => { const src = f && N.figPic(f); return `<span class="figpic" aria-hidden="true">${src ? `<img src="${src}" alt="">` : f ? '<i class="wait"></i>' : '<i></i>'}</span>`; };
+  const rows = toks.map(t => {
+    const card = g.npcs.find(n => n.id === t.ref), f = card ? card.fig : t.fig, busy = RAND.has(t.id);
+    const sub = card ? (f ? 'Figure from the card' : 'No figure on the card yet') : busy ? 'Making a look…' : f ? 'Random look · this fight only' : 'No card, so no figure yet';
+    const btns = card ? `<span class="figbtns"><button type="button" class="btn sm" data-a="figOpen" data-v="npc:${esc(card.id)}" style="--h:30px">${IC('hero')}${f ? 'Change' : 'Make figure'}</button></span>`
+      : `<span class="figbtns"><button type="button" class="btn sm" data-a="figRand" data-v="${esc(t.id)}" style="--h:30px"${busy ? ' disabled' : ''}>${IC('sparkle')}${f ? 'Another look' : 'Random look'}</button>${f ? `<button type="button" class="btn sm ghost" data-a="figOpen" data-v="tok:${esc(t.id)}" style="--h:30px">Change</button>` : ''}</span>`;
+    return `<div class="zi figrow">${pic(f)}<span>${esc(t.name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span>${btns}</div>`;
+  }).join('');
+  return `<div class="figrows"><small class="foe-sc">${IC('hero')}Figures</small><div class="zlist">${rows}</div><small>Each fighter stands on the board as their figure. A card NPC’s figure is made from its card.</small></div>`;
+};
 
 function start(box, THREE, K){
   const $ = r => box.querySelector(`[data-r="${r}"]`);
@@ -152,15 +255,58 @@ function start(box, THREE, K){
 
   const ANIM_NAMES = [['idle', 'Stand'], ['walk', 'Walk'], ['sword', 'Sword'], ['bow', 'Bow'], ['magic', 'Magic'], ['hit', 'Hit'], ['block', 'Block'], ['down', 'Knocked down']];
   let spec = null, rig = null, all = [], view = 'one', tab = 'body', anim = 'idle', t0 = performance.now(), spin = .35, frozen = null, running = true;
-  try { const s = JSON.parse(localStorage.getItem('norne-fig-test') || 'null'); if (s && K.RACES[s.race]) { spec = K.faceFix(s); spec.hair = K.hairId(s.hair || 'bald'); } } catch (e) {}
-  if (!spec) spec = K.defaultSpec('Human', 'm');
-  const save = () => { try { localStorage.setItem('norne-fig-test', JSON.stringify(spec)); } catch (e) {} };
+  /* whose figure this is (targetOf); with none (the GM from Profile) there is nothing to save */
+  const T = openT, mine = () => T ? T.get() : null, who = mine(), cname = T ? T.name : '', pc = T && T.kind === 'pc';
+  const DRAFT = 'norne-fig-test', copy = s => JSON.parse(JSON.stringify(s));
+  const fix = s => { if (!s || !K.RACES[s.race]) return null; const o = K.faceFix(copy(s)); o.hair = K.hairId(o.hair || 'bald'); return o; };
+  const canon = s => s ? JSON.stringify(Object.keys(s).sort().map(k => [k, s[k]])) : '';
+  const race0 = K.RACE_LIST.find(r => r.toLowerCase() === String(T && T.race || '').trim().toLowerCase()) || 'Human';
+  /* only a player's own figure keeps a draft on the device; NPCs and fighters start from what is saved on them */
+  let draft = null; try { draft = pc || !T ? JSON.parse(localStorage.getItem(DRAFT) || 'null') : null; } catch (e) {}
+  if (draft && draft.race) draft = {spec:draft, char:null, base:0}; /* a look kept before figures could be saved */
+  if (who && who.fig) spec = fix(pc && draft && draft.char === who.id && draft.base === (who.figAt || 0) ? draft.spec : who.fig) || fix(who.fig);
+  else if (draft && (!draft.char || (who && draft.char === who.id))) spec = fix(draft.spec);
+  if (!spec) spec = K.defaultSpec(race0, 'm');
+  const saveDraft = () => { if (T && !pc) return; try { const c = mine(); localStorage.setItem(DRAFT, JSON.stringify({spec, char:c ? c.id : null, base:c && c.figAt || 0})); } catch (e) {} };
+  const savedNow = () => { const c = mine(); return c && c.fig ? fix(c.fig) : null; };
+  const dirty = () => canon(spec) !== canon(savedNow());
+  const TICK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.2 3.2L13 4.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const n = esc(cname), tagText = T ? `${cname}’s figure` : 'Your figure';
+  $('tag').textContent = tagText;
+  $('lede').innerHTML = '<b>Build a figure from parts.</b> Pick a race, body, head, hair and outfit, then try the moves under the picture. Drag the figure to turn it. '
+    + (!who ? 'Only a character, an NPC card or a fighter can keep a figure, so nothing you make here is saved.'
+      : T.kind === 'npc' ? `Press <b>Save figure</b> to put it on ${n}’s card. It stays until you save a new one, and ${n} stands as it on the board in every fight.`
+      : T.kind === 'tok' ? `Press <b>Save figure</b> to use it for ${n} in this fight only.`
+      : `Press <b>Save figure</b> to make it ${n}’s figure for fights. It stays theirs until you save a new one, and ${n} stands as it on the fight board.`);
+  /* the Save button in the top bar and the line under the moves say whether this is the saved figure */
+  function mark(){
+    const c = mine(), b = $('save'), line = $('saved'), d = c && dirty();
+    b.hidden = !c; if (!c) { line.hidden = true; return; }
+    b.classList.toggle('done', !d); b.innerHTML = d ? 'Save figure' : TICK + 'Saved';
+    b.setAttribute('aria-label', d ? `Save as ${cname}’s figure` : `Saved as ${cname}’s figure`);
+    line.classList.toggle('dirty', !!d);
+    line.innerHTML = d ? `<i></i><span><b>Not saved yet.</b> ${c.fig ? `${n} still has the figure saved before.` : `${n} has no figure yet.`}</span>${c.fig ? '<button type="button" data-r="undo">Back to the saved figure</button>' : ''}`
+      : `<i></i><span><b>${n}’s figure is saved.</b> ${T.kind === 'tok' ? 'It is used in this fight.' : 'It stays until you save a new one.'}</span>`;
+  }
+  function keep(){
+    const c = mine(); if (!c) return false;
+    c.fig = copy(spec); c.figAt = Date.now(); saveDraft(); mark();
+    toast(`Saved as ${cname}’s figure`); if (N.syncNow) N.syncNow(); if (!pc && N.renderAll) N.renderAll(); return true;
+  }
+  $('save').addEventListener('click', () => { if (dirty()) keep(); else toast(`This is already ${cname}’s saved figure`); });
+  $('saved').addEventListener('click', e => { if (e.target.closest('[data-r="undo"]')) { const s = savedNow(); if (s) { spec = s; rebuild(); opts(); toast('Back to the saved figure'); } } });
+  let afterAsk = null;
+  const ask = $('ask'), askDone = () => { ask.hidden = true; afterAsk = null; };
+  box.ask = go => { if (!mine() || !dirty()) return false; afterAsk = go; ask.hidden = false; $('askSave').focus({preventScroll:true}); return true; };
+  $('askSave').addEventListener('click', () => { const go = afterAsk; askDone(); keep(); if (go) go(); });
+  $('askDrop').addEventListener('click', () => { const go = afterAsk; askDone(); if (pc) try { localStorage.removeItem(DRAFT); } catch (e) {} if (go) go(); });
+  $('askKeep').addEventListener('click', askDone);
 
   /* the hairstyle's model loads first (once per style); the figure on show stays until the new one is ready */
   let want = 0, ready = Promise.resolve(), toastT = 0;
   const toast = msg => { $('toast').textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => { $('toast').textContent = ''; }, 2600); };
   function rebuild(){
-    const my = ++want; save();
+    const my = ++want; saveDraft(); mark();
     return ready = K.loadHair(spec.hair).catch(() => { toast('That hairstyle could not load. Check the connection and pick it again.'); }).then(() => {
       if (my !== want || !running) return;
       if (rig) { scene.remove(rig.root); K.dispose(rig); }
@@ -297,7 +443,7 @@ function start(box, THREE, K){
   function setView(w){
     view = w; stage.classList.toggle('all', w === 'all');
     $('views').querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.v === w)));
-    $('tag').textContent = w === 'all' ? 'Every race, default look' : 'Your figure'; $('spin').hidden = w === 'all';
+    $('tag').textContent = w === 'all' ? 'Every race, default look' : tagText; $('spin').hidden = w === 'all';
     if (w === 'all' && !all.length) buildAll();
     if (rig) rig.root.visible = w === 'one'; all.forEach(r => { r.root.visible = w === 'all'; });
     requestAnimationFrame(() => { layoutAll(); frame(); });
@@ -306,7 +452,7 @@ function start(box, THREE, K){
   const ro = new ResizeObserver(() => { barH(); if (view === 'all') layoutAll(); else frame(); }); ro.observe(stage); ro.observe(bar); barH();
   rebuild(); opts(); requestAnimationFrame(tick);
   /* test hook for screenshots: set a look, freeze a move */
-  N.figTest = {set(s, o){ spec = Object.assign(K.defaultSpec(s.race || spec.race, s.body || spec.body), s); const p = rebuild(); if (o && o.tab) tab = o.tab; opts(); return p; }, ready:() => ready,
+  N.figTest = {dirty, set(s, o){ spec = Object.assign(K.defaultSpec(s.race || spec.race, s.body || spec.body), s); const p = rebuild(); if (o && o.tab) tab = o.tab; opts(); return p; }, ready:() => ready,
     pose(a, ms, sp){ anim = a; frozen = ms; if (sp != null) spin = sp; markAnim(); }, view:setView};
   return () => {
     running = false; ro.disconnect(); N.figTest = null;
