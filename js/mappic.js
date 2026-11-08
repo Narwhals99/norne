@@ -36,7 +36,13 @@
     busy = true; const job = queue.shift();
     Promise.resolve().then(job).catch(e => console.warn('map picture', e)).then(() => { busy = false; later(); setTimeout(run, 0); });
   }
-  function add(key, job){ if (want.has(key)) return; want.add(key); queue.push(() => job().finally(() => want.delete(key))); run(); }
+  /* a small copy that fails is tried once more, then left alone for this visit: every try ends in a redraw, so a picture
+     that can't be opened (a dead link, a broken file) used to be tried again after every redraw, for ever */
+  const tries = new Map();
+  function add(key, job){
+    if (want.has(key) || (tries.get(key) || 0) >= 2) return;
+    want.add(key); queue.push(() => job().catch(e => { tries.set(key, (tries.get(key) || 0) + 1); throw e; }).finally(() => want.delete(key))); run();
+  }
   const free = c => { c.width = c.height = 0; };
   const blobOf = (c, q) => new Promise(ok => c.toBlob(b => ok(b), 'image/jpeg', q));
 

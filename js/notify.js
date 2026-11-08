@@ -155,6 +155,9 @@ N.pushOut = m => {
 };
 function flush(){
   const list = out; out = [];
+  (N.pushList ? N.pushList() : Promise.resolve()).then(() => send(list));
+}
+function send(list){
   const role = G().role, pushes = [], now = Date.now();
   for (const d of N.PUSH || []) {
     const who = N.MEMBERS.find(x => x.uid === d.uid);

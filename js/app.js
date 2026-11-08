@@ -102,6 +102,76 @@ function fzSet(v){
 /* inline style="font:…px" in the markup gets the same treatment after each draw */
 const fzInline = v => { if (fzSheets) v.root.querySelectorAll('[style*="px"]').forEach(e => fzDecl(e.style)); };
 
+/* A redraw changes only what really changed on screen.
+   Every redraw used to throw the whole page away and build it again from the new markup. On an iPhone that makes
+   every picture decode again (a quick white flash or a jump while it does), restarts GIFs and redraws the styles'
+   textures, so anything that redraws the page while nothing on screen changed (a Firestore update about something
+   this person can't see, a picture arriving, a status write from another device) showed as a little "refresh" every
+   few seconds (Jack, 2026-11-08). Now the new markup is laid over the page that is there: an element that is the same
+   stays the very same element (its picture stays decoded), changed attributes and text are set in place, and only
+   new or different elements are added or removed. Elements with an id or a data-mid (chat messages) are matched by
+   it, so a line added above the others doesn't shift every message after it. The end result is the same page the
+   markup describes, attribute for attribute, as before. */
+const keyOf = n => n.nodeType === 1 ? (n.id || n.getAttribute('data-mid') || null) : null;
+function morphAttrs(a, b){
+  for (const at of [...a.attributes]) if (!b.hasAttribute(at.name)) a.removeAttribute(at.name);
+  for (const at of b.attributes) if (a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value);
+}
+function morphEl(a, b){
+  morphAttrs(a, b);
+  const tag = a.tagName;
+  /* what a form field shows lives in its value, not in its markup, so it is set the way a freshly built one would start */
+  if (tag === 'TEXTAREA') { const nv = b.value; if (a.value !== nv) a.value = nv; if (a.defaultValue !== nv) a.defaultValue = nv; return; }
+  if (tag === 'INPUT') {
+    const t = (b.getAttribute('type') || '').toLowerCase();
+    if (t === 'checkbox' || t === 'radio') { const c = b.hasAttribute('checked'); if (a.checked !== c) a.checked = c; }
+    else if (t !== 'file') { const nv = b.getAttribute('value') ?? ''; if (a.value !== nv) a.value = nv; }
+    return;
+  }
+  morphKids(a, b);
+  if (tag === 'SELECT' && !a.multiple) {
+    const os = [...b.querySelectorAll('option')]; let i = -1;
+    os.forEach((o, n) => { if (o.hasAttribute('selected')) i = n; });
+    if (i < 0) i = os.length ? 0 : -1;
+    if (a.selectedIndex !== i) a.selectedIndex = i;
+  }
+}
+/* a picture element showing a different picture is replaced, so the old picture never shows in the new place while the new one loads */
+const sameKind = (a, b) => a.nodeType === b.nodeType && (a.nodeType !== 1 || (a.tagName === b.tagName && (a.tagName !== 'IMG' || a.getAttribute('src') === b.getAttribute('src'))));
+function morphKids(p, np){
+  const keyed = new Map();
+  for (let c = p.firstChild; c; c = c.nextSibling) { const k = keyOf(c); if (k && !keyed.has(k)) keyed.set(k, c); }
+  const used = new Set();
+  let cur = p.firstChild;
+  const skip = () => { while (cur && used.has(cur)) cur = cur.nextSibling; };
+  for (const n of [...np.childNodes]) {
+    skip();
+    const k = keyOf(n);
+    let m = null;
+    if (k) { const o = keyed.get(k); if (o && !used.has(o) && sameKind(o, n)) m = o; }
+    else if (cur && !keyOf(cur) && sameKind(cur, n)) m = cur;
+    if (m) {
+      if (m !== cur) p.insertBefore(m, cur);
+      else cur = cur.nextSibling;
+      used.add(m);
+      if (m.nodeType === 1) morphEl(m, n);
+      else if (m.nodeValue !== n.nodeValue) m.nodeValue = n.nodeValue;
+    } else {
+      p.insertBefore(n, cur);
+      used.add(n);
+    }
+  }
+  for (let c = p.firstChild; c;) { const nx = c.nextSibling; if (!used.has(c)) p.removeChild(c); c = nx; }
+}
+function morphHtml(v, html){
+  const root = v.root, tpl = document.createElement('template'); tpl.innerHTML = html;
+  if (fzSheets) tpl.content.querySelectorAll('[style*="px"]').forEach(e => fzDecl(e.style));
+  /* the first draw (or one after the sign-in gate) has nothing worth keeping */
+  if (!root.querySelector(':scope > .shell')) { root.textContent = ''; root.appendChild(tpl.content); return; }
+  morphKids(root, tpl.content);
+}
+N.morphHtml = morphHtml;
+
 const HS = '.hscroll,.who-row,.fight-order,.chips,.ladder-chips,.party-row,.thumbs';
 /* desktop: a sideways row that doesn't fit (the character chips) gets ‹ › arrows at its ends, shown only while there is more that way */
 function hsArrows(root){
@@ -136,8 +206,12 @@ function render(v){
   focusFight(v);
   /* a sheet that was already open stays put instead of sliding in again on every redraw */
   const still = v.ui.sheet && v._sheet === v.ui.sheet + ':' + v.ui.sheetArg;
-  root.innerHTML = N.appHtml(v);
-  fzInline(v);
+  /* a different sheet, dropdown or fighter card is a new one: it is built afresh so it slides or pops in as before */
+  const pk = v.ui.pop ? [v.ui.pop.type, v.ui.pop.mid || '', v.ui.pop.x, v.ui.pop.y, !!v.ui.pop.up].join(':') : null;
+  if (!still) root.querySelectorAll('.sheet,.scrim[data-a="closeSheet"]').forEach(e => e.remove());
+  if (!(pk && v._pop === pk)) root.querySelectorAll('.pop,.scrim[data-a="closePop"]').forEach(e => e.remove());
+  if (!(v.ui.tokSel && v._tokSel === v.ui.tokSel)) root.querySelectorAll('.tokpanel').forEach(e => e.remove());
+  morphHtml(v, N.appHtml(v));
   if (still) root.querySelectorAll('.sheet,.scrim').forEach(e => e.classList.add('still'));
   v._sheet = v.ui.sheet ? v.ui.sheet + ':' + v.ui.sheetArg : null;
   /* so does the phone's chat list (and one pulled out by a swipe is already in place) */
@@ -147,7 +221,6 @@ function render(v){
   if (v.ui.tokSel && v._tokSel === v.ui.tokSel) root.querySelectorAll('.tokpanel').forEach(e => e.classList.add('still'));
   v._tokSel = root.querySelector('.tokpanel') ? v.ui.tokSel : null;
   /* and an open dropdown (maps, Speak as, emoji, a message's menu): pictures loading in it redraw the page, which must not pop it in again */
-  const pk = v.ui.pop ? [v.ui.pop.type, v.ui.pop.mid || '', v.ui.pop.x, v.ui.pop.y, !!v.ui.pop.up].join(':') : null;
   if (pk && v._pop === pk) root.querySelectorAll('.pop').forEach(e => e.classList.add('still'));
   v._pop = pk && root.querySelector('.pop') ? pk : null;
   root.querySelectorAll('[data-sk]').forEach(e => {
@@ -161,7 +234,8 @@ function render(v){
   if (focus) { const f = root.querySelector('#' + CSS.escape(focus.id)); if (f) { f.focus({preventScroll:true}); try { if (focus.s != null) f.setSelectionRange(focus.s, focus.e); } catch(e){} } }
   const ta = root.querySelector('.composer textarea'); if (ta) grow(ta);
   hsArrows(root);
-  if (v.ui.tab === 'map') applyMap(v);
+  /* a redraw keeps the map element but sets its pins back to the markup, so their size is put on again */
+  if (v.ui.tab === 'map') { root.querySelectorAll('.mapst').forEach(e => { e._k = null; }); applyMap(v); }
   if (v.ui.fresh) setTimeout(() => { v.ui.fresh = null; }, 900);
   if (N.onRender) N.onRender(v);
   syncBack();

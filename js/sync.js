@@ -260,11 +260,26 @@ N.pushSave = (dev, sub) => sub
 N.pushSeen = (dev, at) => F.updateDoc(dref('push/' + dev), {seen:at});
 /* addresses the push service says are dead (notifications turned off, app deleted) */
 N.pushDrop = gone => { for (const d of N.PUSH) if (gone.includes(d.sub.endpoint)) F.deleteDoc(dref('push/' + d.id)).catch(() => {}); };
-function listenPush(){
-  F.onSnapshot(F.collection(db, 'push'), snap => {
-    N.PUSH = snap.docs.map(d => { try { return {id:d.id, ...d.data(), sub:JSON.parse(d.data().sub)}; } catch(e) { return null; } }).filter(Boolean);
-  }, err => console.warn('push', err?.code));
-}
+/* The list of push addresses is read only when this device is about to send pings, not listened to all the time.
+   Every device that has Norne open marks itself "seen" every 30 seconds, and a listener here was charged a read for
+   each of those marks from every device: with four devices open that is about 2,000 reads an hour doing nothing,
+   a big part of the free 50,000 a day. A fresh list is kept for 20 seconds, so a burst of messages reads it once. */
+let PUSH_AT = 0, PUSH_P = null;
+N.pushList = () => {
+  if (!F || !db) return Promise.resolve(N.PUSH);
+  if (Date.now() - PUSH_AT < 20000) return Promise.resolve(N.PUSH);
+  if (PUSH_P) return PUSH_P;
+  return PUSH_P = new Promise(res => {
+    let off = null, done = false;
+    const end = () => { if (done) return; done = true; PUSH_P = null; if (off) off(); res(N.PUSH); };
+    const tm = setTimeout(end, 4000);
+    off = F.onSnapshot(F.collection(db, 'push'), MD, snap => {
+      N.PUSH = snap.docs.map(d => { try { return {id:d.id, ...d.data(), sub:JSON.parse(d.data().sub)}; } catch(e) { return null; } }).filter(Boolean);
+      if (!snap.metadata.fromCache) { PUSH_AT = Date.now(); clearTimeout(tm); end(); }
+    }, err => { console.warn('push', err?.code); clearTimeout(tm); end(); });
+    if (done) off();
+  });
+};
 
 /* ---------- pictures kept in the database (maps, scene pictures, portraits) ---------- */
 const MIMG = new Map(), MVIS = new Map();
@@ -280,8 +295,10 @@ N.loadImg = id => {
     if (F) {
       /* the device's copy shows at once; the server's copy (who may see it) follows */
       F.getDocFromCache(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (d?.data && !e.url) { e.url = d.data; imgArrived(); } }).catch(() => {});
-      e.p = F.getDoc(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (!d || !d.data) throw new Error('no image'); const was = e.url; e.url = d.data; MVIS.set(id, visKey(d.vis, d.aud)); if (was !== e.url) imgArrived(); })
-        .catch(() => { e.url = ''; setTimeout(() => MIMG.delete(id), 15000); });
+      /* if the server can't answer (offline, or the day's free reads are used up) the device's copy stays on screen.
+         Only a picture with no copy at all is asked for again later, and then only once a minute, not on every redraw */
+      e.p = F.getDoc(dref('mapimgs/' + id)).then(s => { const d = s.data(); if (!d || !d.data) { if (e.url) { e.url = ''; imgArrived(); } throw new Error('no image'); } const was = e.url; e.url = d.data; MVIS.set(id, visKey(d.vis, d.aud)); if (was !== e.url) imgArrived(); })
+        .catch(() => { if (!e.url) setTimeout(() => { if (MIMG.get(id) === e && !e.url) MIMG.delete(id); }, 60000); });
     }
   }
   return e.url;
@@ -741,7 +758,6 @@ async function start(role){
   window.addEventListener('pagehide', syncNow);
   document.addEventListener('visibilitychange', () => { if (document.hidden) syncNow(); });
   live = true; warmed();
-  listenPush();
   if (N.notifyStart) N.notifyStart();
   if (g.maps[0]) V.ui.mapId = (N.defMap(isGM()) || g.maps[0]).id;
   if (readyCheck()) N.renderAll();
