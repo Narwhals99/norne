@@ -241,6 +241,14 @@ N.catNames = wiki => { const names = N.cats().map(c => c.name); for (const e of 
 const hiddenOf = (x, kind) => kind === 'wiki' ? !!x.gm : kind === 'map' ? x.vis === false : kind === 'pin' ? x.type !== 'party' && !x.vis && !(Array.isArray(x.see) && x.see.length) : false;
 /* a wiki entry's pictures: the lore's own picture (img) and any the GM added (imgs) */
 N.wikiPics = e => { const seen = new Set(); return [...(e.img ? [e.img] : []), ...(e.imgs || [])].filter(p => p?.src && !seen.has(p.src) && seen.add(p.src)); };
+/* wiki sections: each one is for everybody who can read the entry ('all'), some players ('some', see:[seats]) or the GM only ('gm').
+   Old sections had no `to`: picked players made them 'some', nobody picked meant only the GM saw them */
+N.partTo = p => p.to || (p.see?.length ? 'some' : 'gm');
+/* the entry's sections in order. The lore's old GM notes (e.secret) show as a GM-only section until the GM saves the entry
+   (sec:1 marks the section they became, so a lore re-import doesn't show them twice) */
+N.wikiParts = e => { const ps = e.parts || []; return e.secret && !ps.some(p => p.sec) ? [...ps, {id:'sec', h:'GM notes', text:e.secret, to:'gm', sec:1}] : ps; };
+/* every picture in an entry: its own, then each section's */
+N.wikiAllPics = e => [...N.wikiPics(e), ...(e.parts || []).flatMap(p => p.imgs || [])];
 N.audOf = (x, kind) => hiddenOf(x, kind) ? 'gm' : kind === 'pin' && (x.vis || x.type === 'party') ? '*' : (Array.isArray(x.see) && x.see.length ? x.see : '*');
 N.audSet = (x, kind, val) => {
   const hide = h => { if (kind === 'wiki') { if (h) x.gm = true; else delete x.gm; } else if (kind === 'map') x.vis = !h; else if (kind === 'pin') x.vis = !h; };
@@ -531,7 +539,9 @@ N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target
    G.items = [{id, name, kind, ic, d, gm, gearAtk, gearRng, gearAmmo, gearDef}] (GM only, its own doc gm/items, one unit per item).
    d is what it does (copied into an inventory when the GM gives it), gm is the GM's own notes (never copied).
    The ratings match the ones on a card (N.GEARK); giving the item can set them on the card too. */
-N.ITEMK = [['weapon','Weapons','sword'],['armor','Armor','shieldU'],['magic','Magical','magic'],['potion','Potions and food','potion'],['gear','Gear and tools','bag'],['other','Other','items']];
+/* item kinds, in the order the catalog lists them. Ids are kept forever (old items keep theirs): potion was "Potions and food" */
+N.ITEMK = [['weapon','Weapons','sword'],['armor','Armor','shieldU'],['clothing','Clothing','boots'],['magic','Magical','magic'],['potion','Potions','potion'],
+  ['ingredient','Potion ingredients','sparkle'],['food','Food & drink','drink'],['book','Books','spellbook'],['trinket','Trinkets','coins'],['gear','Gear and tools','bag'],['other','Other','items']];
 N.ITEM_IC = ['bag','sword','target','arrowR','shieldU','helm','boots','knuckles','magic','sparkle','spellbook','potion','drink','scroll','coins','skull','items'];
 N.itemKind = k => N.ITEMK.find(x => x[0] === k) || N.ITEMK[N.ITEMK.length - 1];
 N.itemById = id => (N.G.items || []).find(x => x.id === id) || null;

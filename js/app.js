@@ -639,7 +639,7 @@ function input(v, el){
       if (k === 'asp') d.aspects[n] = val; else if (k === 'stn') d.stunts[n][0] = val; else if (k === 'std') d.stunts[n][1] = val; else d[k] = val;
       if (k === 'name') render(v); return;
     }
-    case 'wd': if (k === 'cap') { v.ui.wd.imgs[+el.dataset.n].cap = val; return; } if (k === 'ph' || k === 'pt') { v.ui.wd.parts[+el.dataset.n][k === 'ph' ? 'h' : 'text'] = val; return; } v.ui.wd[k] = val; if (k === 'title') render(v); return;
+    case 'wd': if (k === 'cap') { v.ui.wd.imgs[+el.dataset.n].cap = val; return; } if (k === 'ph' || k === 'pt') { v.ui.wd.parts[+el.dataset.n][k === 'ph' ? 'h' : 'text'] = val; return; } if (k === 'pcap') { const x = v.ui.wd.parts[+el.dataset.n]?.imgs?.[+el.dataset.x]; if (x) x.cap = val; return; } v.ui.wd[k] = val; if (k === 'title') render(v); return;
     case 'cd': v.ui.cd[+el.dataset.n].name = val; return;
     case 'mapName': { const m = G().maps.find(x => x.id === el.dataset.v); if (m) m.name = val; return; }
     case 'mapLvl': { const m = G().maps.find(x => x.id === el.dataset.v); if (!m) return; m.lvl = val; N.renderAll(); return; }
@@ -1563,8 +1563,18 @@ function act(v, a, el, e){
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
   case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;
   /* sections only some players read */
-  case 'wdPartAdd': ui.wd.parts.push({id:uid('s'), h:'', text:'', see:[]}); break;
-  case 'wdPartDel': ui.wd.parts.splice(+val, 1); break;
+  case 'wdPartAdd': ui.wd.parts.push({id:uid('s'), h:'', text:'', to:'all', see:[], imgs:[]}); break;
+  case 'wdPartTo': { const p = ui.wd.parts[+d.n]; if (p && ['all','some','gm'].includes(val)) p.to = val; break; }
+  case 'wdPartUp': { const i = +d.n, ps = ui.wd.parts; if (i > 0 && ps[i]) [ps[i - 1], ps[i]] = [ps[i], ps[i - 1]]; break; }
+  case 'wdPartImgAdd': { const n = +d.n; pickFramed(v, 'wiki', (img, f) => { const p = ui.wd?.parts[n]; if (!p) return; (p.imgs = p.imgs || []).push({src:N.withFrame(N.storeImg(N.shrink(img, 1400, 600000), false), f), cap:''}); render(v); }); return; }
+  case 'wdPartImgFrame': { const p = ui.wd?.parts[+d.n]?.imgs?.[+val]; if (p) reframe(v, 'wiki', p.src, nu => { p.src = nu; render(v); }); return; }
+  case 'wdPartImgDel': {
+    const pt = ui.wd.parts[+d.n], old = ui.wd.id && g.wiki.find(x => x.id === ui.wd.id); if (!pt?.imgs) break;
+    const [p] = pt.imgs.splice(+val, 1);
+    if (p && !(old && N.wikiAllPics(old).some(x => samePic(x.src, p.src)))) N.dropImg(p.src);
+    break;
+  }
+  case 'wdPartDel': { const [p] = ui.wd.parts.splice(+val, 1), old = ui.wd.id && g.wiki.find(x => x.id === ui.wd.id); for (const x of p?.imgs || []) if (!(old && N.wikiAllPics(old).some(y => samePic(y.src, x.src)))) N.dropImg(x.src); break; }
   case 'wdPartWho': { const p = ui.wd.parts[+d.n]; if (!p) break; const i = p.see.indexOf(val); if (i >= 0) p.see.splice(i, 1); else p.see.push(val); p.see.sort((a,b) => a.slice(1) - b.slice(1)); break; }
   /* pictures start as GM only; saving the entry shares them with whoever can read it */
   case 'wdImgAdd': pickFramed(v, 'wiki', (img, f) => { if (!ui.wd) return; ui.wd.imgs.push({src:N.withFrame(N.storeImg(N.shrink(img, 1400, 600000), false), f), cap:''}); render(v); }); return;
@@ -1600,15 +1610,18 @@ function act(v, a, el, e){
     const w = ui.wd, old = w.id && g.wiki.find(x => x.id === w.id);
     const en = {id:w.id || uid('w'), cat:w.cat, title:w.title.trim(), summary:w.summary.trim(),
       info:w.info.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const i = l.indexOf(':'); return i > 0 ? [l.slice(0,i).trim(), l.slice(i+1).trim()] : [l, '']; }),
-      body:w.body.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean), secret:w.secret.trim()};
+      body:w.body.split(/\n\s*\n/).map(s => s.trim()).filter(Boolean)};
     if (w.gm) en.gm = true;
     if (!w.gm && w.see?.length) en.see = [...w.see];
     if (old) for (const k of ['src','soon']) if (old[k]) en[k] = old[k];
     /* the lore's own picture joins the list, so it can be captioned or removed like the others */
-    const parts = (w.parts || []).map(p => ({id:p.id, h:(p.h || '').trim(), text:(p.text || '').trim(), see:[...(p.see || [])]})).filter(p => p.h || p.text);
+    /* the old GM notes now live as a GM-only section (sec:1), so the entry's secret goes; a section with only pictures stays */
+    const parts = (w.parts || []).map(p => { const o = {id:p.id, h:(p.h || '').trim(), text:(p.text || '').trim(), to:p.to || 'all'};
+      if (o.to === 'some') o.see = [...(p.see || [])]; if (p.sec) o.sec = 1;
+      const im = (p.imgs || []).map(x => { const y = {src:x.src}; if (x.cap?.trim()) y.cap = x.cap.trim(); return y; }); if (im.length) o.imgs = im; return o; }).filter(p => p.h || p.text || p.imgs);
     if (parts.length) en.parts = parts;
     en.imgs = w.imgs.map(p => { const o = {src:p.src}; if (p.alt) o.alt = p.alt; if (p.cap?.trim()) o.cap = p.cap.trim(); return o; });
-    if (old) for (const p of N.wikiPics(old)) if (!en.imgs.some(x => samePic(x.src, p.src))) N.dropImg(p.src);
+    if (old) for (const p of N.wikiAllPics(old)) if (!N.wikiAllPics(en).some(x => samePic(x.src, p.src))) N.dropImg(p.src);
     const i = g.wiki.findIndex(x => x.id === en.id); if (i >= 0) g.wiki[i] = en; else g.wiki.push(en);
     ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
   }
@@ -2044,8 +2057,8 @@ function openSheet(v, s, d={}){
   }
   if (s === 'wEdit') {
     const e = d.v && g.wiki.find(x => x.id === d.v);
-    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), secret:e.secret || '', gm:!!e.gm, see:[...(e.see || [])], imgs:N.wikiPics(e).map(p => ({...p})), parts:(e.parts || []).map(p => ({...p, see:[...(p.see || [])]}))}
-              : {id:null, title:'', cat:ui.wikiCat || (N.cats().find(c => c.name === 'People') || N.cats()[0] || {name:'People'}).name, summary:'', info:'', body:'', secret:'', gm:false, imgs:[], parts:[]};
+    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), gm:!!e.gm, see:[...(e.see || [])], imgs:N.wikiPics(e).map(p => ({...p})), parts:N.wikiParts(e).map(p => ({...p, id:p.id === 'sec' ? uid('s') : p.id, to:N.partTo(p), see:[...(p.see || [])], imgs:(p.imgs || []).map(x => ({...x}))}))}
+              : {id:null, title:'', cat:ui.wikiCat || (N.cats().find(c => c.name === 'People') || N.cats()[0] || {name:'People'}).name, summary:'', info:'', body:'', gm:false, imgs:[], parts:[]};
   }
   if (s === 'wCats') { ui.cd = N.catNames(g.wiki).map(name => ({from:name, name, ic:N.catIcon(name)})); ui.cdIc = null; }
   if (s === 'wipe') ui.wipe = {ch:null, step:1, ok:false, typed:''};
