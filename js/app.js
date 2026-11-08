@@ -21,6 +21,15 @@ N.msgWho = m => m.kind === 'roll' ? m.roll.who : m.kind === 'rp' && !N.metaRp(m)
 /* messages anyone can react to or reply to: not scene changes, fight cards or small grey lines */
 /* a pasted GIF link: any https picture address */
 N.gifLinkOk = u => /^https:\/\/\S+$/i.test(String(u || '').trim());
+/* a GIPHY page link (copied from GIPHY's Share button) is a web page, not a picture, so it shows broken.
+   Its id is the last part of the address, and GIPHY serves that GIF as a file at i.giphy.com/<id>.gif */
+N.gifSrc = u => {
+  const x = String(u || '').trim(), m = /^https:\/\/(?:www\.)?giphy\.com\/(?:gifs|embed|stickers|clips)\/(?:[^/?#]*-)?([A-Za-z0-9]{6,})\/?(?:[?#].*)?$/i.exec(x)
+    || /^https:\/\/media\d*\.giphy\.com\/media\/(?:v1\.[^/]+\/)?([A-Za-z0-9]{6,})\/?(?:[?#].*)?$/i.exec(x);
+  return m ? `https://i.giphy.com/${m[1]}.gif` : x;
+};
+/* GIFs that failed to load this visit show a small "didn't load" card instead of an empty box */
+N.gifBad = new Set();
 N.msgSocial = m => !['scene','fight','combat'].includes(m.kind) && !(m.kind === 'sys' && !m.res);
 N.emoName = s => String(s || '').trim().toLowerCase().replace(/^:+|:+$/g, '').replace(/\s+/g, '_').replace(/[^\w-]/g, '').slice(0, 32);
 N.msgColor = m => (m.kind === 'rp' && !N.metaRp(m) ? N.speakerObj(m).color : m.kind === 'roll' ? 'var(--ink-2)' : N.msgPerson(m).color) || 'var(--ink-2)';
@@ -116,7 +125,10 @@ function render(v){
   /* a chat this person can't see (a deleted group, Everyone for someone in a party) falls back to their first chat */
   { const chs = N.channelsFor(v.role); if (v.ui.ch !== 'gm' && !chs.includes(v.ui.ch) && !(v.role === 'gm' && v.ui.ch === N.fightCh())) v.ui.ch = chs[0]; }
   const sk = {};
-  root.querySelectorAll('[data-sk]').forEach(e => { sk[e.dataset.sk] = {t:e.scrollTop, l:e.scrollLeft, bottom:e.scrollHeight - e.scrollTop - e.clientHeight < 60}; });
+  /* a list that sat on its newest line counts as there even if a picture above it has since grown and pushed it up
+     (iPhone Safari doesn't hold the scroll still when content above grows), so the next redraw can't freeze the jump in */
+  const sb = v._sb || (v._sb = {});
+  root.querySelectorAll('[data-sk]').forEach(e => { const k = e.dataset.sk; sk[k] = {t:e.scrollTop, l:e.scrollLeft, bottom:e.scrollHeight - e.scrollTop - e.clientHeight < 60 || !!(e.dataset.bottom && sb[k])}; });
   const hs = [...root.querySelectorAll(HS)].map(e => e.scrollLeft);
   const ae = document.activeElement; let focus = null;
   if (ae && root.contains(ae) && ae.id) focus = {id:ae.id, s:ae.selectionStart, e:ae.selectionEnd};
@@ -140,8 +152,8 @@ function render(v){
   v._pop = pk && root.querySelector('.pop') ? pk : null;
   root.querySelectorAll('[data-sk]').forEach(e => {
     const s = sk[e.dataset.sk];
-    if (e.dataset.bottom && (!s || s.bottom || v.ui.stick)) e.scrollTop = e.scrollHeight;
-    else if (s) { e.scrollTop = s.t; e.scrollLeft = s.l; }
+    if (e.dataset.bottom && (!s || s.bottom || v.ui.stick)) { e.scrollTop = e.scrollHeight; sb[e.dataset.sk] = true; }
+    else if (s) { e.scrollTop = s.t; e.scrollLeft = s.l; if (e.dataset.bottom) sb[e.dataset.sk] = false; }
   });
   [...root.querySelectorAll(HS)].forEach((e,i) => { if (hs[i]) e.scrollLeft = hs[i]; });
   v.ui.stick = false;
@@ -221,6 +233,17 @@ N.pastCheck = pastCheck;
 /* ---------------- binding ---------------- */
 function bind(v){
   const root = v.root;
+  /* bottom-pinned lists (chats): remember whether the person sits on the newest line. Only a real scroll changes that;
+     a picture or GIF growing above moves the content without a scroll event, so the list is pinned back down then */
+  const sb = v._sb || (v._sb = {});
+  root.addEventListener('scroll', e => { const el = e.target; if (!el.dataset?.bottom || !el.dataset.sk) return;
+    sb[el.dataset.sk] = el.scrollHeight - el.scrollTop - el.clientHeight < 60; }, true);
+  const repin = e => { const t = e.target; if (!t || t.tagName !== 'IMG') return;
+    const l = t.closest('[data-sk][data-bottom]'); if (!l || !sb[l.dataset.sk] || (v._jump && performance.now() - v._jump.t < 1500)) return;
+    if (l.scrollHeight - l.scrollTop - l.clientHeight > 1) l.scrollTop = l.scrollHeight; };
+  root.addEventListener('load', repin, true); root.addEventListener('error', repin, true);
+  root.addEventListener('error', e => { const t = e.target; if (!t || t.tagName !== 'IMG' || !t.matches('.m.gifm:not(.picm) img.gif')) return;
+    const u = t.getAttribute('src'); if (!u || N.gifBad.has(u)) return; N.gifBad.add(u); renderAll(); }, true);
   { let raf = 0, tgt = null;
     root.addEventListener('scroll', e => { const el = e.target; if (!el.matches || !el.matches('.chat > .msgs[data-sk="msgs"]')) return; tgt = el;
       if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (tgt && tgt.isConnected) pastCheck(v, tgt); }); }, true);
@@ -704,6 +727,7 @@ function sendPic(v){
   });
 }
 function sendGif(v, gif){
+  gif = {...gif, u:N.gifSrc(gif.u)};
   const ch = v.ui.ch, m = {kind:'gif', ch, by:v.role, text:'', gif};
   if (v.ui.reply && G().msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
   push(m); v.ui.pop = null; v.ui.reply = null; v.ui.stick = true; renderAll();

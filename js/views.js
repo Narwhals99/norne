@@ -369,9 +369,9 @@ function rMsg(v, m, prev, firstNarr){
   }
   const cont = prev && prev.by === m.by && prev.kind === m.kind && (prev.as||'') === (m.as||'') && m.t - prev.t < 180000 && m.kind !== 'scene';
   if (m.kind === 'gif') {
-    const p = metaObj(m), gf = m.gif || {};
+    const p = metaObj(m), gf = m.gif || {}, src = N.gifSrc(gf.u);
     /* GIFs are always table talk: posted as the person, never as a character */
-    return `<div class="m ooc gifm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><div class="gifbox"><img class="gif" src="${esc(gf.u)}" alt="GIF" loading="lazy" ${gf.w && gf.h ? `style="aspect-ratio:${+gf.w}/${+gf.h}"` : ''}></div></div></div>`;
+    return `<div class="m ooc gifm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div>${N.gifBad.has(src) ? `<div class="gifbox gifbad">${IC('image')}<span>This GIF didn’t load</span>${N.gifLinkOk(gf.u) ? `<a href="${esc(gf.u)}" target="_blank" rel="noopener noreferrer">Open link</a>` : ''}</div>` : `<div class="gifbox"><img class="gif" src="${esc(src)}" alt="GIF" loading="lazy" ${gf.w && gf.h ? `style="aspect-ratio:${+gf.w}/${+gf.h}"` : ''}></div>`}</div></div>`;
   }
   if (m.kind === 'pic') {
     const p = metaObj(m), pc = m.pic || {};
