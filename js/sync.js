@@ -213,7 +213,7 @@ function listenGroups(){
     if (snap.metadata.fromCache && !WARM && !SERVED.has('groups')) return;
     if (GROUPS_OK && !snap.docChanges().length) { res(); return; }
     GROUPS_OK = GROUPS_DONE = true;
-    G().groups = snap.docs.map(d => ({id:d.id, name:d.data().name || 'Group chat', seats:d.data().seats || [], t:d.data().t || 0, ...(d.data().party ? {party:true} : {}), ...(d.data().meta ? {meta:true} : {}), ...(d.data().pic ? {pic:d.data().pic} : {})}));
+    G().groups = snap.docs.map(d => ({id:d.id, name:d.data().name || 'Group chat', seats:d.data().seats || [], t:d.data().t || 0, ...(d.data().party ? {party:true} : {}), ...(d.data().meta ? {meta:true} : {}), ...(d.data().paused ? {paused:true} : {}), ...(d.data().pic ? {pic:d.data().pic} : {})}));
     for (const gr of G().groups) { listenFight(gr.id); if (gr.party) listenParty(gr.id); }
     /* a party this person is no longer in takes its cards with it */
     let gone = false; for (const id of Object.keys(CH.party)) if (!G().groups.some(x => x.id === id && x.party)) { delete CH.party[id]; gone = true; }
@@ -228,7 +228,7 @@ N.groupsReady = () => GROUPS_OK;
 N.saveGroup = (gr, before, hist = true) => {
   if (!isGM()) return;
   const g = G(), i = g.groups.findIndex(x => x.id === gr.id); if (i < 0) g.groups.push(gr); else g.groups[i] = gr;
-  track(F.setDoc(dref('groups/' + gr.id), {name:gr.name, seats:gr.seats, t:gr.t || Date.now(), party:!!gr.party, meta:!!gr.meta, ...(gr.pic ? {pic:gr.pic} : {})}));
+  track(F.setDoc(dref('groups/' + gr.id), {name:gr.name, seats:gr.seats, t:gr.t || Date.now(), party:!!gr.party, meta:!!gr.meta, paused:!!(gr.party && gr.paused), ...(gr.pic ? {pic:gr.pic} : {})}));
   if (gr.party) listenParty(gr.id);
   if (before && before.join() !== gr.seats.join()) {
     const added = gr.seats.filter(s => !before.includes(s));

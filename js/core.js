@@ -107,6 +107,8 @@ const DISC = {
 };
 /* magical skills can only be rolled by someone who has them */
 /* the peoples of Nörne (Attributes.xlsx), offered when typing a race */
+/* nationalities offered when typing one: the nation pins on the maps and the wiki's Nations entries (GM's device) */
+N.nations = () => [...new Set([...(N.G.maps || []).flatMap(m => (m.pins || []).filter(p => p.type === 'nation').map(p => p.label)), ...(N.G.wiki || []).filter(e => e.cat === 'Nations').map(e => e.title || e.name)].filter(Boolean).map(x => String(x).trim()))].sort();
 N.RACES = ['Human','Half-Elf','Elf','Dwarf','Goblin','Centaur','Werewolf','Vampire','Gorgon','Bugfolk','Kenku','Gnome','Fishfolk','Satyr','Lizardfolk','Ogre'];
 const MAGIC = ['Elemental Magic','Ward Magic','Healing Magic','Conjuring Magic','Alteration Magic','Illusion Magic','Spatial Magic','Mind Magic','Divination Magic','Enchantment Magic'];
 const discOf = (o, k) => { const x = (o.disc || {})[k]; return Array.isArray(x) ? x : x ? [x] : []; };
@@ -450,6 +452,8 @@ N.channelsFor = (role, shut) => {
 };
 /* Everyone is table talk only: no speaking in character and no fights there. The GM can make a group chat or party Meta only too */
 N.metaOnly = ch => ch === 'table' || !!N.grpOf(ch)?.meta;
+/* a party chat the GM paused: players read it but can't send (Jake) */
+N.chPaused = ch => { const gr = N.grpOf(ch); return !!(gr && gr.party && gr.paused); };
 /* in a Meta-only chat a person shows by their own name, not "Jack · Brann" */
 N.metaName = by => N.metaPerson(by).name;
 /* the same person on another of their characters counts as "you" in Everyone */
@@ -530,7 +534,7 @@ N.pcAspects = c => [c.hc, c.trouble, ...(c.aspects || [])].filter(Boolean);
 /* ---------- sheet reveals: the GM shows single parts of a PC's or NPC's card to chosen players ----------
    G.rev = {cardId: {seat: [part keys]}} (GM only, gm/misc unit rev2). Each player gets just what was revealed to them,
    in their own only/<seat> as unit r:<cardId> (N.revealed), read back into G.known. A player sees a character only once
-   its name is revealed. Keys: name, pic, race, age, a:<n> aspect n, sk:<skill> (also +0 skills), st:<stunt name>,
+   its name is revealed. Keys: name, pic, race, nat (nationality), age, a:<n> aspect n, sk:<skill> (also +0 skills), st:<stunt name>,
    cn:<slot> one consequence, g:<gear key> one rating, it:<item name> one inventory item, bio, people.
    PCs and NPCs reach players in the same shape, so their cards look alike.
    How the player's character knows them is set by the GM too, as one more key: met:met (Met) or met:heard (Heard of). */
@@ -541,7 +545,7 @@ N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target
    The ratings match the ones on a card (N.GEARK); giving the item can set them on the card too. */
 /* item kinds, in the order the catalog lists them. Ids are kept forever (old items keep theirs): potion was "Potions and food" */
 N.ITEMK = [['weapon','Weapons','sword'],['armor','Armor','shieldU'],['clothing','Clothing','boots'],['magic','Magical','magic'],['potion','Potions','potion'],
-  ['ingredient','Potion ingredients','sparkle'],['food','Food & drink','drink'],['book','Books','spellbook'],['trinket','Trinkets','coins'],['gear','Gear and tools','bag'],['other','Other','items']];
+  ['ingredient','Potion ingredients','sparkle'],['craft','Crafting ingredients','gear'],['food','Food & drink','drink'],['book','Books','spellbook'],['trinket','Trinkets','coins'],['gear','Gear and tools','bag'],['other','Other','items']];
 N.ITEM_IC = ['bag','sword','target','arrowR','shieldU','helm','boots','knuckles','magic','sparkle','spellbook','potion','drink','scroll','coins','skull','items'];
 N.itemKind = k => N.ITEMK.find(x => x[0] === k) || N.ITEMK[N.ITEMK.length - 1];
 N.itemById = id => (N.G.items || []).find(x => x.id === id) || null;
@@ -649,6 +653,8 @@ N.itemNote = it => [N.itemGears(it).map(([k, l]) => `${l} +${+it[k]}`).join(', '
 N.shopOf = ch => (N.G.shops || {})[ch] || null;
 N.shopOpen = ch => { const s = N.shopOf(ch); return s && s.state === 'open' ? s : null; };
 N.shopOk = ch => !!N.chKey(ch) && !N.metaOnly(ch);
+/* a player's open request in a store chat: kind 'buy' (Purchase, waits for the GM to confirm) or 'haggle' (Bargain) */
+N.shopAsk = (ch, cid, k, kind) => N.G.msgs.find(m => m.ch === ch && m[kind] && m[kind].c === cid && m[kind].k === k && m[kind].st === 'ask') || null;
 N.shopItem = it => ({k:N.uid('si'), it:it.id, name:it.name, kind:N.itemKind(it.kind)[0], ic:it.ic || '',
   /* items from Jake's lists carry their class as the description, so like the catalog they show only the class line */
   d:it.cls ? '' : String(it.d || '').trim(), path:[...new Set([it.cls, it.sub, it.disc].filter(Boolean))].join(' · '),
@@ -667,6 +673,7 @@ N.revParts = (c, pc) => {
   add('name', 'Who they are', 'Name', (c.name || c.short || '') + ' · needed before they see anything');
   add('pic', 'Who they are', 'Picture', c.portrait ? 'Their portrait' : 'No picture yet');
   add('race', 'Who they are', 'Race', c.race || 'Not set');
+  add('nat', 'Who they are', 'Nationality', c.nat || 'Not set');
   if (!pc) add('job', 'Who they are', 'Job or faction', c.job || 'Not set');
   add('age', 'Who they are', 'Age', c.age ? 'Age ' + c.age : 'Not set');
   N.pcAspects(c).forEach((a, i) => add('a:' + i, 'Aspects', `Aspect ${i + 1}`, a));
@@ -680,7 +687,7 @@ N.revParts = (c, pc) => {
   return out;
 };
 /* older reveal lists (before names were their own part) used about, cons and gear for whole groups */
-N.revKeys = (c, keys) => keys.flatMap(k => k === 'about' ? ['race', 'age'] : k === 'cons' ? consSlots(c.skills || {}).map(sl => 'cn:' + sl.k) : k === 'gear' ? N.GEARK.map(g => 'g:' + g[0]) : [k]);
+N.revKeys = (c, keys) => keys.flatMap(k => k === 'about' ? ['race', 'nat', 'age'] : k === 'cons' ? consSlots(c.skills || {}).map(sl => 'cn:' + sl.k) : k === 'gear' ? N.GEARK.map(g => 'g:' + g[0]) : [k]);
 /* what one player is told about a card: only the parts in keys, nothing at all without the name */
 N.revealed = (c, pc, keys0) => {
   const keys = N.revKeys(c, keys0), has = k => keys.includes(k);
@@ -688,6 +695,7 @@ N.revealed = (c, pc, keys0) => {
   const r = {id:c.id, name:c.name || c.short || ''};
   if (has('pic') && c.portrait) r.portrait = c.portrait;
   if (has('race') && c.race) r.race = c.race;
+  if (has('nat') && c.nat) r.nat = c.nat;
   if (!pc && has('job') && c.job) r.job = c.job;
   if (has('age') && c.age) r.age = c.age;
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;

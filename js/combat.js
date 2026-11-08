@@ -226,7 +226,7 @@ function actRows(v, ms, past, near){
   const live = m => (m.kind === 'fight' || m.kind === 'combat') && cb.state !== 'off' && m.cid === cb.id;
   const go = m => near ? ` data-a="nearMsg" data-v="${m.id}" title="Show this moment in the chat"` : '';
   const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll${near ? ' near' : ''}" data-mid="${m.id}"${go(m)}><div class="who">${esc(m.roll.who)}${secretM(m) ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time>${near ? `<span class="inchat">${IC('chatL')}In chat</span>` : ''}</div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '').replace(/<button type="button" class="btn sm shbtn"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
-    : m.kind === 'sys' && m.res ? N.resCard(m.res, past ? null : v).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
+    : m.kind === 'sys' && m.res ? N.resCard(m.res, past ? null : v, v).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
     : m.fc ? `<div class="fcm${m.by === v.role ? ' mine' : ''}"><b>${esc(N.personObj(m.by).name)}</b><span>${N.emoText(N.marks(esc(m.text)))}</span><time>${N.hhmm(m.t)}</time></div>`
     : m.fightEnd ? `<div data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}" title="See what happened" class="go ff end"><span class="ffi">${IC('swords')}</span><span class="fft">${esc(m.text)} <b>See what happened</b></span></div>`
     : live(m) ? feedRow(m, false).replace('<div class="ff', `<div data-a="mode" data-v="cb" title="Open the fight" class="go ff`)
@@ -357,7 +357,9 @@ N.tokCard = function(v, t){
         const ed = sl => `<label class="cq-ed"><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${N.tokConsSrc(t).i} data-k="${sl.k}" value="${esc(sl.v)}" placeholder="Empty"></label>`;
         return `<span class="kv-w">Consequences</span><span class="kv-w cq-list${gm ? ' ed' : ''}">${cs.map(sl => gm ? ed(sl) : N.cqChip(sl)).join('')}</span>`;
       })()}
-      ${gm || t.kind==='pc' ? `<span>Skills</span><span>${sk.map(([n,x])=>`${esc(n)} ${sgn(x)}`).join(' · ')}</span>` : ''}
+      ${(() => { /* players see another character's skill levels only once the GM revealed them (Jake) */
+        const shown = gm ? sk : t.kind === 'pc' ? sk.filter(([n]) => N.skSeen(v, n, 'pc:' + t.ref, N.tokName(t))) : [];
+        return shown.length ? `<span>Skills</span><span>${shown.map(([n,x])=>`${esc(n)} ${sgn(x)}`).join(' · ')}</span>` : ''; })()}
       ${t.init != null ? `<span>Turn roll</span><span>Notice ${sgn(N.tokNotice(t))}, rolled ${sgn(t.init)} ${ladderWord(t.init)}</span>` : ''}
       ${gm ? `<span>Gear</span><span style="display:flex;gap:8px;flex-wrap:wrap">${N.GEARS.map(([k,l]) => `<label class="field" style="flex:1;min-width:110px"><span>${l}</span>${N.gearSelect(`tg${k}-${t.id}-${v.id}`, `data-i="tokGear" data-k="${k}" data-t="${t.id}" style="min-height:32px;padding:4px 10px"`, N.tokGear(t, k))}</label>`).join('')}</span>` : N.GEARS.some(([k]) => N.tokGear(t, k)) ? `<span>Gear</span><span>${N.GEARS.map(([k,l]) => `${l} ${sgn(N.tokGear(t, k))}`).join(' · ')}</span>` : ''}
     </div>

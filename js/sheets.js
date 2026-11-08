@@ -607,11 +607,16 @@ N.sheetHtml = function(v){
     const sh = N.shopOf(arg); if (!sh || (!gm && sh.state !== 'open')) return '';
     const items = sh.items || [], k = v.ui.storeK || '', kinds = N.ITEMK.filter(([kk]) => items.some(x => x.kind === kk));
     const shown = items.filter(x => !k || x.kind === k), me = !gm && N.charOf(v.role), pcs = N.shopPcs(sh), keep = sh.npcs || [];
+    /* Jake: Purchase sends the GM a request (paid only once they confirm), greyed out without enough gold; Bargain asks for a roll */
+    const purse = me && me.built ? parseInt(me.gold, 10) || 0 : 0, open = sh.state === 'open';
+    const buyBtns = x => { if (!me || !me.built || !open) return '';
+      const asked = N.shopAsk(sh.ch, me.id, x.k, 'buy'), haggled = N.shopAsk(sh.ch, me.id, x.k, 'haggle'), short = purse < (+x.price || 0);
+      return `<span class="shop-buy"><button type="button" class="btn sm gold" data-a="shopBuy" data-c="${esc(sh.ch)}" data-v="${esc(x.k)}" ${asked || short ? 'disabled' : ''}>${IC(asked ? 'clock' : 'coins')}${asked ? 'Waiting for the GM' : 'Purchase'}</button>${short && !asked ? `<small>Not enough gold</small>` : ''}<button type="button" class="btn sm" data-a="shopHaggle" data-c="${esc(sh.ch)}" data-v="${esc(x.k)}" ${haggled ? 'disabled' : ''}>${IC('hand')}${haggled ? 'Bargain sent' : 'Bargain'}</button></span>`; };
     const card = x => `<article class="shop-it"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
       <div class="shop-it-t"><b>${N.emoText(N.marks(esc(x.name)))}</b><small>${esc(x.path || N.itemKind(x.kind)[1])}</small>
         ${(x.gears || []).length || x.silver ? `<span class="shop-rates">${(x.gears || []).map(([kk, r]) => { const gk = N.ITEM_RATE.find(y => y[0] === kk); return gk ? `<span class="itc-g">${IC(gk[2])}${gk[1]} +${r}</span>` : ''; }).join('')}${x.silver ? '<span class="itc-tag">Silver</span>' : ''}</span>` : ''}
         ${x.d ? `<p>${N.emoText(N.marks(esc(x.d)))}</p>` : ''}</div>
-      <span class="shop-tag${x.price ? '' : ' free'}">${x.price ? `<span class="coin"></span>${N.goldTxt(x.price)}` : 'Free'}</span></article>`;
+      <span class="shop-tag${x.price ? '' : ' free'}">${x.price ? `<span class="coin"></span>${N.goldTxt(x.price)}` : 'Free'}</span>${buyBtns(x)}</article>`;
     const people = keep.length || pcs.length ? `<div class="shop-folk">${keep.length ? `<span><span class="avs">${keep.map(n => N.av({name:n.name, portrait:n.portrait, color:'var(--c-npc)'}, 32)).join('')}</span><span class="tx"><small>${keep.length > 1 ? 'Shopkeepers' : 'Shopkeeper'}</small><b>${esc(keep.map(n => n.name).join(', '))}</b></span></span>` : ''}${pcs.length ? `<span><span class="avs">${pcs.map(p => N.av(p, 32)).join('')}</span><span class="tx"><small>Shopping</small><b>${esc(pcs.map(p => p.name).join(', '))}</b></span></span>` : ''}</div>` : '';
     const body = `${gm ? `<div class="note">${IC('eye')}${sh.state === 'open' ? 'This is what the players see.' : 'This is what the players will see once you open the store.'}</div>` : ''}
       ${people}${me && me.built ? `<div class="shop-purse"><span class="coin"></span>${esc(me.short)} has <b>${N.goldTxt(me.gold)}</b></div>` : ''}
@@ -826,7 +831,7 @@ function discPick(v, d, act){
     return `<div class="field"><span>${esc(k)} · ${mag ? 'pick its one discipline' : 'disciplines'}${have.length ? '' : ' <b style="color:var(--ember)">· none picked</b>'}</span><div class="dchips">${list.map(x => chip(x, have.includes(x))).join('')}${own.map(x => chip(x, true, 1)).join('')}</div>
       <div class="dother"><input class="inp" id="${id}" data-i="dOth" data-s="${esc(k)}" data-act="${act}" value="${esc(txt)}" placeholder="Other discipline" list="${id}l" autocomplete="off" maxlength="40"><datalist id="${id}l">${seen.map(x => `<option value="${esc(x)}">`).join('')}</datalist><button type="button" class="btn sm ghost" data-a="${act}Other" data-s="${esc(k)}" ${txt.trim() ? '' : 'disabled'}>${IC('plus')}Add</button></div></div>`; }).join('')}</div>`;
 }
-const raceList = v => `<datalist id="races-${v.id}">${N.RACES.map(r => `<option value="${r}">`).join('')}</datalist>`;
+const raceList = v => `<datalist id="races-${v.id}">${N.RACES.map(r => `<option value="${r}">`).join('')}</datalist><datalist id="nats-${v.id}">${N.nations().map(r => `<option value="${esc(r)}">`).join('')}</datalist>`;
 const stunts = (v, d, pre) => `<div style="display:grid;gap:8px">${d.stunts.map(([n,t],i) => `<div style="display:grid;gap:6px;padding:10px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)"><div style="display:flex;gap:6px"><input class="inp" id="${pre}sn${i}-${v.id}" data-i="${pre}" data-k="stn" data-n="${i}" value="${esc(n)}" placeholder="Stunt name"><button type="button" class="ibtn sm" data-a="${pre}StuntDel" data-i="${i}" aria-label="Remove stunt">${IC('trash')}</button></div><textarea class="inp" id="${pre}sd${i}-${v.id}" data-i="${pre}" data-k="std" data-n="${i}" rows="2" placeholder="What it does" style="min-height:60px">${esc(t)}</textarea></div>`).join('')}
   <button type="button" class="btn sm ghost" data-a="${pre}StuntAdd" style="justify-self:start">${IC('plus')}Add a stunt</button></div>`;
 const steppers = (d, pre) => `<div style="display:flex;gap:12px;flex-wrap:wrap">${[['refresh','Refresh'],['fp','Fate points now']].map(([k,l]) => `<div class="field" style="flex:1;min-width:150px"><span>${l}</span><div class="seg" style="justify-content:space-between;width:100%"><button type="button" data-a="${pre}Step" data-k="${k}" data-d="-1" aria-label="Less">${IC('minus')}</button><b style="align-self:center;font:700 18px/1 var(--f-display)">${d[k]}</b><button type="button" data-a="${pre}Step" data-k="${k}" data-d="1" aria-label="More">${IC('plus')}</button></div></div>`).join('')}</div>`;
@@ -841,6 +846,7 @@ function pcEditor(v){
       <label class="field"><span>Character name</span><input class="inp" id="pdn-${v.id}" data-i="pd" data-k="name" value="${esc(d.name)}" placeholder="Full name"></label>
       <label class="field"><span>Short name (chat and tokens)</span><input class="inp" id="pds-${v.id}" data-i="pd" data-k="short" value="${esc(d.short)}" placeholder="What the table calls them"></label>
       <label class="field"><span>Race</span><input class="inp" id="pdr-${v.id}" data-i="pd" data-k="race" list="races-${v.id}" value="${esc(d.race||'')}" placeholder="e.g. Dwarf"></label>
+      <label class="field"><span>Nationality</span><input class="inp" id="pdt-${v.id}" data-i="pd" data-k="nat" list="nats-${v.id}" value="${esc(d.nat||'')}" placeholder="Optional" autocomplete="off"></label>
       <label class="field"><span>Age</span><input class="inp" id="pdg-${v.id}" data-i="pd" data-k="age" value="${esc(d.age||'')}" placeholder="Optional"></label>
     </div>
     <div><h4>Aspects</h4><div style="display:grid;gap:8px">
@@ -868,6 +874,7 @@ function npcEditor(v){
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
       <label class="field"><span>Name</span><input class="inp" id="ndn-${v.id}" data-i="nd" data-k="name" value="${esc(d.name)}" placeholder="Name or role"></label>
       <label class="field"><span>Race</span><input class="inp" id="ndr-${v.id}" data-i="nd" data-k="race" list="races-${v.id}" value="${esc(d.race)}" placeholder="Optional"></label>
+      <label class="field"><span>Nationality</span><input class="inp" id="ndt-${v.id}" data-i="nd" data-k="nat" list="nats-${v.id}" value="${esc(d.nat||'')}" placeholder="Optional" autocomplete="off"></label>
       <label class="field"><span>Job or faction</span><input class="inp" id="ndj-${v.id}" data-i="nd" data-k="job" value="${esc(d.job)}" placeholder="Optional"></label>
       <label class="field"><span>Age</span><input class="inp" id="ndg-${v.id}" data-i="nd" data-k="age" value="${esc(d.age||'')}" placeholder="Optional"></label>
       ${N.nd.list().length ? `<label class="field"><span>Folder</span><select class="inp" id="ndf-${v.id}" data-i="nd" data-k="dir"><option value="">No folder</option>${N.nd.list().map(([id, name]) => `<option value="${esc(id)}" ${d.dir === id ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>` : ''}
