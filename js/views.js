@@ -197,6 +197,12 @@ function chatView(v, side){
   const owedBar = owed ? (pend.stage === 'defend'
     ? `<div class="fightbar owed">${IC('attack','sw')}<div class="t">${esc(N.tokName(N.tokById(pend.att)))} attacks ${gm ? esc(N.tokName(owed)) : 'you'}!<span>${esc(pend.skill)} for ${sgn(pend.total)} ${ladderWord(pend.total)}. Roll the defense.</span></div>${N.defBtn(owed)}</div>`
     : `<div class="fightbar owed">${IC('warn','sw')}<div class="t">${gm ? esc(N.tokName(owed)) + ' takes' : 'You take'} ${pend.shifts} shift${pend.shifts>1?'s':''}<span>Pick a stress box or a consequence on the board.</span></div><button type="button" class="btn sm gold" data-a="openFight">Soak the hit</button></div>`) : '';
+  /* an open store in this chat: players browse it; the GM also sees one being set up */
+  const shop = N.shopOf(ch), shopOn = shop && shop.state === 'open';
+  const shopBar = !side && shop && (gm || shopOn) ? (() => {
+    const keep = (shop.npcs || []).map(n => n.name), n = (shop.items || []).length;
+    return `<div class="fightbar shopbar">${IC('coins','sw')}<div class="t">${shopOn ? `Shopping at ${esc(shop.name || 'the store')}` : `Store setup${shop.name ? ': ' + esc(shop.name) : ''}`}<span>${shopOn ? `${n} item${n === 1 ? '' : 's'} for sale${keep.length ? ' · ' + esc(keep.join(', ')) : ''}` : 'Only you see it until you open the store.'}</span></div>${gm ? `<button type="button" class="btn sm${shopOn ? '' : ' gold'}" data-a="sheet" data-v="shop" data-c="${esc(ch)}">${shopOn ? 'Manage' : 'Continue setup'}</button>` : ''}${shopOn ? `<button type="button" class="btn sm gold" data-a="sheet" data-v="store" data-c="${esc(ch)}">Browse</button>` : ''}</div>`;
+  })() : '';
   const chipRow = (!side && fa) ? `<div class="chname-row only-ph"><button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b></span>${IC('caret')}</button></div>` : '';
   return `<section class="chat" aria-label="${esc(N.chName(ch, v.role))}">
     ${side ? '' : topPh}${chipRow}${topDt}
@@ -204,7 +210,7 @@ function chatView(v, side){
     <div class="msgs scroll" id="msgs-${v.id}" data-sk="msgs" data-bottom="1">${fightbar && side ? '' : ''}${renderMsgs(v, side)}</div>
     ${fightbar && !side ? '' : ''}
     ${composer(v)}
-  </section>`.replace('<div class="msgs', (!side ? owedBar || fightbar : '') + '<div class="msgs');
+  </section>`.replace('<div class="msgs', (!side ? (owedBar || fightbar) + shopBar : '') + '<div class="msgs');
 }
 function fightSeg(v){
   const n = N.unread(v.role, N.fightCh());
@@ -253,7 +259,7 @@ function sceneBanner(v, sc, ch, past){
 }
 /* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */
 function isAction(m){
-  return m.kind === 'sys' && !m.sceneEnd || m.kind === 'fight' || m.kind === 'combat' || m.kind === 'roll';
+  return m.kind === 'sys' && !m.sceneEnd && !m.shop || m.kind === 'fight' || m.kind === 'combat' || m.kind === 'roll';
 }
 /* the part of the actions that belongs to a fight: fight rolls, results, and the fight's own notices */
 function isFightAct(m){
@@ -346,6 +352,9 @@ function rxPill(v, m){
 }
 function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = isMe(v, m), time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
+  /* a store opening or closing is a line in the chat like a scene, with Browse while that store is still open */
+  if (m.kind === 'sys' && m.shop) { const live = N.shopOpen(m.ch), on = m.shop === 'open' && live && live.id === m.shopId;
+    return `<div class="scenem shopm${m.shop === 'end' ? ' end' : ''}"><span class="th">${IC('coins')}</span><span><span>${m.shop === 'open' ? 'Store open' : 'Shopping over'}</span><b>${esc(m.shopName || 'The store')}</b></span>${on ? `<button type="button" class="btn sm gold" data-a="sheet" data-v="store" data-c="${esc(m.ch)}">Browse</button>` : ''}</div>`; }
   if (m.kind === 'sys' && m.sceneEnd) return `<div class="scenem end"><span class="th">${IC('stop')}</span><span><span>Scene ended</span><b>${esc(m.sceneTitle || (m.text || '').replace(/^Scene ended:? ?|\.$/g, '') || 'The scene')}</b></span></div>`;
   if (m.kind === 'sys') return m.res ? resCard(m.res, v) : m.fightEnd ? `<button type="button" class="sysm fend" data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}">${IC('swords')}<span>${esc(m.text)}</span><b>See what happened</b></button>` : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
   if (m.kind === 'scene') { const sc = m.scene; if (!sc) return ''; return `<div class="scenem" data-scn="${m.id}"><span class="th" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</span><span><span>New scene</span><b>${esc(sc.title)}</b></span></div>`; }
@@ -503,6 +512,9 @@ function gmScreen(v){
   }).join('') + (fights[here] ? '' : N.metaOnly(here) ? `<p class="muted gm-nofight">${IC('swords')}No fights in ${here === 'table' ? 'Everyone' : esc(N.chName(here, 'gm'))}, it’s Meta only. Open a chat that isn’t Meta only to begin one.</p>` : `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>${Object.keys(fights).length ? 'Begin another fight' : 'Begin a fight'}</b><small>In ${where(here)}. ${here === 'gm' ? 'A fight only you see, even once it starts. Add NPCs on both sides.' : 'Draw zones and add enemies. Players see nothing until you start.'}</small></span></button>`)
     /* a fight only the GM sees: practice runs and fights the players aren't part of */
     + (here === 'gm' || fights.gm ? '' : `<button type="button" class="btn sm ghost block gm-solo" data-a="cbBegin" data-v="gm">${IC('lock')}Begin a fight in GM notes · only you see it</button>`);
+  /* storefronts: one per chat, like fights */
+  const shopBtns = Object.entries(g.shops || {}).map(([c, s]) => `<button type="button" class="bigcta shopcta" data-a="sheet" data-v="shop" data-c="${esc(c)}"><span class="ic">${IC('coins')}</span><span><b>${s.state === 'setup' ? 'Store setup' + (s.name ? ': ' + esc(s.name) : '') : 'Shopping at ' + esc(s.name || 'the store')}</b><small>In ${where(c)} · ${s.state === 'setup' ? 'Not open yet. Players can’t see it.' : `${s.items.length} item${s.items.length === 1 ? '' : 's'} for sale`}</small></span></button>`).join('')
+    + ((g.shops || {})[here] || !N.shopOk(here) ? '' : `<button type="button" class="bigcta shopcta" data-a="shopBegin"><span class="ic">${IC('coins')}</span><span><b>Open a storefront</b><small>In ${where(here)}. Pick who is there and what is for sale. Players see nothing until you open it.</small></span></button>`);
   const pcs = N.pcs(), npc1 = g.npcs[0], waiting = N.MEMBERS.filter(m => m.role === 'pending').length;
   const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
     ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
@@ -510,7 +522,7 @@ function gmScreen(v){
     ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export the log', 'data-v="export"'], ['sheet', 'smile', 'Emoji and GIFs', 'data-v="emoji"'], ['sheet', 'upload', 'Import lore', 'data-v="import"'], ['sheet', 'trash', 'Wipe a chat', 'data-v="wipe"']];
   const scenes = N.channelsFor('gm').filter(c => c !== 'gm' && g.scenes[c]).length;
   return `<div class="gs">
-    ${fight}
+    ${fight}${shopBtns}
     <button type="button" class="bigcta scn" data-a="sheet" data-v="scene"><span class="ic">${IC('image')}</span><span><b>Scene changer</b><small>Pick who it’s for, Everyone or one player, then set the picture, name and aspects.${scenes ? ` ${scenes} chat${scenes > 1 ? 's have' : ' has'} a scene now.` : ''}</small></span></button>
     <section class="gs-sec gs-tools"><div class="gs-h"><h3>GM tools</h3></div>
       <div class="tools">${tiles.map(([a, ic, l, x]) => `<button type="button" data-a="${a}" ${x}>${IC(ic)}${l}</button>`).join('')}</div>

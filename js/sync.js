@@ -217,7 +217,7 @@ function listenGroups(){
     for (const gr of G().groups) { listenFight(gr.id); if (gr.party) listenParty(gr.id); }
     /* a party this person is no longer in takes its cards with it */
     let gone = false; for (const id of Object.keys(CH.party)) if (!G().groups.some(x => x.id === id && x.party)) { delete CH.party[id]; gone = true; }
-    if (gone) mergeChars(); setCombat(); if (live) changed(); res();
+    if (gone) mergeChars(); setCombat(); setShops(); if (live) changed(); res();
   }, err => { heard('groups', false); console.warn('groups', err?.code); GROUPS_DONE = true; res(); }));
 }
 /* the rules that guard groups/<id> have to be published before the GM can make one */
@@ -362,7 +362,9 @@ function syncNow(){
     for (const [st, ch] of [...N.seats().map(s => [s, 'dm-' + s]), ...g.groups.map(x => [x.id, 'grp-' + x.id])]) {
       const path = 'fights/' + st, f = all[ch]?.state === 'live' ? all[ch] : null;
       if (!LOADED.has(path)) { listenFight(st); continue; }
-      writeUnits(path, {c:f ? combatOut(f) : null}); PF[st] = f;
+      /* an open store in that chat rides along in the same document (unit s); until gm/shops has loaded, the one there stays */
+      const sh = N.shopOpen(ch), was = KNOWN.get(path).units.s;
+      writeUnits(path, {c:f ? combatOut(f) : null, ...(LOADED.has('gm/shops') ? (sh ? {s:N.shopOut(sh)} : {}) : was ? {s:JSON.parse(was)} : {})}); PF[st] = f;
     }
     for (const [ch, cb] of Object.entries(mine)) SRC[ch] = cb;
     if (tbl) SRC.table = tbl;
@@ -404,6 +406,7 @@ function syncNow(){
     }
     writeUnits('gm/npcs', asUnits(g.npcs.map(n => ({...n, occ:n.job || ''}))));
     writeUnits('gm/items', asUnits(g.items || [], x => x));
+    writeUnits('gm/shops', {...(g.shops || {})});
     writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, hlocs:g.hlocs || {}, npcdirs:g.npcDirs || []});
     /* parts of a card the GM revealed to single players: each gets only their own parts (N.revealed) */
     for (const [id, by] of Object.entries(g.rev || {})) {
@@ -432,7 +435,8 @@ function syncNow(){
     const mine = g.P[g.role]?.char;
     const pt = N.partyOf(g.role);
     if (mine && g.chars[mine]) writeUnits(pt ? 'parties/' + pt.id : 'game/chars', {[mine]:g.chars[mine]}, true);
-    for (const [ch, cb] of Object.entries(N.allFights())) if (cb.state === 'live') { const s = N.chKey(ch); writeUnits(s ? 'fights/' + s : 'game/combat', {c:combatOut(cb)}); }
+    /* partial: the same document can hold an open store (unit s), which only the GM writes */
+    for (const [ch, cb] of Object.entries(N.allFights())) if (cb.state === 'live') { const s = N.chKey(ch); writeUnits(s ? 'fights/' + s : 'game/combat', {c:combatOut(cb)}, true); }
   }
   syncMsgs();
 }
@@ -448,7 +452,7 @@ const ONLY_ON = new Set();
 function listenFight(st){
   const path = 'fights/' + st;
   if (FIGHT_ON.has(path)) return LOADED.has(path) ? null : FIGHT_ON.get(path);
-  const p = listenDoc(path, u => { PF[st] = u.c ? JSON.parse(u.c) : null; setCombat(); }, true).then(() => { if (LOADED.has(path) && isGM()) queueSync(); });
+  const p = listenDoc(path, u => { PF[st] = u.c ? JSON.parse(u.c) : null; PSH[st] = u.s ? JSON.parse(u.s) : null; setCombat(); setShops(); }, true).then(() => { if (LOADED.has(path) && isGM()) queueSync(); });
   FIGHT_ON.set(path, p); return p;
 }
 const FIGHT_ON = new Map();
@@ -458,7 +462,14 @@ const queueSync = () => { clearTimeout(_sq); _sq = setTimeout(syncNow, 250); };
 N.syncNow = syncNow;
 
 /* ---------- applying what arrives ---------- */
-let GC = null, SC = {}; const PF = {}, SRC = {};
+let GC = null, SC = {}; const PF = {}, SRC = {}, PSH = {};
+/* a player's stores: the open one in their private chat and in each group chat they are in (the GM's come from gm/shops) */
+function setShops(){
+  const g = G(); if (isGM()) return;
+  const out = {}, mine = [[g.role, 'dm-' + g.role], ...(g.groups || []).map(x => [x.id, 'grp-' + x.id])];
+  for (const [st, ch] of mine) if (PSH[st]?.state === 'open') out[ch] = PSH[st];
+  g.shops = out;
+}
 /* what the GM keeps in gm/combat: any fight being set up, and live fights outside the table chat.
    A fight in GM notes lives only there, so players never get it */
 const gmKept = (ch, cb) => cb.state === 'setup' || (cb.state === 'live' && (ch === 'gm' || !!N.chKey(ch)));
@@ -667,7 +678,7 @@ async function start(role){
   const g = G(); g.role = role; V.role = role; V.ui = N.newUi(role); g.me = ME;
   loadLocal();
   const docs = isGM()
-    ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','gm/items','game/news','gm/news','game/maps','game/wiki','game/meta','game/emoji']
+    ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','gm/items','gm/shops','game/news','gm/news','game/maps','game/wiki','game/meta','game/emoji']
     : ['game/chars','game/combat','game/maps','game/wiki','game/news','game/meta','game/emoji'];
   const APPLY = {
     'game/chars': u => { CH.base = u; mergeChars(); ensureChars(); },
@@ -677,6 +688,7 @@ async function start(role){
     'gm/maps': setMaps,
     'gm/wiki': u => { g.wiki = vals(u).sort(byO); },
     'gm/npcs': u => { g.npcs = vals(u).map(normNpc).sort((a,b) => a.name.localeCompare(b.name)); },
+    'gm/shops': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.shops = o; },
     'gm/items': u => { g.items = vals(u).map(({o, ...x}) => x).sort((a,b) => a.name.localeCompare(b.name)); },
     'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; },
     'game/news': u => { PUB.news = u; mergeView(); },

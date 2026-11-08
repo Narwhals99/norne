@@ -2475,3 +2475,49 @@
 .app .snpc .av{grid-row:1/3} .app .snpc span{font:700 13px/1.2 var(--f-ui);color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .app .snpc small{font:600 11.5px/1.2 var(--f-ui);color:var(--ink-3)}
 .app .sfoot{display:flex;gap:8px;align-items:flex-start;font:600 12.5px/1.45 var(--f-ui);margin:0}
 .app .sfoot svg{width:16px;height:16px;flex:none;margin-top:1px}
+
+/* ---------- storefronts (Jake): GM setup, the store players browse, the bar over the chat ---------- */
+.app .bigcta.shopcta{background:linear-gradient(120deg,color-mix(in srgb,var(--gold-tx) 22%,var(--raise)),var(--raise) 70%);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-tx) 40%,transparent),0 10px 24px -14px rgba(0,0,0,.6)}
+.app .bigcta.shopcta .ic{background:var(--gold-soft);color:var(--gold-tx);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--gold-tx) 55%,transparent)}
+.app .fightbar.shopbar{background:linear-gradient(90deg,color-mix(in srgb,var(--gold-tx) 18%,var(--raise)),var(--raise));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-tx) 40%,transparent)}
+.app .fightbar.shopbar svg.sw{color:var(--gold-tx)}
+.app .fightbar.shopbar .btn{flex:none}
+.app .scenem.shopm .th{display:grid;place-items:center;background:var(--gold-soft);color:var(--gold-tx)}
+.app .scenem.shopm .th svg{width:17px;height:17px}
+.app .scenem.shopm.end .th{background:var(--sunk);color:var(--ink-3)}
+.app .scenem.shopm .btn{margin-left:4px;flex:none}
+.app .shop-lead{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--gold-soft);color:var(--gold-tx);flex:none}
+.app .shop-lead svg{width:19px;height:19px}
+.app .shop-f{display:grid;gap:6px}
+.app .shop-sec{display:grid;gap:10px}
+.app .shop-sec h4{margin:4px 0 0;font:700 15px/1.2 var(--f-ui);color:var(--ink)}
+.app .shop-sec h4 small{font:700 12px/1 var(--f-ui);color:var(--ink-4);margin-left:6px}
+.app .shop-who button small{font:700 10.5px/1 var(--f-ui);color:var(--ink-4);text-transform:uppercase;letter-spacing:.06em}
+.app .shop-who button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.app .shop-tip{margin:0;font:600 12.5px/1.4 var(--f-ui)}
+.app .shop-acts{display:flex;flex-wrap:wrap;gap:8px}
+.app .shop-price{flex-direction:column;align-items:flex-end;gap:6px}
+.app .shop-price label{display:flex;align-items:center;gap:6px}
+.app .shop-price .coin{width:16px;height:16px;flex:none}
+.app .shop-price .inp{width:84px;height:36px;text-align:right;font-variant-numeric:tabular-nums}
+.app .shop-folk{display:flex;flex-wrap:wrap;gap:8px 18px}
+.app .shop-folk>span{display:flex;align-items:center;gap:10px;min-width:0}
+.app .shop-folk .avs{display:flex;flex:none}
+.app .shop-folk .avs .av+.av{margin-left:-10px}
+.app .shop-folk .tx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.app .shop-folk small{font:700 10.5px/1.2 var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--gold-tx)}
+.app .shop-folk b{font:600 14px/1.25 var(--f-display);color:var(--ink)}
+.app .shop-purse{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line);font:600 13.5px/1.2 var(--f-ui);color:var(--ink-2)}
+.app .shop-purse b{color:var(--gold-tx);font-variant-numeric:tabular-nums}
+.app .shop-grid{display:grid;gap:10px}
+@media (min-width:760px){ .app .sheet.wide .shop-grid{grid-template-columns:1fr 1fr} }
+.app .shop-it{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;padding:12px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);align-content:start}
+.app .shop-it-t{display:flex;flex-direction:column;gap:3px;min-width:0}
+.app .shop-it-t b{font:700 15.5px/1.25 var(--f-ui);color:var(--ink);overflow-wrap:anywhere}
+.app .shop-it-t small{font:600 12px/1.35 var(--f-ui);color:var(--ink-3)}
+.app .shop-it-t p{margin:4px 0 0;font:500 13.5px/1.45 var(--f-ui);color:var(--ink-2);overflow-wrap:anywhere}
+.app .shop-rates{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:2px;font:600 12px/1.3 var(--f-ui)}
+.app .shop-tag{grid-column:2;justify-self:start;display:inline-flex;align-items:center;gap:6px;margin-top:6px;height:28px;padding:0 12px 0 7px;border-radius:999px;background:var(--gold-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-tx) 45%,transparent);font:800 13.5px/1 var(--f-ui);color:var(--gold-tx);font-variant-numeric:tabular-nums}
+.app .shop-tag .coin{width:16px;height:16px}
+.app .shop-tag.free{padding:0 12px;background:var(--sunk);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app .fightbar.shopbar{margin-top:8px}
