@@ -44,7 +44,9 @@ function inked(geo, mat, t = .6){
 }
 const grad = new THREE.DataTexture(new Uint8Array([110, 110, 110, 255, 185, 185, 185, 255, 255, 255, 255, 255]), 3, 1);
 grad.minFilter = grad.magFilter = THREE.NearestFilter; grad.needsUpdate = true;
-const toon = (c, o) => new THREE.MeshToonMaterial(Object.assign({color:c, gradientMap:grad}, o || {}));
+const toon = (c, o) => o && o.std ? new THREE.MeshStandardMaterial((({std, ...r}) => Object.assign({color:c, roughness:.6, metalness:0}, r))(o)) : new THREE.MeshToonMaterial(Object.assign({color:c, gradientMap:grad}, o || {}));
+/* an ink outline in a colour of its own (hair gets a dark shade of the hair, not black) */
+const inkOf = hex => { const m = new THREE.MeshBasicMaterial({color:hex, side:THREE.BackSide}); m.onBeforeCompile = INK.onBeforeCompile; return m; };
 const at = (o, x, y, z) => { o.position.set(x, y, z); return o; };
 const rot = (o, x, y, z) => { o.rotation.set(x, y, z); return o; };
 function canvas(w, h){ const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
@@ -126,7 +128,7 @@ function tube(pts, prof, up, o = {}){
     if (N.lengthSq() < 1e-8) N.copy(lastN); N.normalize(); lastN.copy(N);
     B.crossVectors(T, N).normalize();
     const [w, h] = prof(t); C.push([p.clone(), T.clone(), Math.max(w, h)]);
-    for (let k = 0; k <= nR; k++) { const an = k / nR * TAU, c = Math.cos(an) * w, sn = Math.sin(an) * h;
+    for (let k = 0; k <= nR; k++) { const an = k / nR * TAU, ca = Math.cos(an), sa = Math.sin(an), e = o.sq || 1, c = Math.sign(ca) * Math.pow(Math.abs(ca), e) * w, sn = Math.sign(sa) * Math.pow(Math.abs(sa), e) * h;
       P.push(p.x + B.x * c + N.x * sn, p.y + B.y * c + N.y * sn, p.z + B.z * c + N.z * sn); UV.push(k / nR, t); if (o.soft) { SC.push(p.x, p.y, p.z, o.soft.r || Math.max(w, h)); SK.push(sid, (o.soft.ring || 0) + s, o.soft.follow ? 1 : 0); } }
   }
   for (let s = 0; s < nS; s++) for (let k = 0; k < nR; k++) { const a = s * cols + k; I.push(a, a + cols + 1, a + 1, a, a + cols, a + cols + 1); }
@@ -163,6 +165,11 @@ function merge(list){
 let softIds = 0;
 function softify(geo, c, r, id, ring, follow){ const n = geo.attributes.position.count, a = new Float32Array(n * 4), k = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) { a.set([c.x, c.y, c.z, r], i * 4); k.set([id, ring, follow ? 1 : 0], i * 3); }
+  geo.setAttribute('sc', new THREE.BufferAttribute(a, 4)); geo.setAttribute('sk', new THREE.BufferAttribute(k, 3)); return geo; }
+/* hang a whole plait or tail on one chain along its core P (so arms push it as one piece) */
+function coreSoft(geo, P, r, id){ const n = geo.attributes.position.count, pos = geo.attributes.position, a = new Float32Array(n * 4), k = new Float32Array(n * 3), v = new V3();
+  for (let i = 0; i < n; i++) { v.fromBufferAttribute(pos, i); let best = 1e9, bi = 0; for (let j = 0; j < P.length; j++) { const d = v.distanceToSquared(P[j]); if (d < best) { best = d; bi = j; } }
+    a.set([P[bi].x, P[bi].y, P[bi].z, r], i * 4); k.set([id, bi, 0], i * 3); }
   geo.setAttribute('sc', new THREE.BufferAttribute(a, 4)); geo.setAttribute('sk', new THREE.BufferAttribute(k, 3)); return geo; }
 /* the ring of a soft tube nearest a point (to hang a tie on it) */
 function nearRing(geo, p){ const sc = geo.attributes.sc.array, sk = geo.attributes.sk.array; let best = 1e9, ring = 0;
@@ -244,70 +251,144 @@ function defaultSpec(race, body){
 }
 const hoodOf = spec => { const o = pick(OUTFITS, spec.outfit)[2]; return o.hood ? (spec.hood === 'up' || spec.hood === 'down' ? spec.hood : o.hood) : null; };
 
-/* ---------- hair styles: a sculpted shell on the scalp (clumps, fringe teeth) plus a few big locks ----------
+/* ---------- hair styles: a smooth shell on the scalp, with locks grown over it like a real haircut ----------
+   Most styles grow ordered locks (h.locks) from a parting or round the hairline, each lock as wide as the gap to its neighbours,
+   so they lie side by side and only come to points where they're cut. A ponytail's tail and the plait are bundles of locks;
+   curls are strands with a coil (h.groom); a mohawk is a crest of spikes. With a hood up each style builds only what shows at the opening.
    angles: th goes round the head from the face (0) to the left ear (+90) to the back (180); ph is down from the crown. */
 const hl = (list, extra) => { const f = curve1(list); return th => { const d = wrapA(th) / DEG; return (f(Math.abs(d)) + (extra ? extra(d) : 0)) * DEG; }; };
-const N_CL = 16, CL = 360 / N_CL;
-/* fringe teeth that line up with the sculpted clumps: tips at the clump middles, notches at the grooves */
-const clT = (d, a0, a1, amp, p = 1.3, off = 0) => { const a = Math.abs(d); if (a > a1 || a < a0) return 0;
-  const w = Math.min(1, Math.sin(clamp((a - a0) / (a1 - a0), 0, 1) * PI) * 2.2); return amp * Math.pow(tri((d - off) / CL + .5), p) * w; };
-const bump = (d, c, w, amp) => amp * Math.exp(-Math.pow((Math.abs(d) - c) / w, 2));
+const N_CL = 16;
 const vol = (top, side, back, front) => (th, ph) => { const c = Math.cos(th);
   return side + (back - side) * (1 - c) / 2 + (front - side) * Math.pow(Math.max(0, c), 2) + top * Math.pow(Math.max(0, Math.cos(ph)), 1.5); };
-const part = (th, ph) => 1 - .55 * Math.exp(-Math.pow(th / .13, 2)) * (1 - sstep(20 * DEG, 50 * DEG, ph));
+/* groom helpers (head space: +z is the face, +y up, the head a sphere of radius HR at 0) */
+const tang = (u, v, out) => out.copy(v).addScaledVector(u, -v.dot(u) / u.lengthSq()).normalize(); /* v along the scalp at u */
+const _X = new V3(1, 0, 0), _Y = new V3(0, 1, 0), _Z = new V3(0, 0, 1), _g1 = new V3(), _g2 = new V3();
+/* hair parted at x = xp: each side lies away from the part, then falls; behind the crown it just falls */
+const partFlow = (xp, side = .9, back = 0) => (p, r, out) => { const s = Math.sign(p.x - xp) || 1, w = sstep(-.45, .25, p.z / p.length());
+  _g1.set(s * side * w, -.55, -back); return tang(p, _g1, out); };
+/* hanging hair settles against the back: below the chin it eases behind the shoulders and in towards the spine */
+const toBack = (env, HR, k = .3, spread = 1.3) => (p, r, L) => { const a = sstep(-HR * .55, -HR * 1.25, p.y) * k; if (!a) return;
+  const zt = env.back(p.y) - 1.4 - (r ? (1 - r.k) * 0 + r.k * 1.4 : 0); if (p.z > zt) p.z = lerp(p.z, zt, a);
+  const xl = env.xMax * spread; if (Math.abs(p.x) > xl) p.x = lerp(p.x, Math.sign(p.x) * xl, a * .6); };
+/* the face stays clear: a lock in front of it stops at the brow line (brow can slope for swept bangs) */
+const faceCut = (p, HR, brow = .34) => p.z > HR * .2 && Math.abs(p.x) < HR * .8 && p.y < HR * brow;
+const sph = (th, ph, r) => new V3(r * Math.sin(ph) * Math.sin(th), r * Math.cos(ph), r * Math.sin(ph) * Math.cos(th));
+/* hair drawn back to one point (a ponytail's tie, a braid's start) */
+const gather = G => (p, r, out) => tang(p, _g2.subVectors(G, p), out);
+/* strands that start round a tie and leave it along n (then fall) */
+const tieStarts = (G, n, rad, count, up = .7) => { const a = new V3().crossVectors(n, _Y).normalize(), b = new V3().crossVectors(n, a).normalize(), out = [];
+  for (let i = 0; i < count; i++) { const q = Math.sqrt((i + .5) / count) * rad, an = i * 2.39996, o = a.clone().multiplyScalar(Math.cos(an) * q).addScaledVector(b, Math.sin(an) * q);
+    out.push({p:G.clone().addScaledVector(n, .4).add(o), d:n.clone().addScaledVector(_Y, up).addScaledVector(o, .12).normalize(), k:1 - q / rad}); }
+  return out; };
+/* a parting over the scalp from F (front) to C (crown), both unit directions: roots run up its -x side, round behind the crown, and back down its +x side */
+const partPath = (F, C, cr = .1, eps = .02) => {
+  const ang = F.angleTo(C), lp = ang, la = PI * cr, tot = 2 * lp + la, sA = lp / tot, sB = (lp + la) / tot;
+  const at = a => { const v = new V3(); const so = Math.sin(ang); return v.copy(F).multiplyScalar(Math.sin((1 - a) * ang) / so).addScaledVector(C, Math.sin(a * ang) / so).normalize(); };
+  const side = (a, out) => { const p = at(a), T = at(Math.min(1, a + .01)).sub(at(Math.max(0, a - .01))).normalize(); out.crossVectors(T, p).normalize(); if (out.x < 0) out.negate(); return [p, T]; };
+  const S = new V3();
+  return s => { if (s < sA) { const [p] = side(s / sA, S); return p.addScaledVector(S, -eps).normalize(); }
+    if (s > sB) { const [p] = side(1 - (s - sB) / (1 - sB), S); return p.addScaledVector(S, eps).normalize(); }
+    const b = ((s - sA) / (sB - sA) - .5) * PI, [p, T] = side(1, S); return p.clone().addScaledVector(S, Math.sin(b) * cr).addScaledVector(T, Math.cos(b) * cr).normalize(); };
+};
+/* past the haircut's edge line (a little more by extra radians) */
+const pastEdge = (edge, ins = 0) => (p, extra = 0) => { const l = p.length() || 1, th = Math.atan2(p.x, p.z), ph = Math.acos(clamp(p.y / l, -1, 1)); return ph > edge(th) + ins * DEG + extra; };
+/* round the hairline, a little inside it: s 0..1 goes once round the head from the back */
+const hairline = (edge, inset = 3) => s => { const th = -PI + s * TAU; return sph(th, edge(th) - inset * DEG, 1); };
+/* hair lies away from a parting from F to C (and out from the crown behind C), falling a little as it goes */
+const fromPart = (F, C, down = .35, sweep = 0, both = false) => { const nP = new V3().crossVectors(F, C).normalize(), q = new V3(), a = new V3(), ang = F.angleTo(C);
+  return (p, r, out) => { q.copy(p).normalize(); a.copy(q).addScaledVector(nP, -q.dot(nP));
+    if (a.lengthSq() < 1e-6) a.copy(F); a.normalize(); const t = F.angleTo(a), u = C.angleTo(a); if (t > ang || u > ang) a.copy(t < u ? F : C);
+    a.subVectors(q, a); if (a.lengthSq() < 1e-8) a.set(0, 0, -1); a.normalize(); a.y -= down;
+    if (sweep && (both || q.x > F.x)) a.x += sweep * Math.sign(q.x - F.x) * sstep(.2, .7, q.z); /* the front swept across the brow, away from the parting */
+    return tang(p, a, out); }; };
 const HAIR_STYLES = {
-  short: f => f ? {
-      edge:hl([[0, 68], [40, 72], [70, 84], [90, 98], [130, 112], [180, 120]], d => clT(d, 0, 78, 10, 1.1, -8) + clT(d, 128, 180, 7)), lift:vol(.08, .1, .12, .14), sweep:.25,
-      build:h => { [[40, 14, -18, 76], [30, 18, -36, 80], [48, 24, 4, 78]].forEach(([a, p0, b, p1]) => h.fringe(a * DEG, p0 * DEG, b * DEG, p1 * DEG, 3.2, 1.15, {gap:.3, bend:.85})); } }
-    : {
-      edge:hl([[0, 63], [30, 65], [55, 70], [75, 78], [92, 82], [130, 108], [180, 120]], d => clT(d, 0, 64, 9) + bump(d, 84, 4.5, 15) + clT(d, 122, 180, 7)), lift:vol(.08, .08, .11, .17),
-      build:h => { h.fringe(-14 * DEG, 12 * DEG, 30 * DEG, 64 * DEG, 3.2, 1.2, {gap:.5, flick:1.3}); h.fringe(4 * DEG, 16 * DEG, 46 * DEG, 66 * DEG, 2.8, 1.1, {gap:.5, flick:1.5}); } },
+  short: f => ({
+      edge:f ? hl([[0, 66], [40, 70], [70, 84], [90, 98], [130, 112], [180, 120]]) : hl([[0, 63], [30, 65], [55, 70], [75, 78], [92, 84], [130, 108], [180, 120]]), lift:vol(.03, .03, .03, .02), smooth:true, groove:0,
+      hoodBuild:true, build:(h, hd) => { const HR = h.HR, F = sph(-20 * DEG, 30 * DEG, 1), C = sph(PI, 32 * DEG, 1), fl = fromPart(F, C, .45, f ? 1 : .5), past = pastEdge(h.edgeAt, f ? 5 : 3);
+        h.locks({path:partPath(F, C, .12), n:16, maxGap:4.4, lift:r => .1 + .02 * r.j, len:() => 30, hug:.4, rise:1.4, hold:3, grav:.16, steer:.45, gap:1.2,
+          dir:(r, p, out) => fl(p, r, out), flow:fl, thick:.34, wmax:2.8, tip:.12, tipLen:3.2,
+          cut:(p, r) => faceCut(p, HR, (f ? .4 : .58) - (f ? .14 * clamp((p.x - F.x * HR) / HR, 0, 1) : 0) - r.j * .06) || past(p, r.j * 3 * DEG), wave:{amp:.4, per:9, from:3}}); } }),
   swept: f => ({
-      edge:hl([[0, 58], [40, 62], [70, 74], [92, f ? 96 : 84], [130, 108], [180, f ? 120 : 116]], d => clT(d, 125, 180, 6)), lift:vol(.18, .1, .12, .2), sweep:-.45,
-      build:h => { for (let i = 0; i < 4; i++) h.fringe((40 - i * 5) * DEG, (14 + i * 4) * DEG, (-22 - i * 11) * DEG, (70 + i * 3.5) * DEG, 3.9, 1.35, {gap:.45, bend:.75, flick:i === 0 ? .8 : 0});
-        h.fringe(44 * DEG, 22 * DEG, 64 * DEG, 74 * DEG, 3, 1.15, {gap:.4});
-        if (f) [-1, 1].forEach(s => h.fringe(s * 60 * DEG, 48 * DEG, s * 74 * DEG, 104 * DEG, 2.2, .95, {gap:.25})); },
-      hood:h => { for (let i = 0; i < 3; i++) h.fringe((34 - i * 4) * DEG, (44 + i * 3) * DEG, (-18 - i * 10) * DEG, (72 + i * 3) * DEG, 3.4, 1.1, {gap:.1, bend:.75}); } }),
+      edge:hl([[0, 58], [40, 62], [70, 74], [92, f ? 96 : 84], [130, 108], [180, f ? 120 : 116]]), lift:vol(.03, .03, .03, .02), smooth:true, groove:0,
+      hoodBuild:true, build:(h, hd) => { const HR = h.HR, past = pastEdge(h.edgeAt, 2), bk = (p, r, out) => tang(p, _g1.set(0, -1.1 * sstep(.1, -.6, p.z / p.length()), -1), out);
+        h.locks({path:s => { const th = lerp(-105, 105, s) * DEG; return sph(th, h.edgeAt(th) - 3 * DEG, 1); }, n:16, maxGap:4.4, lift:r => .13 + .05 * Math.max(0, r.u.z) + .02 * r.j, len:() => f ? 40 : 30, hug:.6, rise:2.2, hold:4, grav:.2, steer:.5, gap:1.2,
+          dir:(r, p, out) => bk(p, r, out), flow:bk, thick:.34, wmax:2.8, tip:.12, tipLen:4, root:.7, rootT:.3, rootLen:4,
+          cut:(p, r) => p.z < 0 && (f ? p.y < -HR * (.75 + .25 * r.j) : past(p, r.j * 3 * DEG)), wave:{amp:.45, per:12, from:5}}); } }),
   bob: (f, L) => ({
-      edge:hl([[0, 71], [40, 73], [75, 88], [100, 98], [140, 104], [180, 108]], d => clT(d, 0, 66, 4, .55)), lift:vol(.1, .14, .15, .12), roundEars:false,
-      build:h => { [-1, 1].forEach(s => h.hang(s * 64 * DEG, 64 * DEG, -lerp(.36, .95, L) * h.HR, 3.6, 1.35, {round:true, curl:1.7, free:true}));
-        for (let i = 0; i < 8; i++) { const a = 90 + i * (180 / 7); h.hang(a * DEG, 66 * DEG, -lerp(.4, 1, L) * h.HR, 4.7, 1.45, {round:true, curl:1.9, free:true}); } },
-      hood:h => [-1, 1].forEach(s => [44, 54].forEach((a, j) => h.hang(s * a * DEG, (62 + j * 6) * DEG, -lerp(.36, .8, L) * h.HR, 3, 1.2, {round:true, curl:1.4, front:true}))) }),
+      edge:hl([[0, 64], [40, 68], [75, 86], [100, 96], [140, 104], [180, 108]]), lift:vol(.035, .035, .035, .02), roundEars:false, smooth:true, groove:0,
+      hoodBuild:true, build:(h, hd) => { const HR = h.HR, F = sph(-24 * DEG, 60 * DEG, 1), C = sph(PI, 34 * DEG, 1), fl = fromPart(F, C, .7, 1.4), cutY = -HR * lerp(.32, 1.15, L), xp = F.x * HR;
+        const o = {path:partPath(F, C, .12), n:12, maxGap:6.5, lift:r => .16 + .03 * r.j, len:() => 60, rise:1.8, hold:3, grav:.22, steer:.45, gap:1.4,
+          dir:(r, p, out) => fl(p, r, out), flow:fl, thick:.3, wmin:.9, wmax:3.6, tip:.22, tipLen:3.5, tipPow:2,
+          pull:(p, r) => { const k = sstep(-HR * .1, -HR * .5, p.y); if (k) p.addScaledVector(_g1.set(p.x, 0, p.z).normalize(), -k * .06); }, flick:{len:3.5, out:.9, up:.7}, /* fuller below the ears, the ends flick out */
+          cut:(p, r) => faceCut(p, HR, .52 - .2 * clamp((p.x - xp) / HR, 0, 1.2) - r.j * .08) || p.y < cutY - r.j * 2 + (p.z > 0 ? 1.2 : 0),
+          wave:{amp:1, per:11, from:4}};
+        h.locks(o);
+        if (!hd) h.locks(Object.assign({}, o, {under:true, seed:5, lift:r => .15, cut:(p, r) => faceCut(p, HR, .3) || p.y < cutY - 2 - r.j * 2 + (p.z > 0 ? 1.2 : 0)}));
+      } }),
   long: (f, L) => ({
-      edge:hl([[0, 60], [45, 64], [90, 96], [130, 106], [180, 114]]), lift:(th, ph) => vol(.08, .11, .13, .1)(th, ph) * part(th, ph), roundEars:false, partLine:true,
-      build:h => { [-1, 1].forEach(s => { h.fringe(s * 3 * DEG, 8 * DEG, s * 40 * DEG, 84 * DEG, 3.8, 1.25, {gap:.4, bend:1.5}); h.fringe(s * 7 * DEG, 16 * DEG, s * 56 * DEG, 94 * DEG, 3.6, 1.2, {gap:.4, bend:1.4});
-          h.hang(s * 66 * DEG, 58 * DEG, -lerp(.62, .8, L) * h.HR, 3.1, 1.15, {curl:.7, front:true}); });
-        for (let i = 0; i < 9; i++) { const a = 110 + i * 17.5, e = i === 0 || i === 8; h.hang(a * DEG, 62 * DEG, -lerp(1.25, 2.75, L) * h.HR + [0, 1.4, .4, 1.8, 0, 1.8, .4, 1.4, 0][i] * lerp(.6, 1.2, L), e ? 3.8 : 4.5, 1.4, {curl:.5}); } },
-      hood:h => [-1, 1].forEach(s => { h.drape(s * 44 * DEG, 74 * DEG, -lerp(1.05, 2.2, L) * h.HR, 2.9, 1.2, 0); h.drape(s * 34 * DEG, 66 * DEG, -lerp(.95, 2, L) * h.HR, 2.5, 1.1, -1.2); }) }),
+      edge:hl([[0, 60], [45, 64], [90, 96], [130, 106], [180, 114]]), lift:vol(.03, .03, .03, .02), roundEars:false, smooth:true, groove:0,
+      hoodBuild:true, build:(h, hd) => { const HR = h.HR, F = sph(0, 56 * DEG, 1), C = sph(PI, 30 * DEG, 1), fl = hd ? fromPart(F, C, .9, .5, true) : fromPart(F, C, .25, 1.6, true), cutY = -HR * lerp(1.35, 3.6, L);
+        const o = {path:partPath(F, C, .12), n:22, maxGap:5, lift:r => .11 + .025 * r.j, len:() => 120, rise:1.8, hold:3, grav:.26, steer:.45, gap:1.3,
+          dir:(r, p, out) => fl(p, r, out), flow:fl, thick:.3, wmax:3, tip:.08, tipLen:7,
+          pull:(p, r) => { const a = sstep(-HR * .5, -HR * 1.1, p.y) * .3; if (!a) return; const zt = Math.min(h.env.back(p.y) - 1.6, -HR * .3 - Math.max(0, HR * 1.1 - Math.abs(p.x)) * .8);
+            if (p.z > zt) p.z = lerp(p.z, zt, a); if (Math.abs(p.x) > HR * 1.08) p.x = lerp(p.x, Math.sign(p.x) * HR * 1.08, a); },
+          cut:(p, r) => faceCut(p, HR, .36) || p.y < cutY - r.j * 2.4 - (1 - Math.min(1, Math.abs(p.x) / (HR * 1.1))) * 1.5,
+          wave:{amp:.9, per:13, from:9}};
+        h.locks(o);
+        if (hd) [-1, 1].forEach(s => { h.drape(s * 54 * DEG, 76 * DEG, -lerp(1.55, 2.4, L) * HR, 3.2, 1.2, 0); h.drape(s * 45 * DEG, 68 * DEG, -lerp(1.4, 2.2, L) * HR, 2.8, 1.1, -1.2); }); /* out of the hood, in front of the shoulders */
+        else h.locks(Object.assign({}, o, {under:true, seed:5, lift:r => .08, cut:(p, r) => faceCut(p, HR, .3) || p.y < cutY - 1.5 - r.j * 2.4}));
+      } }),
   ponytail: (f, L) => ({
-      edge:hl([[0, 60], [45, 66], [90, 86], [130, 100], [180, 110]]), lift:vol(.06, .07, .08, .08), groove:.2,
-      build:h => { [-1, 1].forEach(s => h.fringe(s * 24 * DEG, 34 * DEG, s * 50 * DEG, (f ? 100 : 86) * DEG, 1.2, .6, {gap:.25})); h.tail(180 * DEG, 66 * DEG, L); },
-      hood:h => { h.drape(-44 * DEG, 76 * DEG, -lerp(1, 2, L) * h.HR, 2.7, 2.1, 0, true); } }),
+      edge:hl([[0, 60], [45, 66], [90, 86], [130, 100], [180, 110]]), lift:vol(.02, .02, .02, .02), groove:0, smooth:true,
+      hoodBuild:true, build:(h, hd) => { const HR = h.HR, env = h.env, G = sph(PI, 40 * DEG, HR * 1.08), nG = G.clone().normalize(), ga = gather(G);
+        h.locks({path:hairline(h.edgeAt, 2), loop:true, n:24, maxGap:5, lift:() => .05, len:() => 40, rise:1.2, hold:40, stiff:1, grav:0, steer:.7, gap:1,
+          dir:(r, p, out) => ga(p, r, out), flow:ga, cut:p => p.angleTo(G) * HR < 2.6, thick:.2, fill:1.3, wmax:3.4, tip:.7, tipLen:2, root:.6, rootT:.2, rootLen:4, soft:false});
+        if (hd) return h.drape(-44 * DEG, 76 * DEG, -lerp(1, 2, L) * HR, 2.7, 2.1, 0, true); /* with a hood up the tail comes out over a shoulder */
+        const len = lerp(14, 38, L), zb = y => env.back(y) - 2.4, P0 = G.clone().addScaledVector(nG, .6), cps = [P0, P0.clone().addScaledVector(nG, 2.4).add(new V3(0, 2.6, 0)), P0.clone().addScaledVector(nG, 4.6).add(new V3(0, 1.2, 0))];
+        for (let i = 1; i <= 4; i++) { const t = i / 4, y = P0.y - 1 - len * .9 * Math.pow(t, 1.15), z = Math.min(P0.z - 6 - Math.sin(t * PI * .7) * 1.2 + t * 2.5, zb(y)); cps.push(new V3(Math.sin(t * 2.4) * .8, y, z)); }
+        h.bundle(cps, {K:12, r:t => lerp(2.1, 3.6, sstep(0, .12, t)) * lerp(1, .4, sstep(.35, 1, t)), tip:.08, tipLen:9, wave:{amp:.5, per:10}});
+        h.tie(G, nG, 2.4); } }),
   bun: f => ({
-      edge:hl([[0, 60], [45, 66], [90, 86], [130, 100], [180, 110]]), lift:vol(.06, .07, .08, .08), groove:.2,
-      build:h => { [-1, 1].forEach(s => h.fringe(s * 28 * DEG, 34 * DEG, s * 56 * DEG, 104 * DEG, 1.2, .6, {gap:.25})); h.bun(180 * DEG, 36 * DEG); } }),
+      edge:hl([[0, 60], [45, 66], [90, 86], [130, 100], [180, 110]]), lift:vol(.02, .02, .02, .02), groove:0, smooth:true,
+      hoodBuild:true, build:(h, hd) => { const HR = h.HR, G = sph(PI, 38 * DEG, HR * 1.05), ga = gather(G);
+        h.locks({path:hairline(h.edgeAt, 2), loop:true, n:24, maxGap:5, lift:() => .05, len:() => 40, rise:1.2, hold:40, stiff:1, grav:0, steer:.7, gap:1,
+          dir:(r, p, out) => ga(p, r, out), flow:ga, cut:p => p.angleTo(G) * HR < 3.4, thick:.2, fill:1.3, wmax:3.4, tip:.7, tipLen:2, root:.6, rootT:.2, rootLen:4, soft:false});
+        if (!hd) h.bun(180 * DEG, 36 * DEG); } }),
   braids: (f, L) => ({
-      edge:hl([[0, 60], [45, 64], [90, 98], [130, 108], [180, 116]]), lift:(th, ph) => vol(.06, .09, .1, .09)(th, ph) * part(th, ph), roundEars:false,
-      build:h => { [-1, 1].forEach(s => { h.fringe(s * 3 * DEG, 8 * DEG, s * 42 * DEG, 84 * DEG, 3.6, 1.2, {gap:.4, bend:1.5}); h.fringe(s * 7 * DEG, 16 * DEG, s * 58 * DEG, 94 * DEG, 3.3, 1.1, {gap:.4, bend:1.4});
-          h.braid(s * 116 * DEG, 98 * DEG, -lerp(1.35, 2.8, L) * h.HR); }); },
-      hood:h => [-1, 1].forEach(s => h.braid(s * 52 * DEG, 80 * DEG, -lerp(1.2, 2.4, L) * h.HR, true)) }),
-  mohawk: (f, L) => ({shave:hl([[0, 52], [40, 60], [80, 80], [100, 92], [140, 110], [180, 122]]), build:h => h.crest(lerp(.6, 1.4, L))}),
+      edge:hl([[0, 60], [45, 64], [90, 96], [130, 108], [180, 116]]), lift:vol(.02, .02, .02, .02), groove:0, smooth:true,
+      hoodBuild:true, build:(h, hd) => { const HR = h.HR, env = h.env, G = sph(PI, 94 * DEG, HR * 1.07), ga = gather(G);
+        h.locks({path:hairline(h.edgeAt, 2), loop:true, n:28, maxGap:4, lift:r => .06 + .05 * sstep(-.2, .6, r.u.y), len:() => 50, rise:1.5, hold:40, stiff:1, grav:.02, steer:.65, gap:1,
+          dir:(r, p, out) => ga(p, r, out), flow:ga, cut:p => p.angleTo(G) * HR < 3, thick:.3, wmax:3, tip:.7, tipLen:2, root:.6, rootT:.2, rootLen:4, soft:false});
+        if (hd) return h.braid(-52 * DEG, 80 * DEG, -lerp(1.2, 2.4, L) * HR, true); /* with a hood up the braid comes out over a shoulder */
+        const yEnd = -HR * lerp(1.9, 3.9, L), cps = [G.clone().add(new V3(0, .6, .6)), new V3(0, G.y - 2.6, G.z - 1)];
+        for (let i = 1; i <= 4; i++) { const y = lerp(G.y - 5, yEnd, i / 4); cps.push(new V3(Math.sin(i * 1.3) * .5, y, Math.min(env.back(y) - 2.8, G.z - 1.4))); }
+        h.plait3(cps); } }),
+  mohawk: (f, L) => ({shave:hl([[0, 52], [40, 60], [80, 80], [100, 92], [140, 110], [180, 122]]),
+    build:h => h.spikes((f ? .9 : 1.05) * lerp(.5, 1.35, L)) }),
   curly: (f, L) => ({
-      edge:hl([[0, 58], [45, 64], [80, 84], [100, 94], [140, 104], [180, 110]], d => clT(d, 0, 180, 6, .5)), curly:true, groove:0, lift:vol(.12, .13, .15, .09), roundEars:false,
-      build:h => { h.coils();
-        const len = lerp(0, 12, L);
-        if (L >= .2) [[78, .55], [100, .8], [124, 1], [152, 1], [180, 1]].forEach(([a, k]) => [-1, 1].forEach(s => (a < 180 || s > 0) && h.ringlet(s * a * DEG, (h.edgeAt(a * DEG) / DEG - 6) * DEG, len * k))); },
-      hood:h => { h.coils(true); if (L >= .2) [-1, 1].forEach(s => h.ringlet(s * 48 * DEG, 84 * DEG, lerp(5, 11, L), true)); } }),
+      edge:hl([[0, 58], [45, 64], [80, 84], [100, 94], [140, 104], [180, 110]]), lift:vol(.03, .05, .05, .03), roundEars:false, groove:0, smooth:true,
+      hoodBuild:true, build:(h, hd) => { const HR = h.HR, cutY = -HR * lerp(.1, 1.7, L), fl = partFlow(-HR * .1, .6);
+        h.groom({n:180, lift:r => .09 + .08 * r.k + .04 * r.j, len:() => 50, rise:2, w:r => 1.3 + r.j * .3, thick:.72, tip:.4, taper:1.2, spread:0, root:1, hold:2, grav:.22, steer:.3, gap:1.8,
+          dir:(r, p, out) => fl(p, r, out), flow:fl,
+          cut:(p, r) => faceCut(p, HR, .5 - r.j * .05) || p.y < cutY - r.j * 2.5 + (p.z > 0 ? 1.5 : 0),
+          curl:{r:1.1, per:4, vary:.35, from:1.5, end:1.15}});
+        if (hd && L >= .2) [-1, 1].forEach(s => h.ringlet(s * 48 * DEG, 84 * DEG, lerp(5, 11, L), true)); } }),
 };
 
 /* ---------- textures drawn in code ---------- */
 const hairTexCache = new Map();
 function hairTex(hex, kind){
   const key = hex + kind; if (hairTexCache.has(key)) return hairTexCache.get(key);
-  const W = kind === 'lock' ? 64 : 128, H = 128, cv = canvas(W, H), x = cv.getContext('2d'), dark = shade(hex, lum(hex) > .7 ? .84 : .74), light = lighten(hex, .38);
+  const W = kind === 'lock' ? 64 : 128, H = kind === 'strand' ? 64 : 128, cv = canvas(W, H), x = cv.getContext('2d'), dark = shade(hex, lum(hex) > .7 ? .84 : .74), light = lighten(hex, .38);
   let sd = 7; const rn = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
   x.fillStyle = hex; x.fillRect(0, 0, W, H);
-  if (kind === 'beard') {
+  if (kind === 'strand') {
+    const g = x.createLinearGradient(0, 0, W, 0); /* u runs round the clump: 0 and .5 are its edges, .25 its top, .75 its underside */
+    [[0, shade(hex, .9)], [.12, hex], [.25, lighten(hex, .07)], [.38, hex], [.5, shade(hex, .9)], [.75, shade(hex, .84)], [1, shade(hex, .9)]].forEach(([o, c]) => g.addColorStop(o, c));
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    for (let i = 0; i < 10; i++) { const px = rn() * W * .5; x.globalAlpha = .06 + rn() * .08; x.strokeStyle = rn() < .5 ? dark : light; x.lineWidth = .8 + rn() * .9; x.beginPath(); x.moveTo(px, 0); x.lineTo(px + (rn() - .5) * 2, H); x.stroke(); }
+    x.globalAlpha = 1; const r = x.createLinearGradient(0, 0, 0, H); r.addColorStop(0, 'rgba(0,0,0,.28)'); r.addColorStop(.12, 'rgba(0,0,0,0)'); x.fillStyle = r; x.fillRect(0, 0, W, H);
+  } else if (kind === 'beard') {
     x.globalAlpha = .3; x.strokeStyle = dark; for (let i = 0; i < 9; i++) { x.lineWidth = 1.2 + rn(); const px = rn() * W; x.beginPath(); x.moveTo(px, H); x.lineTo(px + 2, 0); x.stroke(); } x.globalAlpha = 1;
   } else if (kind === 'shell') {
     x.globalAlpha = .28; x.strokeStyle = dark;
@@ -654,22 +735,24 @@ function legParts(lg, s, legH, g){
 function buildHair(head, HR, spec, R, M, env, hood, hairHex){
   if (R.snakes) return {snakes:true};
   const style = spec.hair || 'bald', mk = HAIR_STYLES[style], L = clamp(spec.len ?? .5, 0, 1);
-  const st = mk ? mk(spec.body === 'f', L) : null;
+  const st = mk ? mk(spec.body === 'f', L) : null, newLook = !!(st && st.smooth);
+  /* with a hood up: how far inside the hood's face opening a point is (radians, below 0 it's under the hood); same opening as hoodParts */
+  const opening = p => { const l = p.length() || 1, psi = Math.acos(clamp(p.z / l, -1, 1)), chi = Math.atan2(p.y, p.x), c = Math.cos(chi), s = Math.sin(chi), b = s > 0 ? 62 : 84;
+    return 1 / Math.sqrt(c * c / (58 * 58) + s * s / (b * b)) * DEG - psi; };
+  const underRim = q => { if (!hood || q.y < -HR * .25) return; const op = opening(q), rm = HR * (op < 4 * DEG ? .95 : 1.02 + .1 * sstep(4 * DEG, 24 * DEG, op)); if (q.length() > rm) q.multiplyScalar(rm / q.length()); };
   const info = {style, edge:null, shave:null, roundEars:true};
   if (!st) return info;
   info.roundEars = st.roundEars !== false; info.shave = st.shave || null;
-  const S0 = .78, squash = hood ? .2 : 1, G = st.groove ?? .5, sweep = st.sweep || 0;
+  const S0 = .78, squash = hood ? .2 : 1, G = st.groove ?? 0, sweep = st.sweep || 0;
   const edge = st.edge || null;
-  const curlyBump = st.curly ? (() => { const pts = []; for (let i = 0; i < 120; i++) { const y = 1 - (i + .5) / 120 * 2, r = Math.sqrt(1 - y * y), a = i * 2.39996; pts.push(new V3(Math.cos(a) * r, y, Math.sin(a) * r)); }
-    const d = new V3(); return (th, ph) => { d.set(Math.sin(ph) * Math.sin(th), Math.cos(ph), Math.sin(ph) * Math.cos(th)); let m = 0; pts.forEach(p => { const k = d.dot(p); if (k > m) m = k; }); return Math.sqrt(Math.max(0, (m - .984) / .016)) * .13; }; })() : null;
   const kOf = s => s < S0 ? 1 : s < 1 ? Math.sqrt(Math.max(0, 1 - Math.pow((s - S0) / (1 - S0), 2))) : 0;
   const liftAt = (th, ph) => { if (!edge) return 0; const s = ph / edge(th), thf = th + sweep * s;
     const gr = G ? 1 - G * Math.pow(1 - Math.abs(Math.cos(thf * N_CL / 2)), 5) * sstep(.12, .5, s) : 1;
-    return ((st.lift ? st.lift(th, ph) : 0) + (curlyBump ? curlyBump(th, ph) : 0)) * gr * squash; };
+    return ((st.lift ? st.lift(th, ph) : 0) + 0) * gr * squash; };
   const shellR = edge ? (th, ph) => HR * (1 + liftAt(th, ph) * kOf(ph / edge(th))) : () => HR;
   const sp = (th, ph, r) => new V3(r * Math.sin(ph) * Math.sin(th), r * Math.cos(ph), r * Math.sin(ph) * Math.cos(th));
   const mLock = M(0xffffff, {map:hairTex(hairHex, 'lock')}), mShell = M(0xffffff, {map:hairTex(hairHex, 'shell')}), mPlain = M(hairHex);
-  const locks = [], parts = [];
+  const locks = [], parts = [], strands = [], under = [];
   const upHead = (p, t, out) => { const k = p.y < 0 ? clamp(1 + p.y / (HR * .85), 0, 1) : 1; out.set(p.x, p.y * k, p.z); if (out.lengthSq() < 1e-6) out.set(0, 0, -1); return out; };
   const leaf = (W, Ht, o = {}) => t => {
     const pk = o.peak ?? .3, f = t < pk ? lerp(o.root ?? .6, 1, Math.sin(t / pk * PI / 2)) : o.round ? Math.sqrt(Math.max(0, 1 - Math.pow((t - pk) / (1 - pk), 3))) : Math.pow(Math.cos((t - pk) / (1 - pk) * PI / 2), .6);
@@ -682,46 +765,37 @@ function buildHair(head, HR, spec, R, M, env, hood, hairHex){
     const lim = env.back(p.y) - halfT - 1.2 - (Math.abs(p.x) > env.xMax * .7 ? 1 : 0); if (p.z > lim) p.z = lerp(p.z, lim, k);
     return env.clear(p, halfT + .5, w);
   };
-  const h = {HR,
-    fringe(th0, ph0, th1, ph1, W, Ht, o = {}){
-      const n = 7, pts = [];
-      for (let i = 0; i <= n; i++) {
-        const t = i / n, th = lerp(th0, th1, Math.pow(t, o.bend ?? 1)), ph = lerp(ph0, ph1, t);
-        let r = Math.max(shellR(th, ph) + Ht * .5 - (i === 0 ? 1.6 : 0), HR + Ht * .55 + (o.gap ?? .2));
-        if (o.flick && i >= n - 1) r += o.flick * (i === n ? 1 : .35);
-        pts.push(sp(th, ph, r));
-      }
-      locks.push(tube(pts, leaf(W, Ht, o), upHead, {nS:20, nR:10}));
-    },
-    hang(th0, ph0, yEnd, W, Ht, o = {}){
-      const pts = [sp(th0, ph0 - 16 * DEG, shellR(th0, ph0 - 16 * DEG) - 1.6)];
-      const phD = Math.max(ph0 + 8 * DEG, 94 * DEG);
-      for (let i = 0; i <= 3; i++) { const ph = lerp(ph0, phD, i / 3); pts.push(sp(th0, ph, Math.max(shellR(th0, ph), HR) + Ht * .5 + .05)); }
-      const top = pts[pts.length - 1], rho = Math.hypot(top.x, top.z), n = 5;
-      for (let i = 1; i <= n; i++) { const t = i / n, y = lerp(top.y, yEnd, t), rr = rho - Math.sin(t * PI) * .5;
-        let p = new V3(rr * Math.sin(th0), y, rr * Math.cos(th0));
-        if (o.front) p.z += t * 1.4;
-        if (i === n && o.curl) { const d = new V3(p.x, 0, p.z).normalize(); p.addScaledVector(d, -o.curl); p.y += o.curl * .55; }
-        pts.push(o.front || o.free ? p : env2(p, Ht, W));
-      }
-      locks.push(tube(pts, leaf(W, Ht, {round:o.round, peak:.2, root:.75}), upHead, {nS:28, nR:10, soft:true}));
-    },
-    tail(th, ph, L = .5){
-      const base = sp(th, ph, shellR(th, ph) + .9), out = base.clone().normalize(), up = new V3(0, 1, 0);
-      const tie = new THREE.TorusGeometry(2.3, .95, 10, 22); tie.applyMatrix4(new THREE.Matrix4().lookAt(new V3(), out, up)); tie.translate(base.x, base.y, base.z); parts.push(inked(tie, M('#7a2a3a'), .35));
-      const zb = env.back(-HR * 1.1) - 3.4;
-      [[0, 4, 3.2, 0], [-1.6, 2.8, 2.3, -1.5], [1.6, 2.8, 2.3, -.8]].forEach(([dx, w, ht, dl]) => {
-        const p0 = base.clone().addScaledVector(out, -1.2), p1 = base.clone().addScaledVector(out, 2.4).addScaledVector(up, 1.6).add(new V3(dx * .6, 0, 0));
-        const p2 = base.clone().addScaledVector(out, 4).addScaledVector(up, -3).add(new V3(dx, 0, 0)), p3 = new V3(dx * 1.4, -HR * lerp(.8, 1.2, L), Math.min(zb, base.z - 1.2)), p4 = new V3(dx * 1.1, -HR * lerp(1.15, 2.4, L) + dl * lerp(.6, 1.2, L), Math.min(zb + .4, base.z - .4));
-        env2(p3, ht); env2(p4, ht);
-        locks.push(tube([p0, p1, p2, p3, p4], leaf(w, ht, {peak:.22, root:.85}), (p, t, o) => o.set(p.x * .3, 0, p.z - base.z * .5).normalize(), {nS:28, nR:12, soft:true}));
-      });
-    },
+  /* one guide strand: grown from a root along the style's flow, sliding over the head as it falls, kept off the body, stopped at the cut */
+  const grow = (r, o) => {
+    const Lmax = o.len(r); if (!(Lmax > .8)) return null;
+    const f = new V3(), nd = new V3(), R0 = HR * (1 + (o.lift ? o.lift(r) : .035 + .085 * r.k)), step = o.step || 1;
+    const Rc = r.p ? () => R0 : l => lerp(HR * 1.005, R0, sstep(0, o.rise ?? 6, l));
+    let p, pts, d; const Ls = [0, 0]; let L = 0;
+    if (r.p) { p = r.p.clone(); d = r.d.clone().normalize(); pts = [p.clone().addScaledVector(d, -1.2), p.clone()]; } /* from a given start (a ponytail's tie) */
+    else { p = r.u.clone().multiplyScalar(HR * 1.005); pts = [r.u.clone().multiplyScalar(HR * .9), p.clone()];
+      d = o.dir(r, p, new V3()); if (!o.free) d.addScaledVector(r.u, -d.dot(r.u)); d.normalize(); }
+    for (let it = 0; it < 240 && L < Lmax; it++) {
+      const held = 1 - sstep(0, o.hold ?? 5, L);
+      nd.copy(d); if (o.flow) { o.flow(p, r, f, L); nd.lerp(f, (o.steer ?? .25) * (.3 + .7 * held)); }
+      nd.y -= (o.grav ?? .2) * (1 - held * (o.stiff ?? .75)); nd.normalize();
+      const np = p.clone().addScaledVector(nd, step), rr = np.length(), rc = Rc(L + step); if (rr < rc) np.multiplyScalar(rc / rr);
+      if (o.cap) o.cap(np, r, L); /* e.g. a raised hood presses the hair down */
+      if (hood) { const op = opening(np); if (op < 4 * DEG && np.y < -HR * .25) break; /* a raised hood: hair under it lies flat on the head and stops where the hood meets the neck, */
+        const rm = HR * (op < 4 * DEG ? .95 : 1.02 + .1 * sstep(4 * DEG, 24 * DEG, op)); if (np.y > -HR * .25 && np.length() > rm) np.multiplyScalar(rm / np.length()); } /* and what comes out at the opening stays under its rim */
+      if (o.pull) o.pull(np, r, L);
+      if (o.hug && np.y > -HR * .3) { const lm = R0 + o.hug, ll = np.length(); if (ll > lm) np.multiplyScalar(lm / ll); } /* stays close round the head */
+      if (np.y < env.lowY + 9) env.clearX(np, (o.gap ?? 1.1) + (R0 - HR) * .6);
+      d.subVectors(np, p).normalize(); p = np; L += step; pts.push(p.clone()); Ls.push(L);
+      if (o.cut && L > 1.5 && o.cut(p, r, L)) break;
+    }
+    return pts.length < 4 ? null : {pts, Ls, L, Rc};
+  };
+  const h = {HR, env,
     bun(th, ph){
       const base = sp(th, ph, shellR(th, ph) - .6), n = base.clone().normalize(), a = new V3().crossVectors(n, new V3(0, 0, 1)).normalize(), b = new V3().crossVectors(n, a).normalize(), pts = [];
       for (let i = 0; i <= 40; i++) { const t = i / 40, an = t * TAU * 1.75, rr = lerp(5, .8, Math.pow(t, .9)), hh = lerp(.8, 6, Math.pow(t, .75));
         pts.push(base.clone().addScaledVector(a, Math.cos(an) * rr).addScaledVector(b, Math.sin(an) * rr).addScaledVector(n, hh)); }
-      locks.push(tube(pts, t => [2.9 * (1 - t * .3), 2.5 * (1 - t * .25)], (p, t, o) => o.copy(p).sub(base), {nS:80, nR:12}));
+      (newLook ? strands : locks).push(tube(pts, t => [2.9 * (1 - t * .3), 2.5 * (1 - t * .25)], (p, t, o) => o.copy(p).sub(base), {nS:80, nR:12, sq:newLook ? .8 : 1}));
       const tie = new THREE.TorusGeometry(4.9, .8, 10, 30); tie.applyMatrix4(new THREE.Matrix4().lookAt(new V3(), n, new V3(0, 1, 0))); tie.translate(base.x + n.x * 1.2, base.y + n.y * 1.2, base.z + n.z * 1.2);
       parts.push(inked(tie, M('#7a2a3a'), .35));
     },
@@ -734,65 +808,142 @@ function buildHair(head, HR, spec, R, M, env, hood, hairHex){
         let z = start.z * .6; for (let j = -1; j <= 2; j++) z = Math.max(z, env.front(p.y - j * 1.5) + 2.8); p.z = z; env.clearX(p, 2.7);
         if (i === a.length - 1) { const q = p.clone(); q.y -= 4; env.clearX(q, 1.8); if (q.z > p.z) { p.x = q.x; p.z = q.z; } } });
       else cps.slice(2).forEach(p => { env2(p, 2.4); p.z = Math.min(p.z, env.back(p.y) - 2.8, start.z - 1.5); });
-      const cv = new THREE.CatmullRomCurve3(cps, false, 'centripetal'), n = 9, geos = [], bid = ++softIds;
-      for (let i = 0; i < n; i++) {
-        const t = (i + .6) / (n + 1), p = cv.getPointAt(t), T = cv.getTangentAt(t), side = new V3().crossVectors(T, new V3(0, 0, 1)).normalize();
-        const r = lerp(2.5, 1.7, t), q = new THREE.Quaternion().setFromUnitVectors(new V3(0, 1, 0), T);
-        q.multiply(new THREE.Quaternion().setFromAxisAngle(new V3(0, 0, 1), (i % 2 ? .6 : -.6)));
-        const lobe = new THREE.SphereGeometry(1, 16, 12), lc = p.clone().addScaledVector(side, (i % 2 ? 1 : -1) * r * .3); xf(lobe, lc, q, new V3(r * 1.05, r * 1.4, r * .9)); geos.push(softify(lobe, lc, r * 1.4, bid, i));
-      }
-      parts.push(inked(merge(geos), mPlain, .4));
-      const endP = cv.getPointAt(1), tieP = cv.getPointAt(.92);
-      const tie = new THREE.CylinderGeometry(1.45, 1.45, 1.6, 16); xf(tie, tieP, new THREE.Quaternion().setFromUnitVectors(new V3(0, 1, 0), cv.getTangentAt(.92))); parts.push(inked(softify(tie, tieP, 1.6, bid, n - 1, true), M('#7a2a3a'), .3));
-      [-1, 0, 1].forEach(k => locks.push(tube([tieP.clone(), endP.clone().add(new V3(k * .7, -1, 0)), endP.clone().add(new V3(k * 1.6, -3.6, 0))], t => [lerp(1.3, .1, t), .8 * (1 - t * .8)], (p, t, o) => o.set(0, 0, -1), {nS:10, nR:8, soft:{id:bid, ring:n, r:2.6}})));
-    },
-    crest(k = 1){
-      const f = (spec.body === 'f' ? .92 : 1.05) * k, root = HR - 1.4;
-      const geo = surface(90, 8, (u, v, off, out) => {
-        const a = lerp(-56, 124, u) * DEG, hu = f * lerp(3.2, 8.4, Math.sin(clamp(u * 1.35, 0, 1) * PI * .5)) * lerp(1, .55, sstep(.55, 1, u));
-        const hgt = hu * 1.15 * (.6 + .4 * Math.pow(tri(u * 7 + .5), .8)), w = lerp(3.6, .6, Math.pow(v, 1.2));
-        const o = new V3(0, Math.cos(a), -Math.sin(a)), bk = new V3(0, -Math.sin(a), -Math.cos(a));
-        out.copy(o).multiplyScalar(root + v * hgt).addScaledVector(bk, v * v * hgt * .55); out.x = (off + .5) * w;
-      }, {thick:true, open0:true});
-      parts.push(inked(geo, mShell, .45));
+      this.plait3(cps);
     },
     edgeAt(th){ return edge ? edge(th) : PI / 2; },
+    tie(G, n, r){ const t = new THREE.TorusGeometry(r, .85, 10, 24); t.applyMatrix4(new THREE.Matrix4().lookAt(new V3(), n, _Y)); t.translate(G.x + n.x * .5, G.y + n.y * .5, G.z + n.z * .5); parts.push(inked(t, M('#7a2a3a'), .3)); },
+    /* a crest of chunky spikes along the middle of the head from the brow to the nape, leaning back (a mohawk); k scales the height */
+    spikes(k){
+      const geos = [], n = 11, tb = new V3();
+      for (let row = 0; row < 3; row++) for (let i = 0; i < n - (row ? 1 : 0); i++) {
+        const t = (i + (row ? 1 : .5)) / n, a = lerp(-42, 122, t) * DEG, sx = row === 1 ? -.17 : row === 2 ? .17 : 0, hj = ((i * 7919 + row * 131) % 101) / 101;
+        const u = new V3(sx, Math.cos(a), -Math.sin(a)).normalize(); tb.set(0, -Math.sin(a), -Math.cos(a));
+        const hgt = k * (5 + 5.5 * Math.pow(Math.sin(clamp((t + .08) * PI, 0, PI)), .7)) * (row ? .72 : 1) * (.85 + .3 * hj) * lerp(1, .6, sstep(.75, 1, t));
+        const d = u.clone().addScaledVector(tb, .7 + .3 * t).add(new V3(sx * 1.8, 0, 0)).normalize(), root = u.clone().multiplyScalar(HR * .97), pts = [];
+        for (let j = 0; j <= 6; j++) { const q = j / 6; pts.push(root.clone().addScaledVector(d, q * hgt + 1).addScaledVector(tb, q * q * hgt * .35)); }
+        const W = (row ? 2.3 : 3) * lerp(1, .8, t);
+        geos.push(tube(pts, q => { const w = W * Math.pow(1 - q, .75) + .05; return [w, w * .6]; }, (q, t2, out) => out.set(1, 0, 0), {nS:14, nR:10, sq:.85}));
+      }
+      strands.push(merge(geos));
+    },
+    /* a tail of locks round a curve (a ponytail): o.K locks on a ring of radius o.r(t), each as wide as its share of the ring, ends staggered */
+    bundle(cps, o){
+      const cv = new THREE.CatmullRomCurve3(cps, false, 'centripetal'), len = cv.getLength(), K = o.K || 10, n = Math.max(12, Math.round(len / .8)), geos = [], bid = ++softIds;
+      const P = [], T = [], S = [], N = []; for (let i = 0; i <= n; i++) { const t = i / n, p = cv.getPointAt(t), tg = cv.getTangentAt(t), sd = new V3().crossVectors(tg, _Z);
+        if (sd.lengthSq() < 1e-4) sd.set(1, 0, 0); sd.normalize(); if (sd.x < 0) sd.negate(); P.push(p); T.push(tg); S.push(sd); N.push(new V3().crossVectors(sd, tg).normalize()); }
+      for (let j = 0; j < K; j++) { const a0 = j / K * TAU, hj = ((j * 7919) % 101) / 101, lj = 1 - .2 * hj, pts = [];
+        for (let i = 0; i <= n; i++) { const t = i / n; if (t > lj + .001) break; const r = o.r(t) * (1 - .25 * sstep(lj - .3, lj, t)), a = a0 + (o.twist || 0) * t + (o.wave ? Math.sin(t * len / o.wave.per * TAU + j) * .12 : 0);
+          const q = P[i].clone().addScaledVector(S[i], Math.cos(a) * r).addScaledVector(N[i], Math.sin(a) * r); if (o.wave) q.addScaledVector(S[i], o.wave.amp * sstep(.1, .3, t) * Math.sin(t * len / o.wave.per * TAU));
+          if (q.y < env.lowY + 9) env.clearX(q, 1); pts.push(q); }
+        if (pts.length < 4) continue; const tot = len * lj, tl = Math.min(tot * .5, o.tipLen ?? 6);
+        geos.push(tube(pts, t => { const l = t * tot, ti = l > tot - tl ? lerp(1, o.tip ?? .1, Math.pow((l - tot + tl) / tl, 1.3)) : 1, w = o.r(t * lj) * PI / K * 1.3 * ti; return [w, Math.max(Math.min(.2, w), w * .42)]; },
+          (q, t, out) => { const i = Math.min(n, Math.round(t * lj * n)); return out.subVectors(q, P[i]); }, {nS:Math.min(64, pts.length), nR:10, sq:.7})); }
+      { const core = []; for (let i = 0; i <= n * .82; i++) core.push(P[i]); under.push(coreSoft(tube(core, t => { const r = o.r(t * .82) * .78; return [r, r]; }, (q, t, out) => out.copy(N[Math.round(t * n * .82)]), {nS:40, nR:10}), P, 3, bid)); }
+      strands.push(coreSoft(merge(geos), P, 3, bid));
+    },
+    /* a real three-strand plait along a curve: three strands weaving over and under each other, a tie and a tuft at the end */
+    plait3(cps){
+      const cv = new THREE.CatmullRomCurve3(cps, false, 'centripetal'), len = cv.getLength(), n = Math.max(30, Math.round(len * 2.5)), bid = ++softIds, per = 7.5, geos = [];
+      const P = [], S = [], N = [], R = []; for (let i = 0; i <= n; i++) { const t = i / n, p = cv.getPointAt(t), tg = cv.getTangentAt(t), sd = new V3().crossVectors(tg, _Z);
+        if (sd.lengthSq() < 1e-4) sd.set(1, 0, 0); sd.normalize(); P.push(p); S.push(sd); N.push(new V3().crossVectors(sd, tg).normalize()); R.push(lerp(1.7, 1, t)); }
+      for (let k = 0; k < 3; k++) { const pts = [], o3 = k * TAU / 3;
+        for (let i = 0; i <= n; i++) { const t = i / n, a = t * len / per * TAU + o3, r = R[i] * sstep(0, .06, t);
+          pts.push(P[i].clone().addScaledVector(S[i], Math.sin(a) * r * 1.25).addScaledVector(N[i], Math.sin(2 * a) * r * .55 + .3)); }
+        geos.push(tube(pts, t => { const w = R[Math.round(t * n)] * 1.05 * lerp(.7, 1, sstep(0, .05, t)); return [w, w * .78]; }, (q, t, out) => out.copy(N[Math.round(t * n)]), {nS:Math.min(160, n), nR:10, sq:.8})); }
+      const endP = cv.getPointAt(1), tieP = cv.getPointAt(.96), tg = cv.getTangentAt(.96), P2 = P.concat([endP.clone().add(new V3(0, -3.6, -.3))]);
+      geos.push(...[-1, -.3, .4, 1].map((k, j) => tube([tieP.clone(), tieP.clone().add(new V3(k * .6, -1.6, -.2)), endP.clone().add(new V3(k * 1.3, -3.4 - j % 2, -.3))], t => [lerp(1, .1, t), .55 * (1 - t * .7)], (q, t, o) => o.set(q.x, 0, q.z), {nS:10, nR:8, sq:.8})));
+      strands.push(coreSoft(merge(geos), P2, 2.6, bid));
+      const tie = new THREE.CylinderGeometry(1.2, 1.2, 1.3, 16); xf(tie, tieP, new THREE.Quaternion().setFromUnitVectors(new V3(0, 1, 0), tg)); parts.push(inked(softify(tie, tieP, 1.6, bid, Math.round(.96 * n), true), M('#7a2a3a'), .3));
+    },
+    /* groomed hair: clumps of strands grown from roots spread over the scalp. Each one starts along the style's flow,
+       slides over the head as it falls, keeps off the body and stops at the haircut's cut line (or its length). */
+    groom(o){
+      const n = o.n || 560, roots = o.starts ? o.starts.map((st, i) => Object.assign({i, k:.5, j:((i * 7919) % 101) / 101}, st)) : [], area = o.area || edge;
+      if (!o.starts) for (let i = 0; i < n; i++) { const y = 1 - (i + .5) / n * 2, rq = Math.sqrt(1 - y * y), a = i * 2.39996 + (o.seed || 0);
+        const u = new V3(Math.sin(a) * rq, y, Math.cos(a) * rq), th = Math.atan2(u.x, u.z), ph = Math.acos(clamp(u.y, -1, 1)), e = area(th);
+        if (ph > e - (o.inset ?? 1.5) * DEG) continue; const r = {u, th, ph, k:clamp(1 - ph / e, 0, 1), i, j:((i * 7919) % 101) / 101};
+        if (o.skip && o.skip(r)) continue; roots.push(r); }
+      const T = new V3(), Nn = new V3(), B = new V3(), geos = [];
+      roots.forEach(r => {
+        const g = grow(r, o); if (!g) return; const {pts, Ls, L, Rc} = g;
+        if (o.wave || o.curl) for (let i = 2; i < pts.length - 1; i++) { /* waves (side to side) and curls (round the lock), growing from the root */
+          T.subVectors(pts[i + 1], pts[i - 1]).normalize(); Nn.set(pts[i].x, pts[i].y > -HR * .4 ? pts[i].y : 0, pts[i].z).normalize(); Nn.addScaledVector(T, -Nn.dot(T)).normalize(); B.crossVectors(T, Nn);
+          const li = Ls[i], ph0 = r.j * TAU;
+          if (o.wave) { const w = o.wave, a = w.amp * sstep(w.from ?? 2, (w.from ?? 2) + 6, li) * Math.sin(li / w.per * TAU + ph0); pts[i].addScaledVector(B, a); if (!w.flat) pts[i].addScaledVector(Nn, Math.abs(a) * .25); }
+          if (o.curl) { const c = o.curl, a = li / (c.per * (1 + (c.vary || 0) * (r.j - .5))) * TAU + ph0, rad = c.r * sstep(c.from ?? 1, (c.from ?? 1) + 3, li) * lerp(1, c.end ?? 1, li / L); pts[i].addScaledVector(B, Math.cos(a) * rad).addScaledVector(Nn, (Math.sin(a) + .6) * rad); }
+          const q = pts[i], qr = q.length(), qc = Rc(li) * .97; if (qr < qc) q.multiplyScalar(qc / qr); if (q.y < env.lowY + 9) env.clearX(q, (o.gap ?? 1.1) * .8); underRim(q);
+        }
+        const w0 = (o.w ? o.w(r) : 2.6), tip = o.tip ?? .1, tk = o.thick ?? .42, taper = o.taper ?? 1.3, nS = clamp(Math.round(L / .75), 8, o.curl ? 90 : 56);
+        const t0 = Math.min(.3, 5 / L); /* narrow where it leaves the scalp, full width a few units on, then tapering to the tip */
+        geos.push(tube(pts, t => { const w = w0 * (t < t0 ? lerp(o.root ?? .85, 1, Math.sin(t / t0 * PI / 2)) : lerp(1, tip, Math.pow((t - t0) / (1 - t0), taper))) * (1 + (o.spread ?? .25) * Math.min(t, .7)); return [w, Math.max(.25, w * tk)]; },
+          (q, t, out) => out.set(q.x, q.y > -HR * .35 ? q.y : 0, q.z), {nS, nR:6, soft:o.soft === false ? undefined : true}));
+      });
+      if (geos.length) strands.push(merge(geos));
+    },
+    /* ordered locks: guides grown from roots laid out in order along o.path(s), s 0..1 (up a parting and round the crown, or round a hairline).
+       Each lock is as wide as the gap to its neighbours, so the locks lie side by side like real hair with a groove between them,
+       and only come to points where they are cut. Where two neighbours drift further apart than o.maxGap another guide grows between them. */
+    locks(o){
+      const loop = !!o.loop, maxGap = o.maxGap ?? 3, area = o.area || edge || (() => PI / 2), seed = o.seed || 0;
+      const hs = x => { const v = Math.sin(x * 127.1 + seed * 17.3) * 43758.5453; return v - Math.floor(v); };
+      const mk = s => { const u = o.path(s).normalize(), th = Math.atan2(u.x, u.z), ph = Math.acos(clamp(u.y, -1, 1));
+        const r = {u, th, ph, k:clamp(1 - ph / area(th), 0, 1), s, j:hs(Math.round(s * 4096))}; r.g = grow(r, o); return r; };
+      const n0 = o.n || 36; let R = [];
+      for (let i = 0; i < n0; i++) R.push(mk(loop ? i / n0 : (i + .5) / n0));
+      const seg = new V3(), dq = new V3();
+      const near = (q, Q, k) => { let best = 1e9; for (let m = Math.max(0, k - 12), m1 = Math.min(Q.length - 1, k + 12); m < m1; m++) {
+        seg.subVectors(Q[m + 1], Q[m]); const t = clamp(dq.subVectors(q, Q[m]).dot(seg) / (seg.lengthSq() || 1e-9), 0, 1); best = Math.min(best, dq.addScaledVector(seg, -t).length()); } return best; };
+      const gapOf = (A, B) => { let m = 0; for (let k = 2, k1 = Math.min(A.length, B.length); k < k1; k += 2) m = Math.max(m, near(A[k], B, k)); return m; };
+      for (let pass = 0; pass < (o.refine ?? 4) && R.length < (o.max ?? 200); pass++) {
+        const add = [], cnt = loop ? R.length : R.length - 1;
+        for (let i = 0; i < cnt; i++) { const a = R[i], b = R[(i + 1) % R.length]; if (!a.g || !b.g) continue;
+          if (gapOf(a.g.pts, b.g.pts) > maxGap) add.push(mk(((a.s + (b.s < a.s ? b.s + 1 : b.s)) / 2) % 1)); }
+        if (!add.length) break; R = R.concat(add).sort((x, y) => x.s - y.s);
+      }
+      const G = R.filter(r => r.g), nG = G.length, Ws = [];
+      G.forEach((r, i) => { /* half the gap to each neighbour, smoothed along the lock */
+        const P = r.g.pts, nb = [G[i - 1] || (loop ? G[nG - 1] : null), G[i + 1] || (loop ? G[0] : null)].filter(x => x && x !== r).map(x => x.g.pts);
+        let last = 0; const W = [];
+        for (let k = 0; k < P.length; k++) { let sm = 0, c = 0; for (const Q of nb) if (k < Q.length) { sm += near(P[k], Q, k); c++; } if (c) last = sm / c / 2; W.push(last); }
+        for (let pass = 0; pass < 3; pass++) for (let k = 1; k < W.length - 1; k++) W[k] = (W[k - 1] + 2 * W[k] + W[k + 1]) / 4;
+        Ws.push(W); });
+      const T = new V3(), Nn = new V3(), B = new V3(), geos = [];
+      G.forEach((r, i) => {
+        const P = r.g.pts, Ls = r.g.Ls, W = Ws[i];
+        if (o.wave) { const w = o.wave; for (let k = 2; k < P.length - 1; k++) { /* waves keep in step with the neighbours */
+          T.subVectors(P[k + 1], P[k - 1]).normalize(); Nn.set(P[k].x, P[k].y > -HR * .4 ? P[k].y : 0, P[k].z).normalize(); Nn.addScaledVector(T, -Nn.dot(T)).normalize(); B.crossVectors(T, Nn);
+          P[k].addScaledVector(B, w.amp * sstep(w.from ?? 2, (w.from ?? 2) + 6, Ls[k]) * Math.sin(Ls[k] / w.per * TAU + r.s * (w.drift ?? 5)));
+          const qc = r.g.Rc(Ls[k]) * .97, ql = P[k].length(); if (ql < qc) P[k].multiplyScalar(qc / ql); if (P[k].y < env.lowY + 9) env.clearX(P[k], (o.gap ?? 1.1) * .8); underRim(P[k]); } }
+        if (o.flick && P.length > 6 && P[P.length - 1].y < -HR * .2) { const fk = o.flick, Lt = Ls[Ls.length - 1]; /* the ends turn out (and up a little) */
+          for (let k = 2; k < P.length; k++) { const e = sstep(Lt - fk.len, Lt, Ls[k]); if (!e) continue; _g2.set(P[k].x, 0, P[k].z).normalize(); P[k].addScaledVector(_g2, e * e * fk.out); P[k].y += e * e * fk.up; } }
+        const cl = [0]; for (let k = 1; k < P.length; k++) cl.push(cl[k - 1] + P[k].distanceTo(P[k - 1])); const tot = cl[cl.length - 1];
+        const tl = Math.min(tot * .5, o.tipLen ?? 6), wAt = l => { let k = 0; while (k < cl.length - 2 && cl[k + 1] < l) k++; return lerp(W[k], W[k + 1], clamp((l - cl[k]) / ((cl[k + 1] - cl[k]) || 1), 0, 1)); };
+        const tk = o.thick ?? .4, tmin = o.tmin ?? .22, tmax = o.tmax ?? .85;
+        geos.push(tube(P, t => { const l = t * tot, root = lerp(o.root ?? .55, 1, sstep(0, o.rootLen ?? 3, l)), tip = l > tot - tl ? lerp(1, o.tip ?? .1, Math.pow((l - tot + tl) / tl, o.tipPow ?? 1.3)) : 1;
+            const w = clamp(wAt(l) * (o.fill ?? 1.15), o.wmin ?? .35, o.wmax ?? 2.2) * root * tip; return [w, clamp(w * tk, Math.min(tmin, w), tmax) * lerp(o.rootT ?? 1, 1, sstep(0, o.rootLen ?? 3, l))]; },
+          (q, t, out) => out.set(q.x, q.y > -HR * .35 ? q.y : 0, q.z), {nS:clamp(Math.round(tot / .9), 8, 60), nR:o.nR || 8, sq:o.sq ?? .7, soft:o.soft === false ? undefined : true}));
+      });
+      if (geos.length) (o.under ? under : strands).push(merge(geos));
+      return G;
+    },
     /* with a hood up: a lock that comes out of the hood at the cheek and falls in front of the shoulder */
     drape(th0, ph0, yEnd, W, Ht, dz = 0, tie){
       const sg = Math.sign(Math.sin(th0)), pts = [sp(th0, ph0 - 12 * DEG, HR * .97), sp(th0, ph0, HR + Ht * .5 + .15)];
       const top = pts[1], n = 6;
-      for (let i = 1; i <= n; i++) { const t = i / n, y = lerp(top.y, yEnd, t), x = sg * lerp(Math.abs(top.x), Math.min(Math.abs(top.x), env.xMax * .62), sstep(0, .5, t)) * (1 - Math.sin(t * PI) * .06);
+      for (let i = 1; i <= n; i++) { const t = i / n, y = lerp(top.y, yEnd, t), x = sg * lerp(Math.abs(top.x), Math.min(Math.abs(top.x), env.xMax * (newLook ? .8 : .62)), sstep(0, .5, t)) * (1 - Math.sin(t * PI) * .06);
         let z = lerp(top.z, top.z * .55, t) + dz * t;
         for (let j = 0; j <= 3; j++) z = Math.max(z, env.front(y + j * 1.5) + Ht * .5 + 1.1);
         const pt = env.clearX(new V3(x, y, z), Ht * .5 + 1.1), q = env.clearX(new V3(pt.x - sg * W * .9, y, pt.z), Ht * .5 + 1.1); /* its inner edge too */
         pt.z = Math.max(pt.z, q.z); pts.push(pt); }
-      const lg = tube(pts, leaf(W, Ht, {peak:.2, root:.8}), (p, t, o) => { const k = 1 - sstep(.15, .5, t); return o.set(p.x * k, 0, Math.max(p.z, 1) * (1 - k) + p.z * k); }, {nS:28, nR:10, soft:true}); locks.push(lg);
+      const lg = tube(pts, newLook ? t => { const [w, h] = leaf(W, Ht, {peak:.2, root:.8})(Math.min(t, .62)); const e = sstep(.6, 1, t); return [w * lerp(1, .25, e * e), h * lerp(1, .5, e)]; } : leaf(W, Ht, {peak:.2, root:.8}), (p, t, o) => { const k = 1 - sstep(.15, .5, t); return o.set(p.x * k, 0, Math.max(p.z, 1) * (1 - k) + p.z * k); }, {nS:28, nR:10, sq:newLook ? .7 : 1, soft:true}); (newLook ? strands : locks).push(lg);
       { const P = lg.attributes.position, v = new V3(); for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i); if (v.y < -HR * .9) { env.clearX(v, .5); P.setXYZ(i, v.x, v.y, v.z); } } } /* the odd vertex between points stays off the chest */
       if (tie) { const p = pts[4], tieG = new THREE.TorusGeometry(W * .62, .7, 8, 18); tieG.rotateX(PI / 2); tieG.translate(p.x, p.y, p.z); parts.push(inked(softify(tieG, p, W * .62 + .7, lg.userData.softId, nearRing(lg, p), true), M('#7a2a3a'), .3)); }
-    },
-    /* curly hair: little snail-shell curls packed over the hair, each a spiral rising off the head */
-    coils(hd){
-      const n = 84, out = [], geos = [];
-      if (hd) for (let k = 0; k < 8; k++) { const th = lerp(-52, 52, k / 7) * DEG, ph = edge(th) - (5 + (k % 2) * 7) * DEG;
-        out.push([new V3(Math.sin(ph) * Math.sin(th), Math.cos(ph), Math.sin(ph) * Math.cos(th)), th, ph, k * 11]); }
-      else for (let i = 0; i < n; i++) { const y = 1 - (i + .5) / n * 2, r = Math.sqrt(1 - y * y), a = i * 2.39996, d = new V3(Math.cos(a) * r, y, Math.sin(a) * r);
-        const th = Math.atan2(d.x, d.z), ph = Math.acos(clamp(d.y, -1, 1)); if (ph > edge(th) - 3 * DEG) continue;
-        if (hd && Math.acos(clamp(d.z, -1, 1)) > 42 * DEG) continue; out.push([d, th, ph, i]); }
-      out.forEach(([d, th, ph, i]) => {
-        const c = d.clone().multiplyScalar(shellR(th, ph) - .5), dn = new V3(0, -1, 0).addScaledVector(d, d.y).normalize(), t2 = new V3().crossVectors(d, dn);
-        if (dn.lengthSq() < .01) dn.set(0, 0, 1);
-        const R0 = (3.1 + (i * 7 % 5) * .15) * (hd ? .8 : 1), turns = 2, a0 = (i * 53 % 360) * DEG, pts = [], ax = [];
-        for (let k = 0; k <= 36; k++) { const t = k / 36, an = a0 + t * TAU * turns, rr = R0 * (1 - t * .8), hgt = .1 + Math.sin(t * PI / 2) * (hd ? .9 : 1.5);
-          const q = c.clone().addScaledVector(d, hgt); ax.push(q.clone()); pts.push(q.addScaledVector(dn, Math.cos(an) * rr).addScaledVector(t2, Math.sin(an) * rr)); }
-        geos.push(tube(pts, t => [1.45 * (1 - t * .45), 1.25 * (1 - t * .45)], (p, t, o) => o.copy(p).sub(ax[Math.round(t * 36)]).addScaledVector(d, .5), {nS:36, nR:7}));
-      });
-      if (geos.length) parts.push(inked(merge(geos), mLock, .16));
     },
     ringlet(th, ph, len, front){
       const base = sp(th, ph, HR * .96), out = new V3(Math.sin(th), 0, Math.cos(th)), side = new V3(Math.cos(th), 0, -Math.sin(th)), pts = [], ax = [];
       for (let i = 0; i <= 48; i++) { const t = i / 48, an = t * TAU * 3.2, r = 1.5 * Math.min(1, t * 6) * (1 - t * .25), c = base.clone().addScaledVector(out, 1.6 * Math.min(1, t * 4) + t * .4 + .4).add(new V3(0, -t * len, 0));
         ax.push(c.clone()); pts.push(c.clone().addScaledVector(out, Math.cos(an) * r).addScaledVector(side, Math.sin(an) * r)); }
-      locks.push(tube(pts, t => [1.15 * (1 - t * .35), 1.05 * (1 - t * .35)], (p, t, o) => o.copy(p).sub(ax[Math.round(t * 48)]), {nS:96, nR:8, soft:true}));
+      (newLook ? strands : locks).push(tube(pts, t => [1.15 * (1 - t * .35), 1.05 * (1 - t * .35)], (p, t, o) => o.copy(p).sub(ax[Math.round(t * 48)]), {nS:96, nR:8, soft:true}));
     },
   };
   if (edge) {
@@ -802,11 +953,18 @@ function buildHair(head, HR, spec, R, M, env, hood, hairHex){
       const ph = s * e, r = HR * (1 + liftAt(th, ph) * k) - (s > 1 ? HR * (s - 1) * 1.4 : 0) + off * .3;
       out.set(r * Math.sin(ph) * Math.sin(th), r * Math.cos(ph), r * Math.sin(ph) * Math.cos(th));
     }, {wrap:true, us:8});
-    head.add(inked(geo, mShell, .5));
+    head.add(inked(geo, st.smooth ? M(0xffffff, {std:true, map:hairTex(hairHex, 'strand'), roughness:.5}) : mShell, .5));
   }
   /* with a hood up only what would show at the hood's opening is built (each style's hood()), the rest is under the hood */
-  if (hood) st.hood && st.hood(h); else st.build && st.build(h);
+  if (hood) { if (st.hood) st.hood(h); else if (st.hoodBuild) st.build(h, true); } else st.build && st.build(h);
   if (locks.length) { const lk = inked(merge(locks), mLock, .42); lk.userData.hair = 1; head.add(lk); }
+  if (strands.length) { /* strands: smooth shading with a sheen, a thin outline in a dark shade of the hair */
+    const geo = strands.length > 1 ? merge(strands) : strands[0]; setInk(geo, st.ink ?? .07);
+    const g = new THREE.Group(), m = new THREE.Mesh(geo, M(0xffffff, {std:true, map:hairTex(hairHex, 'strand'), roughness:.42})), ink = new THREE.Mesh(geo, inkOf(shade(hairHex, .45)));
+    g.add(ink, m); g.userData.m = m; g.userData.hair = 1; head.add(g); }
+  if (under.length) { /* the under layer: a shade darker, showing between the tips of the top layer */
+    const geo = under.length > 1 ? merge(under) : under[0], g = new THREE.Group(), m = new THREE.Mesh(geo, M(0xc4c4c4, {std:true, map:hairTex(hairHex, 'strand'), roughness:.6}));
+    g.add(m); g.userData.m = m; g.userData.hair = 1; head.add(g); }
   parts.forEach(p => { p.userData.hair = 1; head.add(p); });
   info.edge = edge; info.shellR = shellR; return info;
 }
