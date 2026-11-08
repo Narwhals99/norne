@@ -101,12 +101,14 @@ service cloud.firestore {
                 || (request.resource.data.ch.matches('grp-[a-z0-9]+')
                     && inGroup(request.resource.data.ch.split('-')[1])
                     && request.resource.data.aud == get(groupPath(request.resource.data.ch.split('-')[1])).data.seats)));
-      // Players may change a roll (invokes), the words of their own messages, and their own reactions
-      // (rx.p1 is p1's list of emoji on this message).
+      // Players may change a roll (invokes), the words of their own messages, the voice of their own typed
+      // messages (their character or Meta), and their own reactions (rx.p1 is p1's list of emoji on this message).
       allow update: if isGM()
         || (isPlayer() && resource.data.by == seat()
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'ed', 'roll'])
-            && request.resource.data.text is string)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'ed', 'roll', 'kind', 'as'])
+            && request.resource.data.text is string
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['kind', 'as'])
+                || (resource.data.kind in ['rp', 'meta', 'ooc'] && request.resource.data.kind in ['rp', 'meta'])))
         || (canReadMsg(resource.data)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['roll']))
         || (canReadMsg(resource.data)

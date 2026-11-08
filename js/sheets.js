@@ -193,18 +193,28 @@ N.sheetHtml = function(v){
       <div class="shnow"><span>Result</span><span class="out ${k}">${esc(word)}</span></div>`;
     return sheet('Shifts on the result', body, `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn gold" data-a="shApply" ${n === was ? 'disabled' : ''}>${IC('check')}Apply ${n ? sgn(n) : 'no'} shift${Math.abs(n) === 1 ? '' : 's'}</button>`);
   }
+  /* ---------------- one picture folder of the scene window (GM): pick a picture and go back ---------------- */
+  case 'scenePics': {
+    const d = v.ui.sd; if (!d) return '';
+    const up = arg === 'up', pics = up ? g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your upload', up:true})) : N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Norne art'}));
+    return sheet(up ? 'Your uploads' : 'Norne art', `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Tap a picture to use it for the scene.</p>
+      <div class="thumbs">${pics.map(p => sdThumb(d, p)).join('')}
+        ${up ? `<button type="button" class="thumb up" data-a="sdUpload"><span>${IC('upload')}Upload a picture</span></button>` : ''}
+        ${up && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui);align-self:center">Pictures you upload land here, and on the Your pictures shelf on the GM screen.</p>' : ''}</div>`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">${IC("left")}Back to the scene</button>`, {wide:true});
+  }
   /* ---------------- scene picker (GM) ---------------- */
   case 'scene': {
     const d = v.ui.sd, tab = d.tab;
     /* the Pictures tab has two folders: the art that comes with Norne, and the GM's own uploads (opens on the one holding the current picture) */
-    const pf = d.pf || (d.art && g.pics.some(u => u.src === d.art) ? 'up' : 'app');
-    const fold = (k, name, n) => `<button type="button" data-a="sdFold" data-v="${k}" aria-pressed="${pf === k}">${IC('folder')}<span>${name}<small>${n} ${n === 1 ? 'picture' : 'pictures'}</small></span></button>`;
+    /* the Pictures tab shows only its two folders (the art that comes with Norne, the GM's own uploads); tapping one opens
+       it in its own window, and picking a picture there brings you back here. The folder holding the current picture shows it */
+    const pf = d.art && !d.place ? (g.pics.some(u => u.src === d.art) ? 'up' : N.ARTLIB.some(a => a.art === d.art) ? 'app' : null) : null;
+    const fold = (k, name, n) => `<button type="button" data-a="sdFold" data-v="${k}" class="${pf === k ? 'has' : ''}">${pf === k ? `<i class="fpic">${N.scenePic({art:d.art})}</i>` : IC('folder')}<span>${name}<small>${pf === k ? 'In use · ' : ''}${n} ${n === 1 ? 'picture' : 'pictures'}</small></span>${IC("right")}</button>`;
     const pins = g.maps.flatMap(mp => mp.pins.filter(p => ['city','town','hood','region','tavern','landmark','shop','temple','nation'].includes(p.type)).map(p => ({map:mp.id, id:p.id, rx:p.rx, ry:p.ry, label:p.label, sub:p.sub ? `${p.sub} · ${mp.name}` : mp.name})));
     const pics = tab === 'recent' ? g.recent.map(r => ({...r, sub:r.where}))
       : tab === 'maps' ? pins.map(p => ({id:`pl:${p.map}:${p.id}`, title:p.label, sub:p.sub, place:{map:p.map, rx:p.rx, ry:p.ry}}))
-      : pf === 'up' ? g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your upload', up:true}))
-      : N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Norne art'}));
-    const isOn = p => p.place ? (d.place && d.place.map === p.place.map && d.place.rx === p.place.rx && d.place.ry === p.place.ry) : (d.art && d.art === p.art);
+      : [];
     const forwho = N.channelsFor('gm').filter(c => c !== 'gm'), has = g.scenes[d.ch], edit = has && d.mode === 'edit';
     /* a scene aspect can sit on someone in the scene (like a fight's situation aspect): the chat's player characters, its NPCs and one-offs */
     const onNames = [...new Set([...N.chPcs(d.ch).map(c => c.short), ...d.cast, ...d.extras.map(x => x.name), ...d.aspects.map(a => a.on).filter(Boolean)])];
@@ -215,11 +225,9 @@ N.sheetHtml = function(v){
       <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:c.startsWith('grp-')?`<span class="cic">${IC('whisper')}</span>${esc(N.chName(c,'gm'))}`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
       <div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">Picture</h4><div class="seg"><button type="button" data-a="sdTab" data-v="recent" aria-pressed="${tab==='recent'}">Recent</button><button type="button" data-a="sdTab" data-v="pics" aria-pressed="${tab==='pics'}">Pictures</button><button type="button" data-a="sdTab" data-v="maps" aria-pressed="${tab==='maps'}">Map places</button></div></div>
         ${tab==='pics' ? `<div class="sdfold" role="group" aria-label="Picture folders">${fold('app', 'Norne art', N.ARTLIB.length)}${fold('up', 'Your uploads', g.pics.length)}</div>` : ''}
-        <div class="thumbs">${pics.map(p => `<button type="button" class="thumb${isOn(p)?' on':''}" ${p.up ? `data-a="sdPickUp" data-v="${esc(p.art)}"` : `data-a="sdPick" data-v="${esc(p.id)}"`} style="${N.sceneArt(p)};${p.place?'background-size:420% auto':''}">${N.scenePic(p)}<span>${esc(p.title)}<small>${esc(p.sub||'')}</small></span>${isOn(p)?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}
-          ${tab==='pics' && pf==='up'?`<button type="button" class="thumb up" data-a="sdUpload"><span>${IC('upload')}Upload a picture</span></button>`:''}
-          ${tab==='pics' && pf==='up' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui);align-self:center">Pictures you upload land here, and on the Your pictures shelf on the GM screen.</p>' : ''}
+        ${tab==='pics' ? '' : `<div class="thumbs">${pics.map(p => sdThumb(d, p)).join('')}
           ${tab==='recent' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Scenes you set show up here for one-tap reuse.</p>' : ''}
-          ${tab==='maps' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No places on the maps yet.</p>' : ''}</div>
+          ${tab==='maps' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No places on the maps yet.</p>' : ''}</div>`}
           ${d.art && !d.place ? `<div style="margin-top:10px"><button type="button" class="btn sm ghost fr-adj" data-a="sdFrame">${IC('fit')}Adjust framing</button></div>` : ''}</div>
       <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
         <label class="field"><span>Scene name</span><input class="inp" id="sdt-${v.id}" data-i="sd" data-k="title" value="${esc(d.title)}" placeholder="e.g. A quiet back room"></label>
@@ -656,7 +664,7 @@ N.sheetHtml = function(v){
   case 'msgEdit': {
     const m = g.msgs.find(x => x.id === arg), d = v.ui.med; if (!m || !d) return '';
     return sheet('Edit message', `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">${esc(N.msgWho(m))} · ${esc(N.chName(m.ch, 'gm'))}. Everyone who can see it sees the new words, marked “edited”.</p>
-      <textarea class="inp" id="med-${v.id}" data-i="med" rows="5" style="font:500 15.5px/1.45 var(--f-ui)">${esc(d.text)}</textarea>`,
+      <textarea class="inp" id="med-${v.id}" data-i="med" rows="5" style="font:500 15.5px/1.45 var(--f-ui)">${esc(d.text)}</textarea>${medVoice(v, m, d)}`,
       `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn primary" data-a="msgSave" ${d.text.trim()?'':'disabled'}>${IC('check')}Save</button>`);
   }
   /* ---------------- group chats (GM) ---------------- */
@@ -743,6 +751,22 @@ N.sheetHtml = function(v){
   return '';
 };
 
+/* one picture tile in the scene window or one of its folders, ticked when it is the scene's picture */
+function sdThumb(d, p){
+  const on = p.place ? (d.place && d.place.map === p.place.map && d.place.rx === p.place.rx && d.place.ry === p.place.ry) : (d.art && d.art === p.art);
+  return `<button type="button" class="thumb${on?' on':''}" ${p.up ? `data-a="sdPickUp" data-v="${esc(p.art)}"` : `data-a="sdPick" data-v="${esc(p.id)}"`} style="${N.sceneArt(p)};${p.place?'background-size:420% auto':''}">${N.scenePic(p)}<span>${esc(p.title)}<small>${esc(p.sub||'')}</small></span>${on?`<span class="ck">${IC('check')}</span>`:''}</button>`;
+}
+/* change the voice a message went out in: a player's line is their character or Meta, the GM's is Meta, the Narrator or an NPC */
+function medVoice(v, m, d){
+  if (!N.voiceFixable(m)) return '';
+  const cur = d.as || N.msgVoice(m), row = inner => `<div class="field medv"><span>Sent as</span>${inner}<small class="muted">Pick the voice it should have gone out in.</small></div>`;
+  if (m.by !== 'gm') {
+    const nm = N.charVoiceName(m.by), b = (val, ic, label) => `<button type="button" data-a="medAs" data-v="${val}" aria-pressed="${cur === val}">${IC(ic)}${esc(label)}</button>`;
+    return row(`<div class="seg medseg" role="group" aria-label="Sent as">${b('char', 'mask', nm)}${b('meta', 'chatL', 'Meta')}</div>`);
+  }
+  const vf = N.voicesFor(m.ch, m.as), o = n => `<option value="${esc(n)}" ${cur === n ? 'selected' : ''}>${esc(n)}</option>`;
+  return row(`<select class="inp" id="medv-${v.id}" data-i="medAs" aria-label="Sent as"><option value="meta" ${cur === 'meta' ? 'selected' : ''}>Meta (you, out of character)</option>${o('Narrator')}${vf.here.length ? `<optgroup label="In this scene">${vf.here.map(o).join('')}</optgroup>` : ''}${vf.rest.length ? `<optgroup label="Everyone else">${vf.rest.map(o).join('')}</optgroup>` : ''}</select>`);
+}
 function notifyToggle(){
   const st = N.notifyState ? N.notifyState() : 'none';
   const sub = {on:N.notifyPush && N.notifyPush() ? 'You get a ping for new messages, rolls and news, even with Norne closed.' : 'You get a ping for new messages, rolls and news while Norne is open but not in front.', off:'Get a ping for new messages, rolls and news on this device.',

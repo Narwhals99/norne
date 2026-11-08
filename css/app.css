@@ -532,6 +532,11 @@
 .app .sdfold button{display:flex;align-items:center;gap:10px;min-height:48px;padding:8px 12px;border-radius:12px;text-align:left;color:var(--ink-2);background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);font:700 14px/1.2 var(--f-ui)}
 .app .sdfold button svg{width:22px;height:22px;flex:none;color:var(--ink-3)}
 .app .sdfold button span{display:grid;gap:2px;min-width:0}
+.app .sdfold button>span{flex:1}
+.app .sdfold button>svg:last-child{width:18px;height:18px}
+.app .sdfold .fpic{position:relative;flex:none;width:46px;height:34px;border-radius:8px;overflow:hidden;background:var(--sunk);box-shadow:0 0 0 1px var(--line-2)}
+.app .sdfold .fpic .pic{position:absolute;inset:0;z-index:0;background-size:cover;background-position:center}
+.app .sdfold button.has{color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--accent);background:var(--accent-soft)}
 .app .sdfold button small{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
 .app .sdfold button[aria-pressed="true"]{color:var(--ink);background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
 .app .sdfold button[aria-pressed="true"] svg{color:var(--gold-tx)}
@@ -2521,3 +2526,5 @@
 .app .shop-tag .coin{width:16px;height:16px}
 .app .shop-tag.free{padding:0 12px;background:var(--sunk);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line-2)}
 .app .fightbar.shopbar{margin-top:8px}
+.app .medv small{display:block;margin-top:6px;font:600 12px/1.35 var(--f-ui)}
+.app .medv .seg{flex-wrap:wrap}
