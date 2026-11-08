@@ -417,8 +417,10 @@ function faceTex(spec, R, hair){
    so nothing pokes through. The face is drawn on a sheet that lies over the front of the head (faceSheet), sharper than the
    head's own picture, which keeps the skin, the scalp under the hair and beard shading (faceTex). */
 function headWarp(spec, R, HR){
-  const [sx, sy, sz] = pick(HEAD_SHAPES, spec.headShape)[2], J = R.beast ? {} : pick(JAWS, spec.jaw)[2];
-  const jaw = J.jaw || 0, chin = J.chin || 0, cheek = J.cheek || 0, sq = J.sq || 0, fwd = J.fwd || 0, cw = J.narrow ? .3 : .55;
+  const [sx, sy, sz] = pick(HEAD_SHAPES, spec.headShape)[2], J = R.beast ? {} : pick(JAWS, spec.jaw)[2], man = spec.body === 'm' && !R.beast;
+  /* a man's jaw is broader and longer whichever jawline is picked: less taper, less cheek, a squarer and lower chin */
+  const jaw = (J.jaw || 0) * (man ? .5 : 1), chin = (J.chin || 0) + (man ? .035 : 0), cheek = (J.cheek || 0) * (man ? .35 : 1),
+    sq = (J.sq || 0) + (man ? .05 : 0), fwd = (J.fwd || 0) + (man ? .015 : 0), cw = J.narrow ? .3 : man ? .7 : .55;
   if (sx === 1 && sy === 1 && sz === 1 && !jaw && !chin && !cheek && !sq && !fwd) return null;
   return p => {
     const L = p.length(); if (L < 1e-6) return p;
@@ -465,6 +467,9 @@ function faceSheet(spec, R){
   const skin = (R.skins[spec.skin] || R.skins[0]).c, hairHex = pick(HAIRC, spec.hairCol)[2], irisC = pick(EYES, spec.eyes)[2];
   const E = spec.expr === 'hurt' ? HURT : pick(EXPRS, spec.expr)[2], marks = new Set(spec.marks || []), sz = pick(EYE_SIZES, spec.eyeSize)[2];
   const P = Object.assign({}, pick(EYE_SHAPES, E.dot ? 'dot' : spec.eyeShape)[2]); P.w *= sz; P.h *= sz;
+  /* a man's eyes: lower and flatter, a thin lash line with no flick or lashes, heavier straight brows (see brows) */
+  const man = spec.body === 'm' && !beast;
+  if (man && !P.dot) { P.h *= .72; P.w *= .97; P.up *= .86; P.lash *= .5; P.wing = (P.wing || 0) * .3; P.lashes = 0; }
   const cx0 = beast === 'wolf' ? .4 : beast ? .47 : .36 + (sz - 1) * .12, cy = beast ? -.08 : -.13;
   const ink = '#221820', line = (pts, col, lw, a = 1) => { x.save(); x.globalAlpha = a; x.strokeStyle = col; x.lineWidth = lw * K; x.lineCap = x.lineJoin = 'round';
     x.beginPath(); pts.forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1]))); x.stroke(); x.restore(); };
@@ -475,7 +480,7 @@ function faceSheet(spec, R){
     for (let i = 0; i <= n; i++) { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)], tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty) || 1;
       let nx = -ty / l, ny = tx / l; if (ny * side < 0 || (Math.abs(ny) < 1e-3 && nx * side < 0)) { nx = -nx; ny = -ny; } const w = th(i / n); top.push([pts[i][0] + nx * w, pts[i][1] + ny * w]); }
     x.beginPath(); pts.forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1]))); for (let i = n; i >= 0; i--) x.lineTo(X(top[i][0]), Y(top[i][1])); x.closePath(); x.fillStyle = col; x.fill(); };
-  const blushK = Math.max(marks.has('blush') ? .8 : 0, E.blush || 0);
+  const blushK = Math.max(marks.has('blush') ? .8 : 0, (E.blush || 0) * (man ? .35 : 1));
   if (blushK && !beast) [-1, 1].forEach(s => { const g = x.createRadialGradient(X(s * .4), Y(-.4), 0, X(s * .4), Y(-.4), .13 * K);
     g.addColorStop(0, `rgba(238,100,112,${.5 * blushK})`); g.addColorStop(1, 'rgba(238,100,112,0)'); x.save(); x.fillStyle = g; x.translate(X(s * .4), Y(-.4)); x.scale(1, .55); x.translate(-X(s * .4), -Y(-.4));
     x.fillRect(X(s * .4) - .13 * K, Y(-.4) - .13 * K, .26 * K, .26 * K); x.restore();
@@ -489,13 +494,15 @@ function faceSheet(spec, R){
   if (pick(JAWS, spec.jaw)[2].line && !beast) [-1, 1].forEach(s => line(curve([s * .58, -.3], [s * .58, -.4], [s * .55, -.5], [s * .47, -.6]), shade(skin, .66), .007, .75));
   /* nose */
   if (!beast && !R.nose) {
-    if (spec.nose === 'hint') { line([[.016, -.31], [.004, -.35], [-.008, -.365]], shade(skin, .66), .008, .85); }
+    if (spec.nose === 'hint' && man) { line([[.03, -.22], [.026, -.31], [.01, -.355], [-.012, -.37]], shade(skin, .68), .008, .85); line([[-.03, -.36], [-.042, -.352]], shade(skin, .68), .006, .6); }
+    else if (spec.nose === 'hint') { line([[.016, -.31], [.004, -.35], [-.008, -.365]], shade(skin, .66), .008, .85); }
+    else if (spec.nose === 'small' && man) { line(curve([-.042, -.35], [-.022, -.395], [.022, -.395], [.042, -.35]), shade(skin, .64), .009); line([[.02, -.2], [.026, -.33]], shade(skin, .7), .007, .7); }
     else if (spec.nose === 'small') { line(curve([-.03, -.35], [-.015, -.39], [.015, -.39], [.03, -.35]), shade(skin, .64), .009); line([[.012, -.28], [.018, -.33]], shade(skin, .72), .006, .6); }
   }
   /* mouth: its shape (size, lips) in the pose the expression gives it */
   if (!beast) {
-    const my = -.57, ms = spec.mouth, MW = {small:.05, wide:.08, full:.06, cat:.055}[ms] || .05, pose = E.mouth || 'line', mc = '#5a2620', lw = .011;
-    const lips = marks.has('lipstick') ? '#a3283f' : ms === 'full' ? mix(skin, '#c4505a', .45) : null;
+    const my = -.57, ms = spec.mouth, MW = ({small:.05, wide:.08, full:.06, cat:.055}[ms] || .05) * (man ? 1.18 : 1), pose = E.mouth || 'line', mc = man ? '#4e2620' : '#5a2620', lw = man ? .012 : .011;
+    const lips = marks.has('lipstick') ? '#a3283f' : ms === 'full' ? mix(skin, '#c4505a', man ? .22 : .45) : null;
     if (lips && !['o', 'O', 'open', 'grin', 'teeth'].includes(pose)) { const up = pose === 'smile' ? .012 : pose === 'frown' ? -.01 : 0;
       x.beginPath(); const pts = curve([-MW * 1.05, my + up], [-MW * .5, my - .045], [MW * .5, my - .045], [MW * 1.05, my + up]); pts.forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1])));
       curve([MW * 1.05, my + up], [MW * .4, my + .03], [-MW * .4, my + .03], [-MW * 1.05, my + up]).forEach(p => x.lineTo(X(p[0]), Y(p[1]))); x.closePath(); x.fillStyle = lips; x.fill();
@@ -535,30 +542,30 @@ function faceSheet(spec, R){
     const lid = curve(I, A1, A2, O, 24), low = curve(O, B2, B1, I, 24);
     x.beginPath(); lid.concat(low).forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1]))); x.closePath();
     x.fillStyle = '#fbf8f3'; x.fill(); x.save(); x.clip();
-    const ix = cx + (E.look || 0) * w * .38, iy = cy + (E.lookY || 0) * h * .45 - h * .04, rI = w * .55, ry = rI * 1.12;
+    const ix = cx + (E.look || 0) * w * .38, iy = cy + (E.lookY || 0) * h * .45 - h * .04, rI = w * (man ? .5 : .55), ry = rI * 1.12;
     const g = x.createLinearGradient(0, Y(iy + ry), 0, Y(iy - ry)); g.addColorStop(0, shade(irisC, .22)); g.addColorStop(.55, shade(irisC, .85)); g.addColorStop(1, mix(irisC, '#ffffff', .5));
     ell(ix, iy, rI, ry, g); x.strokeStyle = shade(irisC, .28); x.lineWidth = .008 * K; x.stroke();
     ell(ix, iy - ry * .04, rI * .42 * (E.pupil || 1), ry * .5 * (E.pupil || 1), shade(irisC, .14));
-    x.save(); x.globalAlpha = .22; x.strokeStyle = '#3c2448'; x.lineWidth = h * .38 * K; x.beginPath(); lid.forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1]))); x.stroke(); x.restore();
-    ell(ix - rI * .34, iy + ry * .4, rI * .3, ry * .27, '#ffffff'); ell(ix + rI * .32, iy - ry * .42, rI * .12, rI * .12, 'rgba(255,255,255,.85)');
+    x.save(); x.globalAlpha = man ? .14 : .22; x.strokeStyle = man ? '#3a2a24' : '#3c2448'; x.lineWidth = h * .38 * K; x.beginPath(); lid.forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1]))); x.stroke(); x.restore();
+    const hl = man ? .62 : 1; ell(ix - rI * .34, iy + ry * .36, rI * .3 * hl, ry * .27 * hl, '#ffffff'); if (!man) ell(ix + rI * .32, iy - ry * .42, rI * .12, rI * .12, 'rgba(255,255,255,.85)');
     x.restore();
     /* lash line along the lid, thicker towards the outer end, with a wing for sharp eyes */
     band(lid, t => P.lash * .05 * (.3 + .7 * sstep(0, .5, t)) * (1 - .4 * sstep(.88, 1, t)), ink);
     if (P.wing) { const e = lid[lid.length - 1], q = lid[lid.length - 4]; x.beginPath(); x.moveTo(X(q[0]), Y(q[1] + .02 * P.lash)); x.lineTo(X(e[0] + s * w * .3 * P.wing), Y(e[1] + h * .45 * P.wing)); x.lineTo(X(e[0]), Y(e[1] - .004)); x.closePath(); x.fillStyle = ink; x.fill(); }
     line(curve(O, B2, B1, I, 16, .05, .55), '#5a4048', .007, .8);
-    if (kI < .5 && kO < .5) line(curve(I, [U1[0], U1[1] + h * .4], [U2[0], U2[1] + h * .38], O, 16, .22, .85), shade(skin, .66), .005, .7);
+    if (kI < .5 && kO < .5) line(curve(I, [U1[0], U1[1] + h * .4], [U2[0], U2[1] + h * .38], O, 16, .22, .85), shade(skin, .66), .005, man ? .4 : .7);
     if (P.lashes) [.72, .84, .95].forEach((t, i) => { const p = bez(I, A1, A2, O, t); line([p, [p[0] + s * (.018 + i * .01), p[1] + .03 - i * .004]], ink, .009); });
   };
   [-1, 1].forEach(eye);
   /* brows: hair-coloured, frowning or worried with the expression */
   if (spec.brows !== 'none') [-1, 1].forEach(s => {
-    const cx = s * cx0, bw = P.dot ? .1 : P.w * 1.05, a = E.brow || 0, by = cy + (P.dot ? .13 : P.h * .9) + .045 + (E.raise || 0) * .04 + (E.browOne && s > 0 ? .05 : 0);
+    const cx = s * cx0, bw = P.dot ? .1 : P.w * (man ? 1.14 : 1.05), a = E.brow || 0, by = cy + (P.dot ? .13 : P.h * .9) + (man ? .04 : .045) + (E.raise || 0) * .04 + (E.browOne && s > 0 ? .05 : 0);
     const col = beast ? shade(skin, .6) : lum(hairHex) > .6 ? shade(hairHex, .58) : lum(hairHex) < .2 ? hairHex : shade(hairHex, .82);
     const inr = [cx - s * bw * .8, by - a * .045], out = [cx + s * bw, by - .015 + a * .02];
     if (spec.brows === 'short') { x.save(); x.translate(X(cx - s * bw * .3), Y(by + .02 - a * .02)); x.rotate(s * a * .25); x.beginPath(); x.ellipse(0, 0, .045 * K, .022 * K, 0, 0, TAU); x.fillStyle = col; x.fill(); x.restore(); return; }
-    const arch = spec.brows === 'arched' ? .045 : spec.brows === 'thick' ? .018 : .028, th = spec.brows === 'thick' ? .038 : spec.brows === 'arched' ? .022 : .021;
+    const arch = (spec.brows === 'arched' ? .045 : spec.brows === 'thick' ? .018 : .028) * (man ? .45 : 1), th = (spec.brows === 'thick' ? .038 : spec.brows === 'arched' ? .022 : .021) * (man ? 1.3 : 1);
     const m1 = [lerp(inr[0], out[0], .33), lerp(inr[1], out[1], .33) + arch], m2 = [lerp(inr[0], out[0], .7), lerp(inr[1], out[1], .7) + arch * .9];
-    band(curve(inr, m1, m2, out, 18), t => th * (1 - .62 * t), col, 1);
+    band(curve(inr, m1, m2, out, 18), t => th * (1 - (man ? .38 : .62) * t), col, 1);
   });
   if (marks.has('scar') && !beast) { const cx = -cx0; line([[cx - .07, cy + .25], [cx + .06, cy - .22]], mix(skin, '#b0505a', .55), .013);
     [.25, .5, .75].forEach(t => { const p = [lerp(cx - .07, cx + .06, t), lerp(cy + .25, cy - .22, t)]; line([[p[0] - .022, p[1] - .006], [p[0] + .022, p[1] + .006]], mix(skin, '#b0505a', .4), .006); }); }
@@ -584,7 +591,7 @@ function faceSheetMesh(HR, warp, map, M){
 const iconCache = new Map();
 function faceIcon(spec, over, mode = 'face'){
   const s = faceFix(Object.assign({}, spec, over || {}, {beard:'none'})), R = RACES[s.race] || RACES.Human, skin = (R.skins[s.skin] || R.skins[0]).c;
-  const key = mode + JSON.stringify([s.race, s.skin, s.hair, s.hairCol, s.eyes, s.headSize, s.headShape, s.jaw, s.eyeShape, s.eyeSize, s.brows, s.nose, s.mouth, s.expr, s.marks]);
+  const key = mode + JSON.stringify([s.race, s.body, s.skin, s.hair, s.hairCol, s.eyes, s.headSize, s.headShape, s.jaw, s.eyeShape, s.eyeSize, s.brows, s.nose, s.mouth, s.expr, s.marks]);
   if (iconCache.has(key)) return iconCache.get(key); if (iconCache.size > 400) iconCache.clear();
   const o = canvas(112, 112), x = o.getContext('2d'), sheet = faceSheet(s, R), warp = headWarp(s, R, 1);
   const r0 = mode === 'eyes' ? 92 : mode === 'mouth' ? 280 : mode === 'expr' ? 78 : 48 * pick(HEAD_SIZES, s.headSize)[2], cx = 56,
