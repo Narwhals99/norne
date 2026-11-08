@@ -279,8 +279,9 @@ function draw(S, now){
       const p = att ? atkPose(run, ft) : defPose(run, ft);
       if (p) { [name, pt] = p; busy = true; }
       else if (!att && run.out === 'out' && ft - run.TI >= 250) { name = 'down'; pt = 1500; }
-      /* they turn to face each other, but never further than side-on, so a fight never shows only their backs */
-      if (p || !att) if (O && O.x != null) yaw = clamp(Math.atan2(O.x - F.x, (O.y - F.y) / SIN), -1.25, 1.25);
+      /* they turn toward each other, three-quarter on: someone further up the board is faced as if level, so a fight
+         never shows the back of a head */
+      if (p || !att) if (O && O.x != null) yaw = clamp(Math.atan2(O.x - F.x, Math.abs(O.y - F.y) / SIN), -1.05, 1.05);
       if (att && run.wpn === 'bolt') glow = .65 * (ft < run.TF ? eOut(seg(ft, 0, 650)) : 1 - seg(ft, run.TF, run.TF + 320));
       if (!att && run.out === 'armor') clang = ft >= run.TI ? 1 - seg(ft, run.TI, run.TI + 420) : 0;
     }
