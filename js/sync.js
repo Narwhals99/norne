@@ -313,12 +313,32 @@ N.shrinkFace = (img, S=256, q=.86) => {
   c.getContext('2d').drawImage(img, (img.naturalWidth - s) / 2, (img.naturalHeight - s) / 2.6, s, s, 0, 0, S, S);
   return c.toDataURL('image/jpeg', q);
 };
-/* opens the file picker (call it from a click) and hands back a loaded image */
+/* opens the file picker (call it from a click) and hands back a loaded image.
+   iPhone Safari loses the answer about half the time when the file box is only a loose element in memory: it can be
+   thrown away while the photo picker is open, so the checkmark then does nothing. So the box sits in the page (out of
+   sight) until the picture is in, both its change and input events are heard, and when the page comes back from the
+   picker with a file chosen but no event, it is read anyway. */
+let PICK = null;
 N.pickImage = cb => {
+  if (PICK) PICK.remove();
   const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
-  inp.onchange = () => { const f = inp.files?.[0]; if (!f) return; const rd = new FileReader();
-    rd.onload = () => { const img = new Image(); img.onload = () => cb(img, f); img.onerror = () => V && N.toast(V, 'That file couldn’t be read as a picture.'); img.src = rd.result; };
-    rd.readAsDataURL(f); };
+  inp.setAttribute('aria-hidden', 'true'); inp.tabIndex = -1;
+  inp.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+  document.body.appendChild(inp); PICK = inp;
+  let done = false;
+  const end = () => { removeEventListener('focus', back); document.removeEventListener('visibilitychange', back); if (PICK === inp) PICK = null; inp.remove(); };
+  const take = () => {
+    const f = inp.files?.[0]; if (done || !f) return; done = true; end();
+    const fail = () => V && N.toast(V, 'That file couldn’t be read as a picture.');
+    const rd = new FileReader();
+    rd.onload = () => { const img = new Image(); img.onload = () => cb(img, f); img.onerror = fail; img.src = rd.result; };
+    rd.onerror = fail;
+    rd.readAsDataURL(f);
+  };
+  /* back from the picker: give the change event a moment, then look for a chosen file ourselves (a box left over after Cancel goes at the next pick) */
+  const back = () => { if (document.visibilityState === 'hidden') return; setTimeout(take, 500); setTimeout(take, 1500); };
+  inp.addEventListener('change', take); inp.addEventListener('input', take); inp.addEventListener('cancel', () => { if (!done) end(); });
+  setTimeout(() => { addEventListener('focus', back); document.addEventListener('visibilitychange', back); }, 0);
   inp.click();
 };
 N.storeImg = (data, vis) => {
