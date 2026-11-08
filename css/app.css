@@ -907,7 +907,7 @@
 .app .wparts{display:grid;gap:10px}
 .app .wparts h4{margin:0}
 .app .wpart{display:grid;gap:8px;padding:10px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
-.app .wpart-h{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center}
+.app .wpart-h{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;align-items:center}
 .app .wpic{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;align-items:center}
 .app .wpic img{width:64px;height:48px;object-fit:contain;border-radius:8px;background:#fff;box-shadow:0 0 0 1px var(--line-2)}
 .app .wfr{display:block;aspect-ratio:var(--r);width:min(100%,calc(320px * var(--r)));overflow:hidden;margin:0 auto}
@@ -2528,3 +2528,14 @@
 .app .fightbar.shopbar{margin-top:8px}
 .app .medv small{display:block;margin-top:6px;font:600 12px/1.35 var(--f-ui)}
 .app .medv .seg{flex-wrap:wrap}
+/* wiki sections for everybody read like the rest of the entry; GM-only ones look like the old GM notes box */
+.app .wsect.open{padding:4px 0 0;background:none;box-shadow:none;border-radius:0}
+.app .wsect.gmo{background:repeating-linear-gradient(135deg,var(--sunk) 0 12px,color-mix(in srgb,var(--sunk) 70%,var(--accent-soft)) 12px 24px);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent)}
+.app .wsect.gmo .eyebrow{color:var(--accent-tx)}
+.app .wsect .wfigs{margin:2px 0}
+.app .wpart.gmo{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 45%,transparent)}
+.app .wpart .wpart-h{grid-template-columns:minmax(0,1fr) auto auto}
+.app .wpart-to{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.app .wpart-to .lbl{font:700 12.5px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .wpart-to .seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%}
+.app .wpart-to .seg button{justify-content:center;padding:0 8px;white-space:nowrap}

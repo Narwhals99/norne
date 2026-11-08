@@ -391,16 +391,26 @@ function syncNow(){
     }
     if (LOADED.has('gm/wiki')) {
       /* pictures in a wiki entry can be read by the same people as the entry */
-      for (const e of g.wiki) for (const p of N.wikiPics(e)) {
-        if (!p.src?.startsWith('fs:')) continue;
-        const id = N.picBase(p.src).slice(3), a = N.audOf(e, 'wiki'), vis = a === '*', aud = Array.isArray(a) ? a : [], k = visKey(vis, aud);
+      /* a section's pictures can be read by whoever reads the section: everybody on the entry, its players, or only the GM */
+      const picAud = (src, a) => {
+        if (!src?.startsWith('fs:')) return;
+        const id = N.picBase(src).slice(3), vis = a === '*', aud = Array.isArray(a) ? a : [], k = visKey(vis, aud);
         if (MVIS.get(id) !== k) { MVIS.set(id, k); track(F.setDoc(dref('mapimgs/' + id), {vis, aud}, {merge:true})); }
+      };
+      for (const e of g.wiki) {
+        const a = N.audOf(e, 'wiki');
+        for (const p of N.wikiPics(e)) picAud(p.src, a);
+        for (const pt of e.parts || []) { const to = N.partTo(pt), pa = a === 'gm' || to === 'gm' ? 'gm' : to === 'all' ? a : (pt.see || []).filter(st => a === '*' || a.includes(st));
+          for (const p of pt.imgs || []) picAud(p.src, Array.isArray(pa) && !pa.length ? 'gm' : pa); }
       }
       writeUnits('gm/wiki', asUnits(g.wiki));
-      writeUnits('game/wiki', asUnits(g.wiki, (e,i) => { const {secret, parts, ...pub} = e; return share(e, 'wiki', 'w:' + e.id, {...pub, o:i}); }));
+      /* sections for everybody go out with the entry; GM-only sections never leave the GM (o = the section's place in the entry) */
+      const partPub = (p, o) => ({id:p.id, h:p.h || '', text:p.text || '', o, ...(p.imgs?.length ? {imgs:p.imgs} : {})});
+      writeUnits('game/wiki', asUnits(g.wiki, (e,i) => { const {secret, parts, ...pub} = e, all = (parts || []).map((p, o) => N.partTo(p) === 'all' ? partPub(p, o) : null).filter(Boolean);
+        return share(e, 'wiki', 'w:' + e.id, {...pub, ...(all.length ? {parts:all} : {}), o:i}); }));
       /* sections of an entry for some players only: each of them gets just the sections picked for them, in their own only/<seat> */
       for (const e of g.wiki) if (e.parts?.length) for (const st of N.audSeats(e, 'wiki')) {
-        const mine = e.parts.filter(p => (p.see || []).includes(st)).map(p => ({id:p.id, h:p.h || '', text:p.text || ''}));
+        const mine = e.parts.map((p, o) => N.partTo(p) === 'some' && (p.see || []).includes(st) ? {...partPub(p, o), to:'some'} : null).filter(Boolean);
         if (mine.length && only[st]) only[st]['p:' + e.id] = mine;
       }
     }
@@ -542,7 +552,7 @@ let MINEP = {}, MINEQ = {};
 const KIND = {w:'wiki', m:'maps', n:'news'};
 function mergeView(){
   const g = G(), all = k => vals({...PUB[k], ...MINE[k]});
-  if (!isGM()) { g.wiki = all('wiki').sort(byO).map(e => MINEP[e.id] ? {...e, parts:JSON.parse(MINEP[e.id])} : e); g.maps = all('maps').sort(byO).map(m => { const x = MINEQ[m.id]; if (x) { const ids = new Set((m.pins || []).map(p => p.id)); m = {...m, pins:[...(m.pins || []), ...JSON.parse(x).filter(p => !ids.has(p.id))]}; } return normMap(m); }); }
+  if (!isGM()) { g.wiki = all('wiki').sort(byO).map(e => MINEP[e.id] ? {...e, parts:[...(e.parts || []).map(p => ({...p, to:'all'})), ...JSON.parse(MINEP[e.id])].sort((a,b) => (a.o ?? 0) - (b.o ?? 0))} : e.parts ? {...e, parts:e.parts.map(p => ({...p, to:'all'}))} : e); g.maps = all('maps').sort(byO).map(m => { const x = MINEQ[m.id]; if (x) { const ids = new Set((m.pins || []).map(p => p.id)); m = {...m, pins:[...(m.pins || []), ...JSON.parse(x).filter(p => !ids.has(p.id))]}; } return normMap(m); }); }
   g.news.issues = vals(isGM() ? {...PUB.news, ...GMNEWS} : {...PUB.news, ...MINE.news}).sort((a,b) => (+a.no || 0) - (+b.no || 0));
 }
 function setMine(u){

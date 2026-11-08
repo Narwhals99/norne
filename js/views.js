@@ -792,8 +792,9 @@ function articleHtml(v, e){
     ${e.info?.length ? `<dl class="facts">${e.info.map(([k,x]) => `<dt>${esc(k)}</dt><dd>${links(x)}</dd>`).join('')}</dl>` : ''}
     ${(e.body||[]).map(block).join('')}
     ${e.soon || !(e.body||[]).length ? '<p class="muted" style="font-weight:700;font-size:13px">More coming soon.</p>' : ''}
-    ${(e.parts || []).map(p => `<section class="wsect"><span class="eyebrow">${IC('eye').replace('<svg','<svg style="width:13px;height:13px"')}${gm ? (p.see?.length ? `Only ${esc(N.namesList(p.see))}` : 'Nobody picked yet') : 'Not every player can read this'}</span>${p.h ? `<h3>${links(p.h)}</h3>` : ''}${(p.text || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).map(block).join('')}</section>`).join('')}
-    ${gm && e.secret ? `<div class="secret"><span class="seal">${IC('lock')}</span><b>GM only · players never see this</b>${e.secret.split(/\n\s*\n/).map(p => `<p>${links(p)}</p>`).join('')}</div>` : ''}
+    ${N.wikiParts(e).map(p => { const to = N.partTo(p), ps = p.imgs || [];
+      const tag = to === 'all' ? '' : to === 'gm' ? `<span class="eyebrow">${IC('lock').replace('<svg','<svg style="width:13px;height:13px"')}GM only · players never see this</span>` : `<span class="eyebrow">${IC('eye').replace('<svg','<svg style="width:13px;height:13px"')}${gm ? (p.see?.length ? `Only ${esc(N.namesList(p.see))}` : 'Nobody picked yet') : 'Not every player can read this'}</span>`;
+      return `<section class="wsect${to === 'all' ? ' open' : to === 'gm' ? ' gmo' : ''}">${tag}${p.h ? `<h3>${links(p.h)}</h3>` : ''}${ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(x => `<figure class="wfig">${N.wikiImg(x.src, x.cap || p.h || e.title)}${x.cap ? `<figcaption>${N.emoText(N.marks(esc(x.cap)))}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}${(p.text || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).map(block).join('')}</section>`; }).join('')}
     ${backs.length ? `<p class="backs"><span class="eyebrow" style="margin-right:8px">Linked from</span>${backs.map(b => `<a class="wl" data-a="wiki" data-v="${b.id}" style="color:var(--link);cursor:pointer">${esc(b.title)}</a>`).join(', ')}</p>` : ''}
     ${e.src ? `<p class="src">From the lore notes: ${esc(e.src)}</p>` : ''}
   </article>`;
