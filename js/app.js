@@ -1858,6 +1858,7 @@ function act(v, a, el, e){
     toast(v, `Gave ${it.name} ×${q} to ${who.label}.${who.pc ? ' They got a note.' : ''}`); renderAll(); return;
   }
   case 'npcNew': openSheet(v, 'npcNew', d); break;
+  case 'pcToNpc': if (gm && g.chars[val]) { ui.pop = null; openSheet(v, 'npcNew', {pc:val}); } break;
   case 'npcEdit': openSheet(v, 'npcNew', {edit:val}); break;
   case 'myFace': { const c = N.charOf(v.role); if (c) myFace(v, c, val); return; }
   case 'myFaceNone': { const c = N.charOf(v.role); if (c) myFace(v, c, null); return; }
@@ -2151,6 +2152,12 @@ function openSheet(v, s, d={}){
   if (s === 'npcNew') {
     const n = d.edit && g.npcs.find(x => x.id === d.edit);
     ui.nd = n ? Object.assign(JSON.parse(JSON.stringify(n)), {edit:n.id}) : {name:'', race:'', job:'', age:'', disc:{}, hc:'', trouble:'', aspects:[], type:'supporting', skills:{}, stunts:[], magic:'', bio:'', notes:'', refresh:3, fp:3, portrait:null, from:d.from || null, dir:ui.tab === 'cast' && N.nd.byId(ui.npcDir) ? ui.npcDir : null};
+    /* "Copy as NPC" on a PC's card: a new NPC card filled from the PC's sheet, saved only when the GM presses Save */
+    const pc = !n && d.pc && g.chars[d.pc];
+    if (pc) { const c = JSON.parse(JSON.stringify(pc)), extra = [c.people ? `Important people: ${c.people}` : '', c.invText ? `Inventory notes: ${c.invText}` : ''].filter(Boolean).join('\n\n');
+      Object.assign(ui.nd, {name:`${c.name || c.short} (copy)`, race:c.race || '', age:c.age || '', hc:c.hc || '', trouble:c.trouble || '', aspects:c.aspects || [], skills:c.skills || {}, disc:c.disc || {},
+        stunts:c.stunts || [], magic:c.magic || '', bio:c.bio || '', notes:extra, refresh:c.refresh ?? 3, fp:c.fp ?? 3, portrait:c.portrait || null, type:'supporting',
+        gearAtk:c.gearAtk || 0, gearDef:c.gearDef || 0, gearRng:c.gearRng || 0, gearAmmo:c.gearAmmo || 0, inv:c.inv || [], gold:c.gold || 0, copyOf:c.id}); }
     ui.nd.from = d.from || null;
     /* NPC aspects are Aspect 1, 2, 3 too; an old high concept and trouble become the first two */
     ui.nd.aspects = N.pcAspects(ui.nd); ui.nd.hc = ''; ui.nd.trouble = '';
@@ -2246,6 +2253,7 @@ function saveNpc(v){
   const base = {name:d.name.trim(), race:d.race.trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
     skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0,
     inv:(d.inv || []).map(x => [...x]), dir:N.nd.byId(d.dir) ? d.dir : null};
+  if (d.copyOf && !old) base.gold = +d.gold || 0;
   let n;
   if (old) {
     n = Object.assign(old, base);
@@ -2253,8 +2261,10 @@ function saveNpc(v){
   } else { n = N.npcCard(base); g.npcs.push(n); }
   g.npcs.sort((a,b) => a.name.localeCompare(b.name));
   v.ui.sheet = null;
+  /* a copied PC opens as its new NPC card on the Cast page */
+  if (d.copyOf && !old) { v.ui.tab = 'cast'; v.ui.castSel = n.id; }
   if (d.from === 'voice') { v.ui.voice = n.name; v.ui.mode = 'rp'; const ch = v.ui.ch === 'gm' ? 'table' : v.ui.ch, cast = N.castOf(ch) || []; if (!cast.includes(n.name)) g.casts[ch] = [...cast, n.name]; }
-  toast(v, old ? 'NPC saved.' : `${n.name} saved. Pick them in “Speak as”.`); renderAll();
+  toast(v, old ? 'NPC saved.' : d.copyOf ? `${n.name} saved as an NPC.` : `${n.name} saved. Pick them in “Speak as”.`); renderAll();
 }
 /* the GM's buff or debuff on a roll that's already made (a defense, a Notice roll, or one rolled without it): −6..+6,
    the total and any fight result follow it */
