@@ -1430,8 +1430,15 @@ function act(v, a, el, e){
     const d = ui.gd, name = d.name.trim(); if (!gm || !name || !d.seats.length) break;
     const old = d.id && g.groups.find(x => x.id === d.id), seats = N.seats().filter(s => d.seats.includes(s));
     const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {}), ...(d.meta ? {meta:true} : {}), ...(d.pic ? {pic:d.pic} : {})};
-    /* a player is in one party at a time: putting them in this one takes them out of any other */
-    if (gr.party) for (const o of g.groups.filter(x => x.party && x.id !== gr.id && x.seats.some(s => seats.includes(s)))) { const was = [...o.seats]; N.saveGroup({...o, seats:o.seats.filter(s => !seats.includes(s))}, was); }
+    /* a player is in one party at a time: putting them in this one takes them out of any other. A party whose
+       players all come along (a Solo party) stays as their group chat with all its history, so the 1-on-1
+       roleplay with the GM is never lost; from a bigger party only the players who move leave. */
+    if (gr.party) for (const o of g.groups.filter(x => x.party && x.id !== gr.id && x.seats.some(s => seats.includes(s)))) {
+      const was = [...o.seats], left = o.seats.filter(s => !seats.includes(s));
+      if (left.length) { N.saveGroup({...o, seats:left}, was); continue; }
+      const {party, ...chat} = o; N.saveGroup(chat, was);
+      sys(`${N.namesOf(was)} joined the party ${name}. This chat stays open as a group chat.`, 'grp-' + o.id);
+    }
     const added = old ? seats.filter(s => !old.seats.includes(s)) : [], hist = d.hist !== false;
     N.saveGroup(gr, old ? old.seats : null, hist);
     if (!old) sys(`${N.gmName()} made this group chat for ${N.namesOf(seats)}.`, 'grp-' + gr.id);
