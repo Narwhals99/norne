@@ -3,6 +3,7 @@
    N.figOk() compares a SHA-256 hash of the signed-in email, so the address itself is not in this public code.
    Nothing goes to the database: the figure being made is kept on this device (localStorage norne-fig-test).
    three.js (vendor/three.module.min.js, r160) and the figure kit (js/figkit.js) load only when the maker opens,
+   and each hairstyle's model (art/hair/) loads the first time it is picked; the figure is rebuilt once it has arrived.
    and the 3D scene is thrown away when it closes, so phones don't keep holding the memory.
    The maker is its own layer over the app (outside #app), so redraws of the app never touch its canvas. */
 (function(){
@@ -75,9 +76,10 @@ const CSS = `
 .figx .sw i{display:block;width:38px;height:38px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px rgba(0,0,0,.4),inset 0 -6px 10px rgba(0,0,0,.25)}
 .figx .sw[aria-pressed="true"]{color:var(--ink)}
 .figx .sw[aria-pressed="true"] i{box-shadow:0 0 0 2px var(--sky-0),0 0 0 4px var(--gold)}
-.figx .len{display:flex;align-items:center;gap:10px;min-height:44px}
-.figx .len span{flex:none;color:var(--ink-3);font:800 11.5px/1 var(--f-ui)}
-.figx .len input{flex:1;min-width:0;height:44px;margin:0;accent-color:var(--gold);cursor:pointer;touch-action:pan-y}
+.figx .grid.hairs{grid-template-columns:repeat(auto-fill,minmax(66px,1fr))}
+.figx .grid.hairs .opt{padding:5px 4px 6px}
+.figx .hthumb{display:block;width:56px;height:56px;border-radius:10px;background:var(--sunk) url(art/hair/thumbs.jpg) no-repeat;background-size:1568px 56px;background-position:calc(var(--i) * -56px) 0}
+.figx .grid.steps{grid-template-columns:repeat(3,minmax(0,1fr))}
 .figx .note{margin:0;color:var(--ink-3);font:600 12.5px/1.45 var(--f-ui)}
 .figx .note b{color:var(--ink-2)}
 .figx .foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
@@ -148,20 +150,29 @@ function start(box, THREE, K){
 
   const ANIM_NAMES = [['idle', 'Stand'], ['walk', 'Walk'], ['sword', 'Sword'], ['bow', 'Bow'], ['magic', 'Magic'], ['hit', 'Hit'], ['block', 'Block'], ['down', 'Knocked down']];
   let spec = null, rig = null, all = [], view = 'one', tab = 'body', anim = 'idle', t0 = performance.now(), spin = .35, frozen = null, running = true;
-  try { const s = JSON.parse(localStorage.getItem('norne-fig-test') || 'null'); if (s && K.RACES[s.race]) spec = s; } catch (e) {}
+  try { const s = JSON.parse(localStorage.getItem('norne-fig-test') || 'null'); if (s && K.RACES[s.race]) { spec = s; spec.hair = K.hairId(s.hair || 'bald'); } } catch (e) {}
   if (!spec) spec = K.defaultSpec('Human', 'm');
   const save = () => { try { localStorage.setItem('norne-fig-test', JSON.stringify(spec)); } catch (e) {} };
 
+  /* the hairstyle's model loads first (once per style); the figure on show stays until the new one is ready */
+  let want = 0, ready = Promise.resolve(), toastT = 0;
+  const toast = msg => { $('toast').textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => { $('toast').textContent = ''; }, 2600); };
   function rebuild(){
-    if (rig) { scene.remove(rig.root); K.dispose(rig); }
-    rig = K.buildFigure(spec); K.addFx(scene, rig); scene.add(rig.root);
-    rig.root.visible = view === 'one';
-    frame(); save();
+    const my = ++want; save();
+    return ready = K.loadHair(spec.hair).catch(() => { toast('That hairstyle could not load. Check the connection and pick it again.'); }).then(() => {
+      if (my !== want || !running) return;
+      if (rig) { scene.remove(rig.root); K.dispose(rig); }
+      rig = K.buildFigure(spec); K.addFx(scene, rig); scene.add(rig.root);
+      rig.root.visible = view === 'one';
+      frame();
+    });
   }
   function buildAll(){
-    all.forEach(r => { scene.remove(r.root); K.dispose(r); }); all = [];
-    K.RACE_LIST.forEach((race, i) => { const r = K.buildFigure(K.defaultSpec(race, i % 2 ? 'f' : 'm')); r.race = race; all.push(r); scene.add(r.root); });
-    layoutAll();
+    const specs = K.RACE_LIST.map((race, i) => K.defaultSpec(race, i % 2 ? 'f' : 'm'));
+    return Promise.all(specs.map(s => K.loadHair(s.hair).catch(() => null))).then(() => { if (!running) return;
+      all.forEach(r => { scene.remove(r.root); K.dispose(r); }); all = [];
+      specs.forEach(s => { const r = K.buildFigure(s); r.race = s.race; all.push(r); scene.add(r.root); });
+      layoutAll(); });
   }
   function layoutAll(){
     const W = stage.clientWidth, cols = W < 560 ? 4 : 8, gap = 62, rows = Math.ceil(all.length / cols);
@@ -215,7 +226,8 @@ function start(box, THREE, K){
   const sw = (id, label, color, on, key) => `<button type="button" class="sw" data-k="${key}" data-v="${id}" aria-pressed="${on}"><i style="--c:${color}"></i>${esc(label)}</button>`;
   const opt = (id, label, on, key, extra = '') => `<button type="button" class="opt" data-k="${key}" data-v="${id}" aria-pressed="${on}">${extra}${esc(label)}</button>`;
   const hairWord = () => { const r = R(); return spec.race === 'Kenku' ? 'Feather colour' : spec.race === 'Lizardfolk' ? 'Crest colour' : spec.race === 'Gorgon' ? 'Snake colour' : spec.race === 'Fishfolk' ? 'Fin colour' : r.coat ? 'Hair and coat colour' : 'Hair colour'; };
-  const lenWord = () => { const L = spec.len ?? .5, tall = K.HAIR_LEN[spec.hair] === 'Height'; return L < .34 ? (tall ? 'Low' : 'Short') : L < .67 ? 'Medium' : (tall ? 'Tall' : 'Long'); };
+  const lenWords = () => K.HAIR_LEN[spec.hair] === 'Height' ? ['Low', 'Medium', 'Tall'] : ['Short', 'Medium', 'Long'];
+  const lenStep = () => { const L = spec.len ?? .5; return L < .34 ? 0 : L < .67 ? 1 : 2; };
   function opts(){
     const r = R(), o = [];
     const grp = (k, val, body, cls = 'grid') => o.push(`<div class="grp"><span class="k">${k}${val ? `<b>${esc(val)}</b>` : ''}</span><div class="${cls}">${body}</div></div>`);
@@ -230,9 +242,10 @@ function start(box, THREE, K){
     } else if (tab === 'hair') {
       if (r.nohair || r.nohairStyle) o.push(`<p class="note">${spec.race === 'Gorgon' ? 'Gorgons have serpent locks instead of hair (from the lore). Pick the snakes\' colour below.' : `${esc(spec.race)} have no hair, so only the colour below changes.`}</p>`);
       else {
-        grp('Hairstyle', K.pick(K.HAIRS, spec.hair)[1], K.HAIRS.map(([id, n]) => opt(id, n, id === spec.hair, 'hair')).join(''));
-        const lw = K.HAIR_LEN && K.HAIR_LEN[spec.hair];
-        if (lw) grp(lw, lenWord(), `<span>${lw === 'Height' ? 'Low' : 'Short'}</span><input type="range" min="0" max="100" step="5" value="${Math.round((spec.len ?? .5) * 100)}" data-len aria-label="${lw}"><span>${lw === 'Height' ? 'Tall' : 'Long'}</span>`, 'len');
+        grp('Hairstyle', spec.hair === 'bald' ? 'Bald' : 'Hairstyle ' + K.pick(K.HAIRS, spec.hair)[1],
+          K.HAIRS.map(([id, n], i) => opt(id, n, id === spec.hair, 'hair', `<i class="hthumb" style="--i:${i}" aria-hidden="true"></i>`)).join(''), 'grid hairs');
+        const lw = K.HAIR_LEN[spec.hair];
+        if (lw) grp(lw, lenWords()[lenStep()], lenWords().map((w, i) => opt(String(i / 2), w, i === lenStep(), 'len')).join(''), 'grid steps');
       }
       grp(hairWord(), K.pick(K.HAIRC, spec.hairCol)[1], K.HAIRC.map(([id, n, c]) => sw(id, n, c, id === spec.hairCol, 'hairCol')).join(''), 'sws');
       if (!r.nohair && !r.snakes) grp('Beard', '', K.BEARDS.map(([id, n]) => opt(id, n, id === spec.beard, 'beard')).join(''));
@@ -252,19 +265,12 @@ function start(box, THREE, K){
     else if (k === 'body') { spec.body = val; if (val === 'f') spec.beard = 'none'; }
     else if (k === 'skin') { spec.skin = +val; const p = R().skins[+val]; if (p.eye) spec.eyes = p.eye; if (p.hair) spec.hairCol = p.hair; }
     else if (k === 'outfit') { spec.outfit = val; spec.cloth = K.pick(K.OUTFITS, val)[2].cloth; delete spec.hood; }
+    else if (k === 'len') spec.len = +val;
     else spec[k] = val;
     rebuild(); opts();
   });
-  /* the length slider rebuilds at most once a frame while it is dragged, and leaves the slider in place */
-  let lenFrame = 0;
-  $('opts').addEventListener('input', e => {
-    const s = e.target.closest('[data-len]'); if (!s) return;
-    spec.len = Math.round(+s.value) / 100; const k = s.closest('.grp').querySelector('.k b'); if (k) k.textContent = lenWord();
-    if (!lenFrame) lenFrame = requestAnimationFrame(() => { lenFrame = 0; if (running) rebuild(); });
-  });
   $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; tab = b.dataset.t; opts(); });
-  let toastT = 0;
-  $('reset').addEventListener('click', () => { spec = K.defaultSpec(spec.race, spec.body); rebuild(); opts(); $('toast').textContent = `Back to the ${spec.race} default`; clearTimeout(toastT); toastT = setTimeout(() => { $('toast').textContent = ''; }, 2200); });
+  $('reset').addEventListener('click', () => { spec = K.defaultSpec(spec.race, spec.body); rebuild(); opts(); toast(`Back to the ${spec.race} default`); });
   const animBar = $('anims');
   animBar.innerHTML = ANIM_NAMES.map(([id, n]) => `<button type="button" class="chip" data-a="${id}" aria-pressed="${id === anim}">${n}</button>`).join('');
   const markAnim = () => animBar.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.a === anim)));
@@ -282,7 +288,7 @@ function start(box, THREE, K){
   const ro = new ResizeObserver(() => { barH(); if (view === 'all') layoutAll(); else frame(); }); ro.observe(stage); ro.observe(bar); barH();
   rebuild(); opts(); requestAnimationFrame(tick);
   /* test hook for screenshots: set a look, freeze a move */
-  N.figTest = {set(s, o){ spec = Object.assign(K.defaultSpec(s.race || spec.race, s.body || spec.body), s); rebuild(); if (o && o.tab) tab = o.tab; opts(); },
+  N.figTest = {set(s, o){ spec = Object.assign(K.defaultSpec(s.race || spec.race, s.body || spec.body), s); const p = rebuild(); if (o && o.tab) tab = o.tab; opts(); return p; }, ready:() => ready,
     pose(a, ms, sp){ anim = a; frozen = ms; if (sp != null) spin = sp; markAnim(); }, view:setView};
   return () => {
     running = false; ro.disconnect(); N.figTest = null;
