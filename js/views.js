@@ -478,6 +478,14 @@ function rRoll(v, m){
     <div class="rf"><span class="math">Dice ${sgn(diceSum(r))} · ${esc(r.skill)} ${seen ? sgn(N.skillPart(r)) : skHid}${r.gear?` · ${r.gearL || 'gear'} ${sgn(r.gear)}`:''}${r.dist?` · <span class="dist">distance −${r.dist}</span>`:''}${r.mod?` · <span class="${r.mod > 0 ? 'buf' : 'dist'}">${r.mod > 0 ? 'buff' : 'debuff'} ${sgn(r.mod)}</span>`:''}${N.plusInvokes(r)?` · invokes +${2*N.plusInvokes(r)}`:''}${r.shift?` · <span class="gsh ${r.shift > 0 ? 'buf' : 'dist'}">${esc(N.gmName())} ${sgn(r.shift)} shift${Math.abs(r.shift) === 1 ? '' : 's'}</span>`:''}</span>${o?`<span class="out ${o.k}">${o.t}${o.sh?` · ${o.sh>0?'+':'−'}${Math.abs(o.sh)}`:''}</span>`:''}${canShift ? `<button type="button" class="btn sm shbtn" data-a="shifts" data-id="${m.id}" style="--h:28px" title="Add or take away shifts from the result">${IC('swap')}Shifts</button>` : ''}${canInv && !secret ? `<button type="button" class="btn sm" data-a="invoke" data-id="${m.id}" style="--h:28px">${IC('cards')}Invoke</button>` : ''}</div>
   </div>`;
 }
+/* GM only: the catalog items behind an attack's gear (N.atkItems) with the GM's notes on them. Built when shown,
+   never saved into a message, so players' devices never get the notes. '' when nothing is equipped behind it */
+function atkNotes(v, t, sk){
+  const xs = v && isGM(v) ? N.atkItems(t, sk) : []; if (!xs.length) return '';
+  const lock = IC('lock').replace('<svg', '<svg aria-hidden="true"');
+  return `<div class="atkgm"><span class="atkgm-h">${lock}${xs.some(x => x.it.gm) ? 'Your gear notes · only you see these' : 'Gear in this attack'}</span>${xs.map(({l, it}) => `<p><b>${N.emoText(N.marks(esc(it.name)))}</b> <small>${l} ${sgn(N.itemRating(it))}</small>${it.gm ? `<span>${N.emoText(N.marks(esc(it.gm)))}</span>` : ''}</p>`).join('')}</div>`;
+}
+N.atkNotes = atkNotes;
 /* the result of a fight step, posted once the dice are in: an attack against a defense, or the turn order */
 /* vw: who is looking (for hidden skill levels); v is left out on a past fight's card to hide the GM's buttons */
 function resCard(res, v, vw = v){
@@ -488,6 +496,7 @@ function resCard(res, v, vw = v){
   return `<div class="resm ${res.out?.k||''}"><div class="rs-h">${IC('swords')}<b>${esc(res.title)}</b></div>
     <ul class="rs-rows">${a ? row(a, 'Attack') : ''}${d ? row(d, 'Defense') : ''}</ul>
     ${res.calc ? `<div class="rs-calc">${IC('sword')}${esc(res.calc)}</div>` : ''}
+    ${res.k === 'clash' && res.anim?.att && a ? atkNotes(v, N.tokById(res.anim.att), a.sk) : ''}
     <div class="rs-out"><span class="out ${res.out?.k === 'hit' ? 'fail' : res.out?.k === 'tie' ? 'tie' : 'succ'}">${esc(res.out?.t || '')}</span><span>${esc(res.after || '')}</span>${v && isGM(v) && res.rid && N.cbOpen()?.resId === res.rid ? `<button type="button" class="btn sm shbtn" data-a="shifts" data-id="fight" style="--h:28px" title="Add or take away shifts from this result">${IC('swap')}Shifts</button>` : ''}</div></div>`;
 }
 function fightCard(v, m){

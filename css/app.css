@@ -1850,6 +1850,14 @@
 }
 .app .resm .rs-calc{display:flex;align-items:center;gap:6px;font:600 12px/1.3 var(--f-ui);color:var(--ink-2)}
 .app .resm .rs-calc svg{width:14px;height:14px;flex:none;color:var(--gold-tx)}
+/* GM only: the items behind an attack's gear and the GM's notes on them (roll sheet and the attack's result card) */
+.app .atkgm{display:grid;gap:6px;padding:9px 12px;border-radius:12px;background:var(--sunk);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold) 35%,var(--line));min-width:0}
+.app .atkgm-h{display:flex;align-items:center;gap:6px;font:700 11.5px/1.2 var(--f-ui);color:var(--gold-tx)}
+.app .atkgm-h svg{width:13px;height:13px;flex:none}
+.app .atkgm p{margin:0;font:600 12.5px/1.4 var(--f-ui);color:var(--ink-2);overflow-wrap:anywhere}
+.app .atkgm p b{color:var(--ink)}
+.app .atkgm p small{font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .atkgm p span{display:block;color:var(--ink-3);white-space:pre-line}
 .app .icard.boost{box-shadow:0 0 0 1.5px var(--gold),0 6px 14px -8px rgba(0,0,0,.7)}
 .app .gearln{display:flex;align-items:center;gap:8px;margin:0 0 6px;font:600 14px/1.3 var(--f-ui);color:var(--ink)}
 .app .gearln svg{width:16px;height:16px;flex:none;color:var(--gold-tx)}

@@ -576,9 +576,10 @@ N.itemRating = it => { const sl = N.itemSlot(it); return sl ? (+it[N.SLOTS[sl][0
 N.rowItem = row => N.itemByName(row && row[0]);
 N.isWeaponRow = row => !!(N.invX(row).w || N.itemSlot(N.rowItem(row)));
 /* recompute the card from what is equipped */
+/* o's equipped catalog items in one slot, best rating first (GM device only) */
+N.eqOf = (o, sl) => (o.inv || []).filter(r => N.invX(r).eq).map(r => N.rowItem(r)).filter(it => it && N.itemSlot(it) === sl).sort((a, b) => N.itemRating(b) - N.itemRating(a));
 N.applyGear = o => {
-  const eq = (o.inv || []).filter(r => N.invX(r).eq).map(r => N.rowItem(r)).filter(Boolean);
-  const of = sl => eq.filter(it => N.itemSlot(it) === sl).sort((a, b) => N.itemRating(b) - N.itemRating(a));
+  const of = sl => N.eqOf(o, sl);
   const mel = of('melee'), rng = of('ranged')[0], am = of('ammo')[0], arm = of('armor')[0], sh = of('shield')[0];
   o.gearAtk = mel[0] ? N.itemRating(mel[0]) : 0;
   o.gearAtk2 = mel[1] && mel[0].dual && mel[1].dual ? N.itemRating(mel[1]) : 0;
@@ -773,6 +774,19 @@ N.tokGear = (t, k) => !t ? 0 : t.kind === 'npc' ? (+t[k] || 0) : (+(N.G.chars[t.
 /* what an attacker's gear does for an attack with this skill: roll = added to the attack roll, hit = shifts added to a hit */
 N.atkGear = (t, sk) => sk === 'Fighting' ? {roll:0, hit:N.tokGear(t, 'gearAtk'), hitL:'melee weapon'}
   : sk === 'Shooting' ? {roll:N.tokGear(t, 'gearRng'), rollL:'ranged weapon', hit:N.tokGear(t, 'gearAmmo'), hitL:'ammo'} : {roll:0, hit:0};
+/* the catalog items behind an attacker's gear for an attack with this skill (GM device only: players have no catalog):
+   the melee weapon(s) for Fighting, the ranged weapon and ammo for Shooting. [{l, it}], it.gm is the GM's note.
+   A rating set by hand with nothing equipped behind it gives nothing. Looked up live, so an edited note shows at once. */
+N.atkItems = (t, sk) => {
+  if (!t || !(N.G.items || []).length) return [];
+  const o = t.kind === 'pc' ? N.G.chars[t.ref] : (N.G.npcs || []).find(n => n.id === t.ref);
+  if (!o) return [];
+  const out = [], add = (l, it) => { if (it) out.push({l, it}); };
+  if (sk === 'Fighting') { const mel = N.eqOf(o, 'melee'), two = mel[1] && mel[0].dual && mel[1].dual;
+    add(two ? 'Melee weapon 1' : 'Melee weapon', mel[0]); if (two) add('Melee weapon 2', mel[1]); }
+  if (sk === 'Shooting') { add('Ranged weapon', N.eqOf(o, 'ranged')[0]); add('Ammo', N.eqOf(o, 'ammo')[0]); }
+  return out;
+};
 N.curTok = () => { if (N.G.combat.phase === 'notice') return null; const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
 N.tokObj = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref] || {}; const p = N.G.P[c.player]; return {name:c.short || '?', portrait:c.built ? c.portrait : null, color:p?.color || 'var(--accent)'}; }
   return {name:t.name, portrait:t.portrait, color:t.side === 'ally' ? 'var(--c-npc)' : 'var(--c-foe)'}; };
