@@ -154,12 +154,12 @@ function deskPage(v, c, a, mode, cls){
   /* every line between panels drags and every panel beside the main one folds; roleplay and combat remember their own sizes */
   const rp = mode === 'rp', off = v.ui.recentOff, wk = rp ? 'railW' : 'railWc', hk = rp ? 'rcH' : 'rcHc', ok = rp ? 'railOff' : 'railOffc';
   const w = v.ui[wk] || (!rp && isGM(v) ? 560 : 0), h = v.ui[hk];
-  if (v.ui[ok]) return `<main class="page with-rail rail-off${cls ? ' ' + cls : ''}">${c}<aside class="rail"><button type="button" class="railopen" data-a="railFold" data-v="${ok}" aria-label="Show the side panel" title="Show the side panel">${IC('left')}<span>${rp ? 'Card and actions' : 'Fight panel'}</span></button></aside></main>`;
+  if (v.ui[ok]) return `<main class="page with-rail rail-off${cls ? ' ' + cls : ''}">${c}<aside class="rail"><button type="button" class="railopen" data-a="railFold" data-v="${ok}" aria-label="Show the side panel" title="Show the side panel">${IC('left')}<span>${rp ? 'Card and actions' : N.cbKind() === 'fight' ? 'Fight panel' : 'Side panel'}</span></button></aside></main>`;
   return `<main class="page with-rail${cls ? ' ' + cls : ''}" data-wk="${wk}" data-hk="${hk}"${w ? ` style="--railw:${w}px"` : ''}>${c}<aside class="rail${off ? ' rc-off' : ''}"${h && !off ? ` style="--rch:${h}px"` : ''}>
     <div class="railgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the side panel" title="Drag to resize"></div>
     <button type="button" class="railx" data-a="railFold" data-v="${ok}" aria-label="Hide the side panel" title="Hide the side panel">${IC('right')}</button>
     ${a}
-    <section class="rcnt">${off ? '' : '<div class="rowgrip" role="separator" aria-orientation="horizontal" aria-label="Drag to resize" title="Drag to resize"></div>'}<button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC(rp ? 'dice' : 'swords')}<b>${rp ? 'Recent actions' : 'Fight results and chat'}</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
+    <section class="rcnt">${off ? '' : '<div class="rowgrip" role="separator" aria-orientation="horizontal" aria-label="Drag to resize" title="Drag to resize"></div>'}<button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC(rp ? 'dice' : 'swords')}<b>${rp ? 'Recent actions' : N.cbKind() === 'fight' ? 'Fight results and chat' : 'Results and chat'}</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
       ${off ? '' : N.recentHtml(v, mode) + (mode === 'cb' ? fightComposer(v) : '')}</section>
   </aside></main>`;
 }
@@ -168,7 +168,7 @@ function deskPage(v, c, a, mode, cls){
 function modeSeg(v){
   const cb = v.ui.fightOpen, g = G();
   const n = cb ? g.msgs.filter(m => m.ch === v.ui.ch && m.by !== v.role && m.t > (v.ui.rpSeen || 0) && !isAction(m) && m.kind !== 'scene').length : 0;
-  return `<div class="seg modeseg" role="group" aria-label="Screen"><button type="button" data-a="mode" data-v="rp" aria-pressed="${!cb}">${IC('chatL')}Roleplay${n ? `<i class="nb">${n}</i>` : ''}</button><button type="button" data-a="mode" data-v="cb" aria-pressed="${!!cb}">${IC('swords')}Combat</button></div>`;
+  return `<div class="seg modeseg" role="group" aria-label="Screen"><button type="button" data-a="mode" data-v="rp" aria-pressed="${!cb}">${IC('chatL')}Roleplay${n ? `<i class="nb">${n}</i>` : ''}</button><button type="button" data-a="mode" data-v="cb" aria-pressed="${!!cb}">${IC(N.kw().ic)}${N.cbKind() === 'fight' ? 'Combat' : N.kw().W}</button></div>`;
 }
 /* the chat that belongs to one fight: questions, what you'd like to do next. It stays with the fight, never in the roleplay chat */
 function fightComposer(v){
@@ -188,10 +188,11 @@ function chatView(v, side){
     ${grpBtn ? `<button type="button" class="btn sm" data-a="grpEdit" data-v="${ch.slice(4)}" style="--h:36px">${IC('gear')}Edit group</button>` : ''}
     <button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
-    ${fa ? (cb.state === 'setup' ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC('swords')}Back to fight setup</button>` : modeSeg(v)) : ''}</header>`;
+    ${fa ? (cb.state === 'setup' ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC(N.kw().ic)}Back to ${N.kw().w} setup</button>` : modeSeg(v)) : ''}</header>`;
   const fightbar = (cb.state === 'live' && ch === N.fightCh() && !N.owedTok(v) && !fa) ? (() => {
-    const cur = N.curTok();
-    return `<div class="fightbar">${IC('swords','sw')}<div class="t">Fight on ${esc(cb.title)}<span>${cur ? `${esc(N.tokName(cur))}’s turn · exchange ${cb.exchange}` : ''}</span></div>${fa ? `<button type="button" class="btn sm gold" data-a="openFight">Back to the fight</button>` : `<button type="button" class="btn sm" data-a="watch">Watch</button>`}</div>`;
+    const cur = N.curTok(), k = N.cbKind(), K = N.kw();
+    const sub = k === 'challenge' ? (c => `${c.done} of ${c.all} rolled · ${c.ok} succeeded`)(N.chalCount()) : k === 'contest' ? N.ctKeys().map(x => `${esc(N.ctName(x, v))} ${cb.score?.[x] || 0}`).join(' · ') + (cur ? ` · ${esc(N.tokName(cur))}’s turn` : '') : cur ? `${esc(N.tokName(cur))}’s turn · exchange ${cb.exchange}` : '';
+    return `<div class="fightbar">${IC(K.ic,'sw')}<div class="t">${k === 'fight' ? 'Fight on' : K.W + ':'} ${esc(cb.title)}<span>${sub}</span></div>${fa ? `<button type="button" class="btn sm gold" data-a="openFight">Back to the fight</button>` : `<button type="button" class="btn sm" data-a="watch">Watch</button>`}</div>`;
   })() : '';
   /* an attack waiting on this screen's defense shows above the chat too, so it isn't missed with the board closed */
   const owed = N.owedTok(v), pend = cb.pending;
@@ -216,7 +217,7 @@ function chatView(v, side){
 function fightSeg(v){
   const n = N.unread(v.role, N.fightCh());
   /* the same Roleplay | Combat switch as on a computer */
-  return `<div class="seg modeseg" role="group" aria-label="Screen"><button type="button" data-a="pane" data-v="chat" aria-pressed="${v.ui.fightPane==='chat'}">${IC('chatL')}Roleplay${n&&v.ui.fightPane!=='chat'?'<span class="dot"></span>':''}</button><button type="button" data-a="pane" data-v="fight" aria-pressed="${v.ui.fightPane==='fight'}">${IC('swords')}Combat</button></div>`;
+  return `<div class="seg modeseg" role="group" aria-label="Screen"><button type="button" data-a="pane" data-v="chat" aria-pressed="${v.ui.fightPane==='chat'}">${IC('chatL')}Roleplay${n&&v.ui.fightPane!=='chat'?'<span class="dot"></span>':''}</button><button type="button" data-a="pane" data-v="fight" aria-pressed="${v.ui.fightPane==='fight'}">${IC(N.kw().ic)}${N.cbKind() === 'fight' ? 'Combat' : N.kw().W}</button></div>`;
 }
 N.sceneArt = (sc) => {
   if (!sc) return '';
@@ -481,6 +482,13 @@ function rRoll(v, m){
 /* the result of a fight step, posted once the dice are in: an attack against a defense, or the turn order */
 /* vw: who is looking (for hidden skill levels); v is left out on a past fight's card to hide the GM's buttons */
 function resCard(res, v, vw = v){
+  if (res.k === 'order' && res.hand) return `<div class="resm"><div class="rs-h">${IC('clock')}<b>Turn order</b><small>Set by ${esc(N.gmName())}</small></div>
+    <ol class="rs-rows">${(res.rows||[]).map((x, i) => `<li><span class="nm">${esc(x.n)}</span><b>${i + 1}</b></li>`).join('')}</ol></div>`;
+  /* a contest round: everyone's best roll, who won it, and the score after it */
+  if (res.k === 'round') return `<div class="resm round ${res.out?.k === 'tie' ? 'tie' : 'miss'}"><div class="rs-h">${IC('flag')}<b>Round ${res.n}</b><small>Contest · first to ${res.goal || 3}</small></div>
+    <ul class="rs-rows">${(res.rows||[]).map(x => `<li${x.win ? ' class="win"' : ''}><span class="nm"><small>${esc(x.n)}</small>${esc(x.who)}</span><span class="mt">${esc(x.sk)}</span><b>${sgn(x.tot)}<small>${ladderWord(x.tot)}</small></b></li>`).join('')}</ul>
+    <div class="rs-out"><span class="out ${res.out?.k === 'tie' ? 'tie' : 'succ'}">${esc(res.out?.t || '')}</span><span>${esc(res.after || '')}</span></div>
+    <div class="rs-score">${(res.score || []).map(x => `<span><b>${x.p}</b>${esc(x.n)}</span>`).join('')}</div></div>`;
   if (res.k === 'order') return `<div class="resm"><div class="rs-h">${IC('clock')}<b>Turn order</b><small>Notice rolls</small></div>
     <ol class="rs-rows">${(res.rows||[]).map(x => `<li><span class="nm">${esc(x.n)}</span><span class="mt">Notice ${!vw || skSeen(vw, 'Notice', null, x.n) ? sgn(x.sk) : skHid} · dice ${sgn((x.d||[]).reduce((a,b)=>a+b,0))}</span><b>${sgn(x.tot)}</b></li>`).join('')}</ol></div>`;
   const row = (x, lab) => `<li><span class="nm"><small>${lab}</small>${esc(x.n)}</span><span class="mt">${esc(x.sk)} ${!vw || skSeen(vw, x.sk, null, x.n) ? sgn(x.b - (x.g||0) + (x.dist||0) - (x.mod||0)) : skHid}${x.g?` · ${x.gl || 'gear'} ${sgn(x.g)}`:''}${x.dist?` · distance −${x.dist}`:''}${x.mod?` · ${x.mod > 0 ? 'buff' : 'debuff'} ${sgn(x.mod)}`:''}</span><b>${sgn(x.tot)}<small>${ladderWord(x.tot)}</small></b></li>`;
@@ -493,12 +501,12 @@ function resCard(res, v, vw = v){
 function fightCard(v, m){
   const g = G(), cb = g.combat, live = cb.state === 'live' && cb.id === m.cid, gm = isGM(v);
   const toks = cb.tokens.filter(t => t.zone);
-  const mine = !gm && !!N.myTok(v);
+  const mine = !gm && !!N.myTok(v), K = N.KIND[m.ck || 'fight'];
   return `<div class="fightcard"><div class="art">${(b => N.bgPic(N.imgUrl(b) ? b : N.FIGHTBG))(m.bg || (live ? cb.bg : ''))}</div><div class="in">
-    <span class="eyebrow">${IC('swords')}${live?'A fight breaks out':'The fight is over'}</span>
+    <span class="eyebrow">${IC(K.ic)}${live ? (m.ck ? `A ${K.w} begins` : 'A fight breaks out') : `The ${K.w} is over`}</span>
     <h3>${esc(m.text)}</h3>
-    ${live ? `<div class="who">${toks.slice(0,6).map(t => N.av(N.tokObj(t),28)).join('')}<span>${toks.length} in the fight · ${cb.zones.length} zones</span></div>
-    <div class="row">${gm ? `<button type="button" class="btn gold" data-a="openFight">${IC('swords')}Open the fight</button>` : mine ? `<button type="button" class="btn gold" data-a="watch">${IC('swords')}Watch the fight</button>` : `<button type="button" class="btn" data-a="watch">Watch</button>`}</div>` : '<span class="muted" style="font-weight:600">This fight is over.</span>'}
+    ${live ? `<div class="who">${toks.slice(0,6).map(t => N.av(N.tokObj(t),28)).join('')}<span>${toks.length} in the ${K.w} · ${cb.zones.length} zone${cb.zones.length === 1 ? '' : 's'}</span></div>
+    <div class="row">${gm ? `<button type="button" class="btn gold" data-a="openFight">${IC(K.ic)}Open the ${K.w}</button>` : mine ? `<button type="button" class="btn gold" data-a="watch">${IC(K.ic)}Watch the ${K.w}</button>` : `<button type="button" class="btn" data-a="watch">Watch</button>`}</div>` : `<span class="muted" style="font-weight:600">This ${K.w} is over.</span>`}
   </div></div>`;
 }
 function composer(v){
@@ -541,8 +549,10 @@ function gmScreen(v){
   const where = c => c === 'table' ? 'Everyone' : c === 'gm' ? 'GM notes' : c.startsWith('grp-') ? `${N.grpOf(c)?.party ? 'the party' : 'the group chat'} ${esc(N.chName(c,'gm'))}` : `your chat with ${esc(N.chName(c,'gm'))}`;
   const fight = Object.entries(fights).sort(([a],[b]) => (a !== 'table') - (b !== 'table') || a.localeCompare(b)).map(([c, cb]) => {
     const o = N.order(cb), cur = cb.state === 'live' && cb.phase !== 'notice' && o.length ? o[cb.turn % o.length] : null;
-    return `<button type="button" class="bigcta" data-a="openFight" data-v="${c}"><span class="ic">${IC('swords')}</span><span><b>${cb.state==='setup'?'Fight setup':'Fight on '+esc(cb.title)}</b><small>In ${where(c)} · ${cb.state==='setup'?(c === 'gm' ? 'Not started yet. Only you see it.' : 'Not started yet. Players can’t see it.'):`Exchange ${cb.exchange}${cur ? ` · ${esc(N.tokName(cur))}’s turn` : ''}`}</small></span></button>`;
-  }).join('') + (fights[here] ? '' : N.metaOnly(here) ? `<p class="muted gm-nofight">${IC('swords')}No fights in ${here === 'table' ? 'Everyone' : esc(N.chName(here, 'gm'))}, it’s Meta only. Open a chat that isn’t Meta only to begin one.</p>` : `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>${Object.keys(fights).length ? 'Begin another fight' : 'Begin a fight'}</b><small>In ${where(here)}. ${here === 'gm' ? 'A fight only you see, even once it starts. Add NPCs on both sides.' : 'Draw zones and add enemies. Players see nothing until you start.'}</small></span></button>`)
+    const K = N.kw(cb), k = N.cbKind(cb);
+    return `<button type="button" class="bigcta" data-a="openFight" data-v="${c}"><span class="ic">${IC(K.ic)}</span><span><b>${cb.state==='setup'?`${K.W} setup`:(k === 'fight' ? 'Fight on ' : K.W + ': ')+esc(cb.title)}</b><small>In ${where(c)} · ${cb.state==='setup'?(c === 'gm' ? 'Not started yet. Only you see it.' : 'Not started yet. Players can’t see it.'):k === 'challenge' ? 'Working through the rolls' : `${k === 'contest' ? 'Round' : 'Exchange'} ${cb.exchange}${cur && k !== 'challenge' ? ` · ${esc(N.tokName(cur))}’s turn` : ''}`}</small></span></button>`;
+  }).join('') + (fights[here] ? '' : N.metaOnly(here) ? `<p class="muted gm-nofight">${IC('swords')}No fights in ${here === 'table' ? 'Everyone' : esc(N.chName(here, 'gm'))}, it’s Meta only. Open a chat that isn’t Meta only to begin one.</p>` : `<button type="button" class="bigcta" data-a="cbBegin"><span class="ic">${IC('swords')}</span><span><b>${Object.keys(fights).length ? 'Begin another fight' : 'Begin a fight'}</b><small>In ${where(here)}. ${here === 'gm' ? 'A fight only you see, even once it starts. Add NPCs on both sides.' : 'Draw zones and add enemies. Players see nothing until you start.'}</small></span></button>
+      <div class="kindrow"><button type="button" class="btn sm" data-a="cbBegin" data-k="contest" title="Competing overcome rolls in rounds, with a scoreboard">${IC('flag')}Begin a contest</button><button type="button" class="btn sm" data-a="cbBegin" data-k="challenge" title="Characters work together through two or more skill rolls">${IC('overcome')}Begin a challenge</button></div>`)
     /* a fight only the GM sees: practice runs and fights the players aren't part of */
     + (here === 'gm' || fights.gm ? '' : `<button type="button" class="btn sm ghost block gm-solo" data-a="cbBegin" data-v="gm">${IC('lock')}Begin a fight in GM notes · only you see it</button>`);
   /* storefronts: one per chat, like fights */
@@ -994,7 +1004,7 @@ N.charStats = function(c){
       }
       if (who && / consequence\./.test(t) && / soaks the /.test(t)) st.cons++;
     }
-    if (m.kind === 'combat' || m.kind === 'fight') {
+    if ((m.kind === 'combat' || m.kind === 'fight') && !m.ck) {
       /* a fight counts when the character rolled in it or was attacked in it */
       const all = N.fightMsgs(m.cid);
       if (all.some(x => (x.kind === 'roll' && x.roll && mineRoll(x.roll)) || (x.kind === 'sys' && x.res?.k === 'clash' && (x.res.rows || []).some(r => names.has(r.n))))) st.fights++;

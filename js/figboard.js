@@ -154,8 +154,8 @@ function measure(S, snap){
   /* idle figures face the nearest fighter of the other side, left or right */
   const figs = [...S.figs.values()];
   for (const F of figs) {
-    const me = N.sideOf(F.t) === 'foe'; let best = null, bd = 1e9;
-    for (const O of figs) { if (O === F || O.x == null || O.t.out || (N.sideOf(O.t) === 'foe') === me) continue; const d = Math.hypot(O.x - F.x, O.y - F.y); if (d < bd) { bd = d; best = O; } }
+    const sd = N.sideOf(F.t), me = sd === 'foe'; let best = null, bd = 1e9;
+    for (const O of figs) { if (O === F || O.x == null || O.t.out || N.sideOf(O.t) === sd) continue; const d = Math.hypot(O.x - F.x, O.y - F.y); if (d < bd) { bd = d; best = O; } }
     F.face = best ? (best.x >= F.x ? 1 : -1) : me ? -1 : 1;
   }
 }

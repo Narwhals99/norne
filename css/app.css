@@ -2606,3 +2606,85 @@
 .app .scenem.askm .tx{text-transform:none;letter-spacing:0;color:inherit;font:inherit}
 .app .scenem.askm .tx > span{display:block;font:700 10px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold-tx)}
 .app .scenem.askm .tx > b{display:block;margin-top:2px;font:600 14px/1.2 var(--f-display);letter-spacing:0;text-transform:none;color:var(--ink)}
+
+/* ---------- contests, challenges, teams and hand-set turn order (Jake, Nov 9) ---------- */
+.app .kindrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.app .kindrow .btn{width:100%;justify-content:center}
+/* team chips: a colour dot, the name and (on the setup line) how many are on it */
+.app .teamline{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+.app .tchip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:999px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);font:700 12px/1 var(--f-ui);color:var(--ink-2);white-space:nowrap}
+.app .tchip i{width:10px;height:10px;border-radius:50%;background:var(--tc);flex:none}
+.app .tchip b{font:700 12px/1 var(--f-ui);color:var(--ink-3)}
+.app button.tchip[aria-pressed="true"]{background:color-mix(in srgb,var(--tc) 22%,var(--raise));box-shadow:inset 0 0 0 1.5px var(--tc);color:var(--ink)}
+.app .tk-teams{display:flex;flex-wrap:wrap;gap:6px}
+.app .zlist .zi .zi-b{display:flex;gap:6px;flex:none}
+.app .zlist .zi.many{flex-wrap:wrap}
+.app .zlist .zi.many .zi-b{flex-wrap:wrap;width:100%;padding-left:38px}
+.app .team-list{display:grid;gap:8px}
+.app .team-h{display:flex;align-items:center;gap:8px}
+.app .team-h>i{width:14px;height:14px;border-radius:50%;background:var(--tc);flex:none}
+.app .team-h .inp{flex:1;min-width:0}
+.app .team-ps{display:grid;gap:8px}
+.app .team-p{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:6px 10px;padding:8px 10px;border-radius:12px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .team-p>b{font:700 13.5px/1.2 var(--f-ui);color:var(--ink)}
+.app .team-p .tk-teams{grid-column:1/-1}
+/* turn order set by hand */
+.app .ord-list{display:grid;gap:6px}
+.app .ord-row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:12px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .ord-row .n{width:22px;text-align:center;font:700 16px/1 var(--f-display);color:var(--gold-tx)}
+.app .ord-row .nm{flex:1;min-width:0;display:grid}
+.app .ord-row .nm b{font:700 14px/1.2 var(--f-ui);color:var(--ink)}
+.app .ord-row .nm small{font:600 11.5px/1.2 var(--f-ui);color:var(--ink-3)}
+/* contest scoreboard: one row per team (or person), pips up to the winning score */
+.app .ctboard,.app .chal{display:grid;gap:6px;padding:10px 12px;border-radius:16px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app .fight-scroll>.ctboard,.app .fight-scroll>.chal{margin:10px 12px 0}
+.app .fight.dt>.ctboard,.app .fight.dt>.chal{margin:0 16px 10px}
+.app .cm-ctl>.ctboard,.app .cm-ctl>.chal{margin:0}
+.app .ctboard .eyebrow,.app .chal .eyebrow{display:flex;align-items:center;gap:6px}
+.app .ctboard .eyebrow svg,.app .chal .eyebrow svg{width:13px;height:13px}
+.app .ct-row{--tc:var(--gold);display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:12px;background:var(--raise);box-shadow:inset 3px 0 0 var(--tc),inset 0 0 0 1px var(--line)}
+.app .ct-row.won{background:color-mix(in srgb,var(--gold) 16%,var(--raise));box-shadow:inset 3px 0 0 var(--tc),inset 0 0 0 1.5px var(--gold)}
+.app .ct-av{display:flex;flex:none}
+.app .ct-av .av+.av{margin-left:-8px}
+.app .ct-n{flex:1;min-width:0;display:grid}
+.app .ct-n b{font:700 13.5px/1.2 var(--f-ui);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .ct-n small{font:600 11.5px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .ct-pips{display:flex;gap:4px}
+.app .ct-pips i{width:12px;height:12px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--line-3);background:var(--sunk)}
+.app .ct-pips i.on{background:var(--gold);box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 60%,transparent)}
+.app .ct-p{font:700 20px/1 var(--f-display);color:var(--gold-tx);min-width:18px;text-align:right}
+.app .ct-row .mini{display:flex;gap:4px}
+.app .ct-row .mini button{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--sunk);font:800 14px/1 var(--f-ui);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line)}
+.app .ct-row .mini button:disabled{opacity:.4}
+.app .resm.round .rs-rows li.win{box-shadow:inset 0 0 0 1.5px var(--jade)}
+.app .resm .rs-score{display:flex;flex-wrap:wrap;gap:6px}
+.app .resm .rs-score span{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px 0 4px;border-radius:999px;background:var(--raise);font:700 11.5px/1 var(--f-ui);color:var(--ink-2)}
+.app .resm .rs-score b{display:grid;place-items:center;min-width:18px;height:18px;border-radius:50%;background:var(--gold);color:var(--page-solid);font:800 11px/1 var(--f-ui)}
+/* challenge: the rolls it is made of, with each one's result */
+.app .chal-row{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:12px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .chal-row .n{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--sunk);font:700 13px/1 var(--f-display);color:var(--gold-tx)}
+.app .chal-row .n svg{width:14px;height:14px}
+.app .chal-row.succ .n,.app .chal-row.style .n{background:color-mix(in srgb,var(--jade) 24%,var(--sunk));color:var(--jade)}
+.app .chal-row.fail .n{background:color-mix(in srgb,var(--ember) 22%,var(--sunk));color:var(--ember-ink,var(--ember))}
+.app .chal-row .f{flex:1;min-width:0;display:grid;gap:2px}
+.app .chal-row .f b{font:700 13.5px/1.2 var(--f-ui);color:var(--ink)}
+.app .chal-row .f small{font:600 11.5px/1.25 var(--f-ui);color:var(--ink-3)}
+.app .chal-row .f small .sw{color:var(--gold-tx);font:inherit}
+.app .chal-row .ch-res{display:flex;align-items:center;gap:8px;flex:none;font:600 12px/1 var(--f-ui)}
+.app .chal-row .ch-res b{font:700 17px/1 var(--f-display);color:var(--gold-tx)}
+.app .chal-row .ch-res b small{font:600 11px/1 var(--f-ui);color:var(--ink-3)}
+.app .chal-row .ch-res .out{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;font:800 10px/1 var(--f-ui);letter-spacing:.08em;text-transform:uppercase}
+.app .chal-row.ed .f{grid-template-columns:1fr;gap:6px}
+.app .chal.ed{padding:0;background:none;box-shadow:none}
+.app .chal-ft{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.app .chal-note{display:flex;gap:8px;align-items:flex-start}
+@container dev (max-width: 520px){
+  .app .chal-row{flex-wrap:wrap}
+  .app .chal-row .f{flex-basis:calc(100% - 40px)}
+  .app .chal-row .ch-res{margin-left:34px}
+  .app .chal-row:not(.ed) .btn{margin-left:auto}
+  .app .ct-pips i{width:10px;height:10px}
+}
+.app .ct-goal{display:flex;align-items:center;gap:10px}
+.app .ct-goal small{font:700 12.5px/1 var(--f-ui);color:var(--ink-2)}
+.app .ct-goal .seg button{min-width:44px;justify-content:center}

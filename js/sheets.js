@@ -27,7 +27,7 @@ N.allRollers = v => {
   const g = G();
   if (!isGM(v)) { const c = N.charOf(v.role); return c && c.built ? [{key:'pc:'+c.id, name:c.short, portrait:c.portrait, color:c.color, skills:c.skills}] : []; }
   const out = [];
-  if (g.combat.state === 'live') g.combat.tokens.filter(t => t.kind === 'npc' && !t.out).forEach(t => out.push({key:'tok:'+t.id, name:t.name, portrait:t.portrait, color:t.side==='ally'?'var(--c-npc)':'var(--c-foe)', skills:t.skills || {}}));
+  if (g.combat.state === 'live') g.combat.tokens.filter(t => t.kind === 'npc' && !t.out).forEach(t => out.push({key:'tok:'+t.id, name:t.name, portrait:t.portrait, color:N.tokObj(t).color, skills:t.skills || {}}));
   g.npcs.forEach(n => out.push({key:'npc:'+n.id, name:n.name, portrait:n.portrait, color:'var(--c-npc)', skills:n.skills}));
   N.extrasOf(v.ui.ch === 'gm' ? 'table' : v.ui.ch).forEach(x => out.push({key:'one:'+x.id, name:x.name, color:'var(--c-npc)', skills:x.skills || {}}));
   N.pcs().filter(c => c.built).forEach(c => out.push({key:'pc:'+c.id, name:c.short, portrait:c.portrait, color:c.color, skills:c.skills}));
@@ -105,7 +105,10 @@ N.sheetHtml = function(v){
     const ev = gm && r.event && r.ctx === 'cb' && cb.state === 'live';
     /* an overcome or advantage rolled in the fight can be against someone too: another fighter's skill, like a custom event */
     const cbVs = gm && r.ctx === 'cb' && cb.state === 'live' && r.action !== 'attack';
-    const rp = gm && !fightAtk && (r.ctx !== 'cb' || ev || cbVs);
+    /* a contest roll has no difficulty: it is up against everyone else's this round */
+    const contest = gm && r.contest && r.action === 'overcome' && !ev && r.ctx === 'cb' && cb.state === 'live';
+    const chal = gm && r.chal && r.ctx === 'cb' && cb.state === 'live' ? (cb.tasks || []).find(x => x.id === r.chal) : null;
+    const rp = gm && !fightAtk && !contest && (r.ctx !== 'cb' || ev || cbVs);
     const vsN = rp ? N.vsFind(v, r, r.vsNpc) : null, vsVal = vsN && r.vsSkill ? (vsN.skills[r.vsSkill] || 0) : null;
     const oppList = [null,-1,0,1,2,3,4,5,6,7,8,9,10,11,12]; if (r.opp != null && !oppList.includes(r.opp)) oppList.push(r.opp);
     const oppChips = `<div class="ladder-chips">${oppList.map(x => `<button type="button" class="lchip" data-a="rollOpp" data-v="${x}" aria-pressed="${r.opp===x}"><b>${x==null?'—':sgn(x)}</b>${x==null?'No target':ladderWord(x)}</button>`).join('')}</div>`;
@@ -129,14 +132,15 @@ N.sheetHtml = function(v){
       ${gm ? `<div><h4>Who rolls</h4><div class="who-row">${N.rollers(v).map(o => `<button type="button" data-a="rollWho" data-v="${o.key}" aria-pressed="${o.key===who.key}">${whoAv(o)}<span>${esc(o.name)}</span></button>`).join('')}</div>${moreWho}</div>` : ''}
       ${other ? `<div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))"><label class="field"><span>Name</span><input class="inp" id="rother-${v.id}" data-i="rollOther" value="${esc(r.otherName)}" placeholder="e.g. City watch guard"></label>
         <div class="field"><span>Bonus</span><div class="seg" style="justify-content:space-between;width:100%"><button type="button" data-a="rollBonus" data-d="-1" aria-label="Less">${IC('minus')}</button><b style="align-self:center;font:700 18px/1 var(--f-display)">${sgn(bonus)}</b><button type="button" data-a="rollBonus" data-d="1" aria-label="More">${IC('plus')}</button></div></div></div>` : ''}
+      ${chal ? `<div class="note chal-note">${IC('overcome')}<span>Part ${(cb.tasks || []).indexOf(chal) + 1} of the challenge${chal.label ? `: <b>${esc(chal.label)}</b>` : ''}. Set to roll <b>${esc(chal.skill)}</b>${r.skill !== chal.skill ? `, swapped for <b>${esc(r.skill)}</b>` : ''}. Pick another skill below to swap it (a stunt, say).</span></div>` : ''}
       ${ev ? `<label class="field"><span>What’s happening</span><input class="inp" id="rev-${v.id}" data-i="rollEv" value="${esc(r.evText||'')}" placeholder="e.g. Mind magic: reaches into the guard’s thoughts"></label>` : ''}
-      <div><h4>What are you doing?</h4><div class="acts">${N.ACTIONS.filter(a => !ev || a[1] !== 'attack').map(([l,k]) => `<button type="button" class="act" data-a="rollAct" data-v="${k}" aria-pressed="${r.action===k}">${IC(k)}${l.replace('Create an advantage','Advantage')}</button>`).join('')}</div></div>
+      <div><h4>What are you doing?</h4><div class="acts">${N.ACTIONS.filter(a => !(ev || ((r.ctx === 'cb' && cb.state === 'live') && N.cbKind() !== 'fight')) || (a[1] !== 'attack' && (ev || a[1] !== 'defend'))).map(([l,k]) => `<button type="button" class="act" data-a="rollAct" data-v="${k}" aria-pressed="${r.action===k}">${IC(k)}${l.replace('Create an advantage','Advantage')}</button>`).join('')}</div></div>
       ${r.action === 'attack' && inFight ? `<div><h4>Target</h4>${targets.length ? `<div class="tgts">${targets.map(t => { const z = t.zone !== tokOfWho.zone && N.zoneOf(t); return `<button type="button" class="tgt" data-a="rollTgt" data-v="${t.id}" aria-pressed="${r.target===t.id}">${N.av(N.tokObj(t),32)}${esc(N.tokName(t))}${N.sideOf(t) === N.sideOf(tokOfWho) ? '<small class="ff">Own side</small>' : ''}${z ? `<small class="ff fz" style="--zc:${z.col}">${esc(z.name)}</small>` : ''}</button>`; }).join('')}</div>` : `<div class="note">${IC('info')}Nobody else is on the board.</div>`}</div>` : ''}
       ${r.action === 'advantage' ? `<label class="field"><span>Aspect you’re creating</span><input class="inp" id="rasp-${v.id}" data-i="rollAsp" value="${esc(r.aspect||'')}" placeholder="e.g. Blinded by Spilled Ale"></label>` : ''}
       ${other ? '' : `<div><h4>Skill</h4><div class="skills">${skills.map(([n,x]) => `<button type="button" class="sk" data-a="rollSkill" data-v="${esc(n)}" aria-pressed="${r.skill===n}"><span><b>${esc(n)}</b><small>${ladderWord(x)}</small></span><span class="v">${sgn(x)}</span></button>`).join('')}
         ${r.all || !skills.length ? rest.map(n => `<button type="button" class="sk" data-a="rollSkill" data-v="${n}" aria-pressed="${r.skill===n}"><span><b>${n}</b><small>Mediocre</small></span><span class="v">+0</span></button>`).join('') : ''}</div>
         ${r.all || !skills.length ? '' : `<button type="button" class="btn sm ghost" data-a="rollAll" style="margin-top:8px">Show every skill (${rest.length} more at +0)</button>`}</div>`}
-      ${fightAtk ? `<div class="note">${IC('defend')}Your target rolls to defend right after you. The result shows in the chat once both rolls are in.</div>` : rp ? vsHtml : `<div><h4>Against ${r.action==='attack'||r.action==='defend'?'(the other side rolls)':'(optional)'}</h4>${oppChips}</div>`}
+      ${contest ? `<div class="note">${IC('flag')}A contest roll: the highest roll this round wins it when the round is scored. Invokes still count until then.</div>` : fightAtk ? `<div class="note">${IC('defend')}Your target rolls to defend right after you. The result shows in the chat once both rolls are in.</div>` : rp ? vsHtml : `<div><h4>Against ${r.action==='attack'||r.action==='defend'?'(the other side rolls)':'(optional)'}</h4>${oppChips}</div>`}
       ${distHtml}
       ${modHtml}
       ${gm ? `<button type="button" class="toggle" data-a="rollSecret" aria-pressed="${!!r.secret}">${IC('eyeoff')}<span>Secret roll<small>${ev ? 'Only you see it, in your fight log. Players don’t.' : 'Only you see it, in GM notes.'}</small></span><span class="sw"></span></button>` : ''}
@@ -370,7 +374,7 @@ N.sheetHtml = function(v){
     v._lastRoll = keep; if (had) v.ui.folded.set(m.id, was);
     return sheet(`${esc(m.roll.who)}’s roll`, `<div class="rollcard">${card}</div>`, `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
   }
-  case 'gmFight': return sheet('Fight controls', N.gmFightBody(v), '');
+  case 'gmFight': return sheet(`${N.kw().W} controls`, N.gmFightBody(v), '');
   case 'fightRec': {
     const st = G().msgs.find(m => (m.kind === 'combat' || m.kind === 'fight') && m.cid === arg);
     return sheet(st ? `The fight: ${esc(st.text || '')}` : 'The fight', N.fightRecHtml(v, arg), `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true});
@@ -394,9 +398,29 @@ N.sheetHtml = function(v){
     return sheet(`Delete ${esc(n.name)}?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The card is removed. Tokens already in a fight stay.</p>`,
       `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="npcDelGo" data-v="${n.id}">${IC('trash')}Delete</button>`);
   }
-  case 'cbEnd': return sheet('End the fight?', `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">Zones and tokens are cleared for everyone. Stress and consequences stay on the character cards.</p>`,
-      `<button type="button" class="btn ghost" data-a="closeSheet">Keep fighting</button><button type="button" class="btn danger" data-a="cbEndGo">${IC('stop')}End the fight</button>`);
-  case 'addFoe': return sheet('Add to the fight', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${g.combat.zones.length?'They appear in the first zone. Drag them where they belong.':'Draw a zone first, then place them.'}</p>${N.foeList(true, v)}
+  case 'cbEnd': { const K = N.kw(), k = N.cbKind(), c = k === 'challenge' && N.chalCount();
+    return sheet(`End the ${K.w}?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">${k === 'challenge' ? `${c.ok} of ${c.all} roll${c.all === 1 ? '' : 's'} succeeded${c.done < c.all ? `, ${c.all - c.done} not rolled` : ''}. That goes in the chat. ` : k === 'contest' ? `The final score goes in the chat. ` : ''}Zones and tokens are cleared for everyone. Stress and consequences stay on the character cards.</p>`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">${k === 'fight' ? 'Keep fighting' : 'Keep going'}</button><button type="button" class="btn danger" data-a="cbEndGo">${IC('stop')}End the ${K.w}</button>`); }
+  /* the GM sets the turn order by hand: move people up and down, then save (Jake) */
+  case 'cbOrder': {
+    const cb = g.combat, ids = (v.ui.ordDraft || []).filter(id => N.tokById(id)), notice = cb.tokens.some(t => t.init != null);
+    const row = (id, i) => { const t = N.tokById(id); return `<div class="ord-row"><span class="n">${i + 1}</span>${N.av(N.tokObj(t), 30)}<span class="nm"><b>${esc(N.tokName(t))}</b>${t.init != null ? `<small>Notice roll ${sgn(t.init)}</small>` : ''}</span>
+      <button type="button" class="ibtn sm" data-a="ordMove" data-v="${id}" data-d="-1" aria-label="Move ${esc(N.tokName(t))} up" ${i ? '' : 'disabled'}>${IC('caret').replace('<svg', '<svg style="rotate:180deg"')}</button><button type="button" class="ibtn sm" data-a="ordMove" data-v="${id}" data-d="1" aria-label="Move ${esc(N.tokName(t))} down" ${i < ids.length - 1 ? '' : 'disabled'}>${IC('caret')}</button></div>`; };
+    return sheet('Turn order', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${cb.phase === 'notice' ? 'Skip the Notice roll and put everyone in order yourself.' : 'Move people up and down. Whoever is acting now keeps the turn.'} Anyone added later goes at the end.</p>
+      <div class="ord-list">${ids.map(row).join('') || '<p class="muted">Put someone on the board first.</p>'}</div>
+      ${cb.ord && notice ? `<button type="button" class="btn sm ghost" data-a="ordNotice" style="justify-self:start">${IC('undo')}Back to the Notice roll order</button>` : ''}`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn primary" data-a="ordSave" ${ids.length ? '' : 'disabled'}>${IC('check')}Save the order</button>`);
+  }
+  /* teams: the two sides every fight has plus any extra the GM adds (three-way fights and contests), and who is on which */
+  case 'cbTeams': {
+    const cb = g.combat, tms = N.teams(), toks = cb.tokens;
+    const head = tm => `<div class="team-h" style="--tc:${tm.col}"><i></i><input class="inp" id="tmn-${tm.id}-${v.id}" data-i="teamName" data-k="${tm.id}" value="${esc(tm.name)}" aria-label="Team name">${tm.extra ? `<button type="button" class="ibtn sm" data-a="teamDel" data-v="${tm.id}" aria-label="Remove ${esc(tm.name)}" title="Remove this team (its people go back to their usual side)">${IC('trash')}</button>` : ''}</div>`;
+    const who = t => `<div class="team-p">${N.av(N.tokObj(t), 28)}<b>${esc(N.tokName(t))}</b><span class="tk-teams">${tms.map(tm => `<button type="button" class="tchip" style="--tc:${tm.col}" data-a="tokTeam" data-t="${t.id}" data-v="${tm.id}" aria-pressed="${N.sideOf(t) === tm.id}" aria-label="${esc(N.tokName(t))}: ${esc(tm.name)}"><i></i>${esc(tm.name)}</button>`).join('')}</span></div>`;
+    return sheet('Teams', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Every ${N.kw().w} has the players’ side and ${N.cbKind() === 'fight' ? 'the foes' : 'the rivals'}. Add a team for a three-way ${N.kw().w} or more. Tap a name to rename it.</p>
+      <div class="team-list">${tms.map(head).join('')}<button type="button" class="btn sm ghost" data-a="teamAdd" style="justify-self:start">${IC('plus')}Add a team</button></div>
+      ${toks.length ? `<div><h4>Who is on which team</h4><div class="team-ps">${toks.map(who).join('')}</div></div>` : ''}`, `<button type="button" class="btn primary" data-a="closeSheet">${IC('check')}Done</button>`);
+  }
+  case 'addFoe': return sheet(`Add to the ${N.kw().w}`, `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${g.combat.zones.length?'They appear in the first zone. Drag them where they belong.':'Draw a zone first, then place them.'}</p>${N.foeList(true, v)}
       <button type="button" class="btn block ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>`);
   case 'cbAspect': return sheet('Situation aspects', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Something true about this fight, like the weather, the ground or a fire. Shown on the board for everyone, and anyone can invoke it.${g.combat.aspects.some(a => !a.boost) ? ' Tap one to remove it.' : ''}</p>
       <div class="icards">${g.combat.aspects.map((a,i)=>a.boost ? '' : `<button type="button" class="icard" data-a="cbAspDel" data-i="${i}" title="Tap to remove">${a.on ? `<span class="k">On ${esc(a.on)}</span>` : ''}${esc(a.t)}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</button>`).join('')}</div>
