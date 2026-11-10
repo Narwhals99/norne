@@ -655,6 +655,28 @@ N.sheetHtml = function(v){
       ${who && who.pc ? `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">${esc(G().P[who.o.player]?.name || 'The player')} gets a note in your private chat.</p>` : ''}`;
     return sheet(`Give ${esc(it.name)}`, body, `<button type="button" class="btn ghost" data-a="sheet" data-v="items">${IC('left')}Back</button><button type="button" class="btn primary" data-a="itGiveGo" ${who ? '' : 'disabled'}>${IC('hand')}Give</button>`);
   }
+  /* ---------------- Transfer gold or fate points (GM) ---------------- */
+  case 'xfer': {
+    const x = v.ui.xf; if (!gm || !x) return '';
+    const r = N.xferInfo(x), k = r.k, fp = k === 'fp', pcs = N.pcs().filter(c => c.built), npcs = g.npcs;
+    const num = n => fp ? String(n) : n.toLocaleString('en-US'), bal = o => `${num(N.xferBal(o, k))} ${fp ? 'FP' : 'gold'}`;
+    const pick = (key, label) => `<label class="field"><span>${label}</span><select class="inp" id="xf${key}-${v.id}" data-i="xf" data-k="${key}"><option value="">Pick someone…</option>
+        ${pcs.length ? `<optgroup label="Player characters">${pcs.map(c => `<option value="c:${esc(c.id)}" ${x[key] === 'c:' + c.id ? 'selected' : ''}>${esc(c.short)} · ${bal(c)}</option>`).join('')}</optgroup>` : ''}
+        ${npcs.length ? `<optgroup label="NPCs">${npcs.map(n => `<option value="n:${esc(n.id)}" ${x[key] === 'n:' + n.id ? 'selected' : ''}>${esc(n.name)} · ${bal(n)}</option>`).join('')}</optgroup>` : ''}</select></label>`;
+    const face = w => N.av(w.pc ? w.o : {name:w.o.name, portrait:w.o.portrait, color:'var(--c-npc)'}, 28);
+    const ok = r.a && r.b && !r.err, unit = fp ? (r.q === 1 ? 'fate point' : 'fate points') : 'gold';
+    const line = (w, h, d) => `<div class="shop-purse xf-row">${face(w)}<span class="xf-n">${esc(w.label)}</span><b>${num(h)}${ok ? ` → ${num(h + d)}` : ''}</b></div>`;
+    const tells = [r.a, r.b].filter(w => w && w.pc && N.partyOf(w.o.player)).map(w => esc(w.label));
+    const body = `<div class="seg" role="group" aria-label="What to transfer"><button type="button" data-a="xfK" data-v="gold" aria-pressed="${!fp}">${IC('coins')}Gold</button><button type="button" data-a="xfK" data-v="fp" aria-pressed="${fp}">${IC('star')}Fate points</button></div>
+      ${pick('from', 'From')}
+      <div class="xf-sw"><button type="button" class="btn sm ghost" data-a="xfSwap" ${x.from || x.to ? '' : 'disabled'}>${IC('swap')}Swap From and To</button></div>
+      ${pick('to', 'To')}
+      <div class="field"><span>How much</span><div class="gold-ed"><button type="button" data-a="xfQ" data-d="-1" aria-label="Less" ${r.q <= 1 ? 'disabled' : ''}>−</button><input class="inp" id="xfq-${v.id}" data-i="xf" data-k="q" value="${esc(x.qs != null ? x.qs : String(r.q))}" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" aria-label="How much ${fp ? 'fate points' : 'gold'}"><button type="button" data-a="xfQ" data-d="1" aria-label="More" ${r.q >= r.max ? 'disabled' : ''}>+</button><button type="button" class="btn sm ghost xf-all" data-a="xfAll" ${r.max > 1 && r.q !== r.max ? '' : 'disabled'}>All${r.max > 1 ? ` · ${num(r.max)}` : ''}</button></div></div>
+      ${r.a && r.b && r.a.o !== r.b.o ? `<div class="xf-prev">${line(r.a, r.ha, -r.q)}${line(r.b, r.hb, r.q)}</div>` : ''}
+      ${r.err ? `<div class="note">${IC('warn')}${esc(r.err)}</div>` : ''}
+      ${ok ? `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">${tells.length ? `A line goes in the party chat for ${tells.join(' and ')}.` : 'No player gets a note.'}</p>` : ''}`;
+    return sheet(fp ? 'Transfer fate points' : 'Transfer gold', body, `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn primary" data-a="xfGo" ${ok ? '' : 'disabled'}>${IC('swap')}${ok ? `Give ${num(r.q)} ${unit}` : 'Transfer'}</button>`);
+  }
   /* ---------------- custom emoji (GM) ---------------- */
   case 'emoji': {
     const list = g.emoji, e = v.ui.emoNew, n = e ? N.emoName(e.n) : '', dup = !!n && list.some(x => x.n === n), full = list.length >= 80;

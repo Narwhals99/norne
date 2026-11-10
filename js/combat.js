@@ -352,7 +352,7 @@ N.tokCard = function(v, t){
         /* the same pool an invoke spends (N.invokePayer): the PC's character card or the named NPC's card */
         const pool = N.tokFpPool(t); if (!pool || (!gm && t.kind !== 'pc')) return '';
         const o = pool.o, fp = o.fp || 0, n = Math.max(fp, o.refresh || 0);
-        return `<span>Fate points</span><span class="coins tok-fp">${Array.from({length:n}, (_,i) => `<span class="coin${i<fp?'':' off'}"></span>`).join('')}<b class="fp-n">${fp}</b>${gm ? `<span class="mini"><button type="button" data-a="tokFp" data-t="${t.id}" data-d="-1" aria-label="Take a fate point from ${esc(pool.name)}" ${fp<1?'disabled':''}>−</button><button type="button" data-a="tokFp" data-t="${t.id}" data-d="1" aria-label="Give ${esc(pool.name)} a fate point" ${fp>=10?'disabled':''}>+</button></span>` : ''}</span>`;
+        return `<span>Fate points</span><span class="coins tok-fp">${Array.from({length:n}, (_,i) => `<span class="coin${i<fp?'':' off'}"></span>`).join('')}<b class="fp-n">${fp}</b>${gm ? `<span class="mini"><button type="button" data-a="tokFp" data-t="${t.id}" data-d="-1" aria-label="Take a fate point from ${esc(pool.name)}" ${fp<1?'disabled':''}>−</button><button type="button" data-a="tokFp" data-t="${t.id}" data-d="1" aria-label="Give ${esc(pool.name)} a fate point" ${fp>=10?'disabled':''}>+</button><button type="button" class="xf-mini" data-a="xfer" data-v="${pool.pc ? 'c' : 'n'}:${esc(t.ref)}" data-k="fp" aria-label="Transfer fate points from ${esc(pool.name)}" title="Transfer to another character">${IC('swap')}</button></span>` : ''}</span>`;
       })()}
       ${(() => {
         const cs = N.tokCons(t); if (!gm && t.kind !== 'pc' && !cs.some(x => x.v)) return '';
