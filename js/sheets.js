@@ -141,6 +141,7 @@ N.sheetHtml = function(v){
         ${r.all || !skills.length ? rest.map(n => `<button type="button" class="sk" data-a="rollSkill" data-v="${n}" aria-pressed="${r.skill===n}"><span><b>${n}</b><small>Mediocre</small></span><span class="v">+0</span></button>`).join('') : ''}</div>
         ${r.all || !skills.length ? '' : `<button type="button" class="btn sm ghost" data-a="rollAll" style="margin-top:8px">Show every skill (${rest.length} more at +0)</button>`}</div>`}
       ${contest ? `<div class="note">${IC('flag')}A contest roll: the highest roll this round wins it when the round is scored. Invokes still count until then.</div>` : fightAtk ? `<div class="note">${IC('defend')}Your target rolls to defend right after you. The result shows in the chat once both rolls are in.</div>` : rp ? vsHtml : `<div><h4>Against ${r.action==='attack'||r.action==='defend'?'(the other side rolls)':'(optional)'}</h4>${oppChips}</div>`}
+      ${fightAtk && !other ? N.atkNotes(v, tokOfWho, r.skill) : ''}
       ${distHtml}
       ${modHtml}
       ${gm ? `<button type="button" class="toggle" data-a="rollSecret" aria-pressed="${!!r.secret}">${IC('eyeoff')}<span>Secret roll<small>${ev ? 'Only you see it, in your fight log. Players don’t.' : 'Only you see it, in GM notes.'}</small></span><span class="sw"></span></button>` : ''}
@@ -446,11 +447,11 @@ N.sheetHtml = function(v){
       toks.length ? `<button type="button" class="btn primary" data-a="cbBoGive" ${own ? '' : 'disabled'}>${IC('sparkle')}${own ? `Give ${esc(N.tokName(own))} the boost` : 'Pick who gets it'}</button>` : '');
   }
   /* ---------------- character editor (GM) ---------------- */
-  case 'pcEdit': return sheet(v.ui.pd.isNew ? `Make ${esc(pName(v.ui.pd.player))}’s card` : `Edit ${esc(v.ui.pd.short)}’s card`, N.textTools(v) + pcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="pcSave" ${v.ui.pd.name.trim()?'':'disabled'}>${IC('check')}${v.ui.pd.isNew?'Save and send to '+esc(pName(v.ui.pd.player)):'Save card'}</button>`, {wide:true});
-  case 'npcNew': return sheet(v.ui.nd.edit ? `Edit ${esc(v.ui.nd.name || 'NPC')}` : v.ui.nd.copyOf ? 'Copy as NPC' : 'New NPC', N.textTools(v) + (v.ui.nd.copyOf && !v.ui.nd.edit ? `<div class="note">${IC('info')}Everything from ${esc(N.G.chars[v.ui.nd.copyOf]?.short || 'the character')}’s sheet is filled in. Change anything, then Save NPC. The character’s own sheet doesn’t change.</div>` : '') + npcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="npcSave" ${v.ui.nd.name.trim()?'':'disabled'}>${IC('check')}Save NPC</button>`, {wide:true});
+  case 'pcEdit': return sheet(v.ui.pd.isNew ? `Make ${esc(pName(v.ui.pd.player))}’s card` : `Edit ${esc(v.ui.pd.short)}’s card`, N.textTools(v, true) + pcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="pcSave" ${v.ui.pd.name.trim()?'':'disabled'}>${IC('check')}${v.ui.pd.isNew?'Save and send to '+esc(pName(v.ui.pd.player)):'Save card'}</button>`, {wide:true});
+  case 'npcNew': return sheet(v.ui.nd.edit ? `Edit ${esc(v.ui.nd.name || 'NPC')}` : v.ui.nd.copyOf ? 'Copy as NPC' : 'New NPC', N.textTools(v, true) + (v.ui.nd.copyOf && !v.ui.nd.edit ? `<div class="note">${IC('info')}Everything from ${esc(N.G.chars[v.ui.nd.copyOf]?.short || 'the character')}’s sheet is filled in. Change anything, then Save NPC. The character’s own sheet doesn’t change.</div>` : '') + npcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="npcSave" ${v.ui.nd.name.trim()?'':'disabled'}>${IC('check')}Save NPC</button>`, {wide:true});
   case 'wEdit': {
     const d = v.ui.wd;
-    return sheet(d.id ? 'Edit entry' : 'New wiki entry', `${N.textTools(v)}<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+    return sheet(d.id ? 'Edit entry' : 'New wiki entry', `${N.textTools(v, true)}<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
         <label class="field"><span>Title</span><input class="inp" id="wdt-${v.id}" data-i="wd" data-k="title" value="${esc(d.title)}" placeholder="Name of the person, place or thing"></label>
         <label class="field"><span>Category</span><select class="inp" id="wdc-${v.id}" data-i="wd" data-k="cat">${[...new Set([...N.catNames(g.wiki), d.cat])].filter(Boolean).map(c => `<option ${d.cat===c?'selected':''}>${esc(c)}</option>`).join('')}</select></label></div>
       <label class="field"><span>One-line summary</span><input class="inp" id="wds-${v.id}" data-i="wd" data-k="summary" value="${esc(d.summary)}" placeholder="Shown in lists and at the top"></label>
@@ -470,6 +471,13 @@ N.sheetHtml = function(v){
         <button type="button" class="btn" data-a="wdPartAdd" style="justify-self:start">${IC('plus')}Add a section</button></div>
       <div><h4>Who can read the entry</h4>${N.audPick('wdAud', d, 'wiki')}</div>`,
       `${d.id ? `<button type="button" class="btn danger" data-a="sheet" data-v="wDel" data-c="${esc(d.id)}" style="flex:0 0 auto" aria-label="Delete this entry">${IC('trash')}<span class="only-dt">Delete</span></button>` : ''}<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="wSave" ${d.title.trim()?'':'disabled'}>${IC('check')}Save entry</button>`, {wide:true});
+  }
+  /* a PC or NPC card opened from a link (N.xl): the GM sees the whole card, a player their own card or what was revealed to them */
+  case 'card': {
+    const c = g.chars[arg], n = !c && gm && g.npcs.find(x => x.id === arg), mine = N.charOf(v.role), k = !gm && !(c && c.id === mine?.id) && g.known?.[arg];
+    const body = gm ? (c ? N.sheetBody(v, c) : n ? N.npcBody(v, n) : '') : c && c.id === mine?.id ? N.sheetBody(v, c) : k?.name ? N.knownBody(v, k) : '';
+    if (!body) return '';
+    return sheet(esc(c ? (c.built ? c.name : pName(c.player) + '’s card') : n ? n.name : k.name), `<div class="sheetv cardv">${body}</div>`, '', {wide:true});
   }
   case 'wDel': {
     const e = g.wiki.find(x => x.id === arg); if (!e) return '';
@@ -678,6 +686,28 @@ N.sheetHtml = function(v){
       ${gs.length ? `<button type="button" class="wipe-ok itc-ok" data-a="itgGear" aria-pressed="${!!t.gear}"><span class="bx">${t.gear ? IC('check') : ''}</span><span>Also set ${who ? `${esc(who.label)}’s` : 'their'} ratings on the card: ${gs.map(([kk, l]) => `<b>${l} ${who ? `${sgn(+who.o[kk] || 0)} → ` : ''}+${+it[kk]}</b>`).join(', ')}</span></button>` : ''}
       ${who && who.pc ? `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">${esc(G().P[who.o.player]?.name || 'The player')} gets a note in your private chat.</p>` : ''}`;
     return sheet(`Give ${esc(it.name)}`, body, `<button type="button" class="btn ghost" data-a="sheet" data-v="items">${IC('left')}Back</button><button type="button" class="btn primary" data-a="itGiveGo" ${who ? '' : 'disabled'}>${IC('hand')}Give</button>`);
+  }
+  /* ---------------- Transfer gold or fate points (GM) ---------------- */
+  case 'xfer': {
+    const x = v.ui.xf; if (!gm || !x) return '';
+    const r = N.xferInfo(x), k = r.k, fp = k === 'fp', pcs = N.pcs().filter(c => c.built), npcs = g.npcs;
+    const num = n => fp ? String(n) : n.toLocaleString('en-US'), bal = o => `${num(N.xferBal(o, k))} ${fp ? 'FP' : 'gold'}`;
+    const pick = (key, label) => `<label class="field"><span>${label}</span><select class="inp" id="xf${key}-${v.id}" data-i="xf" data-k="${key}"><option value="">Pick someone…</option>
+        ${pcs.length ? `<optgroup label="Player characters">${pcs.map(c => `<option value="c:${esc(c.id)}" ${x[key] === 'c:' + c.id ? 'selected' : ''}>${esc(c.short)} · ${bal(c)}</option>`).join('')}</optgroup>` : ''}
+        ${npcs.length ? `<optgroup label="NPCs">${npcs.map(n => `<option value="n:${esc(n.id)}" ${x[key] === 'n:' + n.id ? 'selected' : ''}>${esc(n.name)} · ${bal(n)}</option>`).join('')}</optgroup>` : ''}</select></label>`;
+    const face = w => N.av(w.pc ? w.o : {name:w.o.name, portrait:w.o.portrait, color:'var(--c-npc)'}, 28);
+    const ok = r.a && r.b && !r.err, unit = fp ? (r.q === 1 ? 'fate point' : 'fate points') : 'gold';
+    const line = (w, h, d) => `<div class="shop-purse xf-row">${face(w)}<span class="xf-n">${esc(w.label)}</span><b>${num(h)}${ok ? ` → ${num(h + d)}` : ''}</b></div>`;
+    const tells = [r.a, r.b].filter(w => w && w.pc && N.partyOf(w.o.player)).map(w => esc(w.label));
+    const body = `<div class="seg" role="group" aria-label="What to transfer"><button type="button" data-a="xfK" data-v="gold" aria-pressed="${!fp}">${IC('coins')}Gold</button><button type="button" data-a="xfK" data-v="fp" aria-pressed="${fp}">${IC('star')}Fate points</button></div>
+      ${pick('from', 'From')}
+      <div class="xf-sw"><button type="button" class="btn sm ghost" data-a="xfSwap" ${x.from || x.to ? '' : 'disabled'}>${IC('swap')}Swap From and To</button></div>
+      ${pick('to', 'To')}
+      <div class="field"><span>How much</span><div class="gold-ed"><button type="button" data-a="xfQ" data-d="-1" aria-label="Less" ${r.q <= 1 ? 'disabled' : ''}>−</button><input class="inp" id="xfq-${v.id}" data-i="xf" data-k="q" value="${esc(x.qs != null ? x.qs : String(r.q))}" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" aria-label="How much ${fp ? 'fate points' : 'gold'}"><button type="button" data-a="xfQ" data-d="1" aria-label="More" ${r.q >= r.max ? 'disabled' : ''}>+</button><button type="button" class="btn sm ghost xf-all" data-a="xfAll" ${r.max > 1 && r.q !== r.max ? '' : 'disabled'}>All${r.max > 1 ? ` · ${num(r.max)}` : ''}</button></div></div>
+      ${r.a && r.b && r.a.o !== r.b.o ? `<div class="xf-prev">${line(r.a, r.ha, -r.q)}${line(r.b, r.hb, r.q)}</div>` : ''}
+      ${r.err ? `<div class="note">${IC('warn')}${esc(r.err)}</div>` : ''}
+      ${ok ? `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">${tells.length ? `A line goes in the party chat for ${tells.join(' and ')}.` : 'No player gets a note.'}</p>` : ''}`;
+    return sheet(fp ? 'Transfer fate points' : 'Transfer gold', body, `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn primary" data-a="xfGo" ${ok ? '' : 'disabled'}>${IC('swap')}${ok ? `Give ${num(r.q)} ${unit}` : 'Transfer'}</button>`);
   }
   /* ---------------- custom emoji (GM) ---------------- */
   case 'emoji': {

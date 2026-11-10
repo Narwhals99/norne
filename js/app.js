@@ -58,19 +58,40 @@ const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, tex
    Taps close together (−/+ several times) fold into one line: the first value stays on the line (purse.from) and only its
    words change, which is all a player may change on their own message. A GM's line that ends back where it began is removed */
 const PURSE_MS = 120000;
-N.purseNote = (c, k, before) => {
+/* xf: a transfer between two cards (N.xferGo). Its line says who gave and who got ("Brann gave 5 gold to Isolde (140 → 135)"),
+   names the other side when xf.other is set, and stands alone: it never folds into an earlier line, and later taps don't fold into it */
+N.purseNote = (c, k, before, xf) => {
   if (!c || !c.player || !c.built) return null;
   const pt = N.partyOf(c.player); if (!pt) return null;
   const ch = 'grp-' + pt.id, now = k === 'fp' ? (c.fp || 0) : (parseInt(c.gold, 10) || 0), g = G();
   let last = null; for (let i = g.msgs.length - 1; i >= 0; i--) if (g.msgs[i].ch === ch) { last = g.msgs[i]; break; }
-  const join = last && last.purse && last.purse.c === c.id && last.purse.k === k && last.by === g.role && N.now() - last.t < PURSE_MS;
+  const join = !xf && last && last.purse && !last.purse.xf && last.purse.c === c.id && last.purse.k === k && last.by === g.role && N.now() - last.t < PURSE_MS;
   const from = join ? last.purse.from : before;
   if (!join && from === now) return null;
   const d = now - from, unit = k === 'fp' ? (Math.abs(d) === 1 ? 'fate point' : 'fate points') : 'gold';
   const n = k === 'fp' ? String(Math.abs(d)) : Math.abs(d).toLocaleString('en-US'), fmt = x => k === 'fp' ? x : x.toLocaleString('en-US');
-  const text = d ? `${c.short}: ${d > 0 ? '+' : '−'}${n} ${unit} (${fmt(from)} → ${fmt(now)})` : `${c.short}: ${unit === 'gold' ? 'gold' : 'fate points'} back to ${fmt(now)}`;
+  const text = xf && d ? `${c.short} ${d < 0 ? 'gave' : 'got'} ${n} ${unit}${xf.other ? (d < 0 ? ' to ' : ' from ') + xf.other : ''} (${fmt(from)} → ${fmt(now)})`
+    : d ? `${c.short}: ${d > 0 ? '+' : '−'}${n} ${unit} (${fmt(from)} → ${fmt(now)})` : `${c.short}: ${unit === 'gold' ? 'gold' : 'fate points'} back to ${fmt(now)}`;
   if (join) { if (!d && g.role === 'gm') { N.delMsg(last.id); return null; } last.text = text; return last; }
-  return push({ch, kind:'sys', by:g.role, purse:{c:c.id, k, from}, text});
+  return push({ch, kind:'sys', by:g.role, purse:xf ? {c:c.id, k, from, xf:1} : {c:c.id, k, from}, text});
+};
+/* Jake: the GM moves gold or fate points from one card to another (player characters and NPC cards).
+   x = {from, to, k, q}: from and to are 'c:<char id>' or 'n:<npc id>' (as N.itemTo reads them), k 'gold' or 'fp', q how many.
+   Gives both sides, their balances now and after, the most that can move and what is wrong (err), if anything */
+N.XFER_MAX = {gold:N.GOLD_MAX, fp:10};
+N.xferBal = (o, k) => k === 'fp' ? (+o.fp || 0) : Math.max(0, parseInt(o.gold, 10) || 0);
+N.xferInfo = x => {
+  const a = N.itemTo(x.from), b = N.itemTo(x.to), k = x.k === 'fp' ? 'fp' : 'gold', q = Math.max(1, parseInt(x.q, 10) || 1);
+  const unit = n => k === 'fp' ? (n === 1 ? 'fate point' : 'fate points') : 'gold', amt = n => `${k === 'fp' ? n : n.toLocaleString('en-US')} ${unit(n)}`;
+  const r = {a, b, k, q, max:0, err:''}; if (!a || !b) return r;
+  const ha = N.xferBal(a.o, k), hb = N.xferBal(b.o, k), room = Math.max(0, N.XFER_MAX[k] - hb);
+  Object.assign(r, {ha, hb, max:Math.min(ha, room)});
+  if (a.o === b.o) r.err = 'Pick two different characters.';
+  else if (!ha) r.err = `${a.label} has no ${k === 'fp' ? 'fate points' : 'gold'} to give.`;
+  else if (!room) r.err = `${b.label} already has ${amt(hb)}, the most a card can hold.`;
+  else if (q > ha) r.err = `${a.label} has only ${amt(ha)}.`;
+  else if (q > room) r.err = `${b.label} can take only ${amt(room)} more (${k === 'fp' ? 10 : N.GOLD_MAX.toLocaleString('en-US')} at most).`;
+  return r;
 };
 /* a line about the fight goes to the chat the fight lives in */
 const fsys = text => Object.assign(sys(text, N.fightCh()), {fight:true});
@@ -424,7 +445,7 @@ function bind(v){
     if (e.target.closest('[data-board]') && (v.ui.tokSel || v.ui.zoneSel)) { v.ui.tokSel = null; v.ui.zoneSel = null; render(v); }
   });
   root.addEventListener('input', e => { const el = e.target; if (el.dataset.i) input(v, el); });
-  root.addEventListener('focusin', e => { const el = e.target; if (el.id && el.matches('textarea, input.inp:not([type]), input.inp[type=text]') && el.dataset.i !== 'draft') v._fld = el.id; });
+  root.addEventListener('focusin', e => { const el = e.target; if (el.id && el.matches('textarea, input.inp:not([type]), input.inp[type=text]') && el.dataset.i !== 'draft' && !el.closest('.pop')) v._fld = el.id; });
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
@@ -650,6 +671,7 @@ function backStep(v, home){
   if (ui.pop) return () => { ui.pop = null; };
   if (ui.sheet === 'itemEd' || ui.sheet === 'itemGive') return () => { ui.sheet = 'items'; ui.itd = null; };
   if (ui.sheet === 'scenePics') return () => { ui.sheet = 'scene'; };
+  if (ui.sheet === 'card' && ui.cardBack?.length) return () => { ui.sheetArg = ui.cardBack.pop(); };
   if (ui.sheet) return () => { if (!askTell(v)) ui.sheet = null; };
   if (ui.tab === 'chat' && (ui.targeting || ui.placing)) return () => { ui.targeting = null; ui.placing = null; };
   /* any page with its own back arrow (wiki, news, cast card, inventory) goes back the way that arrow does */
@@ -712,6 +734,7 @@ function input(v, el){
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
     case 'charQ': v.ui.charQ = val; render(v); return;
+    case 'linkQ': v.ui.linkQ = val; render(v); return;
     case 'castQ': v.ui.sd.castQ = val; render(v); return;
     case 'expFrom': case 'expTo': { const ex = v.ui.exp; if (!ex) return; ex[i === 'expFrom' ? 'from' : 'to'] = val; ex.when = !ex.from && !ex.to ? 'all' : null;
       const o = v.root.querySelector('#exOut'), w = v.root.querySelector('#exWhen'); if (o) o.value = N.buildExport(ex); if (w) w.textContent = N.cap1(N.expRangeWords(ex)) + '. Leave a box empty for no limit on that side.';
@@ -721,6 +744,10 @@ function input(v, el){
     case 'news': { const d = v.ui.newsEdit, n = +el.dataset.n; if (k === 'stt' || k === 'stb') d.stories[n][k === 'stt' ? 'title' : 'body'] = val; else if (k === 'cap') { if (n < 0) d.lcap = val; else d.stories[n].cap = val; } else d[k] = val; render(v); return; }
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
     case 'gold': { const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; return; }
+    case 'xf': { const x = v.ui.xf; if (!x) return;
+      if (k === 'q') { const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; x.q = Math.max(1, parseInt(t, 10) || 1); x.qs = t; }
+      else if (k === 'from' || k === 'to') x[k] = val;
+      render(v); return; }
     case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || (c.player === v.role && k !== 'invText'))) c[k] = val; return; }
     case 'cbTitle': g.combat.title = val; return;
     case 'chalLabel': { const x = (g.combat.tasks || []).find(t => t.id === k); if (x) x.label = val; return; }
@@ -1336,9 +1363,10 @@ function act(v, a, el, e){
     renderAll(); return;
   }
   case 'closePop': ui.pop = null; break;
-  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); if (val === 'chars') ui.charQ = ''; openPop(v, val, el);
-    /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box */
-    if (val === 'emof') { const box = el.closest('.sheet, .page') || v.root, last = v._fld && box.querySelector('#' + CSS.escape(v._fld)); const f = last || box.querySelector('textarea[id], input.inp[id]:not([type]), input.inp[id][type=text]');
+  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); if (val === 'chars') ui.charQ = ''; if (val === 'linkf' || val === 'wlAdd') ui.linkQ = ''; openPop(v, val, el);
+    if (val === 'wlAdd') ui.pop.card = d.c;
+    /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box (Insert link too) */
+    if (val === 'emof' || val === 'linkf') { const box = el.closest('.sheet, .page') || v.root, last = v._fld && box.querySelector('#' + CSS.escape(v._fld)); const f = last || box.querySelector('textarea[id], input.inp[id]:not([type]), input.inp[id][type=text]');
       /* where the caret was: the box is drawn again before the emoji is picked, which would lose it */
       ui.pop.fld = f?.id; ui.pop.sel = f && last ? [f.selectionStart ?? f.value.length, f.selectionEnd ?? f.value.length] : f ? [f.value.length, f.value.length] : null; } if (val === 'emo' && ui.emoTab === 'gif' && !ui.gifRes?.length && g.gifKey) gifSearch(v); } break;
   case 'toast': toast(v, val); break;
@@ -1540,7 +1568,7 @@ function act(v, a, el, e){
     ui.draft = ui.draft.slice(0, a) + t + ui.draft.slice(b); ui.pop = null; render(v);
     const f = v.root.querySelector('.composer textarea'); if (f) { f.focus({preventScroll:true}); f.setSelectionRange(a + t.length, a + t.length); } return; }
   /* the GM's own emoji pictures */
-  case 'emoField': { const id = ui.pop?.fld, sel = ui.pop?.sel, t = val.startsWith(':') ? val + ' ' : val; ui.pop = null;
+  case 'emoField': { const id = ui.pop?.fld, sel = ui.pop?.sel, t = val.startsWith(':') || val.startsWith('[[') ? val + ' ' : val; ui.pop = null;
     const f = id && v.root.querySelector('#' + CSS.escape(id)); if (!f) { render(v); return; }
     const a = Math.min(sel ? sel[0] : f.value.length, f.value.length), b = Math.min(sel ? sel[1] : a, f.value.length);
     f.value = f.value.slice(0, a) + t + f.value.slice(b);
@@ -1710,6 +1738,15 @@ function act(v, a, el, e){
     ui.tab = 'world'; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
   case 'wCat': ui.wikiCat = ui.wikiCat === val ? null : val; if (v.dev === 'phone') ui.wikiSel = null; break;
   case 'wBack': if (ui.wikiSel && ui.wikiPrev?.length) { ui.wikiSel = ui.wikiPrev.pop(); const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; } else if (ui.wikiSel) ui.wikiSel = null; else ui.wikiCat = null; break;
+  /* a link to a PC or NPC card (N.xl) opens it over the page, as this screen may see it; closing it goes back to where it was
+     followed from (a card opened from another card goes back to that one) */
+  case 'cardView': if (!N.linkSees('pc', val)) break; ui.pop = null; { const was = ui.sheet === 'card' && ui.sheetArg !== val ? ui.sheetArg : null;
+    ui.cardBack = was ? [...(ui.cardBack || []), was] : ui.sheet === 'card' ? ui.cardBack || [] : []; openSheet(v, 'card', {c:val}); }
+    v.root.querySelector('[data-sk="sheet"]')?.scrollTo?.(0, 0); break;
+  /* the GM links a wiki entry to a card, or unlinks it (Wiki pages on the sheet) */
+  case 'wlTog': { if (!gm || !d.c) break; const all = g.wlinks = g.wlinks || {}, l = all[d.c] = all[d.c] || [], i = l.indexOf(val);
+    if (i >= 0) l.splice(i, 1); else if (g.wiki.some(e => e.id === val)) l.push(val);
+    if (!l.length) delete all[d.c]; renderAll(); return; }
   case 'wNew': openSheet(v, 'wEdit', {}); break;
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
   case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;
@@ -1935,6 +1972,24 @@ function act(v, a, el, e){
   case 'npcFp': { const n = g.npcs.find(x => x.id === d.n); if (!n || !gm) break; n.fp = clamp((+n.fp || 0) + (+d.d), 0, 10); renderAll(); return; }
   /* Gold on a character (data-c) or NPC (data-n) card, whole numbers only, GM only */
   case 'gold': { if (!gm) break; const o = d.c ? g.chars[d.c] : g.npcs.find(x => x.id === d.n); if (!o) break; const before = parseInt(o.gold, 10) || 0; o.gold = clamp(before + (+d.d), 0, N.GOLD_MAX); if (d.c) N.purseNote(o, 'gold', before); renderAll(); return; }
+  /* Transfer (GM): gold or fate points from one card to another. data-v is who gives ('c:<id>' or 'n:<id>'), data-k what */
+  case 'xfer': if (!gm || !N.itemTo(val)) break; ui.pop = null; ui.sheet = 'xfer'; ui.sheetArg = null; ui.xf = {from:val, to:'', k:d.k === 'fp' ? 'fp' : 'gold', q:1}; break;
+  case 'xfK': if (ui.xf) { ui.xf.k = val === 'fp' ? 'fp' : 'gold'; ui.xf.q = 1; ui.xf.qs = null; } break;
+  case 'xfQ': if (ui.xf) { const r = N.xferInfo(ui.xf); ui.xf.q = Math.max(1, Math.min(r.max || 1, r.q + (+d.d))); ui.xf.qs = null; } break;
+  case 'xfAll': if (ui.xf) { ui.xf.q = Math.max(1, N.xferInfo(ui.xf).max); ui.xf.qs = null; } break;
+  case 'xfSwap': if (ui.xf) [ui.xf.from, ui.xf.to] = [ui.xf.to, ui.xf.from]; break;
+  case 'xfGo': { if (!gm || !ui.xf) break; const r = N.xferInfo(ui.xf); if (!r.a || !r.b || r.err) break;
+    const {a, b, k, q, ha, hb} = r, set = (o, n) => { if (k === 'fp') o.fp = n; else o.gold = n; };
+    set(a.o, ha - q); set(b.o, hb + q);
+    /* each player character's party chat gets its line, as with any gold or fate point change; an NPC's fate points stay unnamed */
+    const other = w => k === 'gold' || w.pc ? w.label : '';
+    const na = a.pc ? N.purseNote(a.o, k, ha, {other:other(b)}) : null, nb = b.pc ? N.purseNote(b.o, k, hb, {other:other(a)}) : null;
+    const amt = k === 'fp' ? `${q} ${q === 1 ? 'fate point' : 'fate points'}` : N.goldTxt(q);
+    ui.xf = null; close();
+    toast(v, `${a.label} gave ${amt} to ${b.label}.`, () => {
+      if (N.xferBal(a.o, k) !== ha - q || N.xferBal(b.o, k) !== hb + q) return; /* changed again since: leave it */
+      set(a.o, ha); set(b.o, hb); [na, nb].forEach(m => m && N.delMsg(m.id)); });
+    renderAll(); return; }
   case 'npcStress': { const n = g.npcs.find(x => x.id === d.n); n.stress[d.k][+d.i] = !n.stress[d.k][+d.i]; renderAll(); return; }
   case 'npcToFight': { if (cb.state === 'off') { toast(v, 'Begin a fight first.'); break; } const t = N.cbAddNpc(val, 'foe', cb.zones[0]?.id); toast(v, `${t.name} joins the fight${cb.zones[0] ? ' in ' + cb.zones[0].name : ''}.`); renderAll(); return; }
   /* players and sign-ins */

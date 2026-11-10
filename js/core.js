@@ -38,8 +38,26 @@ const blocks = (s, inline = inl) => {
   flushQuote(); flushList(); flushRun();
   return out.join('');
 };
+/* links the GM puts in wiki text and on cards with Insert link: [[pc:<id>|Name]], [[npc:<id>|Name]], [[wiki:<id>|Title]].
+   A link keeps only the id and the name the GM typed. Whoever can't see what it points to reads the plain name, no link.
+   xl() works on text that is already escaped, before marks() */
+const LINK_RE = /\[\[(pc|npc|wiki):([\w-]+)\|([^\]\n]+)\]\]/g;
+/* can this screen open it: a wiki entry it can read, a card the GM has, or (players) their own card or one whose name was revealed */
+N.linkSees = (k, id) => { const g = N.G, gm = g.role === 'gm';
+  if (k === 'wiki') return g.wiki.some(e => e.id === id && (gm || !e.gm));
+  return gm ? !!(g.chars[id] || g.npcs.some(n => n.id === id)) : N.charOf(g.role)?.id === id || !!g.known?.[id]?.name; };
+const xl = h => h.replace(LINK_RE, (m, k, id, lab) => N.linkSees(k, id) ? `<a class="wl" data-a="${k === 'wiki' ? 'wiki' : 'cardView'}" data-v="${id}">${lab}</a>` : lab);
+/* card text with its marks and links (aspects, stunts, bio as text) */
+N.linkText = s => marks(xl(esc(s)));
+/* the copy a player gets: links they can't follow become the plain name (seeOk(kind, id) says which they can) */
+N.linkScrub = (x, seeOk) => x == null ? x : JSON.parse(JSON.stringify(x).replace(LINK_RE, (m, k, id, lab) => seeOk(k, id) ? m : lab));
+/* the link to put in text: the name loses anything that would end the link early */
+N.linkTok = (k, id, name) => `[[${k}:${id}|${String(name || '').replace(/[[\]\n|]+/g, ' ').replace(/\s+/g, ' ').trim() || '…'}]]`;
+/* the wiki pages the GM linked to a PC or NPC card (Wiki pages on the sheet): G.wlinks = {cardId:[entry ids]}.
+   The GM keeps them in gm/misc; each player gets only the ones they can read, for cards they can see (only/<seat> l:<card>) */
+N.cardWiki = id => { const g = N.G, gm = g.role === 'gm'; return ((g.wlinks || {})[id] || []).map(w => g.wiki.find(e => e.id === w && (gm || !e.gm))).filter(Boolean); };
 /* the words without the marks, for notifications (a spoiler stays hidden there) */
-N.plainText = t => String(t ?? '').replace(/\|\|[^|\n]+\|\|/g, '(spoiler)').replace(/\*\*([^*\n]+)\*\*/g, '$1').replace(/__([^_\n]+)__/g, '$1').replace(/~~([^~\n]+)~~/g, '$1').replace(/\*([^*\n]+)\*/g, '$1').replace(/(^|[^\w:])_([^_\n]+)_(?![\w:])/g, '$1$2').replace(/^\s*>\s/gm, '');
+N.plainText = t => String(t ?? '').replace(LINK_RE, '$3').replace(/\|\|[^|\n]+\|\|/g, '(spoiler)').replace(/\*\*([^*\n]+)\*\*/g, '$1').replace(/__([^_\n]+)__/g, '$1').replace(/~~([^~\n]+)~~/g, '$1').replace(/\*([^*\n]+)\*/g, '$1').replace(/(^|[^\w:])_([^_\n]+)_(?![\w:])/g, '$1$2').replace(/^\s*>\s/gm, '');
 /* the formatting guide (chat's smiley button > Formatting, and the Formatting button over long forms) */
 N.FMT_GUIDE = [['**bold**','Bold'],['*italics*  or  _italics_','Italics','*italics*'],['__underline__','Underline'],['~~strike~~','Strike'],['||spoiler||','Spoiler, hidden until tapped'],
   ['> a quote','Quote, chat only','> a quote',1],['- item','List, chat only','- item\n- item',1],['1. first','Numbered list, chat only','1. first\n2. second',1],[':name:','Custom emoji']];
@@ -50,7 +68,7 @@ const sgn = n => (n < 0 ? '−' : '+') + Math.abs(n);
 const IC = (k, cls='') => { const i = (window.ICONS||{})[k]; return i ? `<svg viewBox="${i[0]}" class="${cls}" aria-hidden="true" fill="currentColor">${i[1]}</svg>` : ''; };
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 0c.9 6.6 4.6 10.6 12 12-7.4 1.4-11.1 5.4-12 12-.9-6.6-4.6-10.6-12-12 7.4-1.4 11.1-5.4 12-12z"/></svg>';
 const MARK = '<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="mk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9b0"/><stop offset="1" stop-color="#d9973f"/></linearGradient></defs><path fill="url(#mk)" d="M24 2c1.6 11 7.6 18 20 22-12.4 4-18.4 11-20 22-1.6-11-7.6-18-20-22C16.4 20 22.4 13 24 2z"/><path fill="none" stroke="url(#mk)" stroke-width="1.2" opacity=".7" d="M24 12c.8 5.4 3.8 9 10 12-6.2 3-9.2 6.6-10 12-.8-5.4-3.8-9-10-12 6.2-3 9.2-6.6 10-12z"/></svg>';
-Object.assign(N, {esc, fmt, blocks, inl, marks, uid, clamp, sgn, IC, STAR, MARK});
+Object.assign(N, {esc, fmt, blocks, inl, marks, xl, uid, clamp, sgn, IC, STAR, MARK});
 
 /* ---------- styles: whole looks picked under Profile > Style, each with a Night and a Day ----------
    A new style is one entry here plus its own stylesheet scoped to .app[data-style="<id>"] (see css/parchment.css).
@@ -300,7 +318,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, hlocs:{}, shops:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, shops:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -312,7 +330,8 @@ const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEAAAAALAAAAAABAAEAAAI
 N.emoSrc = x => (x && N.imgUrl(x.d)) || BLANK;
 N.emj = (e, cls='cemo') => { const c = /^:([\w-]+):$/.exec(e || ''); if (!c) return esc(e); const x = N.emoById(c[1]); return x ? `<img class="${cls}" src="${esc(N.emoSrc(x))}" alt=":${esc(x.n)}:" title=":${esc(x.n)}:" draggable="false">` : esc(e); };
 /* a row over a long form (wiki entry, news edition, character card): the emoji go into whichever box was typed in last */
-N.textTools = v => `<div class="ttools"><span>Emoji go where you were typing.</span><button type="button" class="btn sm ghost" data-a="pop" data-v="fmtg"><b class="aaw">Aa</b>Formatting</button><button type="button" class="btn sm" data-a="pop" data-v="emof">${IC('smile')}Emoji</button></div>`;
+/* link: the GM's Insert link button too, for a wiki entry, a character, an NPC or another entry */
+N.textTools = (v, link) => `<div class="ttools${link ? ' lk' : ''}"><span>Emoji${link ? ' and links' : ''} go where you were typing.</span><button type="button" class="btn sm ghost" data-a="pop" data-v="fmtg"><b class="aaw">Aa</b>Formatting</button><button type="button" class="btn sm" data-a="pop" data-v="emof">${IC('smile')}Emoji</button>${link && v.role === 'gm' ? `<button type="button" class="btn sm" data-a="pop" data-v="linkf">${IC('link')}Link</button>` : ''}</div>`;
 /* does this picture file move? GIF with more than one frame, WebP with an ANIM chunk, PNG with acTL (APNG) */
 N.isAnimated = dataUrl => {
   const m = /^data:image\/(gif|webp|png|apng);base64,(.*)$/.exec(dataUrl || ''); if (!m) return false;
@@ -576,9 +595,10 @@ N.itemRating = it => { const sl = N.itemSlot(it); return sl ? (+it[N.SLOTS[sl][0
 N.rowItem = row => N.itemByName(row && row[0]);
 N.isWeaponRow = row => !!(N.invX(row).w || N.itemSlot(N.rowItem(row)));
 /* recompute the card from what is equipped */
+/* o's equipped catalog items in one slot, best rating first (GM device only) */
+N.eqOf = (o, sl) => (o.inv || []).filter(r => N.invX(r).eq).map(r => N.rowItem(r)).filter(it => it && N.itemSlot(it) === sl).sort((a, b) => N.itemRating(b) - N.itemRating(a));
 N.applyGear = o => {
-  const eq = (o.inv || []).filter(r => N.invX(r).eq).map(r => N.rowItem(r)).filter(Boolean);
-  const of = sl => eq.filter(it => N.itemSlot(it) === sl).sort((a, b) => N.itemRating(b) - N.itemRating(a));
+  const of = sl => N.eqOf(o, sl);
   const mel = of('melee'), rng = of('ranged')[0], am = of('ammo')[0], arm = of('armor')[0], sh = of('shield')[0];
   o.gearAtk = mel[0] ? N.itemRating(mel[0]) : 0;
   o.gearAtk2 = mel[1] && mel[0].dual && mel[1].dual ? N.itemRating(mel[1]) : 0;
@@ -790,6 +810,19 @@ N.tokGear = (t, k) => !t ? 0 : t.kind === 'npc' ? (+t[k] || 0) : (+(N.G.chars[t.
 /* what an attacker's gear does for an attack with this skill: roll = added to the attack roll, hit = shifts added to a hit */
 N.atkGear = (t, sk) => sk === 'Fighting' ? {roll:0, hit:N.tokGear(t, 'gearAtk'), hitL:'melee weapon'}
   : sk === 'Shooting' ? {roll:N.tokGear(t, 'gearRng'), rollL:'ranged weapon', hit:N.tokGear(t, 'gearAmmo'), hitL:'ammo'} : {roll:0, hit:0};
+/* the catalog items behind an attacker's gear for an attack with this skill (GM device only: players have no catalog):
+   the melee weapon(s) for Fighting, the ranged weapon and ammo for Shooting. [{l, it}], it.gm is the GM's note.
+   A rating set by hand with nothing equipped behind it gives nothing. Looked up live, so an edited note shows at once. */
+N.atkItems = (t, sk) => {
+  if (!t || !(N.G.items || []).length) return [];
+  const o = t.kind === 'pc' ? N.G.chars[t.ref] : (N.G.npcs || []).find(n => n.id === t.ref);
+  if (!o) return [];
+  const out = [], add = (l, it) => { if (it) out.push({l, it}); };
+  if (sk === 'Fighting') { const mel = N.eqOf(o, 'melee'), two = mel[1] && mel[0].dual && mel[1].dual;
+    add(two ? 'Melee weapon 1' : 'Melee weapon', mel[0]); if (two) add('Melee weapon 2', mel[1]); }
+  if (sk === 'Shooting') { add('Ranged weapon', N.eqOf(o, 'ranged')[0]); add('Ammo', N.eqOf(o, 'ammo')[0]); }
+  return out;
+};
 N.curTok = () => { if (N.G.combat.phase === 'notice' || N.cbKind() === 'challenge') return null; const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
 N.tokObj = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref] || {}; const p = N.G.P[c.player]; return {name:c.short || '?', portrait:c.built ? c.portrait : null, color:p?.color || 'var(--accent)'}; }
   const s = N.sideOf(t), tm = s !== 'ally' && s !== 'foe' && N.teams().find(x => x.id === s);

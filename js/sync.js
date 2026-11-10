@@ -408,6 +408,12 @@ function syncNow(){
     /* things shared with only some players go to each of those players' own only/<seat> document */
     const only = Object.fromEntries(N.seats().map(st => [st, {}]));
     const share = (x, kind, key, pub) => { const a = N.audOf(x, kind); if (a === '*') return pub; if (a !== 'gm') for (const st of a) if (only[st]) only[st][key] = pub; return null; };
+    /* the GM's links (N.xl) in what players get: a link to a hidden wiki entry goes out as its plain name; a player's own copies
+       (revealed cards) keep only links to what that player can see */
+    const wikiFor = (id, st) => { const e = g.wiki.find(x => x.id === id); return !!e && N.audSeats(e, 'wiki').includes(st); };
+    const nameFor = (id, st) => g.chars[id]?.player === st || N.revOf(id, st).includes('name');
+    const pubLink = (k, id) => k !== 'wiki' || g.wiki.some(e => e.id === id && N.audOf(e, 'wiki') !== 'gm');
+    const seatLink = st => (k, id) => k === 'wiki' ? wikiFor(id, st) : nameFor(id, st);
     if (LOADED.has('gm/maps')) {
       for (const m of g.maps) {
         if (!m.src?.startsWith('fs:')) continue;
@@ -444,21 +450,26 @@ function syncNow(){
       /* sections for everybody go out with the entry; GM-only sections never leave the GM (o = the section's place in the entry) */
       const partPub = (p, o) => ({id:p.id, h:p.h || '', text:p.text || '', o, ...(p.imgs?.length ? {imgs:p.imgs} : {})});
       writeUnits('game/wiki', asUnits(g.wiki, (e,i) => { const {secret, parts, ...pub} = e, all = (parts || []).map((p, o) => N.partTo(p) === 'all' ? partPub(p, o) : null).filter(Boolean);
-        return share(e, 'wiki', 'w:' + e.id, {...pub, ...(all.length ? {parts:all} : {}), o:i}); }));
+        return share(e, 'wiki', 'w:' + e.id, N.linkScrub({...pub, ...(all.length ? {parts:all} : {}), o:i}, pubLink)); }));
       /* sections of an entry for some players only: each of them gets just the sections picked for them, in their own only/<seat> */
       for (const e of g.wiki) if (e.parts?.length) for (const st of N.audSeats(e, 'wiki')) {
         const mine = e.parts.map((p, o) => N.partTo(p) === 'some' && (p.see || []).includes(st) ? {...partPub(p, o), to:'some'} : null).filter(Boolean);
-        if (mine.length && only[st]) only[st]['p:' + e.id] = mine;
+        if (mine.length && only[st]) only[st]['p:' + e.id] = N.linkScrub(mine, pubLink);
       }
     }
     writeUnits('gm/npcs', asUnits(g.npcs.map(n => ({...n, occ:n.job || ''}))));
     writeUnits('gm/items', asUnits(g.items || [], x => x));
     writeUnits('gm/shops', {...(g.shops || {})});
-    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, hlocs:g.hlocs || {}, npcdirs:g.npcDirs || []});
+    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, wl:g.wlinks || {}, hlocs:g.hlocs || {}, npcdirs:g.npcDirs || []});
     /* parts of a card the GM revealed to single players: each gets only their own parts (N.revealed) */
     for (const [id, by] of Object.entries(g.rev || {})) {
       const c = g.chars[id], n = !c && g.npcs.find(x => x.id === id), card = c && c.built ? c : n; if (!card) continue;
-      for (const [st, keys] of Object.entries(by)) if (keys.length && only[st] && st !== c?.player) { const r = N.revealed(card, !!c, keys); if (r) only[st]['r:' + id] = r; }
+      for (const [st, keys] of Object.entries(by)) if (keys.length && only[st] && st !== c?.player) { const r = N.revealed(card, !!c, keys); if (r) only[st]['r:' + id] = N.linkScrub(r, seatLink(st)); }
+    }
+    /* wiki pages linked to a card (N.cardWiki): each player gets the ones they can read, for their own card and cards whose name they know */
+    if (LOADED.has('gm/wiki')) for (const [id, ws] of Object.entries(g.wlinks || {})) for (const st of N.seats()) {
+      if (!only[st] || !(g.chars[id] || g.npcs.some(n => n.id === id)) || !nameFor(id, st)) continue;
+      const l = (ws || []).filter(w => wikiFor(w, st)); if (l.length) only[st]['l:' + id] = l;
     }
     if (LOADED.has('gm/news')) {
       /* pictures in an issue can be read by the same people as the issue */
@@ -597,6 +608,7 @@ function setMine(u){
   MINEP = {}; MINEQ = {};
   for (const [key, j] of Object.entries(u)) if (key.startsWith('p:')) MINEP[key.slice(2)] = j; else if (key.startsWith('q:')) MINEQ[key.slice(2)] = j;
   G().known = {}; for (const [key, j] of Object.entries(u)) if (key.startsWith('r:')) { try { G().known[key.slice(2)] = JSON.parse(j); } catch(e) {} }
+  G().wlinks = {}; for (const [key, j] of Object.entries(u)) if (key.startsWith('l:')) { try { G().wlinks[key.slice(2)] = JSON.parse(j); } catch(e) {} }
   for (const [key, j] of Object.entries(u)) { const k = KIND[key[0]]; if (k && key[1] === ':') MINE[k][key.slice(2)] = j; }
   mergeView();
 }
@@ -737,7 +749,7 @@ async function start(role){
     'gm/npcs': u => { g.npcs = vals(u).map(normNpc).sort((a,b) => a.name.localeCompare(b.name)); },
     'gm/shops': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.shops = o; },
     'gm/items': u => { g.items = vals(u).map(({o, ...x}) => x).sort((a,b) => a.name.localeCompare(b.name)); },
-    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; },
+    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.wlinks = u.wl ? JSON.parse(u.wl) : {}; g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; },
     'game/news': u => { PUB.news = u; mergeView(); },
     'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
     'game/maps': u => { PUB.maps = u; mergeView(); },
