@@ -58,19 +58,40 @@ const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, tex
    Taps close together (−/+ several times) fold into one line: the first value stays on the line (purse.from) and only its
    words change, which is all a player may change on their own message. A GM's line that ends back where it began is removed */
 const PURSE_MS = 120000;
-N.purseNote = (c, k, before) => {
+/* xf: a transfer between two cards (N.xferGo). Its line says who gave and who got ("Brann gave 5 gold to Isolde (140 → 135)"),
+   names the other side when xf.other is set, and stands alone: it never folds into an earlier line, and later taps don't fold into it */
+N.purseNote = (c, k, before, xf) => {
   if (!c || !c.player || !c.built) return null;
   const pt = N.partyOf(c.player); if (!pt) return null;
   const ch = 'grp-' + pt.id, now = k === 'fp' ? (c.fp || 0) : (parseInt(c.gold, 10) || 0), g = G();
   let last = null; for (let i = g.msgs.length - 1; i >= 0; i--) if (g.msgs[i].ch === ch) { last = g.msgs[i]; break; }
-  const join = last && last.purse && last.purse.c === c.id && last.purse.k === k && last.by === g.role && N.now() - last.t < PURSE_MS;
+  const join = !xf && last && last.purse && !last.purse.xf && last.purse.c === c.id && last.purse.k === k && last.by === g.role && N.now() - last.t < PURSE_MS;
   const from = join ? last.purse.from : before;
   if (!join && from === now) return null;
   const d = now - from, unit = k === 'fp' ? (Math.abs(d) === 1 ? 'fate point' : 'fate points') : 'gold';
   const n = k === 'fp' ? String(Math.abs(d)) : Math.abs(d).toLocaleString('en-US'), fmt = x => k === 'fp' ? x : x.toLocaleString('en-US');
-  const text = d ? `${c.short}: ${d > 0 ? '+' : '−'}${n} ${unit} (${fmt(from)} → ${fmt(now)})` : `${c.short}: ${unit === 'gold' ? 'gold' : 'fate points'} back to ${fmt(now)}`;
+  const text = xf && d ? `${c.short} ${d < 0 ? 'gave' : 'got'} ${n} ${unit}${xf.other ? (d < 0 ? ' to ' : ' from ') + xf.other : ''} (${fmt(from)} → ${fmt(now)})`
+    : d ? `${c.short}: ${d > 0 ? '+' : '−'}${n} ${unit} (${fmt(from)} → ${fmt(now)})` : `${c.short}: ${unit === 'gold' ? 'gold' : 'fate points'} back to ${fmt(now)}`;
   if (join) { if (!d && g.role === 'gm') { N.delMsg(last.id); return null; } last.text = text; return last; }
-  return push({ch, kind:'sys', by:g.role, purse:{c:c.id, k, from}, text});
+  return push({ch, kind:'sys', by:g.role, purse:xf ? {c:c.id, k, from, xf:1} : {c:c.id, k, from}, text});
+};
+/* Jake: the GM moves gold or fate points from one card to another (player characters and NPC cards).
+   x = {from, to, k, q}: from and to are 'c:<char id>' or 'n:<npc id>' (as N.itemTo reads them), k 'gold' or 'fp', q how many.
+   Gives both sides, their balances now and after, the most that can move and what is wrong (err), if anything */
+N.XFER_MAX = {gold:N.GOLD_MAX, fp:10};
+N.xferBal = (o, k) => k === 'fp' ? (+o.fp || 0) : Math.max(0, parseInt(o.gold, 10) || 0);
+N.xferInfo = x => {
+  const a = N.itemTo(x.from), b = N.itemTo(x.to), k = x.k === 'fp' ? 'fp' : 'gold', q = Math.max(1, parseInt(x.q, 10) || 1);
+  const unit = n => k === 'fp' ? (n === 1 ? 'fate point' : 'fate points') : 'gold', amt = n => `${k === 'fp' ? n : n.toLocaleString('en-US')} ${unit(n)}`;
+  const r = {a, b, k, q, max:0, err:''}; if (!a || !b) return r;
+  const ha = N.xferBal(a.o, k), hb = N.xferBal(b.o, k), room = Math.max(0, N.XFER_MAX[k] - hb);
+  Object.assign(r, {ha, hb, max:Math.min(ha, room)});
+  if (a.o === b.o) r.err = 'Pick two different characters.';
+  else if (!ha) r.err = `${a.label} has no ${k === 'fp' ? 'fate points' : 'gold'} to give.`;
+  else if (!room) r.err = `${b.label} already has ${amt(hb)}, the most a card can hold.`;
+  else if (q > ha) r.err = `${a.label} has only ${amt(ha)}.`;
+  else if (q > room) r.err = `${b.label} can take only ${amt(room)} more (${k === 'fp' ? 10 : N.GOLD_MAX.toLocaleString('en-US')} at most).`;
+  return r;
 };
 /* a line about the fight goes to the chat the fight lives in */
 const fsys = text => Object.assign(sys(text, N.fightCh()), {fight:true});
@@ -721,6 +742,10 @@ function input(v, el){
     case 'news': { const d = v.ui.newsEdit, n = +el.dataset.n; if (k === 'stt' || k === 'stb') d.stories[n][k === 'stt' ? 'title' : 'body'] = val; else if (k === 'cap') { if (n < 0) d.lcap = val; else d.stories[n].cap = val; } else d[k] = val; render(v); return; }
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
     case 'gold': { const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; return; }
+    case 'xf': { const x = v.ui.xf; if (!x) return;
+      if (k === 'q') { const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; x.q = Math.max(1, parseInt(t, 10) || 1); x.qs = t; }
+      else if (k === 'from' || k === 'to') x[k] = val;
+      render(v); return; }
     case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || (c.player === v.role && k !== 'invText'))) c[k] = val; return; }
     case 'cbTitle': g.combat.title = val; return;
     case 'zone': { const z = g.combat.zones.find(x => x.id === el.dataset.z); if (!z) return; z[k] = val; if (k === 'name') { const l = v.root.querySelector(`[data-zl="${z.id}"]`); if (l && l.firstChild) l.firstChild.textContent = val; } return; }
@@ -1925,6 +1950,24 @@ function act(v, a, el, e){
   case 'npcFp': { const n = g.npcs.find(x => x.id === d.n); if (!n || !gm) break; n.fp = clamp((+n.fp || 0) + (+d.d), 0, 10); renderAll(); return; }
   /* Gold on a character (data-c) or NPC (data-n) card, whole numbers only, GM only */
   case 'gold': { if (!gm) break; const o = d.c ? g.chars[d.c] : g.npcs.find(x => x.id === d.n); if (!o) break; const before = parseInt(o.gold, 10) || 0; o.gold = clamp(before + (+d.d), 0, N.GOLD_MAX); if (d.c) N.purseNote(o, 'gold', before); renderAll(); return; }
+  /* Transfer (GM): gold or fate points from one card to another. data-v is who gives ('c:<id>' or 'n:<id>'), data-k what */
+  case 'xfer': if (!gm || !N.itemTo(val)) break; ui.pop = null; ui.sheet = 'xfer'; ui.sheetArg = null; ui.xf = {from:val, to:'', k:d.k === 'fp' ? 'fp' : 'gold', q:1}; break;
+  case 'xfK': if (ui.xf) { ui.xf.k = val === 'fp' ? 'fp' : 'gold'; ui.xf.q = 1; ui.xf.qs = null; } break;
+  case 'xfQ': if (ui.xf) { const r = N.xferInfo(ui.xf); ui.xf.q = Math.max(1, Math.min(r.max || 1, r.q + (+d.d))); ui.xf.qs = null; } break;
+  case 'xfAll': if (ui.xf) { ui.xf.q = Math.max(1, N.xferInfo(ui.xf).max); ui.xf.qs = null; } break;
+  case 'xfSwap': if (ui.xf) [ui.xf.from, ui.xf.to] = [ui.xf.to, ui.xf.from]; break;
+  case 'xfGo': { if (!gm || !ui.xf) break; const r = N.xferInfo(ui.xf); if (!r.a || !r.b || r.err) break;
+    const {a, b, k, q, ha, hb} = r, set = (o, n) => { if (k === 'fp') o.fp = n; else o.gold = n; };
+    set(a.o, ha - q); set(b.o, hb + q);
+    /* each player character's party chat gets its line, as with any gold or fate point change; an NPC's fate points stay unnamed */
+    const other = w => k === 'gold' || w.pc ? w.label : '';
+    const na = a.pc ? N.purseNote(a.o, k, ha, {other:other(b)}) : null, nb = b.pc ? N.purseNote(b.o, k, hb, {other:other(a)}) : null;
+    const amt = k === 'fp' ? `${q} ${q === 1 ? 'fate point' : 'fate points'}` : N.goldTxt(q);
+    ui.xf = null; close();
+    toast(v, `${a.label} gave ${amt} to ${b.label}.`, () => {
+      if (N.xferBal(a.o, k) !== ha - q || N.xferBal(b.o, k) !== hb + q) return; /* changed again since: leave it */
+      set(a.o, ha); set(b.o, hb); [na, nb].forEach(m => m && N.delMsg(m.id)); });
+    renderAll(); return; }
   case 'npcStress': { const n = g.npcs.find(x => x.id === d.n); n.stress[d.k][+d.i] = !n.stress[d.k][+d.i]; renderAll(); return; }
   case 'npcToFight': { if (cb.state === 'off') { toast(v, 'Begin a fight first.'); break; } const t = N.cbAddNpc(val, 'foe', cb.zones[0]?.id); toast(v, `${t.name} joins the fight${cb.zones[0] ? ' in ' + cb.zones[0].name : ''}.`); renderAll(); return; }
   /* players and sign-ins */

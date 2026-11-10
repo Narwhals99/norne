@@ -2373,6 +2373,13 @@
 .app .gs-gold{display:flex;align-items:center;gap:7px;margin-top:8px;font:700 12px/1 var(--f-ui);color:var(--ink-3)}
 .app .gs-gold b{font-size:16px}
 @media (min-width:900px){.app .pc-hero .fp .res{justify-content:flex-end}}
+/* Transfer gold or fate points between cards (GM): the button by Gold, the small one on a fighter card, and the Transfer sheet */
+.app .pc-hero .fp .res .xfer-btn{align-self:flex-end}
+.app .coins .mini .xf-mini svg{width:14px;height:14px}
+.app .xf-sw{display:flex;justify-content:center;margin:-4px 0}
+.app .gold-ed .xf-all{width:auto;padding:0 10px;margin-left:6px;font:700 12.5px/1 var(--f-ui)}
+.app .xf-prev{display:grid;gap:6px}
+.app .xf-row .xf-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* roleplay Recent actions: a roll or note takes the chat to that moment (nearMsg) */
 .app .rcnt .rc-roll.near{cursor:pointer;border-radius:14px;padding:4px;margin:-4px;transition:background .15s}
