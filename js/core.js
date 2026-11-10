@@ -366,7 +366,7 @@ function npcCard(o){
     stressV:{phys:pv, ment:mv}, stress:{phys:pv.map(()=>false), ment:mv.map(()=>false)}, cons:{mild:'',moderate:'',severe:''}, gearAtk:0, gearDef:0, gearRng:0, gearAmmo:0}, o);
 }
 function freshCombat(){
-  return {state:'off', id:null, ch:'table', title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, last:null, acted:false, moved:false, phase:null, lead:null};
+  return {state:'off', id:null, ch:'table', title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, last:null, acted:false, moved:false, phase:null, lead:null, kind:'fight', teams:[], tn:{}, ord:null};
 }
 N.freshCombat = freshCombat; N.npcCard = npcCard; N.blankChar = blankChar;
 N.G.combat = freshCombat();
@@ -762,7 +762,22 @@ N.tokById = id => N.G.combat.tokens.find(t => t.id === id);
 /* the fighter behind a roll's whoKey ('tok:<id>' or 'pc:<char id>'), if they are in this fight */
 N.tokOfKey = (key = '') => key.startsWith('tok:') ? N.tokById(key.slice(4)) : key.startsWith('pc:') ? N.G.combat.tokens.find(t => t.kind === 'pc' && t.ref === key.slice(3)) : null;
 N.zoneOf = t => N.G.combat.zones.find(z => z.id === t.zone);
-N.sideOf = t => t.kind === 'pc' ? 'ally' : (t.side || 'foe');
+/* teams: every fighter is on one. 'ally' (the players' side) and 'foe' are always there; the GM can add more for a
+   three-way (or bigger) fight or contest (combat.teams, Jake). A token's side holds its team; player characters start on 'ally'
+   and the GM can move anyone, players too. A team that was deleted puts its people back on their usual side. */
+N.sideOf = t => { const s = t.side, def = t.kind === 'pc' ? 'ally' : 'foe';
+  return !s ? def : s === 'ally' || s === 'foe' ? s : (N.G.combat.teams || []).some(x => x.id === s) ? s : def; };
+N.TEAMCOL = ['#9cd36b','#f4c46e','#f39ad0','#6fd6c0','#a99bff'];
+/* a fight, a contest (competing overcome rolls scored by rounds) or a challenge (people working together through set skill rolls) */
+N.cbKind = (cb = N.G.combat) => cb && (cb.kind === 'contest' || cb.kind === 'challenge') ? cb.kind : 'fight';
+N.KIND = {fight:{w:'fight', W:'Fight', ic:'swords', ppl:'fighters'}, contest:{w:'contest', W:'Contest', ic:'flag', ppl:'people in the contest'}, challenge:{w:'challenge', W:'Challenge', ic:'overcome', ppl:'people in the challenge'}};
+N.kw = (cb = N.G.combat) => N.KIND[N.cbKind(cb)];
+N.teams = (cb = N.G.combat) => {
+  const k = N.cbKind(cb), tn = cb.tn || {};
+  return [{id:'ally', name:tn.ally || (k === 'fight' ? 'Players and allies' : 'Players’ side'), col:'var(--accent)'}, {id:'foe', name:tn.foe || (k === 'fight' ? 'Foes' : 'Rivals'), col:'var(--c-foe)'},
+    ...(cb.teams || []).map((x, i) => ({id:x.id, name:x.name || `Team ${i + 3}`, col:x.col || N.TEAMCOL[i % N.TEAMCOL.length], extra:true}))];
+};
+N.teamOf = (t, cb = N.G.combat) => N.teams(cb).find(x => x.id === N.sideOf(t)) || N.teams(cb)[0];
 N.sameZone = t => N.G.combat.tokens.filter(o => o !== t && !o.out && t.zone && o.zone === t.zone);
 N.foesOf = t => N.sameZone(t).filter(o => N.sideOf(o) !== N.sideOf(t));
 /* who an attack can hit: anyone on the board, own side too (friendly fire for plot twists, mind control), and in any zone
@@ -778,8 +793,10 @@ N.tokNotice = t => N.tokSkills(t).Notice || 0;
    Fights saved before Notice was rolled have no t.init and fall back to plain Notice.
    If the GM picked someone else to go first (combat.lead), they head the order. */
 const initOf = t => t.init ?? N.tokNotice(t);
+/* the GM can set the order by hand instead (combat.ord, Jake): those ids go in that order, anyone added later after them by Notice */
 N.order = (cb = N.G.combat) => {
-  const o = cb.tokens.filter(t => !t.out && t.zone).map((t,i)=>({t,i})).sort((a,b)=>initOf(b.t)-initOf(a.t)||N.tokNotice(b.t)-N.tokNotice(a.t)||a.i-b.i).map(x=>x.t);
+  const ord = Array.isArray(cb.ord) && cb.ord.length ? cb.ord : null, pos = t => { const i = ord ? ord.indexOf(t.id) : -1; return i < 0 ? 1e6 : i; };
+  const o = cb.tokens.filter(t => !t.out && t.zone).map((t,i)=>({t,i})).sort((a,b)=>pos(a.t)-pos(b.t)||initOf(b.t)-initOf(a.t)||N.tokNotice(b.t)-N.tokNotice(a.t)||a.i-b.i).map(x=>x.t);
   const i = cb.lead ? o.findIndex(t => t.id === cb.lead) : -1;
   if (i > 0) o.unshift(o.splice(i, 1)[0]);
   return o;
@@ -806,9 +823,10 @@ N.atkItems = (t, sk) => {
   if (sk === 'Shooting') { add('Ranged weapon', N.eqOf(o, 'ranged')[0]); add('Ammo', N.eqOf(o, 'ammo')[0]); }
   return out;
 };
-N.curTok = () => { if (N.G.combat.phase === 'notice') return null; const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
+N.curTok = () => { if (N.G.combat.phase === 'notice' || N.cbKind() === 'challenge') return null; const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
 N.tokObj = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref] || {}; const p = N.G.P[c.player]; return {name:c.short || '?', portrait:c.built ? c.portrait : null, color:p?.color || 'var(--accent)'}; }
-  return {name:t.name, portrait:t.portrait, color:t.side === 'ally' ? 'var(--c-npc)' : 'var(--c-foe)'}; };
+  const s = N.sideOf(t), tm = s !== 'ally' && s !== 'foe' && N.teams().find(x => x.id === s);
+  return {name:t.name, portrait:t.portrait, color:tm ? tm.col : s === 'ally' ? 'var(--c-npc)' : 'var(--c-foe)'}; };
 N.tokName = t => t.kind === 'pc' ? (N.G.chars[t.ref]?.short || 'Someone') : t.name;
 N.tokStress = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref]; return c ? {v:c.stressV.phys, s:c.stress.phys} : {v:[], s:[]}; } return {v:t.stressV || [], s:t.stress || []}; };
 N.isMine = (t, role) => !!t && t.kind === 'pc' && role !== 'gm' && N.G.P[role]?.char === t.ref;

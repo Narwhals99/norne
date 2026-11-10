@@ -750,6 +750,9 @@ function input(v, el){
       render(v); return; }
     case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || (c.player === v.role && k !== 'invText'))) c[k] = val; return; }
     case 'cbTitle': g.combat.title = val; return;
+    case 'chalLabel': { const x = (g.combat.tasks || []).find(t => t.id === k); if (x) x.label = val; return; }
+    case 'chalSkill': { const x = (g.combat.tasks || []).find(t => t.id === k); if (x) { x.skill = val; renderAll(); } return; }
+    case 'teamName': { const cb = g.combat; if (k === 'ally' || k === 'foe') { cb.tn = cb.tn || {}; cb.tn[k] = val; } else { const x = (cb.teams || []).find(t => t.id === k); if (x) x.name = val; } return; }
     case 'zone': { const z = g.combat.zones.find(x => x.id === el.dataset.z); if (!z) return; z[k] = val; if (k === 'name') { const l = v.root.querySelector(`[data-zl="${z.id}"]`); if (l && l.firstChild) l.firstChild.textContent = val; } return; }
     case 'rollAsp': v.ui.roll.aspect = val; return;
     case 'rollEv': v.ui.roll.evText = val; return;
@@ -896,7 +899,7 @@ function openRoll(v, o={}){
   }
   const r = N.rollerOf(v, who);
   const best = r ? Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] : 'Notice';
-  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0, mod:0};
+  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0, mod:0, contest:!!o.contest, chal:o.chal || null};
   { const r = v.ui.roll; if (r.skill in vsSkillMem) r.vsSkill = vsSkillMem[r.skill]; }
   v.ui.sheet = 'roll'; v.ui.pop = null;
 }
@@ -912,8 +915,11 @@ function doRoll(v){
   /* a GM attack on someone in a live fight always goes to the fight's chat and asks for a defense, wherever it was rolled from.
      Players' own rolls never move the fight: the GM rolls for everyone in it. */
   const fight = isGM(v) && g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
-  const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : r.opp, dice:N.rollDice(), invokes:[]};
+  const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : fight && r.contest && r.action === 'overcome' && !r.event ? null : r.opp, dice:N.rollDice(), invokes:[]};
   if (fight) roll.fight = true;
+  /* a contest roll competes with the others this round; a challenge roll is one part of the challenge */
+  if (fight && r.contest && r.action === 'overcome' && !r.event) roll.contest = g.combat.id;
+  if (fight && r.chal && !r.event) { const k = (g.combat.tasks || []).find(x => x.id === r.chal); if (k) { roll.chal = k.id; if (k.label) roll.chalL = k.label; } }
   /* a ranged weapon helps the Shooting attack itself: its rating goes on the roll (shown as its own part of the total) */
   const rg = fight && r.action === 'attack' && tgt && !other ? N.atkGear(N.tokOfKey(who.key), skill) : null;
   if (rg && rg.roll) { roll.bonus += rg.roll; roll.gear = rg.roll; roll.gearL = rg.rollL; }
@@ -926,7 +932,7 @@ function doRoll(v){
   if (mod) { roll.bonus += mod; roll.mod = mod; }
   /* a custom event (mind magic, a spell, anything the four actions don't cover) is a fight roll built like a roleplay roll:
      a skill against a skill and/or someone, a difficulty, passive or not, and it can be secret */
-  const ev = fight && r.event, rp = isGM(v) && (ev || (!fight && r.ctx !== 'cb') || (fight && r.ctx === 'cb' && r.action !== 'attack'));
+  const ev = fight && r.event, rp = isGM(v) && !roll.contest && (ev || (!fight && r.ctx !== 'cb') || (fight && r.ctx === 'cb' && r.action !== 'attack'));
   if (ev) roll.event = (r.evText || '').trim() || true;
   if (rp && (r.vsSkill || r.vsNpc)) { const n = N.vsFind(v, r, r.vsNpc); roll.vs = {name:n ? n.name : null, skill:r.vsSkill || null}; }
   /* not passive: the other side rolls 4dF on top of the difficulty / the NPC's skill, and that total is what you beat */
@@ -947,7 +953,11 @@ function doRoll(v){
 }
 function afterFightRoll(v, r, m){
   const cb = G().combat, a = N.tokOfKey(m.roll.whoKey), tot = N.rollTotal(m.roll);
+  /* a challenge part: this roll is now its result (rolling it again replaces it) */
+  if (m.roll.chal && cb.state === 'live') { const k = (cb.tasks || []).find(x => x.id === m.roll.chal); if (k) k.msg = m.id; if (r.action === 'overcome' && m.roll.opp == null) m.roll.opp = 2; if (r.action !== 'advantage') return; }
   if (!a || cb.state !== 'live') return;
+  /* a contest roll: the best one on each side this round wins it when the round is scored (N.ctScore) */
+  if (m.roll.contest) { cb.rnd = cb.rnd || {rolls:{}}; (cb.rnd.rolls = cb.rnd.rolls || {})[a.id] = m.id; cb.cskill = m.roll.skill; cb.acted = true; return; }
   if (r.action === 'attack' && r.target) {
     const d = N.tokById(r.target);
     N.boostTick(a);
@@ -2100,7 +2110,7 @@ function act(v, a, el, e){
     const note = push({ch, kind:'sys', by:'gm', text:title ? `Scene ended: ${title}.` : 'Scene ended.', sceneEnd:true, sceneTitle:title || ''}); ui.sheet = null;
     toast(v, 'Scene ended.', () => { N.delMsg(note.id); N.delMsg(m.id); if (cast) g.casts[ch] = cast; if (once) g.extras[ch] = once; N.renderAll(); }); renderAll(); return; }
   /* fight */
-  case 'cbBegin': if (N.metaOnly(val || ui.ch)) { toast(v, `No fights in ${ (val || ui.ch) === 'table' ? 'Everyone' : N.chName(val || ui.ch, 'gm')}, it’s Meta only. Open a chat that isn’t Meta only to begin one.`); break; } N.cbBegin(val || ui.ch); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
+  case 'cbBegin': if (N.metaOnly(val || ui.ch)) { toast(v, `No ${d.k ? d.k + 's' : 'fights'} in ${ (val || ui.ch) === 'table' ? 'Everyone' : N.chName(val || ui.ch, 'gm')}, it’s Meta only. Open a chat that isn’t Meta only to begin one.`); break; } N.cbBegin(val || ui.ch, d.k); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
   case 'openFight': close(); ui.tab = 'chat'; ui.ch = val || N.fightCh(); focusFight(v); ui.fightOpen = true; ui.fightPane = 'fight'; break;
   case 'closeFight': ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; break;
   case 'pane': ui.fightPane = val; ui.targeting = null; break;
@@ -2114,7 +2124,7 @@ function act(v, a, el, e){
     N.cbLateInit(t);
     if (!t.zone) t.zone = cb.zones[0]?.id;
     if (!cb.invited.includes(c.id)) cb.invited.push(c.id);
-    fsys(`${c.short} joins the fight.`);
+    fsys(`${c.short} joins the ${N.kw().w}.`);
     close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; renderAll(); return;
   }
   case 'cbTool': ui.cbTool = val; ui.targeting = null; ui.placing = null; if (val !== 'zone') ui.zoneSel = null; break;
@@ -2122,12 +2132,37 @@ function act(v, a, el, e){
   case 'cbNotice': N.cbNotice(); renderAll(); return;
   case 'cbFirst': N.cbFirst(d.t); renderAll(); return;
   case 'cbGo': N.cbGo(); ui.targeting = null; renderAll(); return;
+  /* turn order by hand: a draft in the sheet, saved in one go */
+  case 'cbOrderOpen': ui.ordDraft = N.order().map(t => t.id); if (!ui.ordDraft.length) ui.ordDraft = cb.tokens.filter(t => t.zone && !t.out).map(t => t.id); ui.sheet = 'cbOrder'; ui.pop = null; break;
+  case 'ordMove': { const a = ui.ordDraft || [], i = a.indexOf(val), j = i + (+d.d); if (i < 0 || j < 0 || j >= a.length) break; [a[i], a[j]] = [a[j], a[i]]; break; }
+  case 'ordSave': N.cbSetOrder(ui.ordDraft || []); ui.sheet = null; ui.ordDraft = null; renderAll(); return;
+  case 'ordNotice': cb.ord = null; cb.lead = null; if (cb.phase === 'pick') cb.turn = 0; ui.sheet = null; fsys(`${N.gmName()} goes back to the Notice roll order.`); renderAll(); return;
+  /* teams: the GM adds, renames and removes extra teams and moves people between them */
+  case 'teamAdd': { cb.teams = cb.teams || []; const i = cb.teams.length; cb.teams.push({id:N.uid('tm'), name:`Team ${i + 3}`, col:N.TEAMCOL[i % N.TEAMCOL.length]}); renderAll(); return; }
+  case 'teamDel': { cb.teams = (cb.teams || []).filter(x => x.id !== val); cb.tokens.forEach(t => { if (t.side === val) t.side = t.kind === 'pc' ? 'ally' : 'foe'; }); if (cb.score) delete cb.score[val]; renderAll(); return; }
+  case 'tokTeam': { const t = N.tokById(d.t); if (!t) break; const was = N.teamOf(t).name; t.side = val; if (cb.state === 'live' && was !== N.teamOf(t).name) fsys(`${N.tokName(t)} is now with ${N.teamOf(t).name}.`); renderAll(); return; }
+  /* contests */
+  case 'ctGoal': cb.goal = +val || 3; renderAll(); return;
+  case 'ctBy': cb.scoreBy = val === 'each' ? 'each' : 'team'; cb.score = {}; renderAll(); return;
+  case 'ctPt': { cb.score = cb.score || {}; const k = d.k, p = Math.max(0, (cb.score[k] || 0) + (+d.d)); cb.score[k] = p;
+    fsys(`${N.gmName()} ${+d.d > 0 ? 'gives' : 'takes'} a point ${+d.d > 0 ? 'to' : 'from'} ${N.ctName(k)}. Score: ${N.ctKeys().map(x => `${N.ctName(x)} ${cb.score[x] || 0}`).join(', ')}.`);
+    if (cb.won === k && p < (cb.goal || 3)) cb.won = null; if (!cb.won && p >= (cb.goal || 3)) { cb.won = k; fsys(`${N.ctName(k)} wins the contest!`); }
+    renderAll(); return; }
+  /* challenges */
+  case 'chalAdd': { cb.tasks = cb.tasks || []; const k = {id:N.uid('k'), skill:'Athletics', label:''}; cb.tasks.push(k); if (cb.state === 'live') ui.chalEdit = k.id; renderAll(); return; }
+  case 'chalDel': cb.tasks = (cb.tasks || []).filter(x => x.id !== val); ui.chalEdit = null; renderAll(); return;
+  case 'chalDone': ui.chalEdit = null; break;
+  case 'chalRoll': { const k = (cb.tasks || []).find(x => x.id === val); if (!k) break;
+    /* who rolls first: whoever rolled this part before, else the first player character in the challenge */
+    const prev = N.chalMsg(k), t = (prev && N.tokOfKey(prev.roll.whoKey)) || cb.tokens.find(x => x.zone && !x.out && x.kind === 'pc') || cb.tokens.find(x => x.zone && !x.out);
+    openRoll(v, {who:t ? (t.kind === 'pc' ? 'pc:' + t.ref : 'tok:' + t.id) : null, action:'overcome', ctx:'cb', opp:prev?.roll.oppBase ?? prev?.roll.opp ?? 2, skill:k.skill, chal:k.id}); break; }
   case 'cbCancel': ui.targeting = null; ui.placing = null; break;
   case 'cbAct': {
     const a2 = N.actorTok(v) || (gm ? N.curTok() : null); if (!a2) break;
     const key = a2.kind === 'pc' ? 'pc:' + a2.ref : 'tok:' + a2.id;
     if (val === 'attack' || val === 'move') { ui.targeting = ui.targeting === val ? null : val; ui.tokSel = null; break; }
     if (val === 'event') { openRoll(v, {who:key, action:'overcome', ctx:'cb', event:true}); break; }
+    if (val === 'contest') { const sk = N.tokSkills(a2), best = Object.entries(sk).sort((x,y) => y[1]-x[1])[0]?.[0]; openRoll(v, {who:key, action:'overcome', ctx:'cb', contest:true, skill:cb.cskill || best || 'Athletics'}); break; }
     const sk = N.tokSkills(a2), pick = list => list.map(s => [s, sk[s]||0]).sort((x,y) => y[1]-x[1])[0][0];
     openRoll(v, {who:key, action:val, ctx:'cb', opp:2, skill: val === 'advantage' ? pick(['Notice','Provoke','Athletics','Deception','Fighting']) : pick(['Athletics','Strength','Will','Notice'])});
     break;
@@ -2173,8 +2208,8 @@ function act(v, a, el, e){
   case 'cbAddOnce': { const t = N.cbAddOnce(val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
   case 'foeAll': ui.foeAll = !ui.foeAll; break;
   case 'cbAddFoe': { const t = N.cbAddFoe(+val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
-  case 'cbStart': if (N.fightBlocked && N.fightBlocked(cb.ch)) { toast(v, 'To run a fight in a private chat, publish the new security rules first: paste firestore.rules into Firebase > Firestore > Rules, press Publish, then reload.'); break; } N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, 'The fight is on. Roll Notice to see who goes first.'); renderAll(); return;
-  case 'cbCancelSetup': g.combat = N.freshCombat(); ui.fightPane = 'chat'; ui.fightOpen = true; ui.zoneSel = null; toast(v, 'Fight setup thrown away.'); renderAll(); return;
+  case 'cbStart': if (N.fightBlocked && N.fightBlocked(cb.ch)) { toast(v, 'To run a fight in a private chat, publish the new security rules first: paste firestore.rules into Firebase > Firestore > Rules, press Publish, then reload.'); break; } N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, N.cbKind() === 'challenge' ? 'The challenge is on. Roll each part when it comes up.' : `The ${N.kw().w} is on. Roll Notice to see who goes first, or set the order by hand.`); renderAll(); return;
+  case 'cbCancelSetup': g.combat = N.freshCombat(); ui.fightPane = 'chat'; ui.fightOpen = true; ui.zoneSel = null; toast(v, `${N.kw().W} setup thrown away.`); renderAll(); return;
   case 'cbEndGo': N.cbEnd(); ui.sheet = null; ui.tokSel = null; ui.targeting = null; ui.watching = false; renderAll(); return;
   case 'cbAspAdd': { const t = (ui.cbAsp || '').trim(); if (t) { const on = ui.cbAspOn && N.tokById(ui.cbAspOn);
     cb.aspects.push(Object.assign({t, free:+ui.cbAspFree || 0}, on ? {onTok:on.id, on:N.tokName(on)} : {}));
