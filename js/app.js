@@ -424,7 +424,7 @@ function bind(v){
     if (e.target.closest('[data-board]') && (v.ui.tokSel || v.ui.zoneSel)) { v.ui.tokSel = null; v.ui.zoneSel = null; render(v); }
   });
   root.addEventListener('input', e => { const el = e.target; if (el.dataset.i) input(v, el); });
-  root.addEventListener('focusin', e => { const el = e.target; if (el.id && el.matches('textarea, input.inp:not([type]), input.inp[type=text]') && el.dataset.i !== 'draft') v._fld = el.id; });
+  root.addEventListener('focusin', e => { const el = e.target; if (el.id && el.matches('textarea, input.inp:not([type]), input.inp[type=text]') && el.dataset.i !== 'draft' && !el.closest('.pop')) v._fld = el.id; });
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
@@ -650,6 +650,7 @@ function backStep(v, home){
   if (ui.pop) return () => { ui.pop = null; };
   if (ui.sheet === 'itemEd' || ui.sheet === 'itemGive') return () => { ui.sheet = 'items'; ui.itd = null; };
   if (ui.sheet === 'scenePics') return () => { ui.sheet = 'scene'; };
+  if (ui.sheet === 'card' && ui.cardBack?.length) return () => { ui.sheetArg = ui.cardBack.pop(); };
   if (ui.sheet) return () => { if (!askTell(v)) ui.sheet = null; };
   if (ui.tab === 'chat' && (ui.targeting || ui.placing)) return () => { ui.targeting = null; ui.placing = null; };
   /* any page with its own back arrow (wiki, news, cast card, inventory) goes back the way that arrow does */
@@ -712,6 +713,7 @@ function input(v, el){
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
     case 'charQ': v.ui.charQ = val; render(v); return;
+    case 'linkQ': v.ui.linkQ = val; render(v); return;
     case 'castQ': v.ui.sd.castQ = val; render(v); return;
     case 'expFrom': case 'expTo': { const ex = v.ui.exp; if (!ex) return; ex[i === 'expFrom' ? 'from' : 'to'] = val; ex.when = !ex.from && !ex.to ? 'all' : null;
       const o = v.root.querySelector('#exOut'), w = v.root.querySelector('#exWhen'); if (o) o.value = N.buildExport(ex); if (w) w.textContent = N.cap1(N.expRangeWords(ex)) + '. Leave a box empty for no limit on that side.';
@@ -1326,9 +1328,10 @@ function act(v, a, el, e){
     renderAll(); return;
   }
   case 'closePop': ui.pop = null; break;
-  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); if (val === 'chars') ui.charQ = ''; openPop(v, val, el);
-    /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box */
-    if (val === 'emof') { const box = el.closest('.sheet, .page') || v.root, last = v._fld && box.querySelector('#' + CSS.escape(v._fld)); const f = last || box.querySelector('textarea[id], input.inp[id]:not([type]), input.inp[id][type=text]');
+  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); if (val === 'chars') ui.charQ = ''; if (val === 'linkf' || val === 'wlAdd') ui.linkQ = ''; openPop(v, val, el);
+    if (val === 'wlAdd') ui.pop.card = d.c;
+    /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box (Insert link too) */
+    if (val === 'emof' || val === 'linkf') { const box = el.closest('.sheet, .page') || v.root, last = v._fld && box.querySelector('#' + CSS.escape(v._fld)); const f = last || box.querySelector('textarea[id], input.inp[id]:not([type]), input.inp[id][type=text]');
       /* where the caret was: the box is drawn again before the emoji is picked, which would lose it */
       ui.pop.fld = f?.id; ui.pop.sel = f && last ? [f.selectionStart ?? f.value.length, f.selectionEnd ?? f.value.length] : f ? [f.value.length, f.value.length] : null; } if (val === 'emo' && ui.emoTab === 'gif' && !ui.gifRes?.length && g.gifKey) gifSearch(v); } break;
   case 'toast': toast(v, val); break;
@@ -1530,7 +1533,7 @@ function act(v, a, el, e){
     ui.draft = ui.draft.slice(0, a) + t + ui.draft.slice(b); ui.pop = null; render(v);
     const f = v.root.querySelector('.composer textarea'); if (f) { f.focus({preventScroll:true}); f.setSelectionRange(a + t.length, a + t.length); } return; }
   /* the GM's own emoji pictures */
-  case 'emoField': { const id = ui.pop?.fld, sel = ui.pop?.sel, t = val.startsWith(':') ? val + ' ' : val; ui.pop = null;
+  case 'emoField': { const id = ui.pop?.fld, sel = ui.pop?.sel, t = val.startsWith(':') || val.startsWith('[[') ? val + ' ' : val; ui.pop = null;
     const f = id && v.root.querySelector('#' + CSS.escape(id)); if (!f) { render(v); return; }
     const a = Math.min(sel ? sel[0] : f.value.length, f.value.length), b = Math.min(sel ? sel[1] : a, f.value.length);
     f.value = f.value.slice(0, a) + t + f.value.slice(b);
@@ -1700,6 +1703,15 @@ function act(v, a, el, e){
     ui.tab = 'world'; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
   case 'wCat': ui.wikiCat = ui.wikiCat === val ? null : val; if (v.dev === 'phone') ui.wikiSel = null; break;
   case 'wBack': if (ui.wikiSel && ui.wikiPrev?.length) { ui.wikiSel = ui.wikiPrev.pop(); const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; } else if (ui.wikiSel) ui.wikiSel = null; else ui.wikiCat = null; break;
+  /* a link to a PC or NPC card (N.xl) opens it over the page, as this screen may see it; closing it goes back to where it was
+     followed from (a card opened from another card goes back to that one) */
+  case 'cardView': if (!N.linkSees('pc', val)) break; ui.pop = null; { const was = ui.sheet === 'card' && ui.sheetArg !== val ? ui.sheetArg : null;
+    ui.cardBack = was ? [...(ui.cardBack || []), was] : ui.sheet === 'card' ? ui.cardBack || [] : []; openSheet(v, 'card', {c:val}); }
+    v.root.querySelector('[data-sk="sheet"]')?.scrollTo?.(0, 0); break;
+  /* the GM links a wiki entry to a card, or unlinks it (Wiki pages on the sheet) */
+  case 'wlTog': { if (!gm || !d.c) break; const all = g.wlinks = g.wlinks || {}, l = all[d.c] = all[d.c] || [], i = l.indexOf(val);
+    if (i >= 0) l.splice(i, 1); else if (g.wiki.some(e => e.id === val)) l.push(val);
+    if (!l.length) delete all[d.c]; renderAll(); return; }
   case 'wNew': openSheet(v, 'wEdit', {}); break;
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
   case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;

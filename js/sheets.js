@@ -422,11 +422,11 @@ N.sheetHtml = function(v){
       toks.length ? `<button type="button" class="btn primary" data-a="cbBoGive" ${own ? '' : 'disabled'}>${IC('sparkle')}${own ? `Give ${esc(N.tokName(own))} the boost` : 'Pick who gets it'}</button>` : '');
   }
   /* ---------------- character editor (GM) ---------------- */
-  case 'pcEdit': return sheet(v.ui.pd.isNew ? `Make ${esc(pName(v.ui.pd.player))}’s card` : `Edit ${esc(v.ui.pd.short)}’s card`, N.textTools(v) + pcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="pcSave" ${v.ui.pd.name.trim()?'':'disabled'}>${IC('check')}${v.ui.pd.isNew?'Save and send to '+esc(pName(v.ui.pd.player)):'Save card'}</button>`, {wide:true});
-  case 'npcNew': return sheet(v.ui.nd.edit ? `Edit ${esc(v.ui.nd.name || 'NPC')}` : v.ui.nd.copyOf ? 'Copy as NPC' : 'New NPC', N.textTools(v) + (v.ui.nd.copyOf && !v.ui.nd.edit ? `<div class="note">${IC('info')}Everything from ${esc(N.G.chars[v.ui.nd.copyOf]?.short || 'the character')}’s sheet is filled in. Change anything, then Save NPC. The character’s own sheet doesn’t change.</div>` : '') + npcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="npcSave" ${v.ui.nd.name.trim()?'':'disabled'}>${IC('check')}Save NPC</button>`, {wide:true});
+  case 'pcEdit': return sheet(v.ui.pd.isNew ? `Make ${esc(pName(v.ui.pd.player))}’s card` : `Edit ${esc(v.ui.pd.short)}’s card`, N.textTools(v, true) + pcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="pcSave" ${v.ui.pd.name.trim()?'':'disabled'}>${IC('check')}${v.ui.pd.isNew?'Save and send to '+esc(pName(v.ui.pd.player)):'Save card'}</button>`, {wide:true});
+  case 'npcNew': return sheet(v.ui.nd.edit ? `Edit ${esc(v.ui.nd.name || 'NPC')}` : v.ui.nd.copyOf ? 'Copy as NPC' : 'New NPC', N.textTools(v, true) + (v.ui.nd.copyOf && !v.ui.nd.edit ? `<div class="note">${IC('info')}Everything from ${esc(N.G.chars[v.ui.nd.copyOf]?.short || 'the character')}’s sheet is filled in. Change anything, then Save NPC. The character’s own sheet doesn’t change.</div>` : '') + npcEditor(v), `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="npcSave" ${v.ui.nd.name.trim()?'':'disabled'}>${IC('check')}Save NPC</button>`, {wide:true});
   case 'wEdit': {
     const d = v.ui.wd;
-    return sheet(d.id ? 'Edit entry' : 'New wiki entry', `${N.textTools(v)}<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+    return sheet(d.id ? 'Edit entry' : 'New wiki entry', `${N.textTools(v, true)}<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
         <label class="field"><span>Title</span><input class="inp" id="wdt-${v.id}" data-i="wd" data-k="title" value="${esc(d.title)}" placeholder="Name of the person, place or thing"></label>
         <label class="field"><span>Category</span><select class="inp" id="wdc-${v.id}" data-i="wd" data-k="cat">${[...new Set([...N.catNames(g.wiki), d.cat])].filter(Boolean).map(c => `<option ${d.cat===c?'selected':''}>${esc(c)}</option>`).join('')}</select></label></div>
       <label class="field"><span>One-line summary</span><input class="inp" id="wds-${v.id}" data-i="wd" data-k="summary" value="${esc(d.summary)}" placeholder="Shown in lists and at the top"></label>
@@ -446,6 +446,13 @@ N.sheetHtml = function(v){
         <button type="button" class="btn" data-a="wdPartAdd" style="justify-self:start">${IC('plus')}Add a section</button></div>
       <div><h4>Who can read the entry</h4>${N.audPick('wdAud', d, 'wiki')}</div>`,
       `${d.id ? `<button type="button" class="btn danger" data-a="sheet" data-v="wDel" data-c="${esc(d.id)}" style="flex:0 0 auto" aria-label="Delete this entry">${IC('trash')}<span class="only-dt">Delete</span></button>` : ''}<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="wSave" ${d.title.trim()?'':'disabled'}>${IC('check')}Save entry</button>`, {wide:true});
+  }
+  /* a PC or NPC card opened from a link (N.xl): the GM sees the whole card, a player their own card or what was revealed to them */
+  case 'card': {
+    const c = g.chars[arg], n = !c && gm && g.npcs.find(x => x.id === arg), mine = N.charOf(v.role), k = !gm && !(c && c.id === mine?.id) && g.known?.[arg];
+    const body = gm ? (c ? N.sheetBody(v, c) : n ? N.npcBody(v, n) : '') : c && c.id === mine?.id ? N.sheetBody(v, c) : k?.name ? N.knownBody(v, k) : '';
+    if (!body) return '';
+    return sheet(esc(c ? (c.built ? c.name : pName(c.player) + '’s card') : n ? n.name : k.name), `<div class="sheetv cardv">${body}</div>`, '', {wide:true});
   }
   case 'wDel': {
     const e = g.wiki.find(x => x.id === arg); if (!e) return '';
