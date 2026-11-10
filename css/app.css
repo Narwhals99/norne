@@ -891,7 +891,14 @@
 .app .article h3{margin:8px 0 0;font:700 13px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold-tx)}
 .app .article ul{margin:0;padding-left:20px;display:grid;gap:6px;font:400 15.5px/1.55 var(--f-display)}
 .app .article ul li::marker{color:var(--gold-tx)}
-.app .article a.wl{color:var(--link);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--link) 40%,transparent);text-underline-offset:3px;cursor:pointer}
+.app a.wl{color:var(--link);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--link) 40%,transparent);text-underline-offset:3px;cursor:pointer}
+/* the GM's links to cards and entries (N.xl), and Wiki pages on a card */
+.app a.wl svg{width:15px;height:15px;display:inline;vertical-align:-2px;margin-right:5px;color:var(--gold-tx)}
+.app .wlinks{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
+.app .wlinks .wlk{display:inline-flex;align-items:center;gap:2px;min-width:0}
+.app .wlinks a.wl{font:700 15px/1.3 var(--f-ui);overflow-wrap:anywhere}
+.app .sheetv.cardv{padding:0}
+.app .icard a.wl{color:inherit;text-decoration-color:currentColor}
 .app .facts{display:grid;grid-template-columns:auto 1fr;gap:8px 16px;padding:14px 16px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:600 14px/1.35 var(--f-ui)}
 .app .facts dt{font:800 10.5px/1.6 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
 .app .facts dd{margin:0}
@@ -2272,6 +2279,7 @@
 /* emoji (and later formatting) for long forms: stays in reach while the form scrolls */
 .app .ttools{position:sticky;top:0;z-index:3;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:-4px 0 2px;padding:6px 0;background:var(--page-solid);box-shadow:0 8px 10px -8px var(--page-solid)}
 .app .ttools>span{flex:1;min-width:0;font:600 12.5px/1.3 var(--f-ui);color:var(--ink-3)}
+@media (max-width:520px){ .app .ttools.lk>span{visibility:hidden} }
 /* text marks (core.js marks/blocks): underline, strike, spoiler, quote */
 .app u{text-decoration-thickness:1px;text-underline-offset:2px}
 .app .spoil{border-radius:4px;padding:0 2px;-webkit-box-decoration-break:clone;box-decoration-break:clone;background:var(--ink-3);color:transparent;cursor:pointer;transition:color .15s,background .15s;-webkit-user-select:none;user-select:none}
