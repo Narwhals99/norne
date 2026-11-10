@@ -16,6 +16,7 @@ Everything in `art/` and `img/` is free to use. Some licenses ask for credit, so
 | Flowers, sparkles, hearts, bow and the backdrop pattern (`art/ui/gerleez/`), from [Twemoji](https://github.com/jdecked/twemoji) by Twitter and contributors, recoloured to the palette | 4-the-gerleez style | CC BY 4.0 |
 | [three.js](https://threejs.org/) r160 (`vendor/three.module.min.js`), by the three.js authors | 3D toy figures in the figure maker test | MIT |
 | Toy figures (`js/figkit.js`) | Figure maker test | Made for Norne (built from shapes in code, no outside art), except the hair below |
+| Animal and monster figures (`js/beastkit.js`) | Figure maker and fight board | Made for Norne (built from shapes in code, no outside art) |
 | Hair models from the [Mozilla Hubs hackweek avatar kit](https://github.com/Hubs-Foundation/hubs-blender-files) (`art/hair/`), refitted to the toy head, textures turned grey | Figure maker hairstyles 1, 3, 6, 7, 9, 10, 14, 15, 17, 18, 19, 23 and 27 | CC0 1.0 (public domain) |
 | Hair models from [Decentraland avatar assets](https://github.com/decentraland/avatar-assets), Copyright 2019 Metaverse Holdings Ltd. (`art/hair/`), refitted to the toy head, textures turned grey | Figure maker hairstyles 2, 4, 5, 8, 11, 12, 13, 16, 20, 21, 22, 24, 25 and 26 | Apache 2.0 (`art/hair/LICENSE-Apache-2.0.txt`; changes listed in `art/hair/README.md`) |
 | Nörne maps and lore | Maps and wiki text | The GM's own campaign notes |

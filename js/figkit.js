@@ -4,6 +4,7 @@
    {headSize, headShape, jaw, eyeShape, eyeSize, brows, nose, mouth, expr, marks[]} (faceFix fills any left out).
    (len 0..1 = Short / Medium / Long, see HAIR_LEN). Load the hairstyle first (loadHair(spec.hair)), then build.
    Loaded as a module by js/figures.js, only when the maker opens. */
+import {makeBeasts} from './beastkit.js';
 export function makeKit(THREE){
 const V3 = THREE.Vector3, TAU = Math.PI * 2, PI = Math.PI, DEG = PI / 180;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, u) => a + (b - a) * u;
@@ -242,6 +243,7 @@ const OLD_FACE = {kind:{eyeShape:'soft', expr:'smile'}, bright:{eyeShape:'round'
 const RACE_JAW = {Human:'soft', 'Half-Elf':'soft', Elf:'pointed', Dwarf:'square', Gnome:'round', Goblin:'pointed', Centaur:'soft', Vampire:'pointed', Gorgon:'heart', Satyr:'soft', Ogre:'strong'};
 /* fill in the head and face parts a look leaves out (older saved looks, race defaults) */
 function faceFix(spec){
+  if (spec.beast) return spec;
   const o = OLD_FACE[spec.face] || OLD_FACE.kind, has = (list, v) => list.some(x => x[0] === v);
   if (!has(HEAD_SIZES, spec.headSize)) spec.headSize = 'm';
   if (!has(HEAD_SHAPES, spec.headShape)) spec.headShape = 'round';
@@ -310,6 +312,7 @@ function defaultSpec(race, body){
 /* a random look for a fighter with no card (one-off NPCs, Jack 2026-11-08): the race stays as given, and a human's hair and
    eye colour come with their people (lore), like picking a people in the maker */
 function randomSpec(race, rnd = Math.random){
+  const bk = BK.beastOf(race); if (bk) return BK.randomSpec(bk, rnd);
   const one = a => a[Math.floor(rnd() * a.length)], R = RACES[race] ? race : 'Human', r = RACES[R], body = rnd() < .5 ? 'f' : 'm', s = defaultSpec(R, body);
   s.skin = Math.floor(rnd() * r.skins.length); const p = r.skins[s.skin];
   s.eyes = p.eye || (R === 'Human' ? s.eyes : one(EYES)[0]); s.hairCol = p.hair || (R === 'Human' || r.hairC ? s.hairCol : one(HAIRC)[0]);
@@ -663,6 +666,7 @@ function boltMesh(){
 
 /* ---------- the figure ---------- */
 function buildFigure(spec, opt = {}){
+  if (spec.beast) return BK.build(spec, opt, API);
   const R = RACES[spec.race] || RACES.Human;
   const fem = spec.body === 'f', H = R.h, Wd = R.w, D = .9;
   const skinHex = (R.skins[spec.skin] || R.skins[0]).c, hairHex = pick(HAIRC, spec.hairCol)[2], main = pick(CLOTH, spec.cloth)[2];
@@ -1354,7 +1358,7 @@ function rest(rig){
 }
 const _fc = new THREE.Color();
 function flash(rig, k, hex){ _fc.setHex(hex); rig.mats.forEach(m => { if (m.emissive) m.emissive.setHex(hex).multiplyScalar(k * .7); else if (m.userData.base) m.color.copy(m.userData.base).lerp(_fc, k * .55); }); }
-function animate(rig, name, t){ pose(rig, name, t); faceFor(rig, name === 'hit' || name === 'down' ? 'hurt' : null); softHair(rig); }
+function animate(rig, name, t){ if (rig.beast) return BK.pose(rig, name, t); pose(rig, name, t); faceFor(rig, name === 'hit' || name === 'down' ? 'hurt' : null); softHair(rig); }
 /* the face sheet's picture for a move (made the first time it is needed) */
 function faceFor(rig, expr){
   const fm = rig.faceSheet; if (!fm || rig.faceNow === expr) return; rig.faceNow = expr; const F = rig.faces || (rig.faces = {base:fm.material.map});
@@ -1444,6 +1448,7 @@ function softHair(rig){
       for (const [G, list] of g.refs) { const P = G.geo.attributes.position.array; for (const i of list) { P[i * 3] += dx; P[i * 3 + 1] += dy; P[i * 3 + 2] += dz; } G.dirty = true; } } }
 }
 function pose(rig, name, t){
+  if (rig.beast) return BK.pose(rig, name, t);
   rest(rig);
   const {body, torso, head, armL, armR, legs} = rig, D = ANIMS[name] || 2000, u = (t % D) / D, ms = t % D;
   const fx = rig.fx; Object.values(fx).forEach(o => o.visible = false);
@@ -1519,6 +1524,12 @@ function dispose(rig){
       if (m.map && m.map !== GLOW && m.map !== SHADOW && !m.map.userData.keep && ![...hairTexCache.values()].includes(m.map)) m.map.dispose(); m.dispose(); }); });
   if (rig.faces) Object.values(rig.faces).forEach(t => t.dispose());
 }
-return {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS, randomSpec,
-  defaultSpec, faceFix, buildFigure, animate, pose, flash, addFx, dispose, faceIcon, ANIMS, pick, hoodOf, loadHair, hairId, setHairBase};
+/* animals and monsters (js/beastkit.js) are drawn with the same helpers */
+const BK = makeBeasts(THREE, {inked, toon, tube, at, rot, SHADOW, GLOW, mix, shade, canvas, ctex, metalCap});
+/* a look figkit can build: a person of a known race, or a known beast */
+const okSpec = s => !!(s && (s.beast ? BK.isBeast(s) : RACES[s.race]));
+const API = {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS, randomSpec,
+  defaultSpec, faceFix, buildFigure, animate, pose, flash, addFx, dispose, faceIcon, ANIMS, pick, hoodOf, loadHair, hairId, setHairBase,
+  BEASTS:BK.BEASTS, BEAST_LIST:BK.LIST, beastOf:BK.beastOf, beastSpec:BK.defaultSpec, isBeast:BK.isBeast, okSpec};
+return API;
 }

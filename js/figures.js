@@ -102,6 +102,13 @@ const CSS = `
 .figx .grid.hairs .opt{padding:5px 4px 6px}
 .figx .hthumb{display:block;width:56px;height:56px;border-radius:10px;background:var(--sunk) url(art/hair/thumbs.jpg) no-repeat;background-size:1568px 56px;background-position:calc(var(--i) * -56px) 0}
 .figx .grid.steps{grid-template-columns:repeat(3,minmax(0,1fr))}
+.figx .kind{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:16px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.figx .kind .tab[aria-pressed="true"]{background:var(--gold);color:var(--gold-ink)}
+.figx .grid.beasts{grid-template-columns:repeat(auto-fill,minmax(92px,1fr))}
+.figx .grid.beasts .opt{padding:6px 4px 8px;font-size:12.5px}
+.figx .bthumb{display:block;width:72px;height:72px;border-radius:12px;background:var(--sunk);object-fit:contain}
+.figx .bthumb.wait{background:linear-gradient(90deg,var(--sunk),var(--raise),var(--sunk));background-size:200% 100%;animation:figwait 1.2s linear infinite}
+@keyframes figwait{to{background-position:-200% 0}}
 .figx .note{margin:0;color:var(--ink-3);font:600 12.5px/1.45 var(--f-ui)}
 .figx .note b{color:var(--ink-2)}
 .figx .foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
@@ -121,10 +128,12 @@ const HTML = `
       <div class="bar" data-r="views" role="group" aria-label="View">
         <button type="button" class="chip" data-v="one" aria-pressed="true">My figure</button>
         <button type="button" class="chip" data-v="all" aria-pressed="false">Every race's default</button>
+        <button type="button" class="chip" data-v="beasts" aria-pressed="false">Every animal</button>
       </div>
       <div class="saved" data-r="saved" aria-live="polite"></div>
     </section>
     <section class="panel" aria-label="Figure maker">
+      <div class="kind" role="group" aria-label="Kind of figure" data-r="kind"><button type="button" class="tab" data-kind="person" aria-pressed="true">Person</button><button type="button" class="tab" data-kind="beast" aria-pressed="false">Animal or monster</button></div>
       <div class="tabs" role="tablist" data-r="tabs">
         <button type="button" class="tab" role="tab" data-t="body" aria-selected="true">Body</button>
         <button type="button" class="tab" role="tab" data-t="head" aria-selected="false">Head</button>
@@ -133,7 +142,7 @@ const HTML = `
       </div>
       <div class="opts" data-r="opts"></div>
       <div class="foot"><button type="button" class="btn" data-r="reset">Back to the race default</button><span class="toast" data-r="toast" aria-live="polite"></span></div>
-      <p class="note">Humans' looks come from the lore (the four peoples). The other races' default looks are the usual fantasy ones for now, so <b>Jake can change any of them</b>.</p>
+      <p class="note" data-r="racenote">Humans' looks come from the lore (the four peoples). The other races' default looks are the usual fantasy ones for now, so <b>Jake can change any of them</b>.</p>
     </section>
   </div>
 </div>`;
@@ -206,9 +215,9 @@ function shoot(spec){
     const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(-300, 700, 600); sc.add(sun);
     const s = K.faceFix(JSON.parse(JSON.stringify(spec))); s.hair = K.hairId(s.hair || 'bald');
     const rig = K.buildFigure(s); sc.add(rig.root); rig.root.rotation.y = .35; rig.root.updateMatrixWorld(true); K.animate(rig, 'idle', 0);
-    const cam = new THREE.PerspectiveCamera(28, W / H, 1, 5000), h = rig.h + 8;
+    const cam = new THREE.PerspectiveCamera(28, W / H, 1, 5000), h = Math.max(rig.h, (rig.len || 0) * .7) + 8;
     const d = h * .6 / Math.tan(THREE.MathUtils.degToRad(14)) / (W / H < .8 ? (W / H) / .8 : 1);
-    cam.position.set(0, h * .5 + d * .2, d); cam.lookAt(0, h * .47, 0);
+    cam.position.set(0, h * .5 + d * .2, d); cam.lookAt(0, Math.min(h, rig.h + 8) * .47, 0);
     shotR.render(sc, cam); const src = shotR.domElement.toDataURL('image/png');
     sc.remove(rig.root); K.dispose(rig);
     clearTimeout(shotIdle); shotIdle = setTimeout(() => { if (shotR) { shotR.dispose(); try { shotR.forceContextLoss(); } catch (e) {} shotR = null; } }, 20000);
@@ -223,7 +232,7 @@ N.figRand = id => {
   const cb = N.G.combat, t0 = (cb.tokens || []).find(x => x.id === id); if (!t0) return;
   RAND.add(id); if (N.renderAll) N.renderAll();
   kitLoad().then(({K}) => { const t = (N.G.combat.tokens || []).find(x => x.id === id); if (!t) return;
-    t.fig = K.randomSpec(t.fig && t.fig.race || 'Human'); t.figAt = Date.now(); if (N.syncNow) N.syncNow(); })
+    const n = N.G.npcs.find(x => x.id === t.ref); t.fig = K.randomSpec(t.fig ? t.fig.beast || t.fig.race : (n && n.race) || 'Human'); t.figAt = Date.now(); if (N.syncNow) N.syncNow(); })
     .catch(() => {}).then(() => { RAND.delete(id); if (N.renderAll) N.renderAll(); });
 };
 N.figRows = v => {
@@ -258,7 +267,7 @@ function start(box, THREE, K){
   /* whose figure this is (targetOf); with none (the GM from Profile) there is nothing to save */
   const T = openT, mine = () => T ? T.get() : null, who = mine(), cname = T ? T.name : '', pc = T && T.kind === 'pc';
   const DRAFT = 'norne-fig-test', copy = s => JSON.parse(JSON.stringify(s));
-  const fix = s => { if (!s || !K.RACES[s.race]) return null; const o = K.faceFix(copy(s)); o.hair = K.hairId(o.hair || 'bald'); return o; };
+  const fix = s => { if (!K.okSpec(s)) return null; const o = K.faceFix(copy(s)); o.hair = K.hairId(o.hair || 'bald'); return o; };
   const canon = s => s ? JSON.stringify(Object.keys(s).sort().map(k => [k, s[k]])) : '';
   const race0 = K.RACE_LIST.find(r => r.toLowerCase() === String(T && T.race || '').trim().toLowerCase()) || 'Human';
   /* only a player's own figure keeps a draft on the device; NPCs and fighters start from what is saved on them */
@@ -266,7 +275,8 @@ function start(box, THREE, K){
   if (draft && draft.race) draft = {spec:draft, char:null, base:0}; /* a look kept before figures could be saved */
   if (who && who.fig) spec = fix(pc && draft && draft.char === who.id && draft.base === (who.figAt || 0) ? draft.spec : who.fig) || fix(who.fig);
   else if (draft && (!draft.char || (who && draft.char === who.id))) spec = fix(draft.spec);
-  if (!spec) spec = K.defaultSpec(race0, 'm');
+  const beast0 = K.beastOf(T && T.race);
+  if (!spec) spec = beast0 ? K.beastSpec(beast0) : K.defaultSpec(race0, 'm');
   const saveDraft = () => { if (T && !pc) return; try { const c = mine(); localStorage.setItem(DRAFT, JSON.stringify({spec, char:c ? c.id : null, base:c && c.figAt || 0})); } catch (e) {} };
   const savedNow = () => { const c = mine(); return c && c.fig ? fix(c.fig) : null; };
   const dirty = () => canon(spec) !== canon(savedNow());
@@ -315,18 +325,21 @@ function start(box, THREE, K){
       frame();
     });
   }
-  function buildAll(){
-    const specs = K.RACE_LIST.map((race, i) => K.defaultSpec(race, i % 2 ? 'f' : 'm'));
-    return Promise.all(specs.map(s => K.loadHair(s.hair).catch(() => null))).then(() => { if (!running) return;
+  /* every race's default look, or every animal and monster */
+  let allKind = '';
+  function buildAll(kind){
+    const specs = kind === 'beasts' ? K.BEAST_LIST.map(id => K.beastSpec(id)) : K.RACE_LIST.map((race, i) => K.defaultSpec(race, i % 2 ? 'f' : 'm'));
+    allKind = kind;
+    return Promise.all(specs.map(s => K.loadHair(s.hair).catch(() => null))).then(() => { if (!running || allKind !== kind) return;
       all.forEach(r => { scene.remove(r.root); K.dispose(r); }); all = [];
-      specs.forEach(s => { const r = K.buildFigure(s); r.race = s.race; all.push(r); scene.add(r.root); });
+      specs.forEach(s => { const r = K.buildFigure(s); r.race = s.beast ? K.BEASTS[s.beast].n : s.race; all.push(r); scene.add(r.root); });
       layoutAll(); });
   }
   function layoutAll(){
-    const W = stage.clientWidth, cols = W < 560 ? 4 : 8, gap = 62, rows = Math.ceil(all.length / cols);
+    const W = stage.clientWidth, cols = W < 560 ? 4 : 8, gap = allKind === 'beasts' ? 72 : 62, rows = Math.ceil(all.length / cols);
     all.forEach((r, i) => { const c = i % cols, ro = Math.floor(i / cols);
-      r.root.position.set((c - (cols - 1) / 2) * gap, 0, (ro - (rows - 1) / 2) * ZG); r.root.rotation.y = 0; r.root.visible = view === 'all'; });
-    labels.innerHTML = view === 'all' ? all.map(r => `<span>${esc(r.race)}</span>`).join('') : '';
+      r.root.position.set((c - (cols - 1) / 2) * gap, 0, (ro - (rows - 1) / 2) * ZG); r.root.rotation.y = allKind === 'beasts' ? .75 : 0; r.root.visible = view !== 'one'; });
+    labels.innerHTML = view !== 'one' ? all.map(r => `<span>${esc(r.race)}</span>`).join('') : '';
     frame();
   }
   function frame(){
@@ -334,12 +347,12 @@ function start(box, THREE, K){
     renderer.setSize(W, H, false);
     camera.aspect = W / H;
     if (view === 'one') {
-      const h = rig ? rig.h + 8 : 90, tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const h = rig ? Math.max(rig.h, (rig.len || 0) * (rig.beast ? .9 : .62)) + 8 : 90, tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
       let d = (h * .62) / tan; if (camera.aspect < .8) d /= camera.aspect / .8;
-      camera.position.set(0, h * .5 + d * .22, d); camera.lookAt(0, h * .44, 0);
+      const hy = rig ? Math.min(h, rig.h + 8) : h; camera.position.set(0, hy * .5 + d * .22, d); camera.lookAt(0, hy * .44, 0);
     } else {
-      const cols = W < 560 ? 4 : 8, rows = Math.ceil(K.RACE_LIST.length / cols), A = THREE.MathUtils.degToRad(22);
-      const needW = cols * 62 + 24, needH = (rows - 1) * ZG * Math.sin(A) + 118;
+      const cols = W < 560 ? 4 : 8, rows = Math.ceil(all.length / cols), A = THREE.MathUtils.degToRad(22);
+      const needW = cols * (allKind === 'beasts' ? 72 : 62) + 24, needH = (rows - 1) * ZG * Math.sin(A) + 118;
       const hh = Math.max(needH / 2, needW / 2 / (W / H)), hw = hh * W / H;
       ortho.left = -hw; ortho.right = hw; ortho.top = hh; ortho.bottom = -hh;
       ortho.position.set(0, 36 + 2000 * Math.sin(A), 2000 * Math.cos(A)); ortho.lookAt(0, 28, 0); ortho.updateProjectionMatrix();
@@ -358,10 +371,10 @@ function start(box, THREE, K){
     } else {
       all.forEach(r => K.animate(r, anim, t + r.root.position.x * 3));
       const W = stage.clientWidth, H = stage.clientHeight, sp = labels.children;
-      all.forEach((r, i) => { if (!sp[i]) return; v3.set(r.root.position.x, 0, r.root.position.z + 24).project(ortho);
+      all.forEach((r, i) => { if (!sp[i]) return; v3.set(r.root.position.x, 0, r.root.position.z + (allKind === 'beasts' ? 31 : 24)).project(ortho);
         sp[i].style.left = ((v3.x + 1) / 2 * W).toFixed(1) + 'px'; sp[i].style.top = ((1 - v3.y) / 2 * H + 2).toFixed(1) + 'px'; });
     }
-    renderer.render(scene, view === 'all' ? ortho : camera);
+    renderer.render(scene, view !== 'one' ? ortho : camera);
   }
   /* drag sideways to turn the figure; up and down still scroll the page */
   let drag = null;
@@ -376,9 +389,24 @@ function start(box, THREE, K){
   const hairWord = () => { const r = R(); return spec.race === 'Kenku' ? 'Feather colour' : spec.race === 'Lizardfolk' ? 'Crest colour' : spec.race === 'Gorgon' ? 'Snake colour' : spec.race === 'Fishfolk' ? 'Fin colour' : r.coat ? 'Hair and coat colour' : 'Hair colour'; };
   const lenWords = () => K.HAIR_LEN[spec.hair] === 'Height' ? ['Low', 'Medium', 'Tall'] : ['Short', 'Medium', 'Long'];
   const lenStep = () => { const L = spec.len ?? .5; return L < .34 ? 0 : L < .67 ? 1 : 2; };
+  /* the animal buttons show each beast's figure (made one at a time by N.figPic; the list redraws as they arrive) */
+  let thumbT = 0;
+  const beastPic = id => { const src = N.figPic(K.beastSpec(id)); if (!src && !thumbT) thumbT = setTimeout(() => { thumbT = 0; if (running && spec.beast) opts(); }, 500);
+    return src ? `<img class="bthumb" alt="" src="${src}">` : '<i class="bthumb wait" aria-hidden="true"></i>'; };
   function opts(){
-    const r = R(), o = [];
+    const beast = !!spec.beast, r = beast ? null : R(), o = [];
+    $('kind').querySelectorAll('[data-kind]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.kind === 'beast') === beast)));
+    $('tabs').hidden = beast; $('racenote').hidden = beast;
+    $('reset').textContent = beast ? 'Back to the first coat' : 'Back to the race default';
     const grp = (k, val, body, cls = 'grid') => o.push(`<div class="grp"><span class="k">${k}${val ? `<b>${esc(val)}</b>` : ''}</span><div class="${cls}">${body}</div></div>`);
+    if (beast) {
+      const B = K.BEASTS[spec.beast];
+      grp('Animal or monster', B.n, K.BEAST_LIST.map(id => opt(id, K.BEASTS[id].n, id === spec.beast, 'beast', beastPic(id))).join(''), 'grid beasts');
+      grp(spec.beast === 'giant' ? 'Kind of giant' : 'Coat, scales or shell', B.coats[spec.skin] ? B.coats[spec.skin].n : '', B.coats.map((c, i) => sw(i, c.n, c.c, i === +spec.skin, 'coat')).join(''), 'sws');
+      o.push(`<p class="note">Animals and monsters come as they are: pick one and its colours. In a fight, <b>Sword</b> is its bite, pounce or smash, and <b>Bow</b> and <b>Magic</b> are a roar or a breath from a distance.</p>`);
+      $('opts').innerHTML = o.join('');
+      return;
+    }
     if (tab === 'body') {
       grp('Race', spec.race, K.RACE_LIST.map(x => opt(x, x, x === spec.race, 'race')).join(''));
       grp('Body shape', '', opt('f', 'Female', spec.body === 'f', 'body') + opt('m', 'Male', spec.body === 'm', 'body'));
@@ -424,7 +452,9 @@ function start(box, THREE, K){
   $('opts').addEventListener('click', e => {
     const b = e.target.closest('[data-k]'); if (!b) return;
     const k = b.dataset.k, val = b.dataset.v;
-    if (k === 'race') spec = K.defaultSpec(val, spec.body);
+    if (k === 'beast') spec = K.beastSpec(val);
+    else if (k === 'coat') spec = K.beastSpec(spec.beast, +val);
+    else if (k === 'race') spec = K.defaultSpec(val, spec.body || 'm');
     else if (k === 'body') { spec.body = val; if (val === 'f') spec.beard = 'none'; }
     else if (k === 'skin') { spec.skin = +val; const p = R().skins[+val]; if (p.eye) spec.eyes = p.eye; if (p.hair) spec.hairCol = p.hair; }
     else if (k === 'outfit') { spec.outfit = val; spec.cloth = K.pick(K.OUTFITS, val)[2].cloth; delete spec.hood; }
@@ -433,26 +463,33 @@ function start(box, THREE, K){
     else spec[k] = val;
     rebuild(); opts();
   });
+  /* person or animal: switching back to a person starts from the race the figure is for */
+  let lastPerson = spec.beast ? null : spec, lastBeast = spec.beast ? spec : null;
+  $('kind').addEventListener('click', e => { const b = e.target.closest('[data-kind]'); if (!b) return; const want = b.dataset.kind === 'beast'; if (want === !!spec.beast) return;
+    if (want) { lastPerson = spec; spec = lastBeast || K.beastSpec(beast0 || 'wolf'); } else { lastBeast = spec; spec = lastPerson || K.defaultSpec(race0, 'm'); tab = 'body'; }
+    rebuild(); opts(); });
   $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; tab = b.dataset.t; opts(); });
-  $('reset').addEventListener('click', () => { spec = K.defaultSpec(spec.race, spec.body); rebuild(); opts(); toast(`Back to the ${spec.race} default`); });
+  $('reset').addEventListener('click', () => { if (spec.beast) { spec = K.beastSpec(spec.beast); rebuild(); opts(); toast(`Back to the first ${K.BEASTS[spec.beast].n.toLowerCase()} coat`); return; }
+    spec = K.defaultSpec(spec.race, spec.body); rebuild(); opts(); toast(`Back to the ${spec.race} default`); });
   const animBar = $('anims');
   animBar.innerHTML = ANIM_NAMES.map(([id, n]) => `<button type="button" class="chip" data-a="${id}" aria-pressed="${id === anim}">${n}</button>`).join('');
   const markAnim = () => animBar.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.a === anim)));
   animBar.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (!b) return; anim = b.dataset.a; t0 = performance.now(); frozen = null; markAnim(); });
   $('views').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
   function setView(w){
-    view = w; stage.classList.toggle('all', w === 'all');
+    view = w;
     $('views').querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.v === w)));
-    $('tag').textContent = w === 'all' ? 'Every race, default look' : tagText; $('spin').hidden = w === 'all';
-    if (w === 'all' && !all.length) buildAll();
-    if (rig) rig.root.visible = w === 'one'; all.forEach(r => { r.root.visible = w === 'all'; });
+    const many = w !== 'one'; stage.classList.toggle('all', many);
+    $('tag').textContent = w === 'all' ? 'Every race, default look' : w === 'beasts' ? 'Every animal and monster' : tagText; $('spin').hidden = many;
+    if (many && allKind !== w) { all.forEach(r => { scene.remove(r.root); K.dispose(r); }); all = []; labels.innerHTML = ''; buildAll(w); }
+    if (rig) rig.root.visible = !many; all.forEach(r => { r.root.visible = many; });
     requestAnimationFrame(() => { layoutAll(); frame(); });
   }
   const bar = box.querySelector('.fx-bar'), barH = () => box.style.setProperty('--barh', bar.offsetHeight + 'px');
-  const ro = new ResizeObserver(() => { barH(); if (view === 'all') layoutAll(); else frame(); }); ro.observe(stage); ro.observe(bar); barH();
+  const ro = new ResizeObserver(() => { barH(); if (view !== 'one') layoutAll(); else frame(); }); ro.observe(stage); ro.observe(bar); barH();
   rebuild(); opts(); requestAnimationFrame(tick);
   /* test hook for screenshots: set a look, freeze a move */
-  N.figTest = {dirty, set(s, o){ spec = Object.assign(K.defaultSpec(s.race || spec.race, s.body || spec.body), s); const p = rebuild(); if (o && o.tab) tab = o.tab; opts(); return p; }, ready:() => ready,
+  N.figTest = {dirty, set(s, o){ spec = s.beast ? K.beastSpec(s.beast, s.skin || 0) : Object.assign(K.defaultSpec(s.race || spec.race, s.body || spec.body || 'm'), s); const p = rebuild(); if (o && o.tab) tab = o.tab; opts(); return p; }, ready:() => ready,
     pose(a, ms, sp){ anim = a; frozen = ms; if (sp != null) spin = sp; markAnim(); }, view:setView};
   return () => {
     running = false; ro.disconnect(); N.figTest = null;
