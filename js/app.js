@@ -815,7 +815,11 @@ function change(v, el){
   if (i === 'memName') { N.renameMember(el.dataset.v, val); toast(v, 'Name saved.'); render(v); }
   if (i === 'sdAspOn') { const a = v.ui.sd.aspects[+el.dataset.n]; if (a) { if (val) a.on = val; else delete a.on; } render(v); }
   if (i === 'invQ') { const n = parseInt(val, 10); v.ui.invQ = n > 0 ? n : 1; }
+  /* a consequence typed in or cleared: its state buttons come and go, an emptied slot forgets its state */
+  if ((i === 'con' || i === 'npcCon' || i === 'tokCon') && isGM(v)) { const o = conOwner(el.dataset); if (o && !val.trim()) N.setConSt(o, el.dataset.k, ''); renderAll(); }
 }
+/* whose consequences a control points at: data-c a player's card, data-n an NPC card, data-t a nameless fighter */
+function conOwner(d){ const g = G(); return d.c ? g.chars[d.c] : d.n ? g.npcs.find(x => x.id === d.n) : d.t ? N.tokById(d.t) : null; }
 
 /* ---------------- chat ---------------- */
 /* a paused party chat (Jake) takes nothing from its players: no messages, pictures, GIFs or rolls */
@@ -1636,6 +1640,7 @@ function act(v, a, el, e){
   }
   /* GM screen */
   case 'applyScene': { const r = g.recent.find(x => x.id === val); if (!r) break; setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:r.title, where:r.where, art:r.art, place:r.place, aspects:[]}, true); if (ui.sheet === 'gm') ui.sheet = null; renderAll(); return; }
+  case 'conSt': { if (!gm) break; const o = conOwner(d); if (!o) break; N.setConSt(o, d.k, val); renderAll(); return; }
   case 'stress': { const c = g.chars[d.c], on = c.stress[d.k][+d.i] = !c.stress[d.k][+d.i];
     /* a box the GM ticks by hand goes in the open chat's actions, so the table can see what happened */
     sys(`${N.gmName()} ${on ? 'checked' : 'cleared'} ${c.short}’s ${c.stressV[d.k][+d.i]}-point ${d.k === 'phys' ? 'physical' : 'mental'} stress box.`, ui.ch === 'gm' ? 'table' : ui.ch).act = 'stress';
