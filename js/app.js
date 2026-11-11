@@ -58,19 +58,40 @@ const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, tex
    Taps close together (−/+ several times) fold into one line: the first value stays on the line (purse.from) and only its
    words change, which is all a player may change on their own message. A GM's line that ends back where it began is removed */
 const PURSE_MS = 120000;
-N.purseNote = (c, k, before) => {
+/* xf: a transfer between two cards (N.xferGo). Its line says who gave and who got ("Brann gave 5 gold to Isolde (140 → 135)"),
+   names the other side when xf.other is set, and stands alone: it never folds into an earlier line, and later taps don't fold into it */
+N.purseNote = (c, k, before, xf) => {
   if (!c || !c.player || !c.built) return null;
   const pt = N.partyOf(c.player); if (!pt) return null;
   const ch = 'grp-' + pt.id, now = k === 'fp' ? (c.fp || 0) : (parseInt(c.gold, 10) || 0), g = G();
   let last = null; for (let i = g.msgs.length - 1; i >= 0; i--) if (g.msgs[i].ch === ch) { last = g.msgs[i]; break; }
-  const join = last && last.purse && last.purse.c === c.id && last.purse.k === k && last.by === g.role && N.now() - last.t < PURSE_MS;
+  const join = !xf && last && last.purse && !last.purse.xf && last.purse.c === c.id && last.purse.k === k && last.by === g.role && N.now() - last.t < PURSE_MS;
   const from = join ? last.purse.from : before;
   if (!join && from === now) return null;
   const d = now - from, unit = k === 'fp' ? (Math.abs(d) === 1 ? 'fate point' : 'fate points') : 'gold';
   const n = k === 'fp' ? String(Math.abs(d)) : Math.abs(d).toLocaleString('en-US'), fmt = x => k === 'fp' ? x : x.toLocaleString('en-US');
-  const text = d ? `${c.short}: ${d > 0 ? '+' : '−'}${n} ${unit} (${fmt(from)} → ${fmt(now)})` : `${c.short}: ${unit === 'gold' ? 'gold' : 'fate points'} back to ${fmt(now)}`;
+  const text = xf && d ? `${c.short} ${d < 0 ? 'gave' : 'got'} ${n} ${unit}${xf.other ? (d < 0 ? ' to ' : ' from ') + xf.other : ''} (${fmt(from)} → ${fmt(now)})`
+    : d ? `${c.short}: ${d > 0 ? '+' : '−'}${n} ${unit} (${fmt(from)} → ${fmt(now)})` : `${c.short}: ${unit === 'gold' ? 'gold' : 'fate points'} back to ${fmt(now)}`;
   if (join) { if (!d && g.role === 'gm') { N.delMsg(last.id); return null; } last.text = text; return last; }
-  return push({ch, kind:'sys', by:g.role, purse:{c:c.id, k, from}, text});
+  return push({ch, kind:'sys', by:g.role, purse:xf ? {c:c.id, k, from, xf:1} : {c:c.id, k, from}, text});
+};
+/* Jake: the GM moves gold or fate points from one card to another (player characters and NPC cards).
+   x = {from, to, k, q}: from and to are 'c:<char id>' or 'n:<npc id>' (as N.itemTo reads them), k 'gold' or 'fp', q how many.
+   Gives both sides, their balances now and after, the most that can move and what is wrong (err), if anything */
+N.XFER_MAX = {gold:N.GOLD_MAX, fp:10};
+N.xferBal = (o, k) => k === 'fp' ? (+o.fp || 0) : Math.max(0, parseInt(o.gold, 10) || 0);
+N.xferInfo = x => {
+  const a = N.itemTo(x.from), b = N.itemTo(x.to), k = x.k === 'fp' ? 'fp' : 'gold', q = Math.max(1, parseInt(x.q, 10) || 1);
+  const unit = n => k === 'fp' ? (n === 1 ? 'fate point' : 'fate points') : 'gold', amt = n => `${k === 'fp' ? n : n.toLocaleString('en-US')} ${unit(n)}`;
+  const r = {a, b, k, q, max:0, err:''}; if (!a || !b) return r;
+  const ha = N.xferBal(a.o, k), hb = N.xferBal(b.o, k), room = Math.max(0, N.XFER_MAX[k] - hb);
+  Object.assign(r, {ha, hb, max:Math.min(ha, room)});
+  if (a.o === b.o) r.err = 'Pick two different characters.';
+  else if (!ha) r.err = `${a.label} has no ${k === 'fp' ? 'fate points' : 'gold'} to give.`;
+  else if (!room) r.err = `${b.label} already has ${amt(hb)}, the most a card can hold.`;
+  else if (q > ha) r.err = `${a.label} has only ${amt(ha)}.`;
+  else if (q > room) r.err = `${b.label} can take only ${amt(room)} more (${k === 'fp' ? 10 : N.GOLD_MAX.toLocaleString('en-US')} at most).`;
+  return r;
 };
 /* a line about the fight goes to the chat the fight lives in */
 const fsys = text => Object.assign(sys(text, N.fightCh()), {fight:true});
@@ -378,6 +399,41 @@ function bind(v){
     const [grip, G2] = gripOf(e.target), box = grip && G2.box(grip); if (!box) return;
     const k = G2.key(box); v.ui[k] = null; try { localStorage.removeItem('norne-' + k.toLowerCase()); } catch(err) {} render(v);
   });
+  /* Jake: a chat portrait seen bigger. Phone: press and hold the little picture, it shows while the finger stays down.
+     Computer: click it, it stays until a click anywhere else. Only pictures, not the letter circles. The big one sits in the
+     .app root (data-keep, so redraws leave it alone), fixed on the screen next to the little one. */
+  const PEEK = '.msgs .m > .av';
+  const peekAv = t => { const a = t?.closest?.(PEEK); return a && a.querySelector('img') ? a : null; };
+  let pk = null, pkTouch = 0;
+  const peekHide = () => { if (!pk) return; clearTimeout(pk.tm); pk.el?.remove(); document.removeEventListener('touchmove', pkHold, {passive:false}); pk = null; };
+  const pkHold = e => { if (pk?.el && e.cancelable) e.preventDefault(); };
+  const peekShow = a => {
+    const r = a.getBoundingClientRect(), W = innerWidth, H = innerHeight, S = Math.min(TOUCH.matches ? 220 : 260, W - 32);
+    const who = a.parentElement.querySelector('.who')?.firstChild, name = (who && who.nodeType === 3 ? who.nodeValue : a.parentElement.querySelector('.who')?.textContent || '').trim();
+    const el = document.createElement('div'); el.className = 'avpeek'; el.setAttribute('data-keep', ''); el.setAttribute('aria-hidden', 'true');
+    const big = a.cloneNode(true); big.classList.add('big'); big.style.setProperty('--s', S + 'px'); el.appendChild(big);
+    if (name) { const b = document.createElement('b'); b.textContent = name; el.appendChild(b); }
+    /* phone: above the finger (the finger covers the little one), centred; computer: beside it, kept on the screen */
+    let x, y;
+    if (TOUCH.matches) { x = Math.max(16, Math.min(W - S - 16, r.left + r.width / 2 - S / 2)); y = r.top - S - 44; if (y < 12) y = Math.min(H - S - 40, r.bottom + 16); }
+    else { x = Math.min(W - S - 16, r.right + 12); y = Math.max(12, Math.min(H - S - 40, r.top - S / 2)); }
+    el.style.left = Math.round(x) + 'px'; el.style.top = Math.round(y) + 'px';
+    v.root.appendChild(el); pk.el = el; pk.av = a;
+  };
+  root.addEventListener('touchstart', e => {
+    peekHide(); pkTouch = Date.now();
+    const a = e.touches.length === 1 && peekAv(e.target); if (!a) return;
+    const t = e.touches[0]; pk = {x:t.clientX, y:t.clientY, tm:setTimeout(() => { if (!pk) return; peekShow(a); try { navigator.vibrate?.(8); } catch(err) {} document.addEventListener('touchmove', pkHold, {passive:false}); }, 170)};
+  }, {passive:true});
+  root.addEventListener('touchmove', e => { if (!pk || pk.el) return; const t = e.touches[0]; if (Math.hypot(t.clientX - pk.x, t.clientY - pk.y) > 8) peekHide(); }, {passive:true});
+  root.addEventListener('touchend', () => { pkTouch = Date.now(); peekHide(); });
+  root.addEventListener('touchcancel', peekHide);
+  root.addEventListener('click', e => { if (Date.now() - pkTouch < 700) return; const a = peekAv(e.target); if (!a) return;
+    const same = pk?.av === a; peekHide(); if (!same) { pk = {}; peekShow(a); } }, true);
+  document.addEventListener('pointerdown', e => { if (pk?.el && !TOUCH.matches && !peekAv(e.target)) peekHide(); }, true);
+  root.addEventListener('scroll', e => { if (pk?.el && e.target.matches?.('.msgs')) peekHide(); }, true);
+  addEventListener('keydown', e => { if (e.key === 'Escape') peekHide(); });
+  addEventListener('resize', peekHide);
   /* long-press a message on a phone to react, reply or (GM) edit it; a right-click does the same on a computer */
   let lp = null;
   /* a new finger down is a new tap: the 'swallow the lift' guard below is only for the press that opened the menu.
@@ -388,7 +444,7 @@ function bind(v){
   root.addEventListener('touchstart', e => {
     clearTimeout(lp?.tm); lp = null;
     const w = e.touches.length === 1 && e.target.closest('.msgs [data-mid]');
-    if (!w || e.target.closest('button,a,input,textarea,.roll .rh')) return;
+    if (!w || e.target.closest('button,a,input,textarea,.roll .rh') || peekAv(e.target)) return;
     const t = e.touches[0], id = w.dataset.mid;
     lp = {x:t.clientX, y:t.clientY, id, tm:setTimeout(() => { lp.fired = true; v.lpHold = true; try { getSelection()?.removeAllRanges(); } catch(err) {} try { navigator.vibrate?.(12); } catch(err) {} lpOpen(id); }, 480)};
   }, {passive:true});
@@ -398,6 +454,7 @@ function bind(v){
   root.addEventListener('selectstart', e => { const t = e.target.nodeType === 1 ? e.target : e.target.parentElement; if (TOUCH.matches && !t?.closest('input,textarea,[contenteditable]')) e.preventDefault(); });
   root.addEventListener('contextmenu', e => {
     const w = e.target.closest('.msgs [data-mid]'); if (!w || e.target.closest('textarea,input')) return;
+    if (TOUCH.matches && peekAv(e.target)) { e.preventDefault(); return; }
     e.preventDefault(); if (lp?.fired || v.ui.pop?.mid === w.dataset.mid) return; lpOpen(w.dataset.mid);
   });
   root.addEventListener('click', e => {
@@ -424,7 +481,7 @@ function bind(v){
     if (e.target.closest('[data-board]') && (v.ui.tokSel || v.ui.zoneSel)) { v.ui.tokSel = null; v.ui.zoneSel = null; render(v); }
   });
   root.addEventListener('input', e => { const el = e.target; if (el.dataset.i) input(v, el); });
-  root.addEventListener('focusin', e => { const el = e.target; if (el.id && el.matches('textarea, input.inp:not([type]), input.inp[type=text]') && el.dataset.i !== 'draft') v._fld = el.id; });
+  root.addEventListener('focusin', e => { const el = e.target; if (el.id && el.matches('textarea, input.inp:not([type]), input.inp[type=text]') && el.dataset.i !== 'draft' && !el.closest('.pop')) v._fld = el.id; });
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
@@ -650,6 +707,7 @@ function backStep(v, home){
   if (ui.pop) return () => { ui.pop = null; };
   if (ui.sheet === 'itemEd' || ui.sheet === 'itemGive') return () => { ui.sheet = 'items'; ui.itd = null; };
   if (ui.sheet === 'scenePics') return () => { ui.sheet = 'scene'; };
+  if (ui.sheet === 'card' && ui.cardBack?.length) return () => { ui.sheetArg = ui.cardBack.pop(); };
   if (ui.sheet) return () => { if (!askTell(v)) ui.sheet = null; };
   if (ui.tab === 'chat' && (ui.targeting || ui.placing)) return () => { ui.targeting = null; ui.placing = null; };
   /* any page with its own back arrow (wiki, news, cast card, inventory) goes back the way that arrow does */
@@ -696,6 +754,7 @@ function input(v, el){
   switch (i) {
     case 'draft': v.ui.draft = val; grow(el); return;
     case 'fcDraft': v.ui.fcDraft = val; return;
+    case 'ndayY': if (v.ui.nday) { v.ui.nday.y = val.slice(0, 24); const p = v.root.querySelector(`#ndp-${v.id}`); if (p) p.innerHTML = N.nextDayPrev(v.ui.nday); } return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
     case 'itQ': v.ui.itQ = val; render(v); return;
     case 'shopQ': v.ui.shopQ = val; render(v); return;
@@ -712,6 +771,7 @@ function input(v, el){
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
     case 'charQ': v.ui.charQ = val; render(v); return;
+    case 'linkQ': v.ui.linkQ = val; render(v); return;
     case 'castQ': v.ui.sd.castQ = val; render(v); return;
     case 'expFrom': case 'expTo': { const ex = v.ui.exp; if (!ex) return; ex[i === 'expFrom' ? 'from' : 'to'] = val; ex.when = !ex.from && !ex.to ? 'all' : null;
       const o = v.root.querySelector('#exOut'), w = v.root.querySelector('#exWhen'); if (o) o.value = N.buildExport(ex); if (w) w.textContent = N.cap1(N.expRangeWords(ex)) + '. Leave a box empty for no limit on that side.';
@@ -721,8 +781,15 @@ function input(v, el){
     case 'news': { const d = v.ui.newsEdit, n = +el.dataset.n; if (k === 'stt' || k === 'stb') d.stories[n][k === 'stt' ? 'title' : 'body'] = val; else if (k === 'cap') { if (n < 0) d.lcap = val; else d.stories[n].cap = val; } else d[k] = val; render(v); return; }
     case 'con': g.chars[el.dataset.c].cons[k] = val; return;
     case 'gold': { const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; return; }
+    case 'xf': { const x = v.ui.xf; if (!x) return;
+      if (k === 'q') { const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; x.q = Math.max(1, parseInt(t, 10) || 1); x.qs = t; }
+      else if (k === 'from' || k === 'to') x[k] = val;
+      render(v); return; }
     case 'cnote': { const c = g.chars[el.dataset.c]; if (c && (isGM(v) || (c.player === v.role && k !== 'invText'))) c[k] = val; return; }
     case 'cbTitle': g.combat.title = val; return;
+    case 'chalLabel': { const x = (g.combat.tasks || []).find(t => t.id === k); if (x) x.label = val; return; }
+    case 'chalSkill': { const x = (g.combat.tasks || []).find(t => t.id === k); if (x) { x.skill = val; renderAll(); } return; }
+    case 'teamName': { const cb = g.combat; if (k === 'ally' || k === 'foe') { cb.tn = cb.tn || {}; cb.tn[k] = val; } else { const x = (cb.teams || []).find(t => t.id === k); if (x) x.name = val; } return; }
     case 'zone': { const z = g.combat.zones.find(x => x.id === el.dataset.z); if (!z) return; z[k] = val; if (k === 'name') { const l = v.root.querySelector(`[data-zl="${z.id}"]`); if (l && l.firstChild) l.firstChild.textContent = val; } return; }
     case 'rollAsp': v.ui.roll.aspect = val; return;
     case 'rollEv': v.ui.roll.evText = val; return;
@@ -746,6 +813,7 @@ function input(v, el){
     case 'med': if (v.ui.med) v.ui.med.text = val; { const b = v.root.querySelector('[data-a="msgSave"]'); if (b) b.disabled = !val.trim(); } return;
     case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .plt`); if (lab) lab.textContent = val; return; }
     case 'pinSub': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; const t = val.trim(); if (t) pin.sub = val; else delete pin.sub; const el = v.root.querySelector(`[data-pin="${pin.id}"]`), pl = el && el.querySelector('.pl'), pw = el && el.querySelector('.pw'); if (pw) { let sm = pw.querySelector('.psub'); if (t && !sm) { sm = document.createElement('small'); sm.className = 'psub'; pw.appendChild(sm); } if (sm) { if (t) sm.textContent = val; else sm.remove(); } pl.classList.toggle('two', !!t); } return; }
+    case 'pinWiki': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; if (val) pin.wiki = val; else delete pin.wiki; N.renderAll(); return; }
     case 'pinNote': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (pin) pin.note = val; return; }
     case 'dOth': { (v.ui.dOth = v.ui.dOth || {})[el.dataset.act + '|' + el.dataset.s] = val; const b = el.parentElement.querySelector('button'); if (b) b.disabled = !val.trim(); return; }
     case 'pd': {
@@ -784,11 +852,17 @@ function change(v, el){
   if (i === 'shopName' || i === 'shopPrice') renderAll();
   if (i === 'memName') { N.renameMember(el.dataset.v, val); toast(v, 'Name saved.'); render(v); }
   if (i === 'sdAspOn') { const a = v.ui.sd.aspects[+el.dataset.n]; if (a) { if (val) a.on = val; else delete a.on; } render(v); }
+  if (/^nday[UWDM]$/.test(i) && v.ui.nday) { const d = v.ui.nday, k = i[4];
+    if (k === 'U') d.u = el.checked; else d[k.toLowerCase()] = parseInt(val, 10) || 0; render(v); }
   if (i === 'invQ') { const n = parseInt(val, 10); v.ui.invQ = n > 0 ? n : 1; }
+  /* a consequence typed in or cleared: its state buttons come and go, an emptied slot forgets its state */
+  if ((i === 'con' || i === 'npcCon' || i === 'tokCon') && isGM(v)) { const o = conOwner(el.dataset); if (o && !val.trim()) N.setConSt(o, el.dataset.k, ''); renderAll(); }
 }
+/* whose consequences a control points at: data-c a player's card, data-n an NPC card, data-t a nameless fighter */
+function conOwner(d){ const g = G(); return d.c ? g.chars[d.c] : d.n ? g.npcs.find(x => x.id === d.n) : d.t ? N.tokById(d.t) : null; }
 
 /* ---------------- chat ---------------- */
-/* a paused party chat (Jake) takes nothing from its players: no messages, pictures, GIFs or rolls */
+/* a paused party or group chat (Jake) takes nothing from its players: no messages, pictures, GIFs or rolls */
 function hushed(v, ch){ if (isGM(v) || !N.chPaused(ch)) return false; toast(v, 'The GM paused this chat. You can read it, but not send anything until they resume it.'); render(v); return true; }
 function send(v){
   const text = v.ui.draft.trim(); if (!text) return;
@@ -869,7 +943,7 @@ function openRoll(v, o={}){
   }
   const r = N.rollerOf(v, who);
   const best = r ? Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] : 'Notice';
-  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0, mod:0};
+  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0, mod:0, contest:!!o.contest, chal:o.chal || null};
   { const r = v.ui.roll; if (r.skill in vsSkillMem) r.vsSkill = vsSkillMem[r.skill]; }
   v.ui.sheet = 'roll'; v.ui.pop = null;
 }
@@ -885,8 +959,11 @@ function doRoll(v){
   /* a GM attack on someone in a live fight always goes to the fight's chat and asks for a defense, wherever it was rolled from.
      Players' own rolls never move the fight: the GM rolls for everyone in it. */
   const fight = isGM(v) && g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
-  const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : r.opp, dice:N.rollDice(), invokes:[]};
+  const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : fight && r.contest && r.action === 'overcome' && !r.event ? null : r.opp, dice:N.rollDice(), invokes:[]};
   if (fight) roll.fight = true;
+  /* a contest roll competes with the others this round; a challenge roll is one part of the challenge */
+  if (fight && r.contest && r.action === 'overcome' && !r.event) roll.contest = g.combat.id;
+  if (fight && r.chal && !r.event) { const k = (g.combat.tasks || []).find(x => x.id === r.chal); if (k) { roll.chal = k.id; if (k.label) roll.chalL = k.label; } }
   /* a ranged weapon helps the Shooting attack itself: its rating goes on the roll (shown as its own part of the total) */
   const rg = fight && r.action === 'attack' && tgt && !other ? N.atkGear(N.tokOfKey(who.key), skill) : null;
   if (rg && rg.roll) { roll.bonus += rg.roll; roll.gear = rg.roll; roll.gearL = rg.rollL; }
@@ -899,7 +976,7 @@ function doRoll(v){
   if (mod) { roll.bonus += mod; roll.mod = mod; }
   /* a custom event (mind magic, a spell, anything the four actions don't cover) is a fight roll built like a roleplay roll:
      a skill against a skill and/or someone, a difficulty, passive or not, and it can be secret */
-  const ev = fight && r.event, rp = isGM(v) && (ev || (!fight && r.ctx !== 'cb') || (fight && r.ctx === 'cb' && r.action !== 'attack'));
+  const ev = fight && r.event, rp = isGM(v) && !roll.contest && (ev || (!fight && r.ctx !== 'cb') || (fight && r.ctx === 'cb' && r.action !== 'attack'));
   if (ev) roll.event = (r.evText || '').trim() || true;
   if (rp && (r.vsSkill || r.vsNpc)) { const n = N.vsFind(v, r, r.vsNpc); roll.vs = {name:n ? n.name : null, skill:r.vsSkill || null}; }
   /* not passive: the other side rolls 4dF on top of the difficulty / the NPC's skill, and that total is what you beat */
@@ -920,7 +997,11 @@ function doRoll(v){
 }
 function afterFightRoll(v, r, m){
   const cb = G().combat, a = N.tokOfKey(m.roll.whoKey), tot = N.rollTotal(m.roll);
+  /* a challenge part: this roll is now its result (rolling it again replaces it) */
+  if (m.roll.chal && cb.state === 'live') { const k = (cb.tasks || []).find(x => x.id === m.roll.chal); if (k) k.msg = m.id; if (r.action === 'overcome' && m.roll.opp == null) m.roll.opp = 2; if (r.action !== 'advantage') return; }
   if (!a || cb.state !== 'live') return;
+  /* a contest roll: the best one on each side this round wins it when the round is scored (N.ctScore) */
+  if (m.roll.contest) { cb.rnd = cb.rnd || {rolls:{}}; (cb.rnd.rolls = cb.rnd.rolls || {})[a.id] = m.id; cb.cskill = m.roll.skill; cb.acted = true; return; }
   if (r.action === 'attack' && r.target) {
     const d = N.tokById(r.target);
     N.boostTick(a);
@@ -1230,8 +1311,13 @@ function mapDown(v, e){
 }
 /* a place that opens a map (a country, a city, a neighborhood) goes straight to it; Back returns to the map it was on */
 function openMapFrom(v, id){ const cur = curMap(v); if (cur && cur.id !== id) (v.ui.mapBack = v.ui.mapBack || []).push(cur.id); v.ui.mapId = id; }
-function pinGo(v, pid){
+/* tapping a place: one with a map and a wiki article asks which to open (the place card), one with only a map opens it,
+   one with only an article opens that article for players (the GM gets the place card, which keeps Set as scene) */
+function pinGo(v, pid, force){
   const m = curMap(v), p = m && m.pins.find(x => x.id === pid), to = p && N.pinTo(m, p), mp = to && G().maps.find(x => x.id === to && seeMap(v, x));
+  const wk = !force && p && N.pinWiki(p, isGM(v));
+  if (wk && mp) return false;
+  if (wk && !isGM(v)) { act(v, 'wiki', {dataset:{v:wk.id}}); return true; }
   if (!mp) return false;
   openMapFrom(v, mp.id); Object.assign(v.ui, {pinSel:null, mapT:null, mapType:'all', pop:null}); render(v); return true;
 }
@@ -1326,9 +1412,10 @@ function act(v, a, el, e){
     renderAll(); return;
   }
   case 'closePop': ui.pop = null; break;
-  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); if (val === 'chars') ui.charQ = ''; openPop(v, val, el);
-    /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box */
-    if (val === 'emof') { const box = el.closest('.sheet, .page') || v.root, last = v._fld && box.querySelector('#' + CSS.escape(v._fld)); const f = last || box.querySelector('textarea[id], input.inp[id]:not([type]), input.inp[id][type=text]');
+  case 'pop': if (ui.pop && ui.pop.type === val) ui.pop = null; else { if (val === 'maps') ui.mapDir = N.mapDirOf(curMap(v)); if (val === 'chars') ui.charQ = ''; if (val === 'linkf' || val === 'wlAdd') ui.linkQ = ''; openPop(v, val, el);
+    if (val === 'wlAdd') ui.pop.card = d.c;
+    /* the emoji button over a form remembers which box to fill: the last one typed in there, else its first text box (Insert link too) */
+    if (val === 'emof' || val === 'linkf') { const box = el.closest('.sheet, .page') || v.root, last = v._fld && box.querySelector('#' + CSS.escape(v._fld)); const f = last || box.querySelector('textarea[id], input.inp[id]:not([type]), input.inp[id][type=text]');
       /* where the caret was: the box is drawn again before the emoji is picked, which would lose it */
       ui.pop.fld = f?.id; ui.pop.sel = f && last ? [f.selectionStart ?? f.value.length, f.selectionEnd ?? f.value.length] : f ? [f.value.length, f.value.length] : null; } if (val === 'emo' && ui.emoTab === 'gif' && !ui.gifRes?.length && g.gifKey) gifSearch(v); } break;
   case 'toast': toast(v, val); break;
@@ -1448,7 +1535,12 @@ function act(v, a, el, e){
   case 'grpEdit': if (!gm) break; openSheet(v, 'grpEdit', {v:val}); break;
   case 'gdParty': ui.gd.party = val === '1'; break;
   /* Jake: the GM pauses a party's chat; its players can read but not send until the GM lets them talk again */
-  case 'grpPause': { const gr = gm && N.grpOf('grp-' + val); if (!gr || !gr.party) break; const on = !gr.paused;
+  case 'ndayGo': { const d = ui.nday, ch = ui.ch; if (!gm || !d || !N.grpOf(ch) || N.metaOnly(ch)) break;
+    const day = d.u ? {u:true} : {w:clamp(d.w, 0, 6), d:clamp(d.d, 1, 31), m:clamp(d.m, 0, 11), y:String(d.y || '').trim()};
+    const a = push({ch, kind:'rp', by:'gm', as:'Narrator', text:N.dayLine(day), day});
+    push({ch, kind:'meta', by:'gm', text:N.NEXT_DAY_META, t:a.t + 1});
+    ui.nday = null; ui.sheet = null; ui.stick = true; toast(v, 'Next day posted.'); renderAll(); return; }
+  case 'grpPause': { const gr = gm && N.grpOf('grp-' + val); if (!gr) break; const on = !gr.paused;
     N.saveGroup(on ? {...gr, paused:true} : (({paused, ...x}) => x)(gr), null);
     sys(on ? `${N.gmName()} paused this chat. Players can read but not send until it’s resumed.` : `${N.gmName()} resumed the chat. Everyone can talk again.`, 'grp-' + gr.id);
     toast(v, on ? 'Chat paused. Players can’t send messages.' : 'Chat resumed.'); renderAll(); return; }
@@ -1462,7 +1554,7 @@ function act(v, a, el, e){
   case 'gdSave': {
     const d = ui.gd, name = d.name.trim(); if (!gm || !name || !d.seats.length) break;
     const old = d.id && g.groups.find(x => x.id === d.id), seats = N.seats().filter(s => d.seats.includes(s));
-    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {}), ...(d.meta ? {meta:true} : {}), ...(d.party && old?.paused ? {paused:true} : {}), ...(d.pic ? {pic:d.pic} : {})};
+    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {}), ...(d.meta ? {meta:true} : {}), ...(old?.paused ? {paused:true} : {}), ...(d.pic ? {pic:d.pic} : {})};
     /* a player is in one party at a time: putting them in this one takes them out of any other. A party whose
        players all come along (a Solo party) stays as their group chat with all its history, so the 1-on-1
        roleplay with the GM is never lost; from a bigger party only the players who move leave. */
@@ -1530,7 +1622,7 @@ function act(v, a, el, e){
     ui.draft = ui.draft.slice(0, a) + t + ui.draft.slice(b); ui.pop = null; render(v);
     const f = v.root.querySelector('.composer textarea'); if (f) { f.focus({preventScroll:true}); f.setSelectionRange(a + t.length, a + t.length); } return; }
   /* the GM's own emoji pictures */
-  case 'emoField': { const id = ui.pop?.fld, sel = ui.pop?.sel, t = val.startsWith(':') ? val + ' ' : val; ui.pop = null;
+  case 'emoField': { const id = ui.pop?.fld, sel = ui.pop?.sel, t = val.startsWith(':') || val.startsWith('[[') ? val + ' ' : val; ui.pop = null;
     const f = id && v.root.querySelector('#' + CSS.escape(id)); if (!f) { render(v); return; }
     const a = Math.min(sel ? sel[0] : f.value.length, f.value.length), b = Math.min(sel ? sel[1] : a, f.value.length);
     f.value = f.value.slice(0, a) + t + f.value.slice(b);
@@ -1598,6 +1690,7 @@ function act(v, a, el, e){
   }
   /* GM screen */
   case 'applyScene': { const r = g.recent.find(x => x.id === val); if (!r) break; setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:r.title, where:r.where, art:r.art, place:r.place, aspects:[]}, true); if (ui.sheet === 'gm') ui.sheet = null; renderAll(); return; }
+  case 'conSt': { if (!gm) break; const o = conOwner(d); if (!o) break; N.setConSt(o, d.k, val); renderAll(); return; }
   case 'stress': { const c = g.chars[d.c], on = c.stress[d.k][+d.i] = !c.stress[d.k][+d.i];
     /* a box the GM ticks by hand goes in the open chat's actions, so the table can see what happened */
     sys(`${N.gmName()} ${on ? 'checked' : 'cleared'} ${c.short}’s ${c.stressV[d.k][+d.i]}-point ${d.k === 'phys' ? 'physical' : 'mental'} stress box.`, ui.ch === 'gm' ? 'table' : ui.ch).act = 'stress';
@@ -1681,6 +1774,7 @@ function act(v, a, el, e){
     }); return;
   case 'findParty': ui.mapId = g.party.map; ui.mapT = null; ui.pinSel = '__party'; render(v); return;
   case 'pinClose': ui.pinSel = null; break;
+  case 'pinMap': pinGo(v, val, true); return;
   case 'pinScene': { const m = curMap(v), p = m.pins.find(x => x.id === val); setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:p.label, where:m.name, place:{map:m.id, rx:p.rx, ry:p.ry}, aspects:[]}, true); renderAll(); return; }
   case 'pinParty': { const m = curMap(v), p = m.pins.find(x => x.id === val); moveParty(m, p.rx, p.ry + .002); sys(`The party heads to ${p.label}.`); toast(v, `The party is now at ${p.label}. A note went to Everyone.`); renderAll(); return; }
   case 'pinType': { const p = curMap(v).pins.find(x => x.id === ui.pinSel); if (p) { if (val === 'here' && p.label === 'New place') p.label = 'You are here'; else if (p.type === 'here' && val !== 'here' && p.label === 'You are here') p.label = 'New place'; p.type = val; } renderAll(); return; }
@@ -1700,6 +1794,15 @@ function act(v, a, el, e){
     ui.tab = 'world'; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
   case 'wCat': ui.wikiCat = ui.wikiCat === val ? null : val; if (v.dev === 'phone') ui.wikiSel = null; break;
   case 'wBack': if (ui.wikiSel && ui.wikiPrev?.length) { ui.wikiSel = ui.wikiPrev.pop(); const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; } else if (ui.wikiSel) ui.wikiSel = null; else ui.wikiCat = null; break;
+  /* a link to a PC or NPC card (N.xl) opens it over the page, as this screen may see it; closing it goes back to where it was
+     followed from (a card opened from another card goes back to that one) */
+  case 'cardView': if (!N.linkSees('pc', val)) break; ui.pop = null; { const was = ui.sheet === 'card' && ui.sheetArg !== val ? ui.sheetArg : null;
+    ui.cardBack = was ? [...(ui.cardBack || []), was] : ui.sheet === 'card' ? ui.cardBack || [] : []; openSheet(v, 'card', {c:val}); }
+    v.root.querySelector('[data-sk="sheet"]')?.scrollTo?.(0, 0); break;
+  /* the GM links a wiki entry to a card, or unlinks it (Wiki pages on the sheet) */
+  case 'wlTog': { if (!gm || !d.c) break; const all = g.wlinks = g.wlinks || {}, l = all[d.c] = all[d.c] || [], i = l.indexOf(val);
+    if (i >= 0) l.splice(i, 1); else if (g.wiki.some(e => e.id === val)) l.push(val);
+    if (!l.length) delete all[d.c]; renderAll(); return; }
   case 'wNew': openSheet(v, 'wEdit', {}); break;
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
   case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;
@@ -1925,6 +2028,24 @@ function act(v, a, el, e){
   case 'npcFp': { const n = g.npcs.find(x => x.id === d.n); if (!n || !gm) break; n.fp = clamp((+n.fp || 0) + (+d.d), 0, 10); renderAll(); return; }
   /* Gold on a character (data-c) or NPC (data-n) card, whole numbers only, GM only */
   case 'gold': { if (!gm) break; const o = d.c ? g.chars[d.c] : g.npcs.find(x => x.id === d.n); if (!o) break; const before = parseInt(o.gold, 10) || 0; o.gold = clamp(before + (+d.d), 0, N.GOLD_MAX); if (d.c) N.purseNote(o, 'gold', before); renderAll(); return; }
+  /* Transfer (GM): gold or fate points from one card to another. data-v is who gives ('c:<id>' or 'n:<id>'), data-k what */
+  case 'xfer': if (!gm || !N.itemTo(val)) break; ui.pop = null; ui.sheet = 'xfer'; ui.sheetArg = null; ui.xf = {from:val, to:'', k:d.k === 'fp' ? 'fp' : 'gold', q:1}; break;
+  case 'xfK': if (ui.xf) { ui.xf.k = val === 'fp' ? 'fp' : 'gold'; ui.xf.q = 1; ui.xf.qs = null; } break;
+  case 'xfQ': if (ui.xf) { const r = N.xferInfo(ui.xf); ui.xf.q = Math.max(1, Math.min(r.max || 1, r.q + (+d.d))); ui.xf.qs = null; } break;
+  case 'xfAll': if (ui.xf) { ui.xf.q = Math.max(1, N.xferInfo(ui.xf).max); ui.xf.qs = null; } break;
+  case 'xfSwap': if (ui.xf) [ui.xf.from, ui.xf.to] = [ui.xf.to, ui.xf.from]; break;
+  case 'xfGo': { if (!gm || !ui.xf) break; const r = N.xferInfo(ui.xf); if (!r.a || !r.b || r.err) break;
+    const {a, b, k, q, ha, hb} = r, set = (o, n) => { if (k === 'fp') o.fp = n; else o.gold = n; };
+    set(a.o, ha - q); set(b.o, hb + q);
+    /* each player character's party chat gets its line, as with any gold or fate point change; an NPC's fate points stay unnamed */
+    const other = w => k === 'gold' || w.pc ? w.label : '';
+    const na = a.pc ? N.purseNote(a.o, k, ha, {other:other(b)}) : null, nb = b.pc ? N.purseNote(b.o, k, hb, {other:other(a)}) : null;
+    const amt = k === 'fp' ? `${q} ${q === 1 ? 'fate point' : 'fate points'}` : N.goldTxt(q);
+    ui.xf = null; close();
+    toast(v, `${a.label} gave ${amt} to ${b.label}.`, () => {
+      if (N.xferBal(a.o, k) !== ha - q || N.xferBal(b.o, k) !== hb + q) return; /* changed again since: leave it */
+      set(a.o, ha); set(b.o, hb); [na, nb].forEach(m => m && N.delMsg(m.id)); });
+    renderAll(); return; }
   case 'npcStress': { const n = g.npcs.find(x => x.id === d.n); n.stress[d.k][+d.i] = !n.stress[d.k][+d.i]; renderAll(); return; }
   case 'npcToFight': { if (cb.state === 'off') { toast(v, 'Begin a fight first.'); break; } const t = N.cbAddNpc(val, 'foe', cb.zones[0]?.id); toast(v, `${t.name} joins the fight${cb.zones[0] ? ' in ' + cb.zones[0].name : ''}.`); renderAll(); return; }
   /* players and sign-ins */
@@ -2045,7 +2166,7 @@ function act(v, a, el, e){
     const note = push({ch, kind:'sys', by:'gm', text:title ? `Scene ended: ${title}.` : 'Scene ended.', sceneEnd:true, sceneTitle:title || ''}); ui.sheet = null;
     toast(v, 'Scene ended.', () => { N.delMsg(note.id); N.delMsg(m.id); if (cast) g.casts[ch] = cast; if (once) g.extras[ch] = once; N.renderAll(); }); renderAll(); return; }
   /* fight */
-  case 'cbBegin': if (N.metaOnly(val || ui.ch)) { toast(v, `No fights in ${ (val || ui.ch) === 'table' ? 'Everyone' : N.chName(val || ui.ch, 'gm')}, it’s Meta only. Open a chat that isn’t Meta only to begin one.`); break; } N.cbBegin(val || ui.ch); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
+  case 'cbBegin': if (N.metaOnly(val || ui.ch)) { toast(v, `No ${d.k ? d.k + 's' : 'fights'} in ${ (val || ui.ch) === 'table' ? 'Everyone' : N.chName(val || ui.ch, 'gm')}, it’s Meta only. Open a chat that isn’t Meta only to begin one.`); break; } N.cbBegin(val || ui.ch, d.k); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
   case 'openFight': close(); ui.tab = 'chat'; ui.ch = val || N.fightCh(); focusFight(v); ui.fightOpen = true; ui.fightPane = 'fight'; break;
   case 'closeFight': ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; break;
   case 'pane': ui.fightPane = val; ui.targeting = null; break;
@@ -2059,7 +2180,7 @@ function act(v, a, el, e){
     N.cbLateInit(t);
     if (!t.zone) t.zone = cb.zones[0]?.id;
     if (!cb.invited.includes(c.id)) cb.invited.push(c.id);
-    fsys(`${c.short} joins the fight.`);
+    fsys(`${c.short} joins the ${N.kw().w}.`);
     close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; renderAll(); return;
   }
   case 'cbTool': ui.cbTool = val; ui.targeting = null; ui.placing = null; if (val !== 'zone') ui.zoneSel = null; break;
@@ -2067,12 +2188,37 @@ function act(v, a, el, e){
   case 'cbNotice': N.cbNotice(); renderAll(); return;
   case 'cbFirst': N.cbFirst(d.t); renderAll(); return;
   case 'cbGo': N.cbGo(); ui.targeting = null; renderAll(); return;
+  /* turn order by hand: a draft in the sheet, saved in one go */
+  case 'cbOrderOpen': ui.ordDraft = N.order().map(t => t.id); if (!ui.ordDraft.length) ui.ordDraft = cb.tokens.filter(t => t.zone && !t.out).map(t => t.id); ui.sheet = 'cbOrder'; ui.pop = null; break;
+  case 'ordMove': { const a = ui.ordDraft || [], i = a.indexOf(val), j = i + (+d.d); if (i < 0 || j < 0 || j >= a.length) break; [a[i], a[j]] = [a[j], a[i]]; break; }
+  case 'ordSave': N.cbSetOrder(ui.ordDraft || []); ui.sheet = null; ui.ordDraft = null; renderAll(); return;
+  case 'ordNotice': cb.ord = null; cb.lead = null; if (cb.phase === 'pick') cb.turn = 0; ui.sheet = null; fsys(`${N.gmName()} goes back to the Notice roll order.`); renderAll(); return;
+  /* teams: the GM adds, renames and removes extra teams and moves people between them */
+  case 'teamAdd': { cb.teams = cb.teams || []; const i = cb.teams.length; cb.teams.push({id:N.uid('tm'), name:`Team ${i + 3}`, col:N.TEAMCOL[i % N.TEAMCOL.length]}); renderAll(); return; }
+  case 'teamDel': { cb.teams = (cb.teams || []).filter(x => x.id !== val); cb.tokens.forEach(t => { if (t.side === val) t.side = t.kind === 'pc' ? 'ally' : 'foe'; }); if (cb.score) delete cb.score[val]; renderAll(); return; }
+  case 'tokTeam': { const t = N.tokById(d.t); if (!t) break; const was = N.teamOf(t).name; t.side = val; if (cb.state === 'live' && was !== N.teamOf(t).name) fsys(`${N.tokName(t)} is now with ${N.teamOf(t).name}.`); renderAll(); return; }
+  /* contests */
+  case 'ctGoal': cb.goal = +val || 3; renderAll(); return;
+  case 'ctBy': cb.scoreBy = val === 'each' ? 'each' : 'team'; cb.score = {}; renderAll(); return;
+  case 'ctPt': { cb.score = cb.score || {}; const k = d.k, p = Math.max(0, (cb.score[k] || 0) + (+d.d)); cb.score[k] = p;
+    fsys(`${N.gmName()} ${+d.d > 0 ? 'gives' : 'takes'} a point ${+d.d > 0 ? 'to' : 'from'} ${N.ctName(k)}. Score: ${N.ctKeys().map(x => `${N.ctName(x)} ${cb.score[x] || 0}`).join(', ')}.`);
+    if (cb.won === k && p < (cb.goal || 3)) cb.won = null; if (!cb.won && p >= (cb.goal || 3)) { cb.won = k; fsys(`${N.ctName(k)} wins the contest!`); }
+    renderAll(); return; }
+  /* challenges */
+  case 'chalAdd': { cb.tasks = cb.tasks || []; const k = {id:N.uid('k'), skill:'Athletics', label:''}; cb.tasks.push(k); if (cb.state === 'live') ui.chalEdit = k.id; renderAll(); return; }
+  case 'chalDel': cb.tasks = (cb.tasks || []).filter(x => x.id !== val); ui.chalEdit = null; renderAll(); return;
+  case 'chalDone': ui.chalEdit = null; break;
+  case 'chalRoll': { const k = (cb.tasks || []).find(x => x.id === val); if (!k) break;
+    /* who rolls first: whoever rolled this part before, else the first player character in the challenge */
+    const prev = N.chalMsg(k), t = (prev && N.tokOfKey(prev.roll.whoKey)) || cb.tokens.find(x => x.zone && !x.out && x.kind === 'pc') || cb.tokens.find(x => x.zone && !x.out);
+    openRoll(v, {who:t ? (t.kind === 'pc' ? 'pc:' + t.ref : 'tok:' + t.id) : null, action:'overcome', ctx:'cb', opp:prev?.roll.oppBase ?? prev?.roll.opp ?? 2, skill:k.skill, chal:k.id}); break; }
   case 'cbCancel': ui.targeting = null; ui.placing = null; break;
   case 'cbAct': {
     const a2 = N.actorTok(v) || (gm ? N.curTok() : null); if (!a2) break;
     const key = a2.kind === 'pc' ? 'pc:' + a2.ref : 'tok:' + a2.id;
     if (val === 'attack' || val === 'move') { ui.targeting = ui.targeting === val ? null : val; ui.tokSel = null; break; }
     if (val === 'event') { openRoll(v, {who:key, action:'overcome', ctx:'cb', event:true}); break; }
+    if (val === 'contest') { const sk = N.tokSkills(a2), best = Object.entries(sk).sort((x,y) => y[1]-x[1])[0]?.[0]; openRoll(v, {who:key, action:'overcome', ctx:'cb', contest:true, skill:cb.cskill || best || 'Athletics'}); break; }
     const sk = N.tokSkills(a2), pick = list => list.map(s => [s, sk[s]||0]).sort((x,y) => y[1]-x[1])[0][0];
     openRoll(v, {who:key, action:val, ctx:'cb', opp:2, skill: val === 'advantage' ? pick(['Notice','Provoke','Athletics','Deception','Fighting']) : pick(['Athletics','Strength','Will','Notice'])});
     break;
@@ -2118,8 +2264,8 @@ function act(v, a, el, e){
   case 'cbAddOnce': { const t = N.cbAddOnce(val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
   case 'foeAll': ui.foeAll = !ui.foeAll; break;
   case 'cbAddFoe': { const t = N.cbAddFoe(+val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
-  case 'cbStart': if (N.fightBlocked && N.fightBlocked(cb.ch)) { toast(v, 'To run a fight in a private chat, publish the new security rules first: paste firestore.rules into Firebase > Firestore > Rules, press Publish, then reload.'); break; } N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, 'The fight is on. Roll Notice to see who goes first.'); renderAll(); return;
-  case 'cbCancelSetup': g.combat = N.freshCombat(); ui.fightPane = 'chat'; ui.fightOpen = true; ui.zoneSel = null; toast(v, 'Fight setup thrown away.'); renderAll(); return;
+  case 'cbStart': if (N.fightBlocked && N.fightBlocked(cb.ch)) { toast(v, 'To run a fight in a private chat, publish the new security rules first: paste firestore.rules into Firebase > Firestore > Rules, press Publish, then reload.'); break; } N.cbStart(); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; toast(v, N.cbKind() === 'challenge' ? 'The challenge is on. Roll each part when it comes up.' : `The ${N.kw().w} is on. Roll Notice to see who goes first, or set the order by hand.`); renderAll(); return;
+  case 'cbCancelSetup': g.combat = N.freshCombat(); ui.fightPane = 'chat'; ui.fightOpen = true; ui.zoneSel = null; toast(v, `${N.kw().W} setup thrown away.`); renderAll(); return;
   case 'cbEndGo': N.cbEnd(); ui.sheet = null; ui.tokSel = null; ui.targeting = null; ui.watching = false; renderAll(); return;
   case 'cbAspAdd': { const t = (ui.cbAsp || '').trim(); if (t) { const on = ui.cbAspOn && N.tokById(ui.cbAspOn);
     cb.aspects.push(Object.assign({t, free:+ui.cbAspFree || 0}, on ? {onTok:on.id, on:N.tokName(on)} : {}));
@@ -2203,6 +2349,9 @@ function act(v, a, el, e){
 function openSheet(v, s, d={}){
   const g = G(), ui = v.ui;
   ui.sheet = s; ui.sheetArg = d.c || d.v || null;
+  /* Next day starts on the day after the last one posted in this chat (or, failing that, in any chat) */
+  if (s === 'nextDay') { const last = [...g.msgs].reverse(), here = last.find(m => m.day && m.ch === ui.ch) || last.find(m => m.day);
+    const nx = here && N.dayAfter(here.day); ui.nday = nx ? {...nx, u:false, from:true} : {w:0, d:1, m:0, y:here?.day?.y || '', u:!!here?.day?.u}; }
   if (s === 'cbBoost') { ui.cbBo = d.c || null; ui.cbBoOn = null; ui.cbBoName = ''; ui.cbBoLast = 2; }
   if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats], party:!!gr.party, meta:!!gr.meta, pic:gr.pic || null, hist:true} : {id:null, name:'', seats:[], party:!!d.party, meta:false, pic:null, hist:true}; }
   if (s === 'scene') {

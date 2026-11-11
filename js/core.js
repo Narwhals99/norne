@@ -38,8 +38,26 @@ const blocks = (s, inline = inl) => {
   flushQuote(); flushList(); flushRun();
   return out.join('');
 };
+/* links the GM puts in wiki text and on cards with Insert link: [[pc:<id>|Name]], [[npc:<id>|Name]], [[wiki:<id>|Title]].
+   A link keeps only the id and the name the GM typed. Whoever can't see what it points to reads the plain name, no link.
+   xl() works on text that is already escaped, before marks() */
+const LINK_RE = /\[\[(pc|npc|wiki):([\w-]+)\|([^\]\n]+)\]\]/g;
+/* can this screen open it: a wiki entry it can read, a card the GM has, or (players) their own card or one whose name was revealed */
+N.linkSees = (k, id) => { const g = N.G, gm = g.role === 'gm';
+  if (k === 'wiki') return g.wiki.some(e => e.id === id && (gm || !e.gm));
+  return gm ? !!(g.chars[id] || g.npcs.some(n => n.id === id)) : N.charOf(g.role)?.id === id || !!g.known?.[id]?.name; };
+const xl = h => h.replace(LINK_RE, (m, k, id, lab) => N.linkSees(k, id) ? `<a class="wl" data-a="${k === 'wiki' ? 'wiki' : 'cardView'}" data-v="${id}">${lab}</a>` : lab);
+/* card text with its marks and links (aspects, stunts, bio as text) */
+N.linkText = s => marks(xl(esc(s)));
+/* the copy a player gets: links they can't follow become the plain name (seeOk(kind, id) says which they can) */
+N.linkScrub = (x, seeOk) => x == null ? x : JSON.parse(JSON.stringify(x).replace(LINK_RE, (m, k, id, lab) => seeOk(k, id) ? m : lab));
+/* the link to put in text: the name loses anything that would end the link early */
+N.linkTok = (k, id, name) => `[[${k}:${id}|${String(name || '').replace(/[[\]\n|]+/g, ' ').replace(/\s+/g, ' ').trim() || '…'}]]`;
+/* the wiki pages the GM linked to a PC or NPC card (Wiki pages on the sheet): G.wlinks = {cardId:[entry ids]}.
+   The GM keeps them in gm/misc; each player gets only the ones they can read, for cards they can see (only/<seat> l:<card>) */
+N.cardWiki = id => { const g = N.G, gm = g.role === 'gm'; return ((g.wlinks || {})[id] || []).map(w => g.wiki.find(e => e.id === w && (gm || !e.gm))).filter(Boolean); };
 /* the words without the marks, for notifications (a spoiler stays hidden there) */
-N.plainText = t => String(t ?? '').replace(/\|\|[^|\n]+\|\|/g, '(spoiler)').replace(/\*\*([^*\n]+)\*\*/g, '$1').replace(/__([^_\n]+)__/g, '$1').replace(/~~([^~\n]+)~~/g, '$1').replace(/\*([^*\n]+)\*/g, '$1').replace(/(^|[^\w:])_([^_\n]+)_(?![\w:])/g, '$1$2').replace(/^\s*>\s/gm, '');
+N.plainText = t => String(t ?? '').replace(LINK_RE, '$3').replace(/\|\|[^|\n]+\|\|/g, '(spoiler)').replace(/\*\*([^*\n]+)\*\*/g, '$1').replace(/__([^_\n]+)__/g, '$1').replace(/~~([^~\n]+)~~/g, '$1').replace(/\*([^*\n]+)\*/g, '$1').replace(/(^|[^\w:])_([^_\n]+)_(?![\w:])/g, '$1$2').replace(/^\s*>\s/gm, '');
 /* the formatting guide (chat's smiley button > Formatting, and the Formatting button over long forms) */
 N.FMT_GUIDE = [['**bold**','Bold'],['*italics*  or  _italics_','Italics','*italics*'],['__underline__','Underline'],['~~strike~~','Strike'],['||spoiler||','Spoiler, hidden until tapped'],
   ['> a quote','Quote, chat only','> a quote',1],['- item','List, chat only','- item\n- item',1],['1. first','Numbered list, chat only','1. first\n2. second',1],[':name:','Custom emoji']];
@@ -50,7 +68,7 @@ const sgn = n => (n < 0 ? '−' : '+') + Math.abs(n);
 const IC = (k, cls='') => { const i = (window.ICONS||{})[k]; return i ? `<svg viewBox="${i[0]}" class="${cls}" aria-hidden="true" fill="currentColor">${i[1]}</svg>` : ''; };
 const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><path d="M12 0c.9 6.6 4.6 10.6 12 12-7.4 1.4-11.1 5.4-12 12-.9-6.6-4.6-10.6-12-12 7.4-1.4 11.1-5.4 12-12z"/></svg>';
 const MARK = '<svg viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="mk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9b0"/><stop offset="1" stop-color="#d9973f"/></linearGradient></defs><path fill="url(#mk)" d="M24 2c1.6 11 7.6 18 20 22-12.4 4-18.4 11-20 22-1.6-11-7.6-18-20-22C16.4 20 22.4 13 24 2z"/><path fill="none" stroke="url(#mk)" stroke-width="1.2" opacity=".7" d="M24 12c.8 5.4 3.8 9 10 12-6.2 3-9.2 6.6-10 12-.8-5.4-3.8-9-10-12 6.2-3 9.2-6.6 10-12z"/></svg>';
-Object.assign(N, {esc, fmt, blocks, inl, marks, uid, clamp, sgn, IC, STAR, MARK});
+Object.assign(N, {esc, fmt, blocks, inl, marks, xl, uid, clamp, sgn, IC, STAR, MARK});
 
 /* ---------- styles: whole looks picked under Profile > Style, each with a Night and a Day ----------
    A new style is one entry here plus its own stylesheet scoped to .app[data-style="<id>"] (see css/parchment.css).
@@ -152,6 +170,14 @@ const consSlots = sk => {
   return out;
 };
 Object.assign(N, {DISC, MAGIC, discOf, consSlots});
+/* a filled consequence slot has a state (Jake): Active when it is taken, then Stable or Recovering as the GM decides.
+   Kept beside the slots as o.conSt = {<slot key>: 'stable'|'recovering'}; no entry means Active, so old cards need nothing */
+N.CON_ST = [['active','Active'],['stable','Stable'],['recovering','Recovering']];
+N.conSt = (o, k) => o && (o.cons || {})[k] ? ((o.conSt || {})[k] || 'active') : '';
+N.conStL = st => (N.CON_ST.find(x => x[0] === st) || N.CON_ST[0])[1];
+N.setConSt = (o, k, st) => { if (!o) return; const m = o.conSt = {...(o.conSt || {})};
+  if (st && st !== 'active' && (o.cons || {})[k]) m[k] = st; else delete m[k];
+  if (!Object.keys(m).length) delete o.conSt; };
 Object.assign(N, {LADDER, ladderWord, MUNDANE, stressVals, ACTIONS, diceSum, plusInvokes, rollTotal, outcome});
 /* locked so N.rollDice can't be replaced from the console to load the dice */
 Object.defineProperty(N, 'rollDice', {value:rollDice, enumerable:true});
@@ -300,7 +326,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, hlocs:{}, shops:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, shops:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -312,7 +338,8 @@ const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEAAAAALAAAAAABAAEAAAI
 N.emoSrc = x => (x && N.imgUrl(x.d)) || BLANK;
 N.emj = (e, cls='cemo') => { const c = /^:([\w-]+):$/.exec(e || ''); if (!c) return esc(e); const x = N.emoById(c[1]); return x ? `<img class="${cls}" src="${esc(N.emoSrc(x))}" alt=":${esc(x.n)}:" title=":${esc(x.n)}:" draggable="false">` : esc(e); };
 /* a row over a long form (wiki entry, news edition, character card): the emoji go into whichever box was typed in last */
-N.textTools = v => `<div class="ttools"><span>Emoji go where you were typing.</span><button type="button" class="btn sm ghost" data-a="pop" data-v="fmtg"><b class="aaw">Aa</b>Formatting</button><button type="button" class="btn sm" data-a="pop" data-v="emof">${IC('smile')}Emoji</button></div>`;
+/* link: the GM's Insert link button too, for a wiki entry, a character, an NPC or another entry */
+N.textTools = (v, link) => `<div class="ttools${link ? ' lk' : ''}"><span>Emoji${link ? ' and links' : ''} go where you were typing.</span><button type="button" class="btn sm ghost" data-a="pop" data-v="fmtg"><b class="aaw">Aa</b>Formatting</button><button type="button" class="btn sm" data-a="pop" data-v="emof">${IC('smile')}Emoji</button>${link && v.role === 'gm' ? `<button type="button" class="btn sm" data-a="pop" data-v="linkf">${IC('link')}Link</button>` : ''}</div>`;
 /* does this picture file move? GIF with more than one frame, WebP with an ANIM chunk, PNG with acTL (APNG) */
 N.isAnimated = dataUrl => {
   const m = /^data:image\/(gif|webp|png|apng);base64,(.*)$/.exec(dataUrl || ''); if (!m) return false;
@@ -347,7 +374,7 @@ function npcCard(o){
     stressV:{phys:pv, ment:mv}, stress:{phys:pv.map(()=>false), ment:mv.map(()=>false)}, cons:{mild:'',moderate:'',severe:''}, gearAtk:0, gearDef:0, gearRng:0, gearAmmo:0}, o);
 }
 function freshCombat(){
-  return {state:'off', id:null, ch:'table', title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, last:null, acted:false, moved:false, phase:null, lead:null};
+  return {state:'off', id:null, ch:'table', title:'', bg:N.FIGHTBG, zones:[], tokens:[], turn:0, exchange:1, aspects:[], invited:[], joined:[], pending:null, last:null, acted:false, moved:false, phase:null, lead:null, kind:'fight', teams:[], tn:{}, ord:null};
 }
 N.freshCombat = freshCombat; N.npcCard = npcCard; N.blankChar = blankChar;
 N.G.combat = freshCombat();
@@ -378,6 +405,8 @@ N.pinAutoTo = (m, p) => {
     if (sc > bl) { best = x.id; bl = sc; } }
   return best;
 };
+/* the wiki article a place opens (p.wiki), if this viewer can read it (a player's G.wiki only holds what they may read) */
+N.pinWiki = (p, gm) => (p && p.wiki && N.G.wiki.find(e => e.id === p.wiki && (gm || !e.gm))) || null;
 N.pinTo = (m, p) => { if (!m || !p) return null; if (p.to === '-') return null; if (p.to && N.G.maps.some(x => x.id === p.to)) return p.to; return N.pinAutoTo(m, p); };
 N.LOCK = ['c', 't', 'n'];
 N.LOCNAME = {c:'Country', t:'City or town', n:'Neighborhood'};
@@ -452,8 +481,20 @@ N.channelsFor = (role, shut) => {
 };
 /* Everyone is table talk only: no speaking in character and no fights there. The GM can make a group chat or party Meta only too */
 N.metaOnly = ch => ch === 'table' || !!N.grpOf(ch)?.meta;
-/* a party chat the GM paused: players read it but can't send (Jake) */
-N.chPaused = ch => { const gr = N.grpOf(ch); return !!(gr && gr.party && gr.paused); };
+/* a party or group chat the GM paused: players read it but can't send (Jake) */
+N.chPaused = ch => { const gr = N.grpOf(ch); return !!(gr && gr.paused); };
+/* Jake's calendar (Calendar_Seasons_Weather): the week's days and the months with their lengths, for the GM's Next day line */
+N.WEEKDAYS = ['First Market', 'Second Market', 'Third Market', 'Fourth Market', 'Freeday', 'Restday', 'Readyday'];
+N.MONTHS = [['First Rain', 30], ['Seed Sow', 29], ['Sun’s Show', 30], ['First Heat', 31], ['High Shine', 31], ['Last Heat', 31],
+  ['First Fall', 30], ['Harvest Hour', 29], ['Sun’s Leave', 30], ['First Frost', 31], ['Hearth Fire', 31], ['Last Frost', 31]];
+N.ordinal = n => { const t = n % 100, e = n % 10; return n + (t > 10 && t < 14 ? 'th' : e === 1 ? 'st' : e === 2 ? 'nd' : e === 3 ? 'rd' : 'th'); };
+/* d: {w, d, m, y} (indexes into the lists, the date, the year as typed) or {u:true}. "Freeday, 3rd of Seed Sow, 1204" */
+N.dayLine = d => d.u ? 'Date unknown' : `${N.WEEKDAYS[d.w]}, ${N.ordinal(d.d)} of ${N.MONTHS[d.m][0]}${String(d.y || '').trim() ? ', ' + String(d.y).trim() : ''}`;
+/* the day after d, by Jake's month lengths; a year that is a plain number goes up after Last Frost */
+N.dayAfter = d => { if (!d || d.u) return null; let {w, d:n, m, y} = d; w = (w + 1) % 7; n++;
+  if (n > N.MONTHS[m][1]) { n = 1; m++; if (m > 11) { m = 0; const t = String(y || '').trim(); if (/^\d+$/.test(t)) y = String(+t + 1); } }
+  return {w, d:n, m, y:y || ''}; };
+N.NEXT_DAY_META = 'GM will now refresh Fate points and Gold, and will run Strength checks on Consequences.';
 /* in a Meta-only chat a person shows by their own name, not "Jack · Brann" */
 N.metaName = by => N.metaPerson(by).name;
 /* the same person on another of their characters counts as "you" in Everyone */
@@ -576,9 +617,10 @@ N.itemRating = it => { const sl = N.itemSlot(it); return sl ? (+it[N.SLOTS[sl][0
 N.rowItem = row => N.itemByName(row && row[0]);
 N.isWeaponRow = row => !!(N.invX(row).w || N.itemSlot(N.rowItem(row)));
 /* recompute the card from what is equipped */
+/* o's equipped catalog items in one slot, best rating first (GM device only) */
+N.eqOf = (o, sl) => (o.inv || []).filter(r => N.invX(r).eq).map(r => N.rowItem(r)).filter(it => it && N.itemSlot(it) === sl).sort((a, b) => N.itemRating(b) - N.itemRating(a));
 N.applyGear = o => {
-  const eq = (o.inv || []).filter(r => N.invX(r).eq).map(r => N.rowItem(r)).filter(Boolean);
-  const of = sl => eq.filter(it => N.itemSlot(it) === sl).sort((a, b) => N.itemRating(b) - N.itemRating(a));
+  const of = sl => N.eqOf(o, sl);
   const mel = of('melee'), rng = of('ranged')[0], am = of('ammo')[0], arm = of('armor')[0], sh = of('shield')[0];
   o.gearAtk = mel[0] ? N.itemRating(mel[0]) : 0;
   o.gearAtk2 = mel[1] && mel[0].dual && mel[1].dual ? N.itemRating(mel[1]) : 0;
@@ -679,7 +721,7 @@ N.revParts = (c, pc) => {
   N.pcAspects(c).forEach((a, i) => add('a:' + i, 'Aspects', `Aspect ${i + 1}`, a));
   N.revSkills(c).forEach(([n, x]) => add('sk:' + n, 'Skills', n, sgn(x) + ' ' + ladderWord(x)));
   (c.stunts || []).filter(([n, d]) => n || d).forEach(([n, d]) => add('st:' + (n || d), 'Stunts', n || 'Unnamed stunt', d));
-  consSlots(c.skills || {}).forEach(sl => add('cn:' + sl.k, 'Consequences', `${sl.l} (${sl.lo}–${sl.hi} shifts)`, (c.cons || {})[sl.k] || 'Empty right now'));
+  consSlots(c.skills || {}).forEach(sl => add('cn:' + sl.k, 'Consequences', `${sl.l} (${sl.lo}–${sl.hi} shifts)`, (c.cons || {})[sl.k] ? `${c.cons[sl.k]} · ${N.conStL(N.conSt(c, sl.k))}` : 'Empty right now'));
   N.GEARK.forEach(([k, l]) => add('g:' + k, 'Weapons and armor', l, sgn(+c[k] || 0)));
   (c.inv || []).forEach(([n, q, d]) => add('it:' + n, 'Inventory', n, ['×' + q, d].filter(Boolean).join(' · ')));
   add('bio', 'More', 'Bio', c.bio || 'Empty');
@@ -701,7 +743,7 @@ N.revealed = (c, pc, keys0) => {
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
   const sk = N.revSkills(c).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;
   const st = (c.stunts || []).filter(([n, d]) => has('st:' + (n || d))); if (st.length) r.stunts = st;
-  const cn = consSlots(c.skills || {}).filter(sl => has('cn:' + sl.k)).map(sl => [sl.l, sl.lo + '–' + sl.hi, (c.cons || {})[sl.k] || '']); if (cn.length) r.cons = cn;
+  const cn = consSlots(c.skills || {}).filter(sl => has('cn:' + sl.k)).map(sl => [sl.l, sl.lo + '–' + sl.hi, (c.cons || {})[sl.k] || '', N.conSt(c, sl.k)]); if (cn.length) r.cons = cn;
   const gr = N.GEARK.filter(([k]) => has('g:' + k)).map(([k]) => [k, +c[k] || 0]); if (gr.length) r.gear = gr;
   const it = (c.inv || []).filter(([n]) => has('it:' + n)).map(([n, q, d, ic]) => [n, q, d || '', ic || 'bag']); if (it.length) r.inv = it;
   if (has('bio') && c.bio) r.bio = c.bio;
@@ -742,7 +784,22 @@ N.tokById = id => N.G.combat.tokens.find(t => t.id === id);
 /* the fighter behind a roll's whoKey ('tok:<id>' or 'pc:<char id>'), if they are in this fight */
 N.tokOfKey = (key = '') => key.startsWith('tok:') ? N.tokById(key.slice(4)) : key.startsWith('pc:') ? N.G.combat.tokens.find(t => t.kind === 'pc' && t.ref === key.slice(3)) : null;
 N.zoneOf = t => N.G.combat.zones.find(z => z.id === t.zone);
-N.sideOf = t => t.kind === 'pc' ? 'ally' : (t.side || 'foe');
+/* teams: every fighter is on one. 'ally' (the players' side) and 'foe' are always there; the GM can add more for a
+   three-way (or bigger) fight or contest (combat.teams, Jake). A token's side holds its team; player characters start on 'ally'
+   and the GM can move anyone, players too. A team that was deleted puts its people back on their usual side. */
+N.sideOf = t => { const s = t.side, def = t.kind === 'pc' ? 'ally' : 'foe';
+  return !s ? def : s === 'ally' || s === 'foe' ? s : (N.G.combat.teams || []).some(x => x.id === s) ? s : def; };
+N.TEAMCOL = ['#9cd36b','#f4c46e','#f39ad0','#6fd6c0','#a99bff'];
+/* a fight, a contest (competing overcome rolls scored by rounds) or a challenge (people working together through set skill rolls) */
+N.cbKind = (cb = N.G.combat) => cb && (cb.kind === 'contest' || cb.kind === 'challenge') ? cb.kind : 'fight';
+N.KIND = {fight:{w:'fight', W:'Fight', ic:'swords', ppl:'fighters'}, contest:{w:'contest', W:'Contest', ic:'flag', ppl:'people in the contest'}, challenge:{w:'challenge', W:'Challenge', ic:'overcome', ppl:'people in the challenge'}};
+N.kw = (cb = N.G.combat) => N.KIND[N.cbKind(cb)];
+N.teams = (cb = N.G.combat) => {
+  const k = N.cbKind(cb), tn = cb.tn || {};
+  return [{id:'ally', name:tn.ally || (k === 'fight' ? 'Players and allies' : 'Players’ side'), col:'var(--accent)'}, {id:'foe', name:tn.foe || (k === 'fight' ? 'Foes' : 'Rivals'), col:'var(--c-foe)'},
+    ...(cb.teams || []).map((x, i) => ({id:x.id, name:x.name || `Team ${i + 3}`, col:x.col || N.TEAMCOL[i % N.TEAMCOL.length], extra:true}))];
+};
+N.teamOf = (t, cb = N.G.combat) => N.teams(cb).find(x => x.id === N.sideOf(t)) || N.teams(cb)[0];
 N.sameZone = t => N.G.combat.tokens.filter(o => o !== t && !o.out && t.zone && o.zone === t.zone);
 N.foesOf = t => N.sameZone(t).filter(o => N.sideOf(o) !== N.sideOf(t));
 /* who an attack can hit: anyone on the board, own side too (friendly fire for plot twists, mind control), and in any zone
@@ -758,8 +815,10 @@ N.tokNotice = t => N.tokSkills(t).Notice || 0;
    Fights saved before Notice was rolled have no t.init and fall back to plain Notice.
    If the GM picked someone else to go first (combat.lead), they head the order. */
 const initOf = t => t.init ?? N.tokNotice(t);
+/* the GM can set the order by hand instead (combat.ord, Jake): those ids go in that order, anyone added later after them by Notice */
 N.order = (cb = N.G.combat) => {
-  const o = cb.tokens.filter(t => !t.out && t.zone).map((t,i)=>({t,i})).sort((a,b)=>initOf(b.t)-initOf(a.t)||N.tokNotice(b.t)-N.tokNotice(a.t)||a.i-b.i).map(x=>x.t);
+  const ord = Array.isArray(cb.ord) && cb.ord.length ? cb.ord : null, pos = t => { const i = ord ? ord.indexOf(t.id) : -1; return i < 0 ? 1e6 : i; };
+  const o = cb.tokens.filter(t => !t.out && t.zone).map((t,i)=>({t,i})).sort((a,b)=>pos(a.t)-pos(b.t)||initOf(b.t)-initOf(a.t)||N.tokNotice(b.t)-N.tokNotice(a.t)||a.i-b.i).map(x=>x.t);
   const i = cb.lead ? o.findIndex(t => t.id === cb.lead) : -1;
   if (i > 0) o.unshift(o.splice(i, 1)[0]);
   return o;
@@ -773,9 +832,23 @@ N.tokGear = (t, k) => !t ? 0 : t.kind === 'npc' ? (+t[k] || 0) : (+(N.G.chars[t.
 /* what an attacker's gear does for an attack with this skill: roll = added to the attack roll, hit = shifts added to a hit */
 N.atkGear = (t, sk) => sk === 'Fighting' ? {roll:0, hit:N.tokGear(t, 'gearAtk'), hitL:'melee weapon'}
   : sk === 'Shooting' ? {roll:N.tokGear(t, 'gearRng'), rollL:'ranged weapon', hit:N.tokGear(t, 'gearAmmo'), hitL:'ammo'} : {roll:0, hit:0};
-N.curTok = () => { if (N.G.combat.phase === 'notice') return null; const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
+/* the catalog items behind an attacker's gear for an attack with this skill (GM device only: players have no catalog):
+   the melee weapon(s) for Fighting, the ranged weapon and ammo for Shooting. [{l, it}], it.gm is the GM's note.
+   A rating set by hand with nothing equipped behind it gives nothing. Looked up live, so an edited note shows at once. */
+N.atkItems = (t, sk) => {
+  if (!t || !(N.G.items || []).length) return [];
+  const o = t.kind === 'pc' ? N.G.chars[t.ref] : (N.G.npcs || []).find(n => n.id === t.ref);
+  if (!o) return [];
+  const out = [], add = (l, it) => { if (it) out.push({l, it}); };
+  if (sk === 'Fighting') { const mel = N.eqOf(o, 'melee'), two = mel[1] && mel[0].dual && mel[1].dual;
+    add(two ? 'Melee weapon 1' : 'Melee weapon', mel[0]); if (two) add('Melee weapon 2', mel[1]); }
+  if (sk === 'Shooting') { add('Ranged weapon', N.eqOf(o, 'ranged')[0]); add('Ammo', N.eqOf(o, 'ammo')[0]); }
+  return out;
+};
+N.curTok = () => { if (N.G.combat.phase === 'notice' || N.cbKind() === 'challenge') return null; const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
 N.tokObj = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref] || {}; const p = N.G.P[c.player]; return {name:c.short || '?', portrait:c.built ? c.portrait : null, color:p?.color || 'var(--accent)'}; }
-  return {name:t.name, portrait:t.portrait, color:t.side === 'ally' ? 'var(--c-npc)' : 'var(--c-foe)'}; };
+  const s = N.sideOf(t), tm = s !== 'ally' && s !== 'foe' && N.teams().find(x => x.id === s);
+  return {name:t.name, portrait:t.portrait, color:tm ? tm.col : s === 'ally' ? 'var(--c-npc)' : 'var(--c-foe)'}; };
 N.tokName = t => t.kind === 'pc' ? (N.G.chars[t.ref]?.short || 'Someone') : t.name;
 N.tokStress = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref]; return c ? {v:c.stressV.phys, s:c.stress.phys} : {v:[], s:[]}; } return {v:t.stressV || [], s:t.stress || []}; };
 N.isMine = (t, role) => !!t && t.kind === 'pc' && role !== 'gm' && N.G.P[role]?.char === t.ref;

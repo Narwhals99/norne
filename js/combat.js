@@ -28,7 +28,7 @@ function tokHtml(v, t, size){
   if (mine) cls.push('me');
   /* standing as a 3D figure (js/figboard.js): the circle hides, the name and stress boxes stay */
   if (N.figHas && N.figHas(v, t)) cls.push('fig');
-  return `<button type="button" class="${cls.join(' ')}" data-tok="${t.id}" aria-label="${esc(name)}${out?' (taken out)':''}"${hit}>${N.av(o, size)}<span class="nm">${mine?'You':esc(name)}</span>${out?'':`<span class="st">${st.v.map((x,i)=>`<i class="${on(i)?'on':''}"></i>`).join('')}</span>`}${t.kind==='npc'&&t.side==='ally'?`<span class="ji" title="Ally">${IC('heart')}</span>`:''}</button>`;
+  return `<button type="button" class="${cls.join(' ')}" data-tok="${t.id}" aria-label="${esc(name)}${out?' (taken out)':''}"${hit}>${N.av(o, size)}<span class="nm">${mine?'You':esc(name)}</span>${out?'':`<span class="st">${st.v.map((x,i)=>`<i class="${on(i)?'on':''}"></i>`).join('')}</span>`}${t.kind==='npc'&&N.sideOf(t)==='ally'?`<span class="ji" title="Ally">${IC('heart')}</span>`:''}</button>`;
 }
 N.tokHtml = tokHtml;
 
@@ -46,10 +46,12 @@ function boardHtml(v){
     if (v.ui.targeting === 'move' && actor) cls.push(z.id === actor.zone ? 'sel' : 'reach');
     if (v.ui.placing) cls.push('reach');
     if (gm && v.ui.zoneSel === z.id && edit) cls.push('sel');
-    const toks = cb.tokens.filter(t => t.zone === z.id), L = toks.filter(t => N.sideOf(t) !== 'foe'), R = toks.filter(t => N.sideOf(t) === 'foe');
+    /* in a zone with more than one team in it, each team stands together: players' side on the left, foes on the right, any
+       extra teams (Jake's three-way fights) in between */
+    const toks = cb.tokens.filter(t => t.zone === z.id), tms = N.teams(), byTeam = [tms[0], ...tms.slice(2), tms[1]].map(tm => toks.filter(t => N.sideOf(t) === tm.id)).filter(a => a.length);
     return `<div class="${cls.join(' ')}" data-zone="${z.id}" style="left:${z.x}%;top:${z.y}%;width:${z.w}%;height:${z.h}%;--zc:${z.col}">
       <span class="zl" data-zl="${z.id}">${esc(z.name)}${toks.length?` <i>${toks.filter(t=>!t.out || N.fxHold?.(v, t)?.up).length}</i>`:''}</span>
-      ${L.length && R.length ? `<div class="ztoks sides">${grp(L, 'l')}${grp(R, 'r')}</div>` : `<div class="ztoks">${toks.map(t => tokHtml(v, t)).join('')}</div>`}
+      ${byTeam.length > 1 ? `<div class="ztoks sides">${byTeam.map((a, i) => grp(a, i === 0 ? 'l' : i === byTeam.length - 1 ? 'r' : 'm')).join('')}</div>` : `<div class="ztoks">${toks.map(t => tokHtml(v, t)).join('')}</div>`}
       ${z.aspect ? `<div class="za"><span class="icard" style="--rot:-1deg"><span>${N.emoText(N.marks(esc(z.aspect)))}</span>${z.free?`<span class="fi">${'<i></i>'.repeat(z.free)}</span>`:''}</span></div>` : ''}
       ${edit ? `<span class="rs" data-rs="${z.id}" aria-label="Resize ${esc(z.name)}"></span>` : ''}
     </div>`;
@@ -86,8 +88,9 @@ function diceFx(v){
 /* turn order: one line of faces, the one acting is named and lit gold */
 function orderStrip(v, ph){
   const cb = G().combat, ord = N.order(), cur = N.curTok(), outs = cb.tokens.filter(t => t.out);
+  if (N.cbKind() === 'challenge') return '';
   const nm = t => N.isMine(t, v.role) ? 'You' : esc(N.tokName(t));
-  return `<div class="fight-order" aria-label="Turn order"><span class="ex">Exch.<b>${cb.exchange}</b></span>
+  return `<div class="fight-order" aria-label="Turn order"><span class="ex">${N.cbKind() === 'contest' ? 'Round' : 'Exch.'}<b>${cb.exchange}</b></span>
     ${ord.map((t,i) => `<button type="button" class="ot${t===cur?' now':''}" data-tok="${t.id}" aria-label="${esc(N.tokName(t))}${t===cur?', acting now':''}">${N.av(N.tokObj(t), t===cur ? (ph?40:44) : (ph?28:30))}${t===cur || !ph ? `<span>${nm(t)}</span>` : ''}</button>${i < ord.length-1 ? '<i class="ar"></i>' : ''}`).join('')}
     ${outs.map(t => `<button type="button" class="ot out" data-tok="${t.id}" aria-label="${esc(N.tokName(t))} (taken out)">${N.av(N.tokObj(t), ph?24:26)}</button>`).join('')}
   </div>`;
@@ -95,9 +98,11 @@ function orderStrip(v, ph){
 
 /* GM tools: a rail beside the board on desktop, one button on the board on phones that opens them */
 function toolList(v){
-  const cb = G().combat, tool = v.ui.cbTool || 'move';
+  const cb = G().combat, tool = v.ui.cbTool || 'move', k = N.cbKind();
   return [[`data-a="cbTool" data-v="move" aria-pressed="${tool==='move'}"`, 'hand', 'Move'], [`data-a="cbTool" data-v="zone" aria-pressed="${tool==='zone'}"`, 'zone', 'Zones'],
-    [`data-a="sheet" data-v="addFoe"`, 'person-plus', 'Add'], [`data-a="sheet" data-v="cbAspect"`, 'cards', 'Situation aspect'], [`data-a="sheet" data-v="cbBoost"`, 'sparkle', 'Boost'], cb.state === 'live' ? [`data-a="sheet" data-v="cbEnd"`, 'stop', 'End fight', 1] : null].filter(Boolean)
+    [`data-a="sheet" data-v="addFoe"`, 'person-plus', 'Add'], [`data-a="sheet" data-v="cbAspect"`, 'cards', 'Situation aspect'], [`data-a="sheet" data-v="cbBoost"`, 'sparkle', 'Boost'],
+    k !== 'challenge' && cb.state === 'live' ? [`data-a="sheet" data-v="cbTeams"`, 'users', 'Teams'] : null, k !== 'challenge' && cb.state === 'live' && cb.phase !== 'notice' ? [`data-a="cbOrderOpen"`, 'list', 'Turn order'] : null,
+    cb.state === 'live' ? [`data-a="sheet" data-v="cbEnd"`, 'stop', `End ${N.kw().w}`, 1] : null].filter(Boolean)
     .map(([a, ic, l, end]) => `${end ? '<span class="sep"></span>' : ''}<button type="button" ${a}${end ? ' class="end"' : ''}>${IC(ic)}<span class="lab">${l}</span></button>`).join('');
 }
 function toolsHtml(v, ph){
@@ -120,16 +125,21 @@ function soakBtns(t, p){
 /* right after Start: everyone's Notice roll, highest first. The GM taps whoever should go first. */
 function noticeChips(){
   const cb = G().combat, lead = N.order()[0];
-  const ord = cb.tokens.filter(t => !t.out && t.zone).sort((a,b) => (b.init ?? 0) - (a.init ?? 0) || N.tokNotice(b) - N.tokNotice(a));
-  return `<div class="nchips" role="group" aria-label="Notice rolls">${ord.map(t => `<button type="button" data-a="cbFirst" data-t="${t.id}" aria-pressed="${t === lead}">${N.av(N.tokObj(t), 26)}<span>${esc(N.tokName(t))}</span><b>${sgn(t.init ?? 0)}</b></button>`).join('')}</div>`;
+  const ord = cb.ord ? N.order() : cb.tokens.filter(t => !t.out && t.zone).sort((a,b) => (b.init ?? 0) - (a.init ?? 0) || N.tokNotice(b) - N.tokNotice(a));
+  return `<div class="nchips" role="group" aria-label="${cb.ord ? 'Turn order' : 'Notice rolls'}">${ord.map((t, i) => `<button type="button" data-a="cbFirst" data-t="${t.id}" aria-pressed="${t === lead}">${N.av(N.tokObj(t), 26)}<span>${esc(N.tokName(t))}</span><b>${cb.ord ? i + 1 : sgn(t.init ?? 0)}</b></button>`).join('')}</div>`;
 }
 function nowState(v){
   const g = G(), cb = g.combat, gm = isGM(v), cur = N.curTok(), p = cb.pending, me = N.myTok(v), c = N.charOf(v.role), gmN = N.gmName();
   const pa = p && N.tokById(p.att), pd = p && N.tokById(p.def);
   const nextBtn = (lab, primary) => `<button type="button" class="btn${primary?' primary':''}" data-a="cbNext">${lab}${IC('next')}</button>`;
+  const K = N.kw(), kind = N.cbKind();
+  /* a contest's round is scored when its last turn ends: Next turn says so */
+  const lastTurn = kind === 'contest' && N.order().length && (cb.turn % N.order().length) === N.order().length - 1 && Object.keys((cb.rnd || {}).rolls || {}).length;
+  if (gm && kind === 'challenge') { const ch = N.chalCount(); return {tone:'turn', eye:'Challenge', title:cb.title || 'The challenge', sub:`${ch.done} of ${ch.all} rolls made${ch.done ? ` · ${ch.ok} succeeded` : ''}. Roll each part below; pick who rolls, the difficulty and the skill.`}; }
+  if (gm && kind === 'contest' && cb.won && !cb.phase) { const w = N.ctName(cb.won); return {tone:'turn', eye:'Contest won', title:`${w} won the contest`, sub:'End the contest when you’re ready, or keep going.', acts:`<button type="button" class="btn gold" data-a="sheet" data-v="cbEnd">${IC('flag')}End the contest</button>`, end:nextBtn('Keep going', false)}; }
   if (gm) {
-    if (cb.phase === 'notice') return {tone:'turn', eye:'The fight is on', title:'Notice roll', sub:'Rolls Notice for everyone in the fight to see who goes first.', acts:`<button type="button" class="btn gold" data-a="cbNotice">${N.fateDie}Notice roll</button>`};
-    if (cb.phase === 'pick') return {tone:'turn', eye:'Notice roll', title:'Who goes first?', sub:'Highest roll goes first. Tap someone else to start with them.', acts:noticeChips(), cls:'pick', end:`<button type="button" class="btn primary" data-a="cbGo">Start${IC('next')}</button>`};
+    if (cb.phase === 'notice') return {tone:'turn', eye:`The ${K.w} is on`, title:'Notice roll', sub:`Rolls Notice for everyone in the ${K.w} to see who goes first, or set the order yourself.`, acts:`<button type="button" class="btn gold" data-a="cbNotice">${N.fateDie}Notice roll</button><button type="button" class="btn" data-a="cbOrderOpen">${IC('list')}Set the order by hand</button>`};
+    if (cb.phase === 'pick') return {tone:'turn', eye:cb.ord ? 'Turn order' : 'Notice roll', title:'Who goes first?', sub:cb.ord ? 'You set this order. Tap someone to start with them, or change it.' : 'Highest roll goes first. Tap someone else to start with them, or set the whole order.', acts:noticeChips() + `<button type="button" class="btn sm" data-a="cbOrderOpen">${IC('list')}${cb.ord ? 'Change the order' : 'Set the order by hand'}</button>`, cls:'pick', end:`<button type="button" class="btn primary" data-a="cbGo">Start${IC('next')}</button>`};
     if (p && p.stage === 'defend' && pa && pd)
       return {tok:pd, tone:'alert', eye:'Defend', title:`${N.tokName(pa)} attacks ${N.tokName(pd)}`, sub:`${p.skill} for ${sgn(p.total)} ${ladderWord(p.total)}. Roll ${N.tokName(pd)}’s defense.`, acts:defBtn(pd)};
     if (p && p.stage === 'style' && pa && pd) {
@@ -145,10 +155,12 @@ function nowState(v){
       return {tok:pd, tone:'alert', eye:'Soak the hit', title:`${N.tokName(pd)} takes ${p.shifts} shift${pl(p.shifts)}`, sub:`Pick how ${N.tokName(pd)} soaks it. An invoke on the defense roll can still lower it.`,
         acts:soakBtns(pd, p) + `<button type="button" class="btn sm ghost" data-a="cbDrop">Settle it by hand</button>`};
     if (cur) return {tok:cur, tone:'turn', eye:cb.acted ? 'You act for · action done' : 'You act for', title:N.tokName(cur),
-      acts:cb.acted ? moveBtn(v) + evBtn('btn sm') : actBar(v, cur), end:nextBtn('Next turn', cb.acted)};
+      acts:cb.acted ? moveBtn(v) + evBtn('btn sm') : kind === 'contest' ? ctBar(v, cur) : actBar(v, cur), end:nextBtn(lastTurn ? `Score round ${cb.exchange}` : 'Next turn', cb.acted)};
     return {tone:'wait', eye:'Waiting', title:'Nobody on the board', sub:'Add someone and place them in a zone.'};
   }
-  if (cb.phase) return {tone:'wait', eye:'The fight is on', title:'Rolling for turn order', sub:`${gmN} rolls Notice for everyone.`};
+  if (kind === 'challenge') { const ch = N.chalCount(); return {tone:'wait', eye:'Challenge', title:cb.title || 'The challenge', sub:`${ch.done} of ${ch.all} rolls made${ch.done ? ` · ${ch.ok} succeeded` : ''}. ${gmN} rolls for everyone.`}; }
+  if (kind === 'contest' && cb.won && !cb.phase) { const w = N.ctName(cb.won, v); return {tone:'turn', eye:'Contest won', title:`${w} won the contest`, sub:`Waiting for ${gmN} to end it.`}; }
+  if (cb.phase) return {tone:'wait', eye:`The ${K.w} is on`, title:'Rolling for turn order', sub:`${gmN} ${cb.phase === 'pick' && cb.ord ? 'sets the turn order.' : 'rolls Notice for everyone.'}`};
   if (p && me && p.def === me.id && p.stage === 'defend' && pa)
     return {tok:pa, tone:'alert', eye:'You’re attacked', title:`${N.tokName(pa)} attacks you!`, sub:`${p.skill} for ${sgn(p.total)} ${ladderWord(p.total)}. ${gmN} rolls your defense.`};
   if (p && me && p.def === me.id && p.stage === 'absorb')
@@ -161,20 +173,22 @@ const smallStress = t => { const st = N.tokStress(t); return `<span class="nb-st
 /* a fighter's consequence slots with what is in them. A player character and a named NPC use the slots on their card
    (src says where to write); nameless copies like "Bandit 2" keep their own on the token, starting from the card's */
 N.tokConsSrc = t => {
-  if (t.kind === 'pc') { const c = G().chars[t.ref]; return c ? {o:c, i:`data-i="con" data-c="${c.id}"`} : null; }
+  if (t.kind === 'pc') { const c = G().chars[t.ref]; return c ? {o:c, i:`data-i="con" data-c="${c.id}"`, own:`data-c="${c.id}"`} : null; }
   const n = t.type !== 'nameless' && G().npcs.find(x => x.id === t.ref);
-  if (n) return {o:n, i:`data-i="npcCon" data-n="${n.id}"`};
-  return {o:{skills:t.skills, cons:t.cons || {mild:t.mild || ''}}, i:`data-i="tokCon" data-t="${t.id}"`};
+  if (n) return {o:n, i:`data-i="npcCon" data-n="${n.id}"`, own:`data-n="${n.id}"`};
+  return {o:{skills:t.skills, cons:t.cons || {mild:t.mild || ''}, conSt:t.conSt}, i:`data-i="tokCon" data-t="${t.id}"`, own:`data-t="${t.id}"`};
 };
-N.tokCons = t => { const s = N.tokConsSrc(t); return s ? N.consSlots(s.o.skills).map(sl => Object.assign({v:(s.o.cons || {})[sl.k] || ''}, sl)) : []; };
-const smallCons = t => { const cs = N.tokCons(t).filter(x => x.v); return cs.length ? `<small class="cq-ln">${IC('cards')}${cs.map(x => esc(x.v)).join(' · ')}</small>` : ''; };
+/* the object that keeps a fighter's consequences and their states (o.conSt): the card, or the nameless token itself */
+N.tokConsOwner = t => { const s = N.tokConsSrc(t); return !s ? null : s.own.startsWith('data-t') ? t : s.o; };
+N.tokCons = t => { const s = N.tokConsSrc(t); return s ? N.consSlots(s.o.skills).map(sl => Object.assign({v:(s.o.cons || {})[sl.k] || '', st:N.conSt(s.o, sl.k)}, sl)) : []; };
+const smallCons = t => { const cs = N.tokCons(t).filter(x => x.v); return cs.length ? `<small class="cq-ln">${IC('cards')}${cs.map(x => `${esc(x.v)}${x.st && x.st !== 'active' ? ` (${N.conStL(x.st).toLowerCase()})` : ''}`).join(' · ')}</small>` : ''; };
 const zoneTag = t => { const z = N.zoneOf(t); return z ? `<span class="nb-zt" style="--zc:${z.col}">${esc(z.name)}</span>` : ''; };
 /* the gear ratings in the order cards show them: [key, label, icon] */
 N.GEARS = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target'],['gearAmmo','Ranged ammo','arrowR'],['gearDef','Armor','shieldU']];
 const gearTag = t => N.GEARS.some(([k]) => N.tokGear(t, k)) ? `<span class="nb-gear" title="Gear">${N.GEARS.filter(([k]) => N.tokGear(t, k) || k === 'gearAtk' || k === 'gearDef').map(([k,,ic]) => `${IC(ic)}${sgn(N.tokGear(t, k))}`).join(' ')}</span>` : '';
 function myStress(v){
   const c = N.charOf(v.role); if (!c || !c.built) return '';
-  return `<div class="mine"><span class="lab">Phys</span>${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}${(() => { const f = N.consSlots(c.skills).filter(sl => (c.cons || {})[sl.k]); return f.length ? `<span class="lab">Hurt</span>${f.map(sl => `<span class="cqt" title="${sl.l} consequence">${esc(c.cons[sl.k])}</span>`).join('')}` : ''; })()}<span class="lab">Fate</span><span class="coins">${N.coinsHtml(c,false)}</span></div>`;
+  return `<div class="mine"><span class="lab">Phys</span>${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}${(() => { const f = N.consSlots(c.skills).filter(sl => (c.cons || {})[sl.k]); return f.length ? `<span class="lab">Hurt</span>${f.map(sl => `<span class="cqt" title="${sl.l} consequence, ${N.conStL(N.conSt(c, sl.k)).toLowerCase()}">${esc(c.cons[sl.k])}</span>`).join('')}` : ''; })()}<span class="lab">Fate</span><span class="coins">${N.coinsHtml(c,false)}</span></div>`;
 }
 function nowBar(v, ph){
   const n = nowState(v), t = n.tok, gm = isGM(v), c = N.charOf(v.role), s = ph ? 42 : 50;
@@ -257,9 +271,10 @@ function feedRow(m, live){
   }
   if (m.kind === 'sys' && m.res && m.res.k === 'clash') return line(IC('swords'), `<b>${esc(m.res.out?.t || '')}</b>${m.res.shift ? ` <span class="gsh">${esc(N.gmName())} ${sgn(m.res.shift)} shift${Math.abs(m.res.shift) === 1 ? '' : 's'}</span>` : ''} ${esc(m.res.after || '')}`, ` res ${m.res.out?.k || ''}`,
     G().role === 'gm' && m.res.rid && N.cbOpen()?.resId === m.res.rid ? `<button type="button" class="ffb" data-a="shifts" data-id="fight" title="Add or take away shifts from this result">${IC('swap')}Shifts</button>` : '');
-  if (m.kind === 'sys' && m.res && m.res.k === 'order') return line(IC('clock'), `<b>Turn order</b> ${(m.res.rows || []).map(x => `${esc(x.n)} ${sgn(x.tot)}`).join(' · ')}`);
+  if (m.kind === 'sys' && m.res && m.res.k === 'order') return line(IC('clock'), `<b>Turn order${m.res.hand ? ' · set by hand' : ''}</b> ${(m.res.rows || []).map((x, i) => m.res.hand ? `${i + 1}. ${esc(x.n)}` : `${esc(x.n)} ${sgn(x.tot)}`).join(' · ')}`);
+  if (m.kind === 'sys' && m.res && m.res.k === 'round') return line(IC('flag'), `<b>Round ${m.res.n}</b> ${esc(m.res.out?.k === 'tie' ? `${m.res.out.t}. ${m.res.after || ''}` : m.res.after || m.res.out?.t || '')} ${(m.res.score || []).map(x => `${esc(x.n)} ${x.p}`).join(' · ')}`, ` res${m.res.out?.k === 'tie' ? ' tie' : ''}`);
   if (m.kind === 'sys') return line(IC('info'), esc(m.text || ''));
-  if (m.kind === 'combat' || m.kind === 'fight') return line(IC('swords'), `<b>The fight begins</b> ${esc(m.text || '')}`);
+  if (m.kind === 'combat' || m.kind === 'fight') return line(IC(N.KIND[m.ck || 'fight'].ic), `<b>The ${N.KIND[m.ck || 'fight'].w} begins</b> ${esc(m.text || '')}`);
   if ((m.kind === 'rp' || m.kind === 'ooc' || m.kind === 'meta') && m.text) {
     const s = m.kind === 'rp' && !N.metaRp(m) ? N.speakerObj(m) : N.msgPerson(m), x = m.text.replace(/[*_]/g, ''), t = x.length > 90 ? x.slice(0, 90) + '…' : x;
     return line(IC('chatL'), `<b>${esc(s.name || '')}</b> ${esc(t)}`, ' talk');
@@ -283,16 +298,18 @@ function actBar(v, t){
     ${evBtn('abtn')}
   </div>`;
 }
-function gmRow(v){
-  const cb = G().combat, tool = v.ui.cbTool || 'move';
-  return `<div class="gmrow" role="toolbar" aria-label="GM tools">
-    <button type="button" data-a="cbTool" data-v="move" aria-pressed="${tool==='move'}">${IC('hand')}Move</button>
-    <button type="button" data-a="cbTool" data-v="zone" aria-pressed="${tool==='zone'}">${IC('zone')}Zones</button>
-    <button type="button" data-a="sheet" data-v="addFoe">${IC('person-plus')}Add</button>
-    <button type="button" data-a="sheet" data-v="cbAspect">${IC('cards')}Situation aspect</button>
-    <button type="button" data-a="sheet" data-v="cbBoost">${IC('sparkle')}Boost</button>
-    ${cb.state==='live'?`<button type="button" class="end" data-a="sheet" data-v="cbEnd">${IC('stop')}End fight</button>`:''}
+/* a contest turn: the contest roll (an overcome that competes with everyone else's this round), an advantage, a move, an event */
+function ctBar(v, t){
+  const cb = G().combat, tg = v.ui.targeting, done = ((cb.rnd || {}).rolls || {})[t.id];
+  return `<div class="actbar">
+    <button type="button" class="abtn atk" data-a="cbAct" data-v="contest" title="Overcome roll that competes with the others this round">${IC('overcome')}${done ? 'Roll again' : 'Contest roll'}</button>
+    <button type="button" class="abtn" data-a="cbAct" data-v="advantage">${IC('advantage')}Advantage</button>
+    <button type="button" class="abtn" data-a="cbAct" data-v="move" aria-pressed="${tg==='move'}" ${cb.moved?'disabled title="Already moved this turn"':''}>${IC('boots')}Move</button>
+    ${evBtn('abtn')}
   </div>`;
+}
+function gmRow(v){
+  return `<div class="gmrow" role="toolbar" aria-label="GM tools">${toolList(v).replace(/<span class="sep"><\/span>/g, '').replace(/<span class="lab">([^<]*)<\/span>/g, '$1')}</div>`;
 }
 /* the defense skill: [skill, skill value]. Every defense is Athletics (Jake's rule), whatever the attack was.
    Armor doesn't change the roll. */
@@ -329,7 +346,7 @@ N.tokKit = (v, t) => {
   const st = (c.stunts || []).filter(x => x && (x[0] || '').trim()), inv = c.inv || [], note = (c.invText || '').trim();
   const fmt = x => N.emoText(N.marks(esc(x)));
   const stHtml = st.length ? st.map(([n, d]) => `<div class="tk-st"><b>${fmt(n)}</b>${d ? `<p>${fmt(d)}</p>` : ''}</div>`).join('') : '<p class="muted tk-none">No stunts.</p>';
-  const invHtml = inv.length || note ? `${inv.map(([n, q, d, ic]) => `<div class="tk-it"><span class="ii">${IC(ic || 'bag')}</span><span><b>${fmt(n)}</b>${d ? `<small>${fmt(d)}</small>` : ''}</span><span class="q">×${q}</span></div>`).join('')}${note ? `<p class="tk-note">${fmt(note)}</p>` : ''}` : '<p class="muted tk-none">Nothing carried.</p>';
+  const invHtml = inv.length || note ? `${inv.map(row => { const [n, q, d, ic] = row; return `<div class="tk-it"><span class="ii">${IC(ic || 'bag')}</span><span><b>${fmt(n)}</b>${d ? `<small>${fmt(d)}</small>` : ''}${N.invGm(v, row)}</span><span class="q">×${q}</span></div>`; }).join('')}${note ? `<p class="tk-note">${fmt(note)}</p>` : ''}` : '<p class="muted tk-none">Nothing carried.</p>';
   return `<div class="tok-kit"><section><h4>Stunts${st.length ? ` <span class="tag">${st.length}</span>` : ''}</h4>${stHtml}</section><section><h4>Inventory${inv.length ? ` <span class="tag">${inv.length}</span>` : ''}</h4>${invHtml}</section></div>`;
 };
 /* token detail: side panel on desktop, sheet on phone */
@@ -337,7 +354,9 @@ N.tokCard = function(v, t){
   const g = G(), gm = isGM(v), o = N.tokObj(t), z = N.zoneOf(t), st = N.tokStress(t);
   const sk = Object.entries(N.tokSkills(t)).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const asp = t.kind === 'pc' ? (() => { const c = g.chars[t.ref] || {aspects:[]}; return [c.hc, c.trouble, ...c.aspects]; })() : (t.aspects || []);
-  const role = t.kind === 'pc' ? `Played by ${esc(g.P[g.chars[t.ref]?.player]?.name || 'a former player')}` : t.side === 'ally' ? 'Ally' : (t.type === 'nameless' ? 'Nameless foe' : 'Foe');
+  const sd = N.sideOf(t), role = t.kind === 'pc' ? `Played by ${esc(g.P[g.chars[t.ref]?.player]?.name || 'a former player')}` : sd === 'ally' ? 'Ally' : sd !== 'foe' ? esc(N.teamOf(t).name) : (t.type === 'nameless' ? 'Nameless foe' : 'Foe');
+  /* the GM moves anyone to another team (Jake: three-way fights and contests) */
+  const teamRow = gm && N.cbKind() !== 'challenge' ? `<span>Team</span><span class="tk-teams">${N.teams().map(tm => `<button type="button" class="tchip" style="--tc:${tm.col}" data-a="tokTeam" data-t="${t.id}" data-v="${tm.id}" aria-pressed="${sd === tm.id}"><i></i>${esc(tm.name)}</button>`).join('')}</span>` : '';
   return `<div class="tokcard">
     <div class="hd">${N.av(o,54)}<span style="flex:1;min-width:0"><b>${esc(N.tokName(t))}</b><small>${role} · ${z?esc(z.name):'Not placed'}${t.out?' · taken out':''}</small></span>${gm?`<button type="button" class="btn sm ghost tok-rm" data-a="sheet" data-v="tokRm" data-c="${t.id}" title="Take ${esc(N.tokName(t))} out of this fight">${IC('trash')}Remove</button>`:''}${v.dev==='desktop'?`<button type="button" class="ibtn sm" data-a="tokClose" aria-label="Close">${IC('x')}</button>`:''}</div>
     ${asp.filter(Boolean).length ? `<div class="icards">${asp.filter(Boolean).map((a,i)=>`<span class="icard" style="--rot:${i%2?.6:-.6}deg"><span>${N.emoText(N.marks(esc(a)))}</span></span>`).join('')}</div>` : ''}
@@ -347,16 +366,16 @@ N.tokCard = function(v, t){
     ${(() => { /* boosts this fighter holds: their own free invokes */
       const mine = g.combat.aspects.filter(a => a.boost && a.tok === t.id && a.t && a.free);
       return mine.length ? `<div class="icards tok-on"><span class="tok-on-l">Their boosts</span>${mine.map((a,i)=>`<span class="icard boost" style="--rot:${i%2?.6:-.6}deg"><span class="k">Boost${a.on ? ` · on ${esc(a.on)}` : ''}${a.keep ? ' · until used' : a.left != null ? ` · ${a.left > 0 ? `for ${a.left} roll${a.left > 1 ? 's' : ''}` : 'last roll'}` : ''}</span><span>${N.emoText(N.marks(esc(a.t)))}</span><span class="fi"><i></i></span></span>`).join('')}</div>` : ''; })()}
-    <div class="kv"><span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
+    <div class="kv">${teamRow}<span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
       ${(() => {
         /* the same pool an invoke spends (N.invokePayer): the PC's character card or the named NPC's card */
         const pool = N.tokFpPool(t); if (!pool || (!gm && t.kind !== 'pc')) return '';
         const o = pool.o, fp = o.fp || 0, n = Math.max(fp, o.refresh || 0);
-        return `<span>Fate points</span><span class="coins tok-fp">${Array.from({length:n}, (_,i) => `<span class="coin${i<fp?'':' off'}"></span>`).join('')}<b class="fp-n">${fp}</b>${gm ? `<span class="mini"><button type="button" data-a="tokFp" data-t="${t.id}" data-d="-1" aria-label="Take a fate point from ${esc(pool.name)}" ${fp<1?'disabled':''}>−</button><button type="button" data-a="tokFp" data-t="${t.id}" data-d="1" aria-label="Give ${esc(pool.name)} a fate point" ${fp>=10?'disabled':''}>+</button></span>` : ''}</span>`;
+        return `<span>Fate points</span><span class="coins tok-fp">${Array.from({length:n}, (_,i) => `<span class="coin${i<fp?'':' off'}"></span>`).join('')}<b class="fp-n">${fp}</b>${gm ? `<span class="mini"><button type="button" data-a="tokFp" data-t="${t.id}" data-d="-1" aria-label="Take a fate point from ${esc(pool.name)}" ${fp<1?'disabled':''}>−</button><button type="button" data-a="tokFp" data-t="${t.id}" data-d="1" aria-label="Give ${esc(pool.name)} a fate point" ${fp>=10?'disabled':''}>+</button><button type="button" class="xf-mini" data-a="xfer" data-v="${pool.pc ? 'c' : 'n'}:${esc(t.ref)}" data-k="fp" aria-label="Transfer fate points from ${esc(pool.name)}" title="Transfer to another character">${IC('swap')}</button></span>` : ''}</span>`;
       })()}
       ${(() => {
         const cs = N.tokCons(t); if (!gm && t.kind !== 'pc' && !cs.some(x => x.v)) return '';
-        const ed = sl => `<label class="cq-ed"><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${N.tokConsSrc(t).i} data-k="${sl.k}" value="${esc(sl.v)}" placeholder="Empty"></label>`;
+        const src = N.tokConsSrc(t), ed = sl => `<div class="cq-ed"><label><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${src.i} data-k="${sl.k}" value="${esc(sl.v)}" placeholder="Empty"></label>${sl.v ? N.conStEd(src.own, sl, sl.st) : ''}</div>`;
         return `<span class="kv-w">Consequences</span><span class="kv-w cq-list${gm ? ' ed' : ''}">${cs.map(sl => gm ? ed(sl) : N.cqChip(sl)).join('')}</span>`;
       })()}
       ${(() => { /* players see another character's skill levels only once the GM revealed them (Jake) */
@@ -369,7 +388,7 @@ N.tokCard = function(v, t){
     ${gm ? `<div style="display:flex;gap:8px;flex-wrap:wrap">
       ${t.kind==='npc'?`<button type="button" class="btn sm" data-a="voice" data-v="${esc(t.name.replace(/ \d+$/,''))}" data-go="side">${IC('chatL')}Speak as</button><button type="button" class="btn sm" data-a="roll" data-who="tok:${t.id}">${N.fateDie}Roll</button>`:''}
       ${t.zone && !t.out ? `<button type="button" class="btn sm" data-a="sheet" data-v="cbBoost" data-c="${t.id}">${IC('sparkle')}Give a boost</button>` : ''}
-      ${G().combat.state==='live' && !t.out ? `<button type="button" class="btn sm" data-a="tokTurn" data-t="${t.id}">${IC('play')}Give them the turn</button>`:''}
+      ${G().combat.state==='live' && !t.out && N.cbKind() !== 'challenge' ? `<button type="button" class="btn sm" data-a="tokTurn" data-t="${t.id}">${IC('play')}Give them the turn</button>`:''}
       <button type="button" class="btn sm ${t.out?'':'danger'}" data-a="tokOut" data-t="${t.id}">${t.out?IC('undo')+'Back in':IC('skull')+'Taken out'}</button>
     </div>` : ''}
   </div>`;
@@ -377,10 +396,10 @@ N.tokCard = function(v, t){
 
 /* ---------- the whole fight view ---------- */
 N.fightView = function(v){
-  const g = G(), cb = g.combat, gm = isGM(v), ph = v.dev === 'phone';
+  const g = G(), cb = g.combat, gm = isGM(v), ph = v.dev === 'phone', K = N.kw();
   if (cb.state === 'setup') {
-    const top = ph ? `<div class="top ph">${N.meBtn(v)}<h1>Fight setup</h1><button type="button" class="btn sm" data-a="pane" data-v="chat">${IC('chatL')}Chat</button></div>` : '';
-    return `<section class="fight setup-mode" aria-label="Fight setup">${top}<div class="setup-head">${!ph?`<div><span class="eyebrow" style="color:var(--ember)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px;display:inline;vertical-align:-1px;margin-right:5px"')}${cb.ch === 'gm' ? 'GM notes fight · only you see it' : 'Only you see this until you start'}</span><h1 class="ttl" style="font-size:24px">${esc(cb.title)}</h1></div><span style="flex:1"></span>${gmRow(v)}<button type="button" class="btn sm ghost" data-a="closeFight">${IC('chatL')}Back to chat</button>`:''}</div>${boardHtml(v)}${ph ? `<div class="dock scroll setup-dock" data-sk="setupph"><div style="padding:0 12px">${gmRow(v)}</div>${N.setupPanel(v)}</div>` : ''}</section>`;
+    const top = ph ? `<div class="top ph">${N.meBtn(v)}<h1>${K.W} setup</h1><button type="button" class="btn sm" data-a="pane" data-v="chat">${IC('chatL')}Chat</button></div>` : '';
+    return `<section class="fight setup-mode" aria-label="Fight setup">${top}<div class="setup-head">${!ph?`<div><span class="eyebrow" style="color:var(--ember)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px;display:inline;vertical-align:-1px;margin-right:5px"')}${cb.ch === 'gm' ? `GM notes ${K.w} · only you see it` : 'Only you see this until you start'}</span><h1 class="ttl" style="font-size:24px">${esc(cb.title)}</h1></div><span style="flex:1"></span>${gmRow(v)}<button type="button" class="btn sm ghost" data-a="closeFight">${IC('chatL')}Back to chat</button>`:''}</div>${boardHtml(v)}${ph ? `<div class="dock scroll setup-dock" data-sk="setupph"><div style="padding:0 12px">${gmRow(v)}</div>${N.setupPanel(v)}</div>` : ''}</section>`;
   }
   const sel = v.ui.tokSel && N.tokById(v.ui.tokSel);
   if (ph) {
@@ -388,25 +407,26 @@ N.fightView = function(v){
     return `<section class="fight cmd ph" aria-label="Fight on ${esc(cb.title)}">
       <div class="top ph">${N.meBtn(v)}<div style="flex:1;display:flex;justify-content:center">${N.fightSeg(v)}</div>${N.sideBtn(v)}</div>
       ${orderStrip(v, true)}
-      <div class="fight-scroll scroll" data-sk="fightph">${board}${feedHtml(v)}</div>
+      <div class="fight-scroll scroll" data-sk="fightph">${board}${N.kindPanel(v)}${feedHtml(v)}</div>
       ${isGM(v) ? gmBanner(v) : pcMini(v)}
     </section>`;
   }
   return `<section class="fight cmd dt" aria-label="Fight on ${esc(cb.title)}">
-    <header class="fight-h"><div class="tt"><span class="eyebrow">${IC('swords')}Fight · Exchange ${cb.exchange}</span><h1 class="ttl">${esc(cb.title)}</h1></div>
+    <header class="fight-h"><div class="tt"><span class="eyebrow">${IC(K.ic)}${N.kindEye(cb)}</span><h1 class="ttl">${esc(cb.title)}</h1></div>
       ${orderStrip(v, false)}
       <button type="button" class="btn sm ghost" data-a="closeFight">${IC('chatL')}${gm?'Chat only':'Hide the board'}</button></header>
     <div class="fight-mid">${toolsHtml(v, false)}${boardHtml(v)}</div>
-    ${nowBar(v, false)}
+    ${N.cbKind() === 'challenge' ? '' : nowBar(v, false)}${N.kindPanel(v)}
     ${sel ? `<div class="tokpanel glass" data-sk="tokpanel">${N.tokCard(v, sel)}</div>` : ''}
   </section>`;
 };
+N.kindEye = cb => N.cbKind(cb) === 'challenge' ? 'Challenge' : `${N.kw(cb).W} · ${N.cbKind(cb) === 'contest' ? 'Round' : 'Exchange'} ${cb.exchange}`;
 
 /* phones, players: just what matters in a fight, your picture and name, stress, consequences and fate points */
 function pcMini(v){
   const c = N.charOf(v.role); if (!c || !c.built) return '';
   const boxes = (k, l) => `<span class="pm-st"><small>${l}</small>${c.stressV[k].map((x,i) => `<span class="sbox${c.stress[k][i]?' on':''}">${x}</span>`).join('')}</span>`;
-  const cs = N.consSlots(c.skills).map(sl => Object.assign({v:(c.cons || {})[sl.k] || ''}, sl)), full = cs.filter(x => x.v);
+  const cs = N.consSlots(c.skills).map(sl => Object.assign({v:(c.cons || {})[sl.k] || '', st:N.conSt(c, sl.k)}, sl)), full = cs.filter(x => x.v);
   const marks = `<span class="pm-st"><small>Cons</small>${cs.map(sl => `<span class="cqb${sl.v ? ' on' : ''}" title="${sl.l}${sl.v ? ': ' + esc(sl.v) : ', empty'}">${sl.hi}</span>`).join('')}</span>`;
   return `<div class="pcmini">${N.av(c, 38)}<b>${esc(c.short)}</b>${boxes('phys', 'Phys')}${boxes('ment', 'Mind')}${marks}<span class="coins">${N.coinsHtml(c, false)}</span>${full.length ? `<span class="pm-cq">${full.map(N.cqChip).join('')}</span>` : ''}</div>`;
 }
@@ -422,21 +442,23 @@ N.gmFightBody = v => `<div class="gmfs">${nowBar(v, true)}${gmRow(v)}</div>`;
    players: the battlefield big (C), their card (A), the fight results (B).
    GM: the fight controls big (C), the battlefield (A), the fight results (B). */
 N.combatDesk = function(v){
-  const g = G(), cb = g.combat, gm = isGM(v), sel = v.ui.tokSel && N.tokById(v.ui.tokSel);
-  const head = `<header class="fight-h"><div class="tt"><span class="eyebrow">${IC('swords')}Fight · Exchange ${cb.exchange}</span><h1 class="ttl">${esc(cb.title)}</h1></div>${gm ? '<span style="flex:1"></span>' : orderStrip(v, false)}${N.modeSeg(v)}</header>`;
+  const g = G(), cb = g.combat, gm = isGM(v), sel = v.ui.tokSel && N.tokById(v.ui.tokSel), K = N.kw();
+  const head = `<header class="fight-h"><div class="tt"><span class="eyebrow">${IC(K.ic)}${N.kindEye(cb)}</span><h1 class="ttl">${esc(cb.title)}</h1></div>${gm ? '<span style="flex:1"></span>' : orderStrip(v, false)}${N.modeSeg(v)}</header>`;
   const board = `<div class="fight-mid">${boardHtml(v)}</div>`;
-  if (!gm) return N.deskPage(v, `<section class="fight cmd dt" aria-label="Fight on ${esc(cb.title)}">${head}${board}${nowBar(v, false)}${sel ? `<div class="tokpanel glass" data-sk="tokpanel">${N.tokCard(v, sel)}</div>` : ''}</section>`,
+  if (!gm) return N.deskPage(v, `<section class="fight cmd dt" aria-label="${K.W}: ${esc(cb.title)}">${head}${board}${N.cbKind() === 'challenge' ? '' : nowBar(v, false)}${N.kindPanel(v)}${sel ? `<div class="tokpanel glass" data-sk="tokpanel">${N.tokCard(v, sel)}</div>` : ''}</section>`,
     `<div class="rail-a scroll" data-sk="rail">${N.heroQuick(v)}</div>`, 'cb');
-  const toks = cb.tokens.filter(t => t.zone).sort((a, b) => (a.kind === 'pc' ? 0 : a.side === 'ally' ? 1 : 2) - (b.kind === 'pc' ? 0 : b.side === 'ally' ? 1 : 2));
-  const fighters = toks.map(t => `<button type="button" class="cm-f${t.out ? ' out' : ''}${sel === t ? ' on' : ''}" data-tok="${t.id}">${N.av(N.tokObj(t), 34)}<span class="nm"><b>${esc(N.tokName(t))}</b><small>${t.kind === 'pc' ? 'Player' : t.side === 'ally' ? 'Ally' : 'Foe'}${t.out ? ' · taken out' : ''}</small>${smallCons(t)}</span>${zoneTag(t)}${smallStress(t)}</button>`).join('');
-  const ctl = `<section class="fight cmd dt cm-gm" aria-label="Fight controls">${head}
+  const tix = t => { const s = N.sideOf(t), i = N.teams().findIndex(x => x.id === s); return (s === 'foe' ? 90 : i) * 2 + (t.kind === 'pc' ? 0 : 1); };
+  const toks = cb.tokens.filter(t => t.zone).sort((a, b) => tix(a) - tix(b));
+  const many = N.teams().length > 2 || cb.tokens.some(t => t.kind === 'pc' && N.sideOf(t) !== 'ally');
+  const fighters = toks.map(t => `<button type="button" class="cm-f${t.out ? ' out' : ''}${sel === t ? ' on' : ''}" data-tok="${t.id}">${N.av(N.tokObj(t), 34)}<span class="nm"><b>${esc(N.tokName(t))}</b><small>${t.kind === 'pc' ? 'Player' : N.sideOf(t) === 'ally' ? 'Ally' : N.sideOf(t) === 'foe' ? (N.cbKind() === 'fight' ? 'Foe' : 'Rival') : 'NPC'}${many && N.cbKind() !== 'challenge' && (!['ally','foe'].includes(N.sideOf(t)) || (t.kind === 'pc' && N.sideOf(t) !== 'ally')) ? ` · ${esc(N.teamOf(t).name)}` : ''}${t.out ? ' · taken out' : ''}</small>${smallCons(t)}</span>${zoneTag(t)}${smallStress(t)}</button>`).join('');
+  const ctl = `<section class="fight cmd dt cm-gm" aria-label="${K.W} controls">${head}
     <div class="cm-ctl scroll" data-sk="cmctl">
       ${orderStrip(v, false)}
-      ${nowBar(v, false)}
+      ${N.cbKind() === 'challenge' ? '' : nowBar(v, false)}${N.kindPanel(v)}
       <div class="cm-cols">
         <section class="gs-sec"><div class="gs-h"><h3>GM tools</h3></div><div class="fight-tools cm-tools">${toolList(v)}</div>
           ${sel ? `<div class="cm-tok">${N.tokCard(v, sel)}</div>` : '<p class="muted cm-hint">Click someone on the battlefield or in the list to see their card here.</p>'}</section>
-        <section class="gs-sec"><div class="gs-h"><h3>Fighters</h3></div><div class="cm-fl">${fighters}</div></section>
+        <section class="gs-sec"><div class="gs-h"><h3>${N.cbKind() === 'fight' ? 'Fighters' : 'Who’s in it'}</h3></div><div class="cm-fl">${fighters}</div></section>
       </div>
     </div></section>`;
   return N.deskPage(v, ctl, `<div class="rail-a"><section class="fight cmd dt cm-bf" aria-label="Battlefield">${board}</section></div>`, 'cb', 'cm-gmpage');
@@ -450,27 +472,36 @@ N.setupPanel = function(v){
   const bgs = [...(sc && sc.art ? [{src:sc.art, label:sc.title, sub:'Current scene'}] : []), ...(cb.bg && cb.bg.startsWith('fs:') ? [{src:cb.bg, label:'Your picture', sub:'Uploaded'}] : []), ...g.pics.map(p => ({src:p.src, label:'Your picture', sub:'Uploaded'})),
     {src:'img/bf-eastfork.jpg', label:'East Fork Road', sub:'Drinkhold map'}, ...N.ARTLIB.map(a => ({src:a.art, label:a.label, sub:'Picture'}))].filter((x,i,arr) => arr.findIndex(y => y.src === x.src) === i);
   const step = (n, done, title, body) => `<div class="step${done?' done':''}"><span class="n">${done?IC('check'):n}</span><b>${title}</b><div class="c">${body}</div></div>`;
-  const zs = v.ui.zoneSel && cb.zones.find(z => z.id === v.ui.zoneSel);
+  const zs = v.ui.zoneSel && cb.zones.find(z => z.id === v.ui.zoneSel), K = N.kw(), kind = N.cbKind();
+  const tasks = cb.tasks || [], n0 = 5;
+  /* contests: how many round wins take it, and whether teams or each person score */
+  const goal = cb.goal || 3;
+  const scoring = kind === 'contest' ? step(n0 + 1, true, 'Scoring', `<div class="ct-goal"><small>First to</small><div class="seg" role="group" aria-label="Points to win">${[2,3,4,5].map(x => `<button type="button" data-a="ctGoal" data-v="${x}" aria-pressed="${goal === x}">${x}</button>`).join('')}</div></div>
+      <div class="seg" role="group" aria-label="Who scores"><button type="button" data-a="ctBy" data-v="team" aria-pressed="${cb.scoreBy !== 'each'}">${IC('users')}Each team</button><button type="button" data-a="ctBy" data-v="each" aria-pressed="${cb.scoreBy === 'each'}">${IC('user')}Each person</button></div>
+      <small>Every round the highest contest roll wins: 1 point, 2 if it beats the next best by 3 or more. A tie for the top scores nothing.${cb.scoreBy === 'each' ? '' : ' Each team’s best roll counts.'}</small>`) : '';
+  const rolls = kind === 'challenge' ? step(n0 + 1, tasks.length >= 2, 'Rolls in the challenge', `<small>Two or more skill rolls everyone works through together. When each comes up you pick who rolls, the difficulty and passive or not, and can swap the skill.</small>${N.chalSetup(v)}`) : '';
+  const startOk = cb.zones.length && placed.length && (kind !== 'challenge' || tasks.length >= 2);
   return `<div class="setup">
-    ${v.dev==='phone' ? `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui);display:flex;gap:6px;align-items:center">${IC('lock').replace('<svg','<svg style="width:14px;height:14px;flex:none"')}${cb.ch === 'gm' ? 'A GM notes fight: only you ever see it.' : 'Players see nothing until you press Start.'}</p>` : ''}
+    ${v.dev==='phone' ? `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui);display:flex;gap:6px;align-items:center">${IC('lock').replace('<svg','<svg style="width:14px;height:14px;flex:none"')}${cb.ch === 'gm' ? `A GM notes ${K.w}: only you ever see it.` : 'Players see nothing until you press Start.'}</p>` : ''}
     <div class="steps">
-      ${cb.ch === 'gm' ? step(1, true, 'Only you', `<small>This fight stays in GM notes from start to finish. No player is in it and nobody else sees the board, the rolls or the results. Put NPCs on both sides in step 4.</small>`) : step(1, cb.invited.length > 0, 'Players', `<div class="inv-chips">${pcs.map(c => c.built
+      ${cb.ch === 'gm' ? step(1, true, 'Only you', `<small>This ${K.w} stays in GM notes from start to finish. No player is in it and nobody else sees the board, the rolls or the results. Put NPCs on both sides in step 4.</small>`) : step(1, cb.invited.length > 0, 'Players', `<div class="inv-chips">${pcs.map(c => c.built
           ? `<button type="button" data-a="cbInvite" data-v="${c.id}" aria-pressed="${cb.invited.includes(c.id)}">${N.av(c,30)}${esc(c.short)}${cb.invited.includes(c.id)?IC('check'):''}</button>`
           : `<button type="button" disabled style="opacity:.55">${N.av({name:g.P[c.player]?.name||'?',color:c.color},30)}${esc(g.P[c.player]?.name||'?')} · no card</button>`).join('') || '<span class="muted" style="font:600 13px/1.4 var(--f-ui)">Nobody has a seat yet.</span>'}</div>
           <small>They stand in the first zone you draw. You roll for everyone; players watch.</small>`)}
-      ${step(2, true, 'Battlefield', `<label class="field"><span class="vh">Name of the fight</span><input class="inp" id="cbt-${v.id}" data-i="cbTitle" value="${esc(cb.title)}" placeholder="Where the fight happens"></label>
+      ${step(2, true, kind === 'fight' ? 'Battlefield' : 'Name and backdrop', `<label class="field"><span class="vh">Name of the ${K.w}</span><input class="inp" id="cbt-${v.id}" data-i="cbTitle" value="${esc(cb.title)}" placeholder="${kind === 'fight' ? 'Where the fight happens' : kind === 'contest' ? 'e.g. Race to the bell tower' : 'e.g. Get the cart over the pass'}"></label>
         <div class="hscroll"><button type="button" class="thumb up" data-a="cbBgUpload" style="width:128px"><span>${IC('upload')}Upload</span></button>${bgs.map(b => `<button type="button" class="thumb${cb.bg===b.src?' on':''}" data-a="cbBg" data-v="${esc(b.src)}" style="width:128px">${N.bgPic(b.src)}<span>${esc(b.label)}<small>${esc(b.sub)}</small></span>${cb.bg===b.src?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}</div>${cb.bg ? `<div><button type="button" class="btn sm ghost fr-adj" data-a="picFrame" data-v="fight">${IC('fit')}Adjust framing</button></div>` : ''}`)}
-      ${step(3, cb.zones.length > 0, 'Zones', `<small>${(v.ui.cbTool||'move')==='zone' ? 'Drag on the map to draw a zone. Drag a name to move it, the corner to resize.' : 'Zones are what matter: people can only attack inside their own zone.'}</small>
+      ${step(3, cb.zones.length > 0, 'Zones', `<small>${(v.ui.cbTool||'move')==='zone' ? 'Drag on the map to draw a zone. Drag a name to move it, the corner to resize.' : kind === 'fight' ? 'Zones are what matter: people can only attack inside their own zone.' : 'Zones are where everyone stands. One zone is enough.'}</small>
         ${cb.zones.length ? `<div class="zlist">${cb.zones.map(z => `<div class="zi" style="--zc:${z.col}${v.ui.zoneSel===z.id?';box-shadow:inset 0 0 0 1.5px var(--gold)':''}"><i></i><span>${esc(z.name)}${z.aspect?`<small>${esc(z.aspect)}</small>`:''}</span><button type="button" class="ibtn sm" data-a="zoneEdit" data-v="${z.id}" aria-label="Edit ${esc(z.name)}">${IC('pen')}</button></div>`).join('')}</div>` : ''}
         ${zs && v.dev==='desktop' ? zoneForm(v, zs) : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm ${(v.ui.cbTool||'move')==='zone'?'primary':''}" data-a="cbTool" data-v="${(v.ui.cbTool||'move')==='zone'?'move':'zone'}">${IC('zone')}${(v.ui.cbTool||'move')==='zone'?'Done drawing':'Draw zones'}</button>${cb.zones.length?'':`<button type="button" class="btn sm ghost" data-a="cbQuickZones">${IC('sparkle')}Quick: 3 zones</button>`}</div>`)}
-      ${step(4, cb.tokens.some(t => t.kind === 'npc'), 'Enemies and allies', `${N.foeList(false, v)}<button type="button" class="btn sm ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>${N.figRows ? N.figRows(v) : ''}`)}
+      ${step(4, cb.tokens.some(t => t.kind === 'npc'), kind === 'fight' ? 'Enemies and allies' : kind === 'contest' ? 'Rivals and others' : 'NPCs who help (optional)', `${kind !== 'challenge' ? N.teamLine(v) : ''}${N.foeList(false, v)}<button type="button" class="btn sm ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>${N.figRows ? N.figRows(v) : ''}`)}
       ${step(5, tray.length === 0 && placed.length > 0, 'Place everyone', `<small>${tray.length ? 'Drag onto a zone, or tap a token and then a zone.' : placed.length ? 'Everyone is on the board. Drag tokens to rearrange.' : (cb.ch === 'gm' ? 'Add NPCs first.' : 'Invite players or add foes first.')}</small>
         <div class="tray" data-tray="1">${tray.length ? tray.map(t => tokHtml(v, t)).join('') : '<span class="empty">Nobody waiting</span>'}</div>`)}
+      ${scoring}${rolls}
     </div>
     <div style="display:grid;gap:8px;position:sticky;bottom:0;padding:12px 0 2px;background:linear-gradient(0deg,var(--page-solid) 70%,transparent)">
-      <button type="button" class="btn gold lg block" data-a="cbStart" ${cb.zones.length && placed.length ? '' : 'disabled'}>${IC('swords')}Start the fight</button>
-      <button type="button" class="btn sm ghost block" data-a="cbCancelSetup">Cancel this fight</button>
+      <button type="button" class="btn gold lg block" data-a="cbStart" ${startOk ? '' : 'disabled'}>${IC(K.ic)}Start the ${K.w}</button>
+      <button type="button" class="btn sm ghost block" data-a="cbCancelSetup">Cancel this ${K.w}</button>
     </div>
   </div>`;
 };
@@ -483,6 +514,93 @@ function zoneForm(v, z){
 }
 N.zoneForm = zoneForm;
 
+
+/* ---------- contests (Jake): competing overcome rolls, one round per exchange, a scoreboard everyone sees ----------
+   Every turn the GM rolls the acting character's contest roll (an overcome). When the round's last turn ends the highest roll
+   wins it: 1 point, 2 if it beat the next best by 3 or more (with style, as in Fate). A tie for the top scores nothing and the
+   GM adds a twist. Scored by team (the best roll on each team counts) or by each person. First to combat.goal wins. */
+N.ctKey = t => G().combat.scoreBy === 'each' ? t.id : N.sideOf(t);
+N.ctName = (k, v) => { const t = N.tokById(k); if (t) return v && N.isMine(t, v.role) ? 'You' : N.tokName(t); const tm = N.teams().find(x => x.id === k); return tm ? tm.name : 'Someone'; };
+/* who is on the scoreboard: every team with someone on the board, or every person */
+N.ctKeys = () => {
+  const cb = G().combat, toks = cb.tokens.filter(t => t.zone);
+  if (cb.scoreBy === 'each') return toks.map(t => t.id);
+  const on = new Set(toks.map(N.sideOf)); return N.teams().map(x => x.id).filter(k => on.has(k));
+};
+/* the best roll on each side so far this round (rolls can still change with invokes until the round is scored) */
+N.ctBest = () => {
+  const g = G(), cb = g.combat, rolls = (cb.rnd || {}).rolls || {}, best = {};
+  for (const [tid, mid] of Object.entries(rolls)) {
+    const t = N.tokById(tid), m = g.msgs.find(x => x.id === mid); if (!t || !m) continue;
+    const k = N.ctKey(t), tot = N.rollTotal(m.roll);
+    if (!best[k] || tot > best[k].tot) best[k] = {k, tot, who:N.tokName(t), sk:m.roll.skill};
+  }
+  return Object.values(best).sort((a, b) => b.tot - a.tot);
+};
+N.ctScore = function(){
+  const g = G(), cb = g.combat, rows = N.ctBest(), n = cb.exchange, goal = cb.goal || 3;
+  cb.rnd = {rolls:{}}; cb.score = cb.score || {};
+  if (!rows.length) return;
+  const [a, b] = rows; let out, after, win = null, pts = 0;
+  if (b && a.tot === b.tot) { out = {k:'tie', t:'Tie · nobody scores'}; after = `${N.gmName()} adds a twist.`; }
+  else {
+    pts = b && a.tot - b.tot >= 3 ? 2 : 1; win = a.k; cb.score[win] = (cb.score[win] || 0) + pts;
+    out = {k:'win', t:`${pts === 2 ? 'With style' : 'Won'} · +${pts}`};
+    after = `${N.ctName(win)} wins the round${pts === 2 ? ' with style' : ''}.` + (cb.score[win] >= goal && !cb.won ? ` ${N.ctName(win)} reaches ${goal} and wins the contest!` : '');
+    if (cb.score[win] >= goal && !cb.won) cb.won = win;
+  }
+  const score = N.ctKeys().map(k => ({n:N.ctName(k), p:cb.score[k] || 0}));
+  const res = {k:'round', n, rows:rows.map(x => ({n:N.ctName(x.k), who:x.who, sk:x.sk, tot:x.tot, win:x.k === win})), out, after, score, goal};
+  N.push({ch:N.fightCh(), kind:'sys', by:G().role, text:`Round ${n}: ${rows.map(x => `${x.who} ${sgn(x.tot)}`).join(', ')}. ${out.t}.${after ? ' ' + after : ''} Score: ${score.map(x => `${x.n} ${x.p}`).join(', ')}.`, res});
+};
+/* the scoreboard over the fight log: everyone sees it, the GM can put points on or take them off by hand */
+function ctBoard(v){
+  const cb = G().combat, gm = isGM(v), goal = cb.goal || 3, best = N.ctBest(), keys = N.ctKeys();
+  if (!keys.length) return '';
+  const avs = k => { const t = N.tokById(k); return (t ? [t] : cb.tokens.filter(x => x.zone && N.sideOf(x) === k)).slice(0, 4).map(x => N.av(N.tokObj(x), 24)).join(''); };
+  const rows = keys.map(k => { const p = cb.score?.[k] || 0, now = best.find(x => x.k === k), tm = N.teams().find(x => x.id === k);
+    return `<div class="ct-row${cb.won === k ? ' won' : ''}"${tm ? ` style="--tc:${tm.col}"` : ''}><span class="ct-av">${avs(k)}</span><span class="ct-n"><b>${esc(N.ctName(k, v))}</b>${now ? `<small>This round ${esc(now.who)} ${sgn(now.tot)}</small>` : ''}</span>
+      <span class="ct-pips" aria-label="${p} of ${goal}">${Array.from({length:Math.max(goal, p)}, (_, i) => `<i class="${i < p ? 'on' : ''}"></i>`).join('')}</span><b class="ct-p">${p}</b>
+      ${gm ? `<span class="mini"><button type="button" data-a="ctPt" data-k="${esc(k)}" data-d="-1" aria-label="Take a point from ${esc(N.ctName(k))}" ${p ? '' : 'disabled'}>−</button><button type="button" data-a="ctPt" data-k="${esc(k)}" data-d="1" aria-label="Give ${esc(N.ctName(k))} a point">+</button></span>` : ''}</div>`; }).join('');
+  return `<section class="ctboard" aria-label="Scoreboard"><span class="eyebrow">${IC('flag')}Scoreboard · first to ${goal}${cb.phase ? '' : ` · round ${cb.exchange}`}</span>${rows}</section>`;
+}
+/* ---------- challenges (Jake): the people in it work together through two or more skill rolls the GM set up ----------
+   combat.tasks: [{id, skill, label, msg}]. Each roll is a normal roll: the GM picks who rolls, the difficulty, passive or not,
+   a buff or debuff, can swap the skill (a stunt, say), invoke and add shifts afterwards. msg is the newest roll made for it. */
+N.chalMsg = k => k.msg ? G().msgs.find(m => m.id === k.msg) || null : null;
+N.chalCount = () => { const ts = G().combat.tasks || [], ms = ts.map(N.chalMsg); return {all:ts.length, done:ms.filter(Boolean).length, ok:ms.filter(m => m && ['succ', 'style'].includes((N.outcome(m.roll) || {}).k)).length}; };
+N.chalSkills = () => [...new Set([...N.MUNDANE, ...G().combat.tokens.flatMap(t => Object.keys(N.tokSkills(t)))])];
+function chalRow(v, k, i, edit){
+  const gm = isGM(v), m = N.chalMsg(k), r = m && m.roll, o = r && N.outcome(r);
+  const sel = `<select class="inp" id="chs-${k.id}-${v.id}" data-i="chalSkill" data-k="${k.id}" aria-label="Skill for this roll">${N.chalSkills().map(x => `<option ${x === k.skill ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>`;
+  const lab = `<input class="inp" id="chl-${k.id}-${v.id}" data-i="chalLabel" data-k="${k.id}" value="${esc(k.label || '')}" placeholder="What it’s for, e.g. Climb the wall" aria-label="What this roll is for">`;
+  if (edit) return `<div class="chal-row ed"><span class="n">${i + 1}</span><span class="f">${sel}${lab}</span>${G().combat.state === 'live' ? `<button type="button" class="ibtn sm" data-a="chalDone" aria-label="Done">${IC('check')}</button>` : ''}<button type="button" class="ibtn sm" data-a="chalDel" data-v="${k.id}" aria-label="Remove this roll">${IC('trash')}</button></div>`;
+  const swap = r && r.skill !== k.skill ? ` <small class="sw">swapped from ${esc(k.skill)}</small>` : '';
+  const res = r ? `<span class="ch-res"><span class="out ${o ? o.k : ''}">${o ? o.t : 'Rolled'}</span><b>${sgn(N.rollTotal(r))}${r.opp != null ? `<small> vs ${sgn(r.opp)}</small>` : ''}</b></span>` : '<span class="ch-res muted">Not rolled yet</span>';
+  return `<div class="chal-row${r ? ' done' : ''}${o ? ' ' + o.k : ''}"><span class="n">${r && o && ['succ','style'].includes(o.k) ? IC('check') : i + 1}</span>
+    <span class="f"><b>${esc(k.label || k.skill)}</b><small>${esc(r ? r.skill : k.skill)}${swap}${r ? ` · ${esc(r.who)}` : ''}</small></span>${res}
+    ${gm ? `<button type="button" class="btn sm${r ? '' : ' gold'}" data-a="chalRoll" data-v="${k.id}">${N.fateDie}${r ? 'Again' : 'Roll'}</button>` : ''}</div>`;
+}
+function chalHtml(v){
+  const cb = G().combat, gm = isGM(v), ts = cb.tasks || [], c = N.chalCount();
+  return `<section class="chal" aria-label="Challenge rolls"><span class="eyebrow">${IC('overcome')}Challenge · ${c.done} of ${c.all} rolled${c.done ? ` · ${c.ok} succeeded` : ''}</span>
+    ${ts.map((k, i) => chalRow(v, k, i, gm && !k.msg && v.ui.chalEdit === k.id)).join('') || '<p class="muted">No rolls set up.</p>'}
+    ${gm ? `<div class="chal-ft"><button type="button" class="btn sm ghost" data-a="chalAdd">${IC('plus')}Add a roll</button><span style="flex:1"></span><button type="button" class="btn sm" data-a="sheet" data-v="cbEnd">${IC('flag')}End the challenge</button></div>` : ''}</section>`;
+}
+N.chalSetup = v => { const ts = G().combat.tasks || [];
+  return `<div class="chal ed">${ts.map((k, i) => chalRow(v, k, i, true)).join('')}<button type="button" class="btn sm ghost" data-a="chalAdd" style="justify-self:start">${IC('plus')}Add a roll</button></div>`; };
+N.kindPanel = v => { const k = N.cbKind(); return G().combat.state !== 'live' ? '' : k === 'contest' ? ctBoard(v) : k === 'challenge' ? chalHtml(v) : ''; };
+/* the GM sets the turn order by hand (Jake): instead of the Notice roll, or to change it later in the fight.
+   Whoever is acting keeps the turn. */
+N.cbSetOrder = function(ids){
+  const cb = G().combat, live = cb.state === 'live', cur = live && !cb.phase ? N.curTok() : null;
+  cb.ord = ids.filter(id => N.tokById(id)); cb.lead = null;
+  if (cb.phase === 'notice') { cb.phase = 'pick'; cb.turn = 0; }
+  else if (cb.phase === 'pick') cb.turn = 0;
+  else if (cur) { const i = N.order().indexOf(cur); if (i >= 0) cb.turn = i; }
+  const ord = N.order();
+  if (live && ord.length) N.push({ch:cb.ch, kind:'sys', by:'gm', text:`${N.gmName()} sets the turn order: ` + ord.map((t,i) => `${i+1}. ${N.tokName(t)}`).join(', ') + '.', res:{k:'order', hand:true, rows:ord.map(t => ({n:N.tokName(t)}))}});
+};
 /* ---------- state changes ---------- */
 const sys = text => Object.assign(N.sys(text, N.fightCh()), {fight:true});
 /* NPC cards and the enemies built in the old "Add enemies" form, ready to drop into a fight */
@@ -490,7 +608,10 @@ const sys = text => Object.assign(N.sys(text, N.fightCh()), {fight:true});
    "Everyone else" opens the rest. No scene up lists every NPC card, as before. */
 N.foeList = (place, v) => {
   const g = G(), ch = N.fightCh(), up = !!g.scenes[ch], cast = up ? N.castOf(ch) || [] : [], all = !up || !!(v && v.ui.foeAll);
-  const row = (av, name, sub, a, id) => `<div class="zi" style="padding:5px 5px 5px 6px">${av}<span>${esc(name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span><button type="button" class="btn sm" data-a="${a}" data-v="${esc(id)}" data-side="foe"${place?' data-place="1"':''} style="--h:30px">${IC('plus')}Foe</button><button type="button" class="btn sm ghost" data-a="${a}" data-v="${esc(id)}" data-side="ally"${place?' data-place="1"':''} style="--h:30px">Ally</button></div>`;
+  /* one button per team: foes first, then the players' side, then any extra teams. A challenge has only the one side */
+  const kind = N.cbKind(), cb = g.combat, tn = cb.tn || {};
+  const sides = kind === 'challenge' ? [['ally', 'Add', 1]] : [['foe', tn.foe || (kind === 'fight' ? 'Foe' : 'Rival'), 1], ['ally', tn.ally || 'Ally'], ...N.teams().filter(x => x.extra).map(x => [x.id, x.name])];
+  const row = (av, name, sub, a, id) => `<div class="zi${sides.length > 2 ? ' many' : ''}" style="padding:5px 5px 5px 6px">${av}<span>${esc(name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span><span class="zi-b">${sides.map(([sd, l, first]) => `<button type="button" class="btn sm${first ? '' : ' ghost'}" data-a="${a}" data-v="${esc(id)}" data-side="${esc(sd)}"${place?' data-place="1"':''} style="--h:30px">${first ? IC('plus') : ''}${esc(l)}</button>`).join('')}</span></div>`;
   const npcRow = n => row(N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},30), n.name, n.type==='nameless'?'Nameless':(N.pcTag(n) || 'Supporting'), 'cbAddNpc', n.id);
   const inScene = g.npcs.filter(n => cast.includes(n.name)), rest = g.npcs.filter(n => !cast.includes(n.name));
   const once = up ? N.extrasOf(ch).map(x => row(N.av({name:x.name,color:'var(--c-npc)'},30), x.name, 'One-off · this scene', 'cbAddOnce', x.id)) : [];
@@ -502,6 +623,9 @@ N.foeList = (place, v) => {
   const empty = up ? 'Nobody is in this scene yet. Add NPCs in the scene sheet, or open everyone else.' : 'No NPC cards yet.';
   return `${head}${list.length ? `<div class="zlist">${list.join('')}</div>` : `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${empty}</p>`}${more}`;
 };
+/* the teams in this fight or contest, with how many are on each, and the button to change them (Jake: three-way fights) */
+N.teamLine = v => { const cb = G().combat;
+  return `<div class="teamline">${N.teams().map(tm => { const n = cb.tokens.filter(t => N.sideOf(t) === tm.id).length; return `<span class="tchip" style="--tc:${tm.col}"><i></i>${esc(tm.name)}<b>${n}</b></span>`; }).join('')}<button type="button" class="btn sm ghost" data-a="sheet" data-v="cbTeams">${IC('users')}Teams</button></div>`; };
 /* a one-off scene NPC (name + skills, no card) dropped into the fight */
 N.cbAddOnce = function(id, side, zone){
   const g = G(), cb = g.combat, x = N.extrasOf(N.fightCh()).find(e => e.id === id); if (!x) return null;
@@ -509,10 +633,12 @@ N.cbAddOnce = function(id, side, zone){
   const t = N.tokFromNpc({id:'once:' + id, name:x.name, type:'supporting', skills:x.skills || {}}, side, same ? `${x.name} ${same + 1}` : null);
   t.zone = zone || null; cb.tokens.push(t); N.cbLateInit(t); return t;
 };
-N.cbBegin = function(ch){
+N.cbBegin = function(ch, kind){
   ch = ch || 'table'; N.focusFight(ch);
   const g = G(), cb = g.combat = N.freshCombat();
   cb.state = 'setup'; cb.id = N.uid('f'); cb.ch = ch;
+  if (kind === 'contest') Object.assign(cb, {kind, goal:3, scoreBy:'team', score:{}, rnd:{rolls:{}}});
+  if (kind === 'challenge') Object.assign(cb, {kind, tasks:[{id:N.uid('k'), skill:'Athletics', label:''}, {id:N.uid('k'), skill:'Notice', label:''}]});
   const built = N.pcsIn(cb.ch).filter(c => c.built);
   cb.invited = built.map(c => c.id);
   built.forEach(c => cb.tokens.push(N.tokFromPc(c)));
@@ -565,9 +691,12 @@ N.cbRemove = function(id){
 N.rollInit = t => { const dice = N.rollDice(); t.initDice = dice; t.init = dice.reduce((a,b) => a+b, 0) + N.tokNotice(t); return t; };
 N.cbStart = function(){
   const g = G(), cb = g.combat;
-  if (!cb.title.trim()) cb.title = 'A fight';
-  cb.state = 'live'; cb.phase = 'notice'; cb.lead = null; cb.turn = 0; cb.exchange = 1; cb.joined = []; cb.acted = false; cb.moved = false;
-  N.push({ch:cb.ch, kind:'combat', by:'gm', cid:cb.id, text:cb.title, bg:cb.bg});
+  const k = N.cbKind();
+  if (!cb.title.trim()) cb.title = k === 'fight' ? 'A fight' : k === 'contest' ? 'A contest' : 'A challenge';
+  /* a challenge has no turns: the people in it work together, the GM rolls each part when it comes up */
+  cb.state = 'live'; cb.phase = k === 'challenge' ? null : 'notice'; cb.lead = null; cb.turn = 0; cb.exchange = 1; cb.joined = []; cb.acted = false; cb.moved = false;
+  if (k === 'contest') { cb.score = {}; cb.rnd = {rolls:{}}; cb.won = null; }
+  N.push({ch:cb.ch, kind:'combat', by:'gm', cid:cb.id, text:cb.title, bg:cb.bg, ...(k !== 'fight' ? {ck:k} : {})});
 };
 N.cbNotice = function(){
   const cb = G().combat; if (cb.state !== 'live' || cb.phase !== 'notice') return;
@@ -578,25 +707,31 @@ N.cbNotice = function(){
     res:{k:'order', rows:ord.map(t => ({n:N.tokName(t), sk:N.tokNotice(t), d:t.initDice, tot:t.init}))}});
 };
 /* the GM picks who goes first: they lead the turn order for the rest of the fight */
-N.cbFirst = id => { const cb = G().combat; cb.lead = id; cb.turn = 0; };
+N.cbFirst = id => { const cb = G().combat; if (cb.ord) { cb.ord = [id, ...N.order().map(t => t.id).filter(x => x !== id)]; cb.lead = null; } else cb.lead = id; cb.turn = 0; };
 N.cbGo = function(){
   const cb = G().combat; if (cb.phase !== 'pick') return;
   cb.phase = null; cb.turn = 0; cb.acted = false; cb.moved = false;
   const cur = N.curTok(); if (cur) sys(`${N.tokName(cur)} goes first.`);
 };
 /* someone added once the turn order is rolled rolls Notice right away */
-N.cbLateInit = t => { const cb = G().combat; if (cb.state !== 'live' || cb.phase === 'notice' || t.init != null) return; N.rollInit(t); sys(`${N.tokName(t)} rolls Notice for their turn: ${sgn(t.init)} ${ladderWord(t.init)}.`); };
+N.cbLateInit = t => { const cb = G().combat; if (cb.state !== 'live' || cb.phase === 'notice' || t.init != null || N.cbKind() === 'challenge') return; N.rollInit(t); sys(`${N.tokName(t)} rolls Notice for their turn: ${sgn(t.init)} ${ladderWord(t.init)}.`); };
 N.cbNext = function(){
-  const cb = G().combat, n = N.order().length;
+  const cb = G().combat, n = N.order().length, contest = N.cbKind() === 'contest';
+  /* the last turn of a contest round ends it: the round is scored before the next one starts */
+  if (contest && n && (cb.turn + 1) % n === 0) N.ctScore();
   cb.turn++; if (n && cb.turn % n === 0) { cb.exchange++; cb.turn = 0; }
   cb.acted = false; cb.moved = false;
   /* an attack still waiting on its defense or its soak stays open into the next turn */
-  if (n && cb.turn === 0) sys(`Exchange ${cb.exchange} begins.`);
+  if (n && cb.turn === 0) sys(`${contest ? 'Round' : 'Exchange'} ${cb.exchange} begins.`);
 };
 N.cbEnd = function(){
   const g = G();
   /* the end note stays in the roleplay actions; tapping it opens everything that happened in the fight */
-  const cb = g.combat; Object.assign(N.sys(`The fight on ${cb.title || 'the field'} is over. Stress stays on your cards until the scene ends.`, N.fightCh()), {fightEnd:cb.id});
+  const cb = g.combat, k = N.cbKind(), c = k === 'challenge' && N.chalCount(), sc = k === 'contest' ? N.ctKeys().map(x => `${N.ctName(x)} ${cb.score?.[x] || 0}`).join(', ') : '';
+  const txt = k === 'contest' ? `The contest ${cb.title || ''} is over.${cb.won ? ` ${N.ctName(cb.won)} won.` : ''}${sc ? ` Final score: ${sc}.` : ''}`
+    : k === 'challenge' ? `The challenge ${cb.title || ''} is over: ${c.ok} of ${c.all} roll${c.all === 1 ? '' : 's'} succeeded.`
+    : `The fight on ${cb.title || 'the field'} is over. Stress stays on your cards until the scene ends.`;
+  Object.assign(N.sys(txt.replace(/  +/g, ' '), N.fightCh()), {fightEnd:cb.id});
   /* Jake's ammo rule: everyone who took a Shooting action loses 1 ammo from their equipped ammo or thrown weapons */
   const used = [];
   for (const id of cb.shot || []) {
@@ -721,7 +856,7 @@ N.cbAbsorb = function(k, i){
   fx.soak = {k, i};
   if (k === 'box') { const st = N.tokStress(t); st.s[i] = true; sys(`${nm} soaks the ${sh} with their ${st.v[i]}-stress box.`); }
   else if (k === 'out') { t.out = true; sys(`${nm} can’t soak the ${sh} and is taken out.`); }
-  else { N.tokSrcCons(t)[k] = 'Hurt in the fight'; const sl = N.tokCons(t).find(x => x.k === k); sys(`${nm} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
+  else { N.tokSrcCons(t)[k] = 'Hurt in the fight'; N.setConSt(N.tokConsOwner(t), k, ''); const sl = N.tokCons(t).find(x => x.k === k); sys(`${nm} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
   N.cbSettled(p); return true;
 };
 /* the attack the GM can still change: the one waiting on its soak or style pick, or the last one settled */
