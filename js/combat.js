@@ -809,7 +809,19 @@ N.cbResolve = function(again){
   /* what every screen's board plays (js/fx.js): the weapon from the attack skill, the outcome, and the box the hit checked */
   res.anim = {att:a.id, def:d.id, wpn:N.fxWeapon ? N.fxWeapon(p.skill) : 'sword', out:fo, dmg};
   if (fx.box != null) res.anim.box = fx.box;
+  /* a defended attack shows a shield block only if the defender carries a shield; otherwise they dodge */
+  if ((fo === 'block' || fo === 'bstyle') && N.tokHasShield(d)) res.anim.sh = 1;
   N.push({ch:N.fightCh(), kind:'sys', by:g.role, text:`${title}: ${sgn(p.total)} against ${sgn(dt)}. ${calc ? calc + '. ' : ''}${out.t}. ${after}`, res});
+};
+/* does this fighter carry a shield (Jack, 2026-11-11)? An equipped catalog shield, an inventory item from the Shields
+   class, or one whose name clearly says shield, buckler, targe or pavise. Anything else, or no card to look at: no. */
+const SHIELD_RX = /\b(shields?|bucklers?|targes?|pavises?)\b/i;
+N.tokHasShield = t => {
+  if (!t) return false;
+  if (N.tokGear(t, 'shield')) return true;
+  const g = G(), c = t.kind === 'pc' ? g.chars[t.ref] : g.npcs.find(n => n.id === t.ref);
+  const rows = [...(c && c.inv || []), ...(t.inv || [])];
+  return rows.some(r => r && (SHIELD_RX.test(r[0] || '') || (N.rowItem && N.itemSlot(N.rowItem(r)) === 'shield')));
 };
 /* the GM's pick after an attack with style: the full damage, or 2 less and a boost on the defender */
 N.cbStyle = function(choice){

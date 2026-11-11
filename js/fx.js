@@ -28,7 +28,14 @@ const OUT = {
   tie:   {word:'TIE!', col:'#ffc531', core:'#fff4c2', glow:'#ffb000', shake:.28, sub:(n, a) => `Boost for ${a}`},
   block: {word:'BLOCKED!', col:'#4ba8ff', core:'#e2f3ff', glow:'#3d8bff', shake:.18, shield:1, sub:() => 'No harm done'},
   bstyle:{word:'BLOCKED!', col:'#86d6ff', core:'#ffffff', glow:'#50b4ff', shake:.18, shield:1, big:1.12, twinkle:'#bfe9ff', sub:(n, a, d) => `With style · boost for ${d}`},
+  /* a defender without a shield steps out of the way instead (Jack, 2026-11-11) */
+  dodge: {word:'DODGED!', col:'#4ba8ff', core:'#e2f3ff', glow:'#3d8bff', shake:0, dodge:1, sub:() => 'No harm done'},
+  dstyle:{word:'DODGED!', col:'#86d6ff', core:'#ffffff', glow:'#50b4ff', shake:0, dodge:1, big:1.12, twinkle:'#bfe9ff', sub:(n, a, d) => `With style · boost for ${d}`},
 };
+/* a defended attack is blocked only when the defender carries a shield (res.anim.sh, set by N.cbResolve); otherwise,
+   and on older results that don't say, they dodge */
+const outFor = an => an.out === 'block' || an.out === 'bstyle' ? (an.sh ? OUT[an.out] : an.out === 'block' ? OUT.dodge : OUT.dstyle) : OUT[an.out] || OUT.hit;
+N.fxDodges = an => !!an && (an.out === 'block' || an.out === 'bstyle') && !an.sh;
 
 /* ---------- art (local units; drawn with a dark ink outline so it reads on any map) ---------- */
 const INK = '#1d130b';
@@ -92,13 +99,13 @@ function geo(cam, id){
 function build(board, s){
   const cam = board.querySelector('.cam'), bg = board.querySelector('.bg'), an = s.a, at = N.tokById(an.att), dt = N.tokById(an.def);
   if (!cam || !at || !dt) return null;
-  const o = OUT[an.out] || OUT.hit, wpn = ['sword', 'bow', 'bolt'].includes(an.wpn) ? an.wpn : 'sword';
+  const o = outFor(an), wpn = ['sword', 'bow', 'bolt'].includes(an.wpn) ? an.wpn : 'sword';
   const A = geo(cam, an.att), D = geo(cam, an.def), W = cam.clientWidth, H = cam.clientHeight;
   if (!A || !D || !W || !H || !A.R || !D.R) return null;
   const dx = D.x - A.x, dy = D.y - A.y, d = Math.hypot(dx, dy) || 1, ux = dx / d, uy = dy / d;
   let nx = uy, ny = -ux; if (ny > 0 || (ny === 0 && nx > 0)) { nx = -nx; ny = -ny; }
   const R = A.R, Rd = D.R, sg = ux >= 0 ? 1 : -1, phi = Math.atan2(uy, ux) * 180 / Math.PI;
-  const fx = {cam, bg, o, A, D, W, H, d, ux, uy, nx, ny, R, Rd, s:sg, phi, wpn, out:an.out, box:an.box, rng:rnd(hash(s.id)), filled:[]};
+  const fx = {cam, bg, o, A, D, W, H, d, ux, uy, nx, ny, R, Rd, s:sg, phi, wpn, out:an.out, box:an.box, rng:rnd(hash(s.id)), filled:[], dodge:!!o.dodge};
   /* how far a fighter reaches above and below the middle the effects aim at: a token's circle, or a figure's head and base */
   const Du = D.up || Rd, Dn = D.dn || Rd, Au = A.up || 0, An = A.dn || 0;
   fx.rot0 = fx.rng() * Math.PI;
@@ -107,21 +114,21 @@ function build(board, s){
   fx.Pk = o.hit ? .55 : o.shield ? 1.2 : an.out === 'tie' ? .8 : .85;
   if (wpn === 'sword') {
     fx.TI = 490;
-    fx.Dd = Math.max(0, d - R - Rd - (o.hit ? .22 : .9) * R);
+    fx.Dd = Math.max(0, d - R - Rd - (o.hit || o.dodge ? .22 : .9) * R);
     fx.P = at2(fx.Pk);
   } else if (wpn === 'bow') {
     fx.TR = 840; fx.F = clamp(170 + d * .55, 200, 380); fx.TI = fx.TR + fx.F;
     fx.kb = 2.3 * R / 92;
     const tipL = -.12 * R + R * 1.05 + (68 - 24) * fx.kb;
     fx.S = {x:A.x + ux * tipL, y:A.y + uy * tipL};
-    fx.E = o.hit ? at2(.85) : o.shield ? at2(1.3) : an.out === 'tie' ? at2(.15, .95) : at2(.95);
+    fx.E = o.hit ? at2(.85) : o.shield ? at2(1.3) : o.dodge ? at2(-2.2) : an.out === 'tie' ? at2(.15, .95) : at2(.95);
     fx.C = {x:(fx.S.x + fx.E.x) / 2 + nx * d * .1, y:(fx.S.y + fx.E.y) / 2 + ny * d * .1};
     fx.P = fx.E;
   } else {
     fx.TF = 780; fx.F = clamp(130 + d * .45, 170, 320); fx.TI = fx.TF + fx.F;
     const cL = -.08 * R + R * 1.3;
     fx.S = {x:A.x + ux * cL, y:A.y + uy * cL};
-    fx.E = o.hit ? at2(.45) : o.shield ? at2(1.25) : an.out === 'tie' ? at2(.5, .6) : at2(.8);
+    fx.E = o.hit ? at2(.45) : o.shield ? at2(1.25) : o.dodge ? at2(-2.2) : an.out === 'tie' ? at2(.5, .6) : at2(.8);
     fx.P = fx.E;
   }
   fx.total = fx.TI + 2350;
@@ -217,6 +224,12 @@ function tgtOff(fx, t){
   const TI = fx.TI, o = fx.o;
   let al = 0, pp = 0, rot = 0;
   if (o.shield && t > fx.TI - 160 && t < TI) al = -.08 * fx.Rd * seg(t, TI - 160, TI);
+  if (o.dodge) {
+    /* a quick sidestep across the line of the attack as the blow comes, a lean into it, and back once it has gone by */
+    const t0 = TI - (fx.wpn === 'sword' ? 250 : 330), k = eOut(seg(t, t0, t0 + 200)) * (1 - eIO(seg(t, TI + 260, TI + 680)));
+    pp = 1.15 * fx.Rd * k * (RM ? .5 : 1); al = -.18 * fx.Rd * k; rot = -14 * k * fx.s;
+    return {al, pp, rot};
+  }
   if (t >= TI) {
     const u = seg(t, TI, TI + 480), A = o.shake * fx.Rd * (RM ? .3 : 1);
     al = A * (Math.sin(u * Math.PI * 7) * (1 - u) * .75 + (u < .12 ? u / .12 : 1 - (u - .12) / .88) * .55);
@@ -239,12 +252,12 @@ function swordAt(fx, t){
   const ax = fx.A.x + fx.ux * al + fx.nx * pp, ay = fx.A.y + fx.uy * al + fx.ny * pp;
   let lam;
   if (t < 400) lam = -115 + 5 * Math.sin(t * .02);
-  else if (o.hit) lam = lerp(-115, 70, eIO(seg(t, 400, 560)));
+  else if (o.hit || o.dodge) lam = lerp(-115, 70, eIO(seg(t, 400, 560)));
   else lam = t < TI ? lerp(-115, -8, eIn(seg(t, 400, TI))) : lerp(-8, -55, eOut(seg(t, TI, TI + 160)));
   const th = fx.phi + s * lam, rad = th * Math.PI / 180, k = 2.35 * R / 100 * (t < 180 ? eBack(seg(t, 0, 180)) : 1);
   set(fx.g.wpn, {transform:`translate(${(ax + Math.cos(rad) * R * .82).toFixed(2)} ${(ay + Math.sin(rad) * R * .82).toFixed(2)}) rotate(${th.toFixed(2)}) scale(${k.toFixed(4)})`, opacity:(1 - seg(t, 900, 1080)).toFixed(3)});
   /* the swoosh behind the blade */
-  const end = o.hit ? 560 : TI;
+  const end = o.hit || o.dodge ? 560 : TI;
   if (t >= 400 && t < end + 200) {
     const l0 = Math.max(-115, lam - 125), rs = R * .82 + 2.35 * R * .62, w = 2.35 * R * .38;
     const arc = (r0, from, to) => { const a0 = (fx.phi + s * from) * Math.PI / 180, a1 = (fx.phi + s * to) * Math.PI / 180; return `M${(ax + Math.cos(a0) * r0).toFixed(1)},${(ay + Math.sin(a0) * r0).toFixed(1)} A${r0.toFixed(1)},${r0.toFixed(1)} 0 0 ${s > 0 ? 1 : 0} ${(ax + Math.cos(a1) * r0).toFixed(1)},${(ay + Math.sin(a1) * r0).toFixed(1)}`; };
@@ -277,6 +290,7 @@ function bowAt(fx, t){
   } else {
     const E = fx.E, C = fx.C, ta = Math.atan2(E.y - C.y, E.x - C.x), aE = ta * 180 / Math.PI, tau = t - TI;
     if (o.hit) { const g = tgtOff(fx, t); x = E.x + fx.ux * g.al + fx.nx * g.pp; y = E.y + fx.uy * g.al + fx.ny * g.pp; a = aE + g.rot; op = 1 - seg(t, TI + 700, TI + 900); }
+    else if (o.dodge) { const sp = fx.d / fx.F; x = E.x + Math.cos(ta) * sp * tau; y = E.y + Math.sin(ta) * sp * tau; a = aE; op = 1 - seg(tau, 0, 200); }
     else if (fx.out === 'tie') { const sp = fx.d / fx.F, dx2 = Math.cos(ta) + fx.nx * .55, dy2 = Math.sin(ta) + fx.ny * .55, n = Math.hypot(dx2, dy2); x = E.x + dx2 / n * sp * tau; y = E.y + dy2 / n * sp * tau; a = Math.atan2(dy2, dx2) * 180 / Math.PI; op = 1 - seg(tau, 60, 260); }
     else {
       const k = o.shield ? 1 : .7, vx = (-fx.ux * .45 + fx.nx * .75 * k) * R * .009, vy = (-fx.uy * .45 + fx.ny * .75 * k) * R * .009, g = R * .00005;
@@ -299,7 +313,7 @@ function boltAt(fx, t){
   const pos = tt => { const v = seg(tt, TF, TI), w = Math.pow(v, 1.15), wob = R * .14 * Math.sin(v * Math.PI * 2) * (1 - v); return {x:lerp(fx.S.x, fx.E.x, w) + fx.nx * wob, y:lerp(fx.S.y, fx.E.y, w) + fx.ny * wob}; };
   let p, r = rr0, op = 1;
   if (t < TF) p = {x:ax + fx.ux * R * 1.3, y:ay + fx.uy * R * 1.3};
-  else if (t < TI) { p = pos(t); r = .42 * R * (1 + .15 * seg(t, TF, TI)); }
+  else if (t < TI) { p = pos(t); r = .42 * R * (1 + .15 * seg(t, TF, TI)); if (fx.dodge) op = 1 - seg(t, TI - 140, TI); }
   else { p = fx.E; op = 0; }
   set(fx.g.proj, {opacity:op});
   set(fx.g.og, {cx:p.x.toFixed(2), cy:p.y.toFixed(2), r:Math.max(0, r * 2.5).toFixed(2)});
@@ -319,7 +333,7 @@ function boltAt(fx, t){
     } else set(c, {opacity:0});
   });
   /* the zap */
-  if (t >= TI && t < TI + 230) {
+  if (t >= TI && t < TI + 230 && !fx.dodge) {
     const b = Math.floor((t - TI) / 45), rg = rnd(fx.rot0 * 1e6 + b * 977), P = fx.P, lw = Math.max(1.4, R * .085);
     fx.g.lg.forEach((pl, i) => {
       const a0 = (i * 72 + rg() * 30) * Math.PI / 180, L = fx.Rd * (1 + rg() * .5);
@@ -341,8 +355,8 @@ function impactAt(fx, t){
     set(fx.g.sh, {transform:`translate(${sx.toFixed(2)} ${sy.toFixed(2)}) rotate(${(-fx.s * 8 + g.rot).toFixed(2)}) scale(${ks.toFixed(4)})`, opacity:(t < TI - 150 ? 0 : 1 - seg(t, TI + 480, TI + 680)).toFixed(3)});
     set(fx.g.ward, {opacity:t >= TI ? (1 - seg(t, TI, TI + 420)).toFixed(3) : 0});
   }
-  /* burst, ring and sparks */
-  if (t >= TI && t < TI + 360) {
+  /* burst, ring and sparks: nothing to hit when they dodge */
+  if (t >= TI && t < TI + 360 && !o.dodge) {
     const u = seg(t, TI, TI + 170), f = 1 - seg(t, TI + 140, TI + 340), ro = Rd * (.35 + (o.cam ? 1.25 : 1) * eOut(u));
     set(fx.g.b1, {d:star(P.x, P.y, ro, ro * .48, 8, fx.rot0), opacity:f.toFixed(3)});
     set(fx.g.b2, {d:star(P.x, P.y, ro * .58, ro * .28, 8, fx.rot0 + .2), opacity:f.toFixed(3)});
@@ -359,7 +373,7 @@ function impactAt(fx, t){
   let rot = g.rot, down = 0;
   if (o.out && t >= TI + 520) { const u = seg(t, TI + 520, TI + 820); rot += fx.s * 88 * eBack(u); down = .25 * Rd * eOut(u); if (u >= 1 && !el.classList.contains('out')) { el.classList.add('out'); fx.addedOut = true; } }
   place(fx, el, g.al, g.pp, rot, down);
-  const fl = t >= TI && t < TI + 320 ? 1 - seg(t, TI, TI + 320) : 0;
+  const fl = t >= TI && t < TI + 320 && !o.dodge ? 1 - seg(t, TI, TI + 320) : 0;
   el.style.filter = fl > 0 && !fx.D.fig ? `brightness(${(1 + (o.hit ? .9 : .5) * fl).toFixed(3)}) drop-shadow(0 0 ${(Rd * .55 * fl).toFixed(1)}px ${o.glow})` : '';
   if (o.hit && t >= TI + 120 && !fx.filled.length) {
     /* the box the hit really checked; taken out lights every box that was left */
