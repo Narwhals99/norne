@@ -45,8 +45,9 @@ function wantOf(t){
   if (t.kind === 'pc') { const c = g.chars[t.ref]; fig = c && c.fig; race = c && c.race; }
   else { const n = g.npcs.find(x => x.id === t.ref); fig = (n && n.fig) || t.fig; race = (n && n.race) || (t.fig && t.fig.race); }
   const side = t.kind === 'pc' ? 'pc' : N.sideOf(t) === 'ally' ? 'ally' : 'foe';
-  let spec = fig && K.RACES[fig.race] ? copy(fig) : null;
-  if (!spec) { const r = K.RACE_LIST.find(x => x.toLowerCase() === String(race || '').trim().toLowerCase()) || 'Human'; spec = K.randomSpec(r, rng(hash(t.id))); }
+  let spec = K.okSpec(fig) ? copy(fig) : null;
+  /* no figure yet: a look made from the fighter's id, of its race, or of the animal its race names ("Wolf") */
+  if (!spec) { const r = K.beastOf(race) || K.RACE_LIST.find(x => x.toLowerCase() === String(race || '').trim().toLowerCase()) || 'Human'; spec = K.randomSpec(r, rng(hash(t.id))); }
   spec = K.faceFix(spec); spec.hair = K.hairId(spec.hair || 'bald');
   return {spec, base:BASES[side], key:side + '|' + JSON.stringify(spec)};
 }
@@ -217,7 +218,7 @@ function defPose(run, ft){
 /* the joints a pose moves, so one move can blend into the next instead of jumping */
 function joints(rig){
   if (rig._j) return rig._j;
-  const list = [rig.body, rig.torso, rig.head, rig.armL.sh, rig.armR.sh, ...rig.legs, rig.tail].filter(Boolean);
+  const list = rig.joints || [rig.body, rig.torso, rig.head, rig.armL.sh, rig.armR.sh, ...rig.legs, rig.tail].filter(Boolean);
   return rig._j = {list, snap:list.map(() => ({p:[0, 0, 0], r:[0, 0, 0], s:[1, 1, 1]})), w:{}};
 }
 function snapJ(rig){
