@@ -459,6 +459,11 @@ function syncNow(){
     }
     writeUnits('gm/npcs', asUnits(g.npcs.map(n => ({...n, occ:n.job || ''}))));
     writeUnits('gm/items', asUnits(g.items || [], x => x));
+    /* item notes for some players only (N.itemPvFor): until gm/items has loaded, each player keeps the ones they have */
+    for (const st of N.seats()) { if (!only[st]) continue;
+      if (!LOADED.has('gm/items')) { const was = KNOWN.get('only/' + st)?.units.iv; if (was) only[st].iv = JSON.parse(was); continue; }
+      const iv = {}; for (const it of g.items || []) { const l = N.itemPvFor(it, st); if (l.length) iv[N.pvKey(it.name)] = l; }
+      if (Object.keys(iv).length) only[st].iv = iv; }
     writeUnits('gm/shops', {...(g.shops || {})});
     writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, wl:g.wlinks || {}, hlocs:g.hlocs || {}, npcdirs:g.npcDirs || []});
     /* parts of a card the GM revealed to single players: each gets only their own parts (N.revealed) */
@@ -608,6 +613,7 @@ function setMine(u){
   MINEP = {}; MINEQ = {};
   for (const [key, j] of Object.entries(u)) if (key.startsWith('p:')) MINEP[key.slice(2)] = j; else if (key.startsWith('q:')) MINEQ[key.slice(2)] = j;
   G().known = {}; for (const [key, j] of Object.entries(u)) if (key.startsWith('r:')) { try { G().known[key.slice(2)] = JSON.parse(j); } catch(e) {} }
+  try { G().ivMine = u.iv ? JSON.parse(u.iv) : {}; } catch(e) { G().ivMine = {}; }
   G().wlinks = {}; for (const [key, j] of Object.entries(u)) if (key.startsWith('l:')) { try { G().wlinks[key.slice(2)] = JSON.parse(j); } catch(e) {} }
   for (const [key, j] of Object.entries(u)) { const k = KIND[key[0]]; if (k && key[1] === ':') MINE[k][key.slice(2)] = j; }
   mergeView();

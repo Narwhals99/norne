@@ -672,6 +672,12 @@ N.itemGears = it => N.ITEM_RATE.filter(([k]) => +it[k] > 0);
 N.itemCardGears = it => N.GEARK.filter(([k]) => +it[k] > 0);
 /* where an item sits in Jake's lists: class (e.g. Small one-handed weapons), then sub-type and discipline */
 N.itemPath = it => [it.cls, it.sub, it.disc].filter(Boolean).join(' · ');
+/* notes on a catalog item for some players only (Jake): it.pv = [{id, text, see:[seats]}]. Each player gets just the notes
+   picked for them, by item name, in their own only/<seat> (unit iv = {lowercase item name: [texts]}), and reads them wherever
+   the item shows up: their inventory, a store, a fighter card. A note with nobody picked stays with the GM */
+N.pvKey = n => String(n || '').trim().toLowerCase();
+N.itemPvOk = it => (it?.pv || []).filter(p => String(p.text || '').trim());
+N.itemPvFor = (it, st) => N.itemPvOk(it).filter(p => (p.see || []).includes(st)).map(p => String(p.text).trim());
 /* merge an items file (norne-gm-items.json) into the catalog: same name = replaced, keeping its id */
 N.importItems = list => {
   const g = N.G; if (!g.items) g.items = []; let add = 0, rep = 0;

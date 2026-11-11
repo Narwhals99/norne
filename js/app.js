@@ -763,6 +763,7 @@ function input(v, el){
       const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; x.price = Math.min(N.GOLD_MAX, parseInt(t, 10) || 0); return; }
     case 'itd': { const d = v.ui.itd; if (!d) return; d[k] = N.ITEM_RATE.some(([x]) => x === k) ? +val || 0 : val;
       if (k === 'name') { const b = v.root.querySelector('[data-a="itSave"]'); if (b) b.disabled = !val.trim(); } return; }
+    case 'itdPv': { const p = (v.ui.itd?.pv || []).find(x => x.id === k); if (p) p.text = val; return; }
     case 'itg': { const t = v.ui.itg; if (!t) return;
       if (k === 'q') { const n = val.replace(/[^0-9]/g, '').slice(0, 4); if (n !== val) el.value = n; t.q = Math.max(1, parseInt(n, 10) || 1); return; }
       t.to = val; render(v); return; }
@@ -1961,6 +1962,10 @@ function act(v, a, el, e){
   case 'itNew': ui.itd = {id:null, name:'', kind:ui.itK || 'weapon', ic:'', d:'', gm:'', gearAtk:0, gearRng:0, gearAmmo:0, gearDef:0}; ui.sheet = 'itemEd'; break;
   case 'itEdit': { const it = N.itemById(val); if (!it) break; ui.itd = {ic:'', d:'', gm:'', ...JSON.parse(JSON.stringify(it))}; ui.sheet = 'itemEd'; break; }
   case 'itdKind': if (ui.itd) ui.itd.kind = val; break;
+  /* notes on the item for some players only (Jake): add one, pick its players, remove it */
+  case 'itdPvAdd': if (ui.itd) { if (!ui.itd.pv) ui.itd.pv = []; ui.itd.pv.push({id:uid('pv'), text:'', see:[]}); } break;
+  case 'itdPvSee': { const p = (ui.itd?.pv || []).find(x => x.id === d.k); if (!p) break; const s2 = new Set(p.see || []); s2.has(val) ? s2.delete(val) : s2.add(val); p.see = [...s2].sort((a, b) => a.slice(1) - b.slice(1)); break; }
+  case 'itdPvDel': if (ui.itd?.pv) ui.itd.pv = ui.itd.pv.filter(x => x.id !== val); break;
   case 'itdIc': if (ui.itd) ui.itd.ic = val; break;
   case 'itSave': {
     const d = ui.itd, name = (d?.name || '').trim(); if (!name) break;
@@ -1970,6 +1975,7 @@ function act(v, a, el, e){
     /* fields this sheet doesn't show (Jake's rule flags from an items file) are kept as they were */
     const it = {...d, id:d.id || uid('it'), name, kind:N.itemKind(d.kind)[0], ic:d.ic && d.ic !== N.itemKind(d.kind)[2] ? d.ic : '', d:(d.d || '').trim(), gm:(d.gm || '').trim(), cls:(d.cls || '').trim(), disc:(d.disc || '').trim()};
     for (const k of ['cls', 'disc', 'silver']) if (!it[k]) delete it[k];
+    it.pv = (d.pv || []).map(p => ({id:p.id || uid('pv'), text:String(p.text || '').trim(), see:[...(p.see || [])]})).filter(p => p.text); if (!it.pv.length) delete it.pv;
     for (const [k] of N.ITEM_RATE) if (+d[k] > 0) it[k] = +d[k]; else delete it[k];
     const at = g.items.findIndex(x => x.id === it.id); if (at >= 0) g.items[at] = it; else g.items.push(it);
     g.items.sort((a, b) => a.name.localeCompare(b.name));
