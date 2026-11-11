@@ -1,7 +1,6 @@
 /* Toy figure maker (2026-11-07). The saved figures stand on the fight board (js/figboard.js, 2026-11-08).
-   Opened from the Character tab (next to Stats) and from Profile, and shown to one player account only while it is tried out:
-   N.figOk() compares a SHA-256 hash of the signed-in email, so the address itself is not in this public code.
-   The GM always has it, from an NPC card (Make figure) and from fight setup (Figures, with random looks for NPCs without a card).
+   Opened from the Character tab (next to Stats) and from Profile. Every player has it since 2026-11-11 (Jack: "enable
+   figurines for all players"); before that it was one account's test. The GM has it from an NPC card (Make figure) and from fight setup (Figures, with random looks for NPCs without a card).
    The figure being made is kept on this device (localStorage norne-fig-test: {spec, char, base}) until Save figure puts it
    on the player's character card (fig, figAt): that is the character's figure until they save another. The card already
    goes out with the character (game/chars or parties/<id>), so no new security rules are needed. On another device the
@@ -14,20 +13,8 @@
    The maker is its own layer over the app (outside #app), so redraws of the app never touch its canvas. */
 (function(){
 const N = window.N;
-const ALLOW = ['b5253f6572ed46d2835da08cf45e30be033423abbc64525079af9632bd1bc952'];
-let hashFor = null, allowed = false;
-N.figOk = () => {
-  if (N.G && N.G.role === 'gm') return true; /* the GM makes figures for NPC cards and fighters (Jack, 2026-11-08) */
-  const e = ((N.me && N.me()) || {}).email; if (!e) return false;
-  if (hashFor !== e) {
-    hashFor = e; allowed = false;
-    if (window.crypto && crypto.subtle) crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(e).trim().toLowerCase())).then(b => {
-      const h = Array.from(new Uint8Array(b), x => x.toString(16).padStart(2, '0')).join('');
-      if (hashFor === e && ALLOW.includes(h)) { allowed = true; if (N.renderAll) N.renderAll(); }
-    }).catch(() => {});
-  }
-  return allowed;
-};
+/* everyone at the table: players make their character's figure, the GM makes NPCs' (Jack, 2026-11-11) */
+N.figOk = () => true;
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c]));
 const CSS = `
@@ -117,7 +104,7 @@ const CSS = `
 @media (prefers-reduced-motion:reduce){.figx *{scroll-behavior:auto}}
 `;
 const HTML = `
-<header class="fx-bar"><h1><small>Test · only you can see this</small>Toy figure maker</h1><button type="button" class="fx-save" data-r="save" hidden>Save figure</button><button type="button" class="fx-x" data-x>Close</button>
+<header class="fx-bar"><h1><small>Your figure for fights</small>Toy figure maker</h1><button type="button" class="fx-save" data-r="save" hidden>Save figure</button><button type="button" class="fx-x" data-x>Close</button>
   <div class="fx-ask" data-r="ask" role="alertdialog" aria-label="Unsaved figure" hidden><span>Your changes to the figure aren’t saved.</span><button type="button" class="fx-save" data-r="askSave">Save and close</button><button type="button" class="fx-x" data-r="askDrop">Close without saving</button><button type="button" class="fx-x" data-r="askKeep">Keep editing</button></div></header>
 <div class="wrap">
   <p class="lede" data-r="lede"><b>Build a figure from parts.</b> Pick a race, body, head, hair and outfit, then try the moves under the picture. Drag the figure to turn it.</p>
@@ -166,7 +153,7 @@ N.figOpen = (v, tg) => {
   openV = v;
   box = document.createElement('div'); box.className = 'figx'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Toy figure maker');
   box.innerHTML = HTML;
-  if (v && v.role === 'gm') box.querySelector('.fx-bar h1 small').textContent = 'Test · players can’t see this';
+  if (v && v.role === 'gm') box.querySelector('.fx-bar h1 small').textContent = 'Figures for fights';
   (document.querySelector('.device') || document.body).appendChild(box);
   const leave = leaveNow;
   /* with changes that aren't saved, Close asks first (box.ask, set up in start) */
