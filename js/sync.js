@@ -536,7 +536,7 @@ const OLDBG = {forest:'dark-forest', tavern:'town-alley', street:'town-alley', c
 const oldBg = src => ({'dark-forest':'forest', 'town-alley':'tavern', 'cave-temple-deep':'cave', 'castle-ramparts':'castle', 'mountain-pass-raid':'snow', 'harbor-ship':'ship'})[(String(src).match(/^art\/bg\/([\w-]+)\.jpg$/) || [])[1]] || 'forest';
 const combatOut = c => ({...c, art:c.bg, bg:oldBg(c.bg), scene:c.aspects, zones:c.zones.map(z => ({...z, color:z.col})), tokens:c.tokens.map(npcTokOut)});
 /* a named NPC's token carries a copy of its card's consequences, so players (who can't read NPC cards) see them in the fight */
-const npcTokOut = t => { if (t.kind !== 'npc') return t; const n = t.type !== 'nameless' && G().npcs.find(x => x.id === t.ref); return {...t, ...(t.label == null ? {label:''} : {}), ...(n ? {cons:{...(n.cons || {})}} : {})}; };
+const npcTokOut = t => { if (t.kind !== 'npc') return t; const n = t.type !== 'nameless' && G().npcs.find(x => x.id === t.ref); return {...t, ...(t.label == null ? {label:''} : {}), ...(n ? {cons:{...(n.cons || {})}, conSt:n.conSt ? {...n.conSt} : null} : {})}; };
 function normCombat(c){
   if (!c) return N.freshCombat();
   const f = N.freshCombat(), legacy = !c.joined;

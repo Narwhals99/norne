@@ -170,6 +170,14 @@ const consSlots = sk => {
   return out;
 };
 Object.assign(N, {DISC, MAGIC, discOf, consSlots});
+/* a filled consequence slot has a state (Jake): Active when it is taken, then Stable or Recovering as the GM decides.
+   Kept beside the slots as o.conSt = {<slot key>: 'stable'|'recovering'}; no entry means Active, so old cards need nothing */
+N.CON_ST = [['active','Active'],['stable','Stable'],['recovering','Recovering']];
+N.conSt = (o, k) => o && (o.cons || {})[k] ? ((o.conSt || {})[k] || 'active') : '';
+N.conStL = st => (N.CON_ST.find(x => x[0] === st) || N.CON_ST[0])[1];
+N.setConSt = (o, k, st) => { if (!o) return; const m = o.conSt = {...(o.conSt || {})};
+  if (st && st !== 'active' && (o.cons || {})[k]) m[k] = st; else delete m[k];
+  if (!Object.keys(m).length) delete o.conSt; };
 Object.assign(N, {LADDER, ladderWord, MUNDANE, stressVals, ACTIONS, diceSum, plusInvokes, rollTotal, outcome});
 /* locked so N.rollDice can't be replaced from the console to load the dice */
 Object.defineProperty(N, 'rollDice', {value:rollDice, enumerable:true});
@@ -699,7 +707,7 @@ N.revParts = (c, pc) => {
   N.pcAspects(c).forEach((a, i) => add('a:' + i, 'Aspects', `Aspect ${i + 1}`, a));
   N.revSkills(c).forEach(([n, x]) => add('sk:' + n, 'Skills', n, sgn(x) + ' ' + ladderWord(x)));
   (c.stunts || []).filter(([n, d]) => n || d).forEach(([n, d]) => add('st:' + (n || d), 'Stunts', n || 'Unnamed stunt', d));
-  consSlots(c.skills || {}).forEach(sl => add('cn:' + sl.k, 'Consequences', `${sl.l} (${sl.lo}–${sl.hi} shifts)`, (c.cons || {})[sl.k] || 'Empty right now'));
+  consSlots(c.skills || {}).forEach(sl => add('cn:' + sl.k, 'Consequences', `${sl.l} (${sl.lo}–${sl.hi} shifts)`, (c.cons || {})[sl.k] ? `${c.cons[sl.k]} · ${N.conStL(N.conSt(c, sl.k))}` : 'Empty right now'));
   N.GEARK.forEach(([k, l]) => add('g:' + k, 'Weapons and armor', l, sgn(+c[k] || 0)));
   (c.inv || []).forEach(([n, q, d]) => add('it:' + n, 'Inventory', n, ['×' + q, d].filter(Boolean).join(' · ')));
   add('bio', 'More', 'Bio', c.bio || 'Empty');
@@ -721,7 +729,7 @@ N.revealed = (c, pc, keys0) => {
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
   const sk = N.revSkills(c).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;
   const st = (c.stunts || []).filter(([n, d]) => has('st:' + (n || d))); if (st.length) r.stunts = st;
-  const cn = consSlots(c.skills || {}).filter(sl => has('cn:' + sl.k)).map(sl => [sl.l, sl.lo + '–' + sl.hi, (c.cons || {})[sl.k] || '']); if (cn.length) r.cons = cn;
+  const cn = consSlots(c.skills || {}).filter(sl => has('cn:' + sl.k)).map(sl => [sl.l, sl.lo + '–' + sl.hi, (c.cons || {})[sl.k] || '', N.conSt(c, sl.k)]); if (cn.length) r.cons = cn;
   const gr = N.GEARK.filter(([k]) => has('g:' + k)).map(([k]) => [k, +c[k] || 0]); if (gr.length) r.gear = gr;
   const it = (c.inv || []).filter(([n]) => has('it:' + n)).map(([n, q, d, ic]) => [n, q, d || '', ic || 'bag']); if (it.length) r.inv = it;
   if (has('bio') && c.bio) r.bio = c.bio;

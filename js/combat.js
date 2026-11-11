@@ -173,20 +173,22 @@ const smallStress = t => { const st = N.tokStress(t); return `<span class="nb-st
 /* a fighter's consequence slots with what is in them. A player character and a named NPC use the slots on their card
    (src says where to write); nameless copies like "Bandit 2" keep their own on the token, starting from the card's */
 N.tokConsSrc = t => {
-  if (t.kind === 'pc') { const c = G().chars[t.ref]; return c ? {o:c, i:`data-i="con" data-c="${c.id}"`} : null; }
+  if (t.kind === 'pc') { const c = G().chars[t.ref]; return c ? {o:c, i:`data-i="con" data-c="${c.id}"`, own:`data-c="${c.id}"`} : null; }
   const n = t.type !== 'nameless' && G().npcs.find(x => x.id === t.ref);
-  if (n) return {o:n, i:`data-i="npcCon" data-n="${n.id}"`};
-  return {o:{skills:t.skills, cons:t.cons || {mild:t.mild || ''}}, i:`data-i="tokCon" data-t="${t.id}"`};
+  if (n) return {o:n, i:`data-i="npcCon" data-n="${n.id}"`, own:`data-n="${n.id}"`};
+  return {o:{skills:t.skills, cons:t.cons || {mild:t.mild || ''}, conSt:t.conSt}, i:`data-i="tokCon" data-t="${t.id}"`, own:`data-t="${t.id}"`};
 };
-N.tokCons = t => { const s = N.tokConsSrc(t); return s ? N.consSlots(s.o.skills).map(sl => Object.assign({v:(s.o.cons || {})[sl.k] || ''}, sl)) : []; };
-const smallCons = t => { const cs = N.tokCons(t).filter(x => x.v); return cs.length ? `<small class="cq-ln">${IC('cards')}${cs.map(x => esc(x.v)).join(' · ')}</small>` : ''; };
+/* the object that keeps a fighter's consequences and their states (o.conSt): the card, or the nameless token itself */
+N.tokConsOwner = t => { const s = N.tokConsSrc(t); return !s ? null : s.own.startsWith('data-t') ? t : s.o; };
+N.tokCons = t => { const s = N.tokConsSrc(t); return s ? N.consSlots(s.o.skills).map(sl => Object.assign({v:(s.o.cons || {})[sl.k] || '', st:N.conSt(s.o, sl.k)}, sl)) : []; };
+const smallCons = t => { const cs = N.tokCons(t).filter(x => x.v); return cs.length ? `<small class="cq-ln">${IC('cards')}${cs.map(x => `${esc(x.v)}${x.st && x.st !== 'active' ? ` (${N.conStL(x.st).toLowerCase()})` : ''}`).join(' · ')}</small>` : ''; };
 const zoneTag = t => { const z = N.zoneOf(t); return z ? `<span class="nb-zt" style="--zc:${z.col}">${esc(z.name)}</span>` : ''; };
 /* the gear ratings in the order cards show them: [key, label, icon] */
 N.GEARS = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target'],['gearAmmo','Ranged ammo','arrowR'],['gearDef','Armor','shieldU']];
 const gearTag = t => N.GEARS.some(([k]) => N.tokGear(t, k)) ? `<span class="nb-gear" title="Gear">${N.GEARS.filter(([k]) => N.tokGear(t, k) || k === 'gearAtk' || k === 'gearDef').map(([k,,ic]) => `${IC(ic)}${sgn(N.tokGear(t, k))}`).join(' ')}</span>` : '';
 function myStress(v){
   const c = N.charOf(v.role); if (!c || !c.built) return '';
-  return `<div class="mine"><span class="lab">Phys</span>${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}${(() => { const f = N.consSlots(c.skills).filter(sl => (c.cons || {})[sl.k]); return f.length ? `<span class="lab">Hurt</span>${f.map(sl => `<span class="cqt" title="${sl.l} consequence">${esc(c.cons[sl.k])}</span>`).join('')}` : ''; })()}<span class="lab">Fate</span><span class="coins">${N.coinsHtml(c,false)}</span></div>`;
+  return `<div class="mine"><span class="lab">Phys</span>${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}${(() => { const f = N.consSlots(c.skills).filter(sl => (c.cons || {})[sl.k]); return f.length ? `<span class="lab">Hurt</span>${f.map(sl => `<span class="cqt" title="${sl.l} consequence, ${N.conStL(N.conSt(c, sl.k)).toLowerCase()}">${esc(c.cons[sl.k])}</span>`).join('')}` : ''; })()}<span class="lab">Fate</span><span class="coins">${N.coinsHtml(c,false)}</span></div>`;
 }
 function nowBar(v, ph){
   const n = nowState(v), t = n.tok, gm = isGM(v), c = N.charOf(v.role), s = ph ? 42 : 50;
@@ -344,7 +346,7 @@ N.tokKit = (v, t) => {
   const st = (c.stunts || []).filter(x => x && (x[0] || '').trim()), inv = c.inv || [], note = (c.invText || '').trim();
   const fmt = x => N.emoText(N.marks(esc(x)));
   const stHtml = st.length ? st.map(([n, d]) => `<div class="tk-st"><b>${fmt(n)}</b>${d ? `<p>${fmt(d)}</p>` : ''}</div>`).join('') : '<p class="muted tk-none">No stunts.</p>';
-  const invHtml = inv.length || note ? `${inv.map(([n, q, d, ic]) => `<div class="tk-it"><span class="ii">${IC(ic || 'bag')}</span><span><b>${fmt(n)}</b>${d ? `<small>${fmt(d)}</small>` : ''}</span><span class="q">×${q}</span></div>`).join('')}${note ? `<p class="tk-note">${fmt(note)}</p>` : ''}` : '<p class="muted tk-none">Nothing carried.</p>';
+  const invHtml = inv.length || note ? `${inv.map(row => { const [n, q, d, ic] = row; return `<div class="tk-it"><span class="ii">${IC(ic || 'bag')}</span><span><b>${fmt(n)}</b>${d ? `<small>${fmt(d)}</small>` : ''}${N.invGm(v, row)}</span><span class="q">×${q}</span></div>`; }).join('')}${note ? `<p class="tk-note">${fmt(note)}</p>` : ''}` : '<p class="muted tk-none">Nothing carried.</p>';
   return `<div class="tok-kit"><section><h4>Stunts${st.length ? ` <span class="tag">${st.length}</span>` : ''}</h4>${stHtml}</section><section><h4>Inventory${inv.length ? ` <span class="tag">${inv.length}</span>` : ''}</h4>${invHtml}</section></div>`;
 };
 /* token detail: side panel on desktop, sheet on phone */
@@ -373,7 +375,7 @@ N.tokCard = function(v, t){
       })()}
       ${(() => {
         const cs = N.tokCons(t); if (!gm && t.kind !== 'pc' && !cs.some(x => x.v)) return '';
-        const ed = sl => `<label class="cq-ed"><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${N.tokConsSrc(t).i} data-k="${sl.k}" value="${esc(sl.v)}" placeholder="Empty"></label>`;
+        const src = N.tokConsSrc(t), ed = sl => `<div class="cq-ed"><label><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${src.i} data-k="${sl.k}" value="${esc(sl.v)}" placeholder="Empty"></label>${sl.v ? N.conStEd(src.own, sl, sl.st) : ''}</div>`;
         return `<span class="kv-w">Consequences</span><span class="kv-w cq-list${gm ? ' ed' : ''}">${cs.map(sl => gm ? ed(sl) : N.cqChip(sl)).join('')}</span>`;
       })()}
       ${(() => { /* players see another character's skill levels only once the GM revealed them (Jake) */
@@ -424,7 +426,7 @@ N.kindEye = cb => N.cbKind(cb) === 'challenge' ? 'Challenge' : `${N.kw(cb).W} ·
 function pcMini(v){
   const c = N.charOf(v.role); if (!c || !c.built) return '';
   const boxes = (k, l) => `<span class="pm-st"><small>${l}</small>${c.stressV[k].map((x,i) => `<span class="sbox${c.stress[k][i]?' on':''}">${x}</span>`).join('')}</span>`;
-  const cs = N.consSlots(c.skills).map(sl => Object.assign({v:(c.cons || {})[sl.k] || ''}, sl)), full = cs.filter(x => x.v);
+  const cs = N.consSlots(c.skills).map(sl => Object.assign({v:(c.cons || {})[sl.k] || '', st:N.conSt(c, sl.k)}, sl)), full = cs.filter(x => x.v);
   const marks = `<span class="pm-st"><small>Cons</small>${cs.map(sl => `<span class="cqb${sl.v ? ' on' : ''}" title="${sl.l}${sl.v ? ': ' + esc(sl.v) : ', empty'}">${sl.hi}</span>`).join('')}</span>`;
   return `<div class="pcmini">${N.av(c, 38)}<b>${esc(c.short)}</b>${boxes('phys', 'Phys')}${boxes('ment', 'Mind')}${marks}<span class="coins">${N.coinsHtml(c, false)}</span>${full.length ? `<span class="pm-cq">${full.map(N.cqChip).join('')}</span>` : ''}</div>`;
 }
@@ -854,7 +856,7 @@ N.cbAbsorb = function(k, i){
   fx.soak = {k, i};
   if (k === 'box') { const st = N.tokStress(t); st.s[i] = true; sys(`${nm} soaks the ${sh} with their ${st.v[i]}-stress box.`); }
   else if (k === 'out') { t.out = true; sys(`${nm} can’t soak the ${sh} and is taken out.`); }
-  else { N.tokSrcCons(t)[k] = 'Hurt in the fight'; const sl = N.tokCons(t).find(x => x.k === k); sys(`${nm} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
+  else { N.tokSrcCons(t)[k] = 'Hurt in the fight'; N.setConSt(N.tokConsOwner(t), k, ''); const sl = N.tokCons(t).find(x => x.k === k); sys(`${nm} soaks the ${sh} with a ${(sl ? sl.l : k).toLowerCase()} consequence. ${N.gmName()} will name it.`); }
   N.cbSettled(p); return true;
 };
 /* the attack the GM can still change: the one waiting on its soak or style pick, or the last one settled */
