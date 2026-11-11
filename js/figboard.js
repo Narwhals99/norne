@@ -2,8 +2,8 @@
    Every fighter on the board stands as their toy figure instead of a round token, and the attack animations
    (js/fx.js) play on the figures: the attacker swings a sword, draws a bow or casts with a staff, the target is hit,
    blocks, dodges or is knocked down, and someone taken out stays lying down. A token moved to another zone walks there.
-   Shown only where the figure maker is (N.figOk: Jack and the GM), and only while Profile > Figures in fights is on
-   (this device; localStorage norne-figs). Everyone else, and any device without 3D, keeps the round tokens.
+   Shown to everyone at the table since 2026-11-11 (before that only Jack and the GM), unless Profile > Figures in fights
+   is turned off on that device (localStorage norne-figs); a device without 3D keeps the round tokens.
    Whose figure: a character's saved figure (c.fig), an NPC card's (n.fig) or the fighter's own random look (t.fig).
    A fighter with none gets a look made from their id, so it is the same on every screen and a crowd isn't clones.
    How it is drawn: one WebGL canvas inside the board's camera layer (.cam), under the names, stress boxes and effects,
