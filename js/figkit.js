@@ -1345,7 +1345,7 @@ const OUTFIT_BUILD = {
 const seg = (t, a, b) => clamp((t - a) / (b - a), 0, 1);
 const eOut = u => 1 - Math.pow(1 - u, 3), eIO = u => u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
 const eBack = u => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(u - 1, 3) + c1 * Math.pow(u - 1, 2); };
-const ANIMS = {idle:2400, walk:900, sword:1700, bow:1900, magic:1900, hit:1300, block:1300, down:2600};
+const ANIMS = {idle:2400, walk:900, sword:1700, bow:1900, magic:1900, hit:1300, block:1300, dodge:1300, down:2600};
 function rest(rig){
   const {body, torso, head, armL, armR, legs} = rig;
   body.position.set(0, 6, 0); body.rotation.set(0, 0, 0); body.scale.set(1, 1, 1);
@@ -1504,6 +1504,12 @@ function pose(rig, name, t){
     body.rotation.x = -.12 * Math.sin(seg(ms, 350, 700) * PI);
     if (fx.ward) { const k = seg(ms, 300, 900); fx.ward.visible = k > 0 && k < 1; fx.ward.position.set(0, rig.h * .5, 6); fx.ward.scale.setScalar(.7 + .5 * eOut(k)); fx.ward.material.opacity = .4 * (1 - k); }
     flash(rig, ms > 330 ? .5 * (1 - seg(ms, 330, 700)) : 0, 0x3d8bff);
+    return; }
+  if (name === 'dodge') { /* ducks and leans out of the way of the blow, then straightens up */
+    const k = eOut(seg(ms, 0, 200)) * (1 - eIO(seg(ms, 600, 1000)));
+    body.rotation.z = .5 * k; body.position.y = 6 - 6 * k; torso.rotation.x = .25 * k; torso.rotation.z = .12 * k; head.rotation.z = -.3 * k;
+    armL.sh.rotation.z = -.2 - .85 * k; armR.sh.rotation.z = .2 + .35 * k; armR.sh.rotation.x = -.4 * k;
+    legs.forEach((l, i) => { l.rotation.z = (i % 2 ? -.12 : .2) * k; });
     return; }
   if (name === 'down') { const f = seg(ms, 250, 750), up = seg(ms, 1900, 2450);
     const k = eBack(f) * (1 - eIO(up));

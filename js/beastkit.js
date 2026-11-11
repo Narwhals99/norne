@@ -2,7 +2,7 @@
    parts in code in the same style as the people (js/figkit.js: toon colours, ink outlines, a round base).
    A beast's look is small JSON {race:'Beast', beast:'<id>', skin:<coat number>}. makeBeasts(THREE, H) gets figkit's
    drawing helpers in H and gives back build(spec, opt) -> rig and pose(rig, move, ms). The moves are the people's
-   (idle, walk, sword, bow, magic, hit, block, down), acted out the beast's way: "sword" is its close attack (a bite,
+   (idle, walk, sword, bow, magic, hit, block, dodge, down), acted out the beast's way: "sword" is its close attack (a bite,
    a pounce, a rear and stomp, a claw pinch), "bow" and "magic" a roar or a breath of fire from a distance, on the same
    beats as the people's moves so the fight board's effects (js/fx.js) still land on time.
    The Giant is a person figure, only bigger, so it is built by figkit's buildFigure. */
@@ -41,7 +41,7 @@ const BEASTS = {
   snowcat:  {n:'Snow cat', plan:'quad', base:22, coats:[C('Snow', '#e4e0d8', {belly:'#ffffff', pat:'rosettes', dark:'#55545a'}), C('Smoke', '#b6b2ac', {belly:'#e8e6e0', pat:'rosettes', dark:'#3f3e44'}), C('Frost blue', '#d8e2ea', {belly:'#ffffff', pat:'rosettes', dark:'#4a5a6e'})], eye:'#a8d8e0'},
 };
 const LIST = ['horse', 'dog', 'cat', 'wolf', 'fox', 'tiger', 'snowcat', 'elephant', 'gorilla', 'werewolf', 'troll', 'giant', 'swamp', 'trex', 'dragon', 'wyvern', 'phoenix', 'spider', 'serpent', 'crab', 'beetle', 'croc', 'lizard'];
-const ANIMS = {idle:2400, walk:900, sword:1700, bow:1900, magic:1900, hit:1300, block:1300, down:2600};
+const ANIMS = {idle:2400, walk:900, sword:1700, bow:1900, magic:1900, hit:1300, block:1300, dodge:1300, down:2600};
 
 /* a name ("wolf", "Large spider", "T-rex") to a beast, so an NPC whose race is an animal stands as that animal */
 const ALIAS = {'t-rex':'trex', 'trex':'trex', 'tyrannosaurus rex':'trex', 'dinosaur':'trex', 'snake':'serpent', 'giant snake':'serpent', 'serpent':'serpent', 'spider':'spider', 'giant spider':'spider',
@@ -729,6 +729,15 @@ function pose(rig, name, t){
     if (many && !rig.claws) { torso.position.y -= 3 * up; legs.forEach(l => { l.g.rotation.z += l.s * .25 * up; }); }
     if (id === 'serpent') { rig.segs[0].rotation.x += -.4 * up; rig.segs[1].rotation.x += -.4 * up; rig.segs[2].rotation.x += .6 * up; }
     flash(rig, ms > 330 ? .5 * (1 - seg(ms, 330, 700)) : 0, 0x3d8bff);
+    return;
+  }
+  if (name === 'dodge') {
+    /* crouches and sways its whole body aside, then settles back */
+    const k = eOut(seg(ms, 0, 200)) * (1 - eIO(seg(ms, 600, 1000)));
+    body.rotation.z += .38 * k; body.position.y -= 4 * k;
+    if (head) head.rotation.z += -.18 * k;
+    if (wings.length) wings.forEach(w => { w.rotation.z += w.userData.s * .5 * k; });
+    if (id === 'serpent') { rig.segs[0].rotation.y += .5 * k; rig.segs[1].rotation.y += -.3 * k; }
     return;
   }
   if (name === 'down') {

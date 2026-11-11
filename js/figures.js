@@ -262,7 +262,7 @@ function start(box, THREE, K){
   scene.add(new THREE.HemisphereLight(0xfff0dc, 0x40386a, 1.9));
   const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(-300, 700, 600); scene.add(sun);
 
-  const ANIM_NAMES = [['idle', 'Stand'], ['walk', 'Walk'], ['sword', 'Sword'], ['bow', 'Bow'], ['magic', 'Magic'], ['hit', 'Hit'], ['block', 'Block'], ['down', 'Knocked down']];
+  const ANIM_NAMES = [['idle', 'Stand'], ['walk', 'Walk'], ['sword', 'Sword'], ['bow', 'Bow'], ['magic', 'Magic'], ['hit', 'Hit'], ['block', 'Block'], ['dodge', 'Dodge'], ['down', 'Knocked down']];
   let spec = null, rig = null, all = [], view = 'one', tab = 'body', anim = 'idle', t0 = performance.now(), spin = .35, frozen = null, running = true;
   /* whose figure this is (targetOf); with none (the GM from Profile) there is nothing to save */
   const T = openT, mine = () => T ? T.get() : null, who = mine(), cname = T ? T.name : '', pc = T && T.kind === 'pc';
