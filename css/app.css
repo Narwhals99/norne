@@ -2364,6 +2364,14 @@
 .app .pin.go .pl{display:inline-flex;align-items:center;gap:2px}
 .app .pin.dotp.go .pl{display:none}
 .app .pin.go .pl svg{width:11px;height:11px;opacity:.85}
+.app .pin.wk .pl svg:first-of-type{opacity:.95}
+/* a place with a map and a wiki article: the place card asks which one to open */
+.app .pincard .pinpick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.app .pincard .pinpick .btn{height:auto;min-height:52px;padding:8px 12px;justify-content:flex-start;text-align:left;white-space:normal}
+.app .pincard .pinpick .btn span{display:grid;min-width:0;font:600 14px/1.2 var(--f-ui)}
+.app .pincard .pinpick .btn small{font:600 11px/1.2 var(--f-ui);opacity:.8;text-transform:uppercase;letter-spacing:.05em}
+.app .pincard .pinwarn{display:flex;gap:6px;align-items:flex-start;font-size:12.5px!important;color:var(--ink-3)!important}
+.app .pincard .pinwarn svg{flex:none;width:15px;height:15px;margin-top:1px}
 @media (hover:hover){
   .app .pin.go .pm{transition:filter .15s,box-shadow .15s,scale .15s}
   .app .pin.go:hover .pm{filter:brightness(1.18);scale:1.15;box-shadow:0 0 0 2.5px #fff,0 0 16px 4px color-mix(in srgb,var(--pc,#f4c46e) 75%,transparent)}

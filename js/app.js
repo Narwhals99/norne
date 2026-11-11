@@ -776,6 +776,7 @@ function input(v, el){
     case 'med': if (v.ui.med) v.ui.med.text = val; { const b = v.root.querySelector('[data-a="msgSave"]'); if (b) b.disabled = !val.trim(); } return;
     case 'pinLabel': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; pin.label = val; const lab = v.root.querySelector(`[data-pin="${pin.id}"] .plt`); if (lab) lab.textContent = val; return; }
     case 'pinSub': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; const t = val.trim(); if (t) pin.sub = val; else delete pin.sub; const el = v.root.querySelector(`[data-pin="${pin.id}"]`), pl = el && el.querySelector('.pl'), pw = el && el.querySelector('.pw'); if (pw) { let sm = pw.querySelector('.psub'); if (t && !sm) { sm = document.createElement('small'); sm.className = 'psub'; pw.appendChild(sm); } if (sm) { if (t) sm.textContent = val; else sm.remove(); } pl.classList.toggle('two', !!t); } return; }
+    case 'pinWiki': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (!pin) return; if (val) pin.wiki = val; else delete pin.wiki; N.renderAll(); return; }
     case 'pinNote': { const pin = N.curMap(v)?.pins.find(x => x.id === v.ui.pinSel); if (pin) pin.note = val; return; }
     case 'dOth': { (v.ui.dOth = v.ui.dOth || {})[el.dataset.act + '|' + el.dataset.s] = val; const b = el.parentElement.querySelector('button'); if (b) b.disabled = !val.trim(); return; }
     case 'pd': {
@@ -1271,8 +1272,13 @@ function mapDown(v, e){
 }
 /* a place that opens a map (a country, a city, a neighborhood) goes straight to it; Back returns to the map it was on */
 function openMapFrom(v, id){ const cur = curMap(v); if (cur && cur.id !== id) (v.ui.mapBack = v.ui.mapBack || []).push(cur.id); v.ui.mapId = id; }
-function pinGo(v, pid){
+/* tapping a place: one with a map and a wiki article asks which to open (the place card), one with only a map opens it,
+   one with only an article opens that article for players (the GM gets the place card, which keeps Set as scene) */
+function pinGo(v, pid, force){
   const m = curMap(v), p = m && m.pins.find(x => x.id === pid), to = p && N.pinTo(m, p), mp = to && G().maps.find(x => x.id === to && seeMap(v, x));
+  const wk = !force && p && N.pinWiki(p, isGM(v));
+  if (wk && mp) return false;
+  if (wk && !isGM(v)) { act(v, 'wiki', {dataset:{v:wk.id}}); return true; }
   if (!mp) return false;
   openMapFrom(v, mp.id); Object.assign(v.ui, {pinSel:null, mapT:null, mapType:'all', pop:null}); render(v); return true;
 }
@@ -1724,6 +1730,7 @@ function act(v, a, el, e){
     }); return;
   case 'findParty': ui.mapId = g.party.map; ui.mapT = null; ui.pinSel = '__party'; render(v); return;
   case 'pinClose': ui.pinSel = null; break;
+  case 'pinMap': pinGo(v, val, true); return;
   case 'pinScene': { const m = curMap(v), p = m.pins.find(x => x.id === val); setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:p.label, where:m.name, place:{map:m.id, rx:p.rx, ry:p.ry}, aspects:[]}, true); renderAll(); return; }
   case 'pinParty': { const m = curMap(v), p = m.pins.find(x => x.id === val); moveParty(m, p.rx, p.ry + .002); sys(`The party heads to ${p.label}.`); toast(v, `The party is now at ${p.label}. A note went to Everyone.`); renderAll(); return; }
   case 'pinType': { const p = curMap(v).pins.find(x => x.id === ui.pinSel); if (p) { if (val === 'here' && p.label === 'New place') p.label = 'You are here'; else if (p.type === 'here' && val !== 'here' && p.label === 'You are here') p.label = 'New place'; p.type = val; } renderAll(); return; }

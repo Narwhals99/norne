@@ -405,6 +405,8 @@ N.pinAutoTo = (m, p) => {
     if (sc > bl) { best = x.id; bl = sc; } }
   return best;
 };
+/* the wiki article a place opens (p.wiki), if this viewer can read it (a player's G.wiki only holds what they may read) */
+N.pinWiki = (p, gm) => (p && p.wiki && N.G.wiki.find(e => e.id === p.wiki && (gm || !e.gm))) || null;
 N.pinTo = (m, p) => { if (!m || !p) return null; if (p.to === '-') return null; if (p.to && N.G.maps.some(x => x.id === p.to)) return p.to; return N.pinAutoTo(m, p); };
 N.LOCK = ['c', 't', 'n'];
 N.LOCNAME = {c:'Country', t:'City or town', n:'Neighborhood'};
