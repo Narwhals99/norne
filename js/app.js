@@ -1387,7 +1387,10 @@ function act(v, a, el, e){
   case 'signOut': N.signOut(); return;
   /* navigation */
   /* players always land on the default map when they come to the Maps tab (the GM keeps the map they were on) */
-  case 'tab': close(); if (val === 'map' && ui.tab !== 'map' && !gm) { const dm = N.defMap(false); if (dm) Object.assign(ui, {mapId:dm.id, mapBack:[], mapDir:null, pinSel:null, mapT:null, mapType:'all'}); } ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; ui.heroStats = null; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
+  case 'tab': close(); if (val === 'map' && ui.tab !== 'map' && !gm) { const dm = N.defMap(false); if (dm) Object.assign(ui, {mapId:dm.id, mapBack:[], mapDir:null, pinSel:null, mapT:null, mapType:'all'}); } /* the GM page works only in roleplay chats or GM notes: coming from a Meta-only chat it switches to one, and puts the chat back on the way out */
+    if (gm && val === 'gm' && ui.tab !== 'gm' && !N.gmWorkChans().includes(ui.ch)) { const to = N.gmWorkChans()[0]; ui.gmBack = {from:ui.ch, to}; ui.ch = to; }
+    else if (val !== 'gm' && ui.gmBack) { if (ui.ch === ui.gmBack.to) ui.ch = ui.gmBack.from; ui.gmBack = null; }
+    ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; ui.heroStats = null; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
   case 'heroInv': ui.heroInv = !!val; break;
   /* the toy figure maker test (js/figures.js): one player account, and the GM for NPC cards and fighters (val npc:<id> / tok:<id>) */
   case 'figOpen': close(); if (N.figOk && N.figOk()) { ui.figs = true; N.figOpen(v, val); } break;
@@ -2292,7 +2295,7 @@ function act(v, a, el, e){
     ui.cbBoName = ''; ui.cbBoOn = null; if (ui.invBack) { ui.sheet = 'invoke'; ui.sheetArg = ui.invBack; ui.invBack = null; } else ui.sheet = null; renderAll(); return; }
   /* storefronts (Jake): the GM sets up a store in a chat like a fight; players see it only once it is open */
   case 'shopBegin': { const ch = ui.ch; if (!gm) break;
-    if (!N.shopOk(ch)) { toast(v, 'Stores open in a private chat, a group chat or a party that isn’t Meta only. Open one of those first.'); break; }
+    if (!N.shopOk(ch)) { toast(v, 'Stores open in a private chat, a group chat or a party that isn’t Meta only, or in GM notes. Open one of those first.'); break; }
     if (!g.shops[ch]) g.shops[ch] = {id:uid('shop'), ch, state:'setup', name:'', pcs:N.chPcs(ch).map(c => c.id), npcs:[], items:[], t:N.now()};
     openSheet(v, 'shop', {c:ch}); renderAll(); return; }
   case 'shopWho': { const s = gm && N.shopOf(d.c); if (!s) break; const [k, id] = String(val).split(/:(.*)/s);
@@ -2312,7 +2315,7 @@ function act(v, a, el, e){
     if (!s.items.length) { toast(v, 'Put at least one item up for sale first.'); break; }
     s.state = 'open'; s.t = N.now();
     push({ch:s.ch, kind:'sys', by:'gm', text:`${s.name} is open for shopping.`, shop:'open', shopName:s.name, shopId:s.id});
-    ui.sheet = null; toast(v, `${s.name} is open. ${s.ch.startsWith('dm-') ? N.chName(s.ch, 'gm') + ' sees' : 'Everyone in ' + N.chName(s.ch, 'gm') + ' sees'} it now.`); renderAll(); return; }
+    ui.sheet = null; toast(v, s.ch === 'gm' ? `${s.name} is open in GM notes. Only you see it.` : `${s.name} is open. ${s.ch.startsWith('dm-') ? N.chName(s.ch, 'gm') + ' sees' : 'Everyone in ' + N.chName(s.ch, 'gm') + ' sees'} it now.`); renderAll(); return; }
   /* Jake: a player asks to buy an item; nothing is paid until the GM confirms the request in the chat */
   case 'shopBuy': { const s = N.shopOpen(d.c), x = s && s.items.find(y => y.k === val), me = N.charOf(v.role); if (!x || gm || !me || !me.built || hushed(v, s.ch)) break;
     const price = +x.price || 0;

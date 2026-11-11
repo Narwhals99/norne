@@ -604,18 +604,19 @@ N.sheetHtml = function(v){
   case 'shop': {
     const sh = gm && N.shopOf(arg); if (!sh) return '';
     const ch = sh.ch, open = sh.state === 'open', c = esc(ch), folk = N.sceneFolk(ch);
-    const where = ch.startsWith('dm-') ? `your chat with ${esc(N.chName(ch, 'gm'))}` : esc(N.chName(ch, 'gm'));
-    const npcNames = [...new Set([...folk.npcs.map(n => n.name), ...folk.once.map(x => x.name), ...sh.npcs.map(n => n.name)])];
+    const where = ch.startsWith('dm-') ? `your chat with ${esc(N.chName(ch, 'gm'))}` : esc(N.chName(ch, 'gm')), solo = ch === 'gm';
+    /* a store in GM notes (only the GM sees it) has no players' scene to pull from, so every NPC card can be its shopkeeper */
+    const npcNames = [...new Set([...folk.npcs.map(n => n.name), ...folk.once.map(x => x.name), ...sh.npcs.map(n => n.name), ...(solo && !folk.npcs.length && !folk.once.length ? g.npcs.map(n => n.name) : [])])];
     const who = `<div class="forwho shop-who" role="group" aria-label="Who is there">
       ${folk.pcs.map(p => `<button type="button" data-a="shopWho" data-c="${c}" data-v="pc:${esc(p.id)}" aria-pressed="${sh.pcs.includes(p.id)}">${N.av(p, 28)}${esc(p.short)}</button>`).join('')}
       ${npcNames.map(nm => { const n = N.npcByName(nm); return `<button type="button" data-a="shopWho" data-c="${c}" data-v="npc:${esc(nm)}" aria-pressed="${sh.npcs.some(x => x.name === nm)}">${N.av({name:nm, portrait:n?.portrait, color:'var(--c-npc)'}, 28)}${esc(nm)}<small>${n ? 'NPC' : 'One-off'}</small></button>`; }).join('')}</div>
-      ${npcNames.length ? '' : `<p class="muted shop-tip">No NPCs in this chat’s scene. Add the shopkeeper to the scene in the Scene changer and they show up here.</p>`}`;
+      ${npcNames.length ? '' : solo ? `<p class="muted shop-tip">No NPC cards yet. Make the shopkeeper in Cast and they show up here.</p>` : `<p class="muted shop-tip">No NPCs in this chat’s scene. Add the shopkeeper to the scene in the Scene changer and they show up here.</p>`}`;
     const row = x => `<div class="itc-row shop-row"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
       <span class="itc-t"><b>${N.emoText(N.marks(esc(x.name)))}</b><small>${esc(x.path || N.itemKind(x.kind)[1])}${(x.gears || []).map(([k, r]) => { const gk = N.ITEM_RATE.find(y => y[0] === k); return gk ? ` <span class="itc-g" title="${gk[1]}">${IC(gk[2])}+${r}</span>` : ''; }).join('')}${x.silver ? ' <span class="itc-tag">Silver</span>' : ''}</small>${x.d ? `<span class="itc-d">${N.emoText(N.marks(esc(x.d)))}</span>` : ''}</span>
       <span class="itc-a shop-price"><label><span class="coin"></span><input class="inp" id="sp-${esc(x.k)}-${v.id}" data-i="shopPrice" data-c="${c}" data-k="${esc(x.k)}" value="${x.price ? x.price : ''}" placeholder="0" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" aria-label="Price of ${esc(x.name)} in gold"></label><button type="button" class="ibtn sm" data-a="shopRm" data-c="${c}" data-v="${esc(x.k)}" aria-label="Take ${esc(x.name)} off the shelf" title="Take it off the shelf">${IC('x')}</button></span></div>`;
-    const body = `<div class="note">${IC(open ? 'users' : 'lock')}${open ? `Open in ${where}. Changes reach the players right away.` : `Only you see this until you open the store. Then everyone in ${where} sees it.`}</div>
+    const body = `<div class="note">${IC(open ? 'users' : 'lock')}${solo ? `${open ? 'Open' : 'Set up'} in GM notes. Only you see this store, even once it’s open. Use it to plan a store or try one out.` : open ? `Open in ${where}. Changes reach the players right away.` : `Only you see this until you open the store. Then everyone in ${where} sees it.`}</div>
       <label class="shop-f"><span class="eyebrow">Store name</span><input class="inp" id="sn-${v.id}" data-i="shopName" data-c="${c}" value="${esc(sh.name || '')}" placeholder="Like The Rusty Anvil" autocomplete="off" maxlength="60"></label>
-      <section class="shop-sec"><h4>Who’s there <small>from the scene</small></h4>${who}</section>
+      <section class="shop-sec"><h4>Who’s there <small>${solo ? 'any character' : 'from the scene'}</small></h4>${who}</section>
       <section class="shop-sec"><h4>For sale <small>${sh.items.length}</small></h4>
         <div class="shop-acts"><button type="button" class="btn sm primary" data-a="sheet" data-v="shopAdd" data-c="${c}">${IC('plus')}Add from the item catalog</button>${sh.items.length ? `<button type="button" class="btn sm" data-a="sheet" data-v="store" data-c="${c}">${IC('eye')}See what players see</button>` : ''}</div>
         ${sh.items.length ? `<div class="itc-list">${sh.items.map(row).join('')}</div><p class="muted shop-tip">Prices are in gold. An empty price shows as Free.</p>` : `<div class="note">${IC('info')}Nothing for sale yet. Add items from the item catalog, then set their prices.</div>`}</section>`;
@@ -1117,7 +1118,9 @@ N.buildExport = sel => {
     if (!sel.ch.has(c)) continue;
     const ms = G().msgs.filter(m => m.ch === c && !m.fc && inRange(m, sel) && !(m.kind === 'scene' && (m.quiet || !m.scene)) && (((m.kind === 'rp' || m.kind === 'sys' || m.kind === 'scene' || m.kind === 'combat' || m.kind === 'fight' || m.kind === 'news' || m.kind === 'note') && sel.rp) || (m.kind === 'roll' && sel.roll) || ((m.kind === 'meta' || m.kind === 'ooc') && sel.meta)));
     if (!ms.length) continue;
-    out.push('', `## ${N.chName(c, 'gm')}`, '', ms.map(exLine).join('\n\n'));
+    /* each real-world day the chat was used starts with its date, since the lines only carry the time */
+    let lastDay = '';
+    out.push('', `## ${N.chName(c, 'gm')}`, '', ms.map(m => { const dd = new Date(m.t).toLocaleDateString([], {weekday:'long', month:'long', day:'numeric', year:'numeric'}), head = m.t && dd !== lastDay ? `— ${dd} —\n\n` : ''; if (head) lastDay = dd; return head + exLine(m); }).join('\n\n'));
   }
   return out.join('\n');
 };

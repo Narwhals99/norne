@@ -1620,6 +1620,7 @@
 .app .gm-page{min-height:0}
 .app .gm-for .seg{max-width:100%;overflow-x:auto;scrollbar-width:none;justify-self:start}
 .app .gm-for .seg svg{width:15px;height:15px}
+.app .gm-for .seg>button{flex:0 0 auto;white-space:nowrap}
 .app .gmrow button.end{color:var(--ember)}
 .app .gmrow button.end svg{color:var(--ember)}
 .app .fight.ph .fight-scroll>.gmrow{padding:10px 2px 2px}
