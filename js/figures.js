@@ -154,6 +154,8 @@ N.figOpen = (v, tg) => {
   box = document.createElement('div'); box.className = 'figx'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'Toy figure maker');
   box.innerHTML = HTML;
   if (v && v.role === 'gm') box.querySelector('.fx-bar h1 small').textContent = 'Figures for fights';
+  /* animals and monsters are the GM's (Jack, 2026-11-11): players only build people */
+  else { box.querySelector('[data-r="kind"]').hidden = true; box.querySelector('[data-v="beasts"]').hidden = true; }
   (document.querySelector('.device') || document.body).appendChild(box);
   const leave = leaveNow;
   /* with changes that aren't saved, Close asks first (box.ask, set up in start) */
@@ -262,7 +264,8 @@ function start(box, THREE, K){
   if (draft && draft.race) draft = {spec:draft, char:null, base:0}; /* a look kept before figures could be saved */
   if (who && who.fig) spec = fix(pc && draft && draft.char === who.id && draft.base === (who.figAt || 0) ? draft.spec : who.fig) || fix(who.fig);
   else if (draft && (!draft.char || (who && draft.char === who.id))) spec = fix(draft.spec);
-  const beast0 = K.beastOf(T && T.race);
+  const notGm = !(openV && openV.role === 'gm'), beast0 = notGm ? null : K.beastOf(T && T.race);
+  if (spec && spec.beast && notGm) spec = null;
   if (!spec) spec = beast0 ? K.beastSpec(beast0) : K.defaultSpec(race0, 'm');
   const saveDraft = () => { if (T && !pc) return; try { const c = mine(); localStorage.setItem(DRAFT, JSON.stringify({spec, char:c ? c.id : null, base:c && c.figAt || 0})); } catch (e) {} };
   const savedNow = () => { const c = mine(); return c && c.fig ? fix(c.fig) : null; };
