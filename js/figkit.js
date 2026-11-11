@@ -1707,7 +1707,7 @@ function dispose(rig){
   if (rig.faces) Object.values(rig.faces).forEach(t => t.dispose());
 }
 /* animals and monsters (js/beastkit.js) are drawn with the same helpers */
-const BK = makeBeasts(THREE, {inked, toon, tube, at, rot, SHADOW, GLOW, mix, shade, canvas, ctex, metalCap});
+const BK = makeBeasts(THREE, {inked, toon, tube, at, rot, SHADOW, GLOW, mix, shade, canvas, ctex, metalCap, merge});
 /* a look figkit can build: a person of a known race, or a known beast */
 const okSpec = s => !!(s && (s.beast ? BK.isBeast(s) : RACES[s.race]));
 const API = {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS, randomSpec,
