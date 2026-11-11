@@ -312,11 +312,11 @@ const P = (n, c, eye, hair) => ({n, c, eye, hair});
 const RACES = {
   'Human':     {h:1, w:1, head:1, ears:'round', skins:[P('Altarian', '#f0d2b6', 'blue', 'blond'), P('Daroese', '#7a4b30', 'brown', 'dark'), P('Tafagür', '#c39a6b', 'green', 'dark'), P('Darioli', '#3a2924', 'silver', 'black')], def:{hair:'short', face:'kind', outfit:'commoner'}, lore:1},
   'Half-Elf':  {h:1, w:.96, head:1, ears:'pointy', skins:[P('Fair', '#f0d6bf'), P('Tan', '#d2a77e'), P('Bronze', '#a6754e'), P('Deep', '#5e3d2a')], eye:'green', hairC:'auburn', def:{hair:'long', face:'bright', outfit:'traveller'}},
-  'Elf':       {h:1.06, w:.9, head:.98, ears:'long', skins:[P('Moon', '#f4e6dc'), P('Fair', '#ecd2bb'), P('Golden', '#d9b07a'), P('Dusk', '#8a6a5a')], eye:'violet', hairC:'platinum', def:{hair:'long', face:'stern', outfit:'hunter'}},
+  'Elf':       {h:1.06, w:.9, head:.98, ears:'long', skins:[P('Moon', '#f4e6dc'), P('Fair', '#ecd2bb'), P('Golden', '#d9b07a'), P('Dusk', '#8a6a5a')], eye:'violet', hairC:'platinum', def:{hair:'long', face:'stern', outfit:'hunter', hood:'down'}},
   'Dwarf':     {h:.74, w:1.18, head:1.04, ears:'round', skins:[P('Ruddy', '#e6b896'), P('Fair', '#f0d0b4'), P('Tan', '#c4926a'), P('Deep', '#7a4e34')], eye:'brown', hairC:'copper', def:{hair:'braids', beard:'long', face:'stern', outfit:'mail'}},
   'Gnome':     {h:.66, w:.95, head:1.08, ears:'pointy', nose:true, skins:[P('Fair', '#f2d4bc'), P('Rosy', '#eab8a0'), P('Tan', '#cfa07a'), P('Brown', '#8a5e40')], eye:'blue', hairC:'white', def:{hair:'curly', beard:'short', face:'bright', outfit:'commoner'}},
-  'Goblin':    {h:.7, w:.9, head:1.06, ears:'goblin', skins:[P('Leaf', '#86ad4c'), P('Moss', '#5d8a3a'), P('Olive', '#9aa45a'), P('Swamp', '#56704a')], eye:'amber', hairC:'black', def:{hair:'mohawk', face:'sly', outfit:'rogue'}},
-  'Centaur':   {h:1, w:1, head:1, ears:'pointy', lower:'horse', skins:[P('Fair', '#ecd0b6'), P('Tan', '#c9996e'), P('Bronze', '#9a6a44'), P('Deep', '#5a3a28')], eye:'brown', hairC:'brown', coat:true, def:{hair:'ponytail', face:'stern', outfit:'hunter'}},
+  'Goblin':    {h:.7, w:.9, head:1.06, ears:'goblin', nose:'long', skins:[P('Leaf', '#86ad4c'), P('Moss', '#5d8a3a'), P('Olive', '#9aa45a'), P('Swamp', '#56704a')], eye:'amber', hairC:'black', def:{hair:'mohawk', face:'sly', outfit:'rogue', hood:'down'}},
+  'Centaur':   {h:1, w:1, head:1, ears:'pointy', lower:'horse', skins:[P('Fair', '#ecd0b6'), P('Tan', '#c9996e'), P('Bronze', '#9a6a44'), P('Deep', '#5a3a28')], eye:'brown', hairC:'brown', coat:true, def:{hair:'ponytail', face:'stern', outfit:'hunter', hood:'down'}},
   'Werewolf':  {h:1.06, w:1.1, head:1.02, ears:'wolf', beast:'wolf', nohair:true, skins:[P('Brown fur', '#6b5444'), P('Grey fur', '#8a8a8c'), P('Black fur', '#3a3433'), P('Tawny fur', '#a7804f')], eye:'amber', hairC:'dark', def:{face:'fierce', outfit:'leather'}},
   'Vampire':   {h:1.02, w:.94, head:1, ears:'pointy', fangs:true, skins:[P('Pale', '#ece6ea'), P('Ashen', '#d4cdd6'), P('Grey', '#b9b4c2'), P('Dusky', '#8f7f88')], eye:'red', hairC:'black', def:{hair:'swept', face:'sly', outfit:'noble'}},
   'Gorgon':    {h:1, w:.96, head:1, ears:'none', lower:'serpent', snakes:true, nohairStyle:true, skins:[P('Jade', '#7aa67a'), P('Teal', '#5f9a92'), P('Olive', '#9a9a5a'), P('Bronze', '#a8865a')], eye:'amber', hairC:'moss', def:{face:'sly', outfit:'mage'}, lore:1},
@@ -325,15 +325,15 @@ const RACES = {
   'Fishfolk':  {h:.98, w:1, head:1.02, ears:'fins', beast:'fish', nohair:true, skins:[P('Sea blue', '#5f8fb0'), P('Teal', '#4f9c8f'), P('Carp', '#d08a4a'), P('Deep', '#3a4f7a')], eye:'green', hairC:'teal', def:{face:'kind', outfit:'sailor'}},
   'Satyr':     {h:.96, w:1, head:1, ears:'goat', horns:true, lower:'goat', skins:[P('Fair', '#efd2b8'), P('Tan', '#cf9f76'), P('Bronze', '#a06e48'), P('Deep', '#5e3c2a')], eye:'amber', hairC:'brown', coat:true, def:{hair:'curly', beard:'short', face:'bright', outfit:'commoner'}},
   'Lizardfolk':{h:1.03, w:1.04, head:1, ears:'none', beast:'lizard', nohair:true, tail:true, skins:[P('Green', '#6a8f3f'), P('Sand', '#a8945a'), P('Teal', '#4f7f6f'), P('Red', '#9a4f3a')], eye:'amber', hairC:'ochre', def:{face:'fierce', outfit:'leather'}},
-  'Ogre':      {h:1.24, w:1.34, head:1.14, ears:'round', tusks:true, skins:[P('Grey green', '#8f9a76'), P('Stone', '#a0927e'), P('Mud', '#8a7258'), P('Moss', '#6f8a5a')], eye:'brown', hairC:'black', def:{hair:'bald', face:'fierce', outfit:'barbarian'}},
+  'Ogre':      {h:1.24, w:1.34, head:1.14, ears:'round', tusks:true, nose:'wide', skins:[P('Grey green', '#8f9a76'), P('Stone', '#a0927e'), P('Mud', '#8a7258'), P('Moss', '#6f8a5a')], eye:'brown', hairC:'black', def:{hair:'bald', face:'fierce', outfit:'barbarian'}},
 };
 const RACE_LIST = Object.keys(RACES);
 const pick = (list, id) => (list.find(x => x[0] === id) || list[0]);
 
 function defaultSpec(race, body){
   const R = RACES[race] || RACES.Human, s0 = R.skins[0], d = R.def;
-  return faceFix({race, body:body || 'm', skin:0, face:d.face, eyes:s0.eye || R.eye || 'brown', hair:R.nohair || R.nohairStyle ? 'bald' : hairId(d.hair),
-    hairCol:s0.hair || R.hairC || 'brown', beard:body === 'f' ? 'none' : d.beard || 'none', outfit:d.outfit, cloth:pick(OUTFITS, d.outfit)[2].cloth});
+  return faceFix(Object.assign({race, body:body || 'm', skin:0, face:d.face, eyes:s0.eye || R.eye || 'brown', hair:R.nohair || R.nohairStyle ? 'bald' : hairId(d.hair),
+    hairCol:s0.hair || R.hairC || 'brown', beard:body === 'f' ? 'none' : d.beard || 'none', outfit:d.outfit, cloth:pick(OUTFITS, d.outfit)[2].cloth}, d.hood ? {hood:d.hood} : {}));
 }
 /* a random look for a fighter with no card (one-off NPCs, Jack 2026-11-08): the race stays as given, and a human's hair and
    eye colour come with their people (lore), like picking a people in the maker */
@@ -791,41 +791,64 @@ function buildFigure(spec, opt = {}){
     back:[], front:[], sleeve:{type:'full'}, legs:{pants:'#4a3a2c', boots:{col:DLEATHER, h:5}}, hood:hoodOf(spec)};
   OUTFIT_BUILD[spec.outfit] ? OUTFIT_BUILD[spec.outfit](g) : OUTFIT_BUILD.commoner(g);
   rig.robe = !!g.robe;
+  const furM = () => M(0xffffff, {map:hairTex(hairHex, 'lock')}), hoofM = () => M('#2a221c');
   if (!R.lower || R.lower === 'goat') {
     [-1, 1].forEach(s => {
       const lg = at(new THREE.Group(), s * 4 * Wd, legH, 0); body.add(lg);
-      if (R.lower === 'goat') {
-        lg.add(at(rot(inked(new THREE.CapsuleGeometry(3.4 * Wd, legH * .32, 4, 10), mHair), .45, 0, 0), 0, -legH * .25, 1.6));
-        lg.add(at(rot(inked(new THREE.CapsuleGeometry(2.4 * Wd, legH * .3, 4, 10), mHair), -.5, 0, 0), 0, -legH * .66, 1.2));
-        lg.add(at(inked(new THREE.CylinderGeometry(2.4, 2.8, 3, 10), M('#2a221c')), 0, -legH + 1.5, -.5));
+      if (R.lower === 'goat') { /* a goat's hind leg: shaggy thigh, the shank angled back, a tuft over a cloven hoof */
+        const fm = furM(), L = legH;
+        lg.add(inked(limb([[0, 1, 0], [0, -L * .26, 1.9], [0, -L * .5, 2.6]], t => lerp(4, 2.9, t) * Wd, {round:.2, round0:.15}), fm, .5));
+        lg.add(inked(limb([[0, -L * .46, 2.6], [0, -L * .68, -.5], [0, -L * .9, -1.3]], t => lerp(2.5, 1.7, t) * Wd, {round:.15, round0:.2}), fm, .45));
+        for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; lg.add(at(rot(inked(new THREE.ConeGeometry(1.25, 3, 5), fm, .3), PI + Math.cos(a) * .45, 0, Math.sin(a) * .45), Math.sin(a) * 1.5, -L * .84, -1.2 + Math.cos(a) * 1.5)); }
+        [-1, 1].forEach(h => { const hf = inked(new THREE.CylinderGeometry(1.15, 1.5, 2.6, 8), hoofM(), .35); hf.scale.z = 1.5; lg.add(at(hf, h * 1.15, -L + 1.3, -.4)); });
       } else legParts(lg, s, legH, g);
       rig.legs.push(lg);
     });
+    if (R.lower === 'goat') { const tail = at(new THREE.Group(), 0, hipY + 1.5, -7.2 * Wd); body.add(tail);
+      tail.add(inked(limb([[0, 0, 0], [0, 1.6, -3], [0, 4.6, -4.4]], t => 1.2 + 1.3 * Math.sin(PI * Math.min(1, t * .9 + .1)), {round:.3}), furM(), .4)); rig.tail = tail; }
   } else if (R.lower === 'horse') {
-    hipY = 25; hipZ = 5;
-    body.add(at(rot(inked(new THREE.CapsuleGeometry(9.5, 20, 6, 14), coatM, .7), PI / 2, 0, 0), 0, 19, -8));
+    hipY = 25; hipZ = 5; const cm = coatM;
+    /* barrel: deep chest in front, a dip behind the withers, round haunches */
+    body.add(inked(limb([[0, 21.5, 11.5], [0, 20, 4], [0, 19.2, -7], [0, 20.2, -16], [0, 18.8, -23]], t => [7.6 + 1.9 * Math.sin(PI * t) + 1.1 * Math.exp(-Math.pow((t - .82) / .14, 2)), 7.9 + 1.4 * Math.sin(PI * t) + .9 * Math.exp(-Math.pow((t - .12) / .14, 2))], {round:.16, round0:.14, nS:30, nR:14}), cm, .7));
+    /* a blanket under the rider's place, in the outfit's colour, with gold edges */
+    const bl = (z0, z1, d, mat) => inked(tube(VV([[0, 19.6, z0], [0, 19.4, (z0 + z1) / 2], [0, 19.5, z1]]), () => [10.3 + d, 10.1 + d], UPY, {nS:6, nR:16}), mat, .4);
+    body.add(bl(-3.6, -13.4, 0, M(main))); const gm = M(GOLD); body.add(bl(-3.3, -4.5, .3, gm)); body.add(bl(-12.5, -13.7, .3, gm));
     [[-1, 1], [1, 1], [-1, -1], [1, -1]].forEach(([s, f]) => {
-      const lg = at(new THREE.Group(), s * 5.6, 16, -8 + f * 11); body.add(lg);
-      lg.add(at(inked(new THREE.CapsuleGeometry(2.7, 9, 4, 10), coatM), 0, -6.5, 0));
-      lg.add(at(inked(new THREE.CylinderGeometry(2.6, 3, 3, 10), M('#2a221c')), 0, -14.5, 0));
+      const lg = at(new THREE.Group(), s * 5.4, 16, f > 0 ? 5 : -18); body.add(lg);
+      if (f > 0) { lg.add(inked(limb([[0, 3, 0], [0, -3, .7], [0, -7.6, .1]], t => lerp(3.5, 2.2, t), {round:.15, round0:.2}), cm, .5));
+        lg.add(at(inked(new THREE.SphereGeometry(2.3, 12, 10), cm, .4), 0, -7.6, .3));
+        lg.add(inked(limb([[0, -7.6, .1], [0, -10.6, -.2], [0, -13.4, .2]], t => lerp(1.95, 1.7, t), {round:0}), cm, .45)); }
+      else { lg.add(inked(limb([[0, 4, .8], [0, -2.4, -1.8], [0, -7.2, .4]], t => lerp(4.6, 2.4, t), {round:.15, round0:.25}), cm, .5));
+        lg.add(inked(limb([[0, -7.2, .4], [0, -10.4, -1.3], [0, -13.4, -.3]], t => lerp(2.1, 1.7, t), {round:0, round0:.2}), cm, .45)); }
+      const z = f > 0 ? .2 : -.3; lg.add(at(inked(new THREE.SphereGeometry(2.1, 10, 8), cm, .35), 0, -12.6, z - .3));
+      lg.add(at(inked(new THREE.CylinderGeometry(2.1, 2.8, 3.2, 12), hoofM(), .4), 0, -14.4, z + .3));
       rig.legs.push(lg);
     });
-    const tail = at(new THREE.Group(), 0, 23, -21); body.add(tail);
-    tail.add(inked(tube([new V3(0, 0, 0), new V3(0, -1, -4), new V3(0, -7, -7), new V3(0, -14, -6)], t => [2.6 * (1 - t * .7), 2.2 * (1 - t * .7)], (p, t, o) => o.set(1, 0, 0)), M(hairHex, {map:hairTex(hairHex, 'lock')}), .5));
+    const tail = at(new THREE.Group(), 0, 23.5, -22.5); body.add(tail);
+    tail.add(inked(limb([[0, 0, 0], [0, 1.2, -3.6], [0, -5, -7.6], [0, -13, -7.4], [0, -18, -5.6]], t => [3.4 * Math.sin(PI * Math.min(1, t * .78 + .16)), 2.9 * Math.sin(PI * Math.min(1, t * .78 + .16))], {round:0, up:UPX, nS:24}), furM(), .5));
     rig.tail = tail;
   } else if (R.lower === 'serpent') {
-    hipY = 19;
-    body.add(at(rot(inked(new THREE.TorusGeometry(10, 4.6, 10, 26), mSkin), PI / 2, 0, 0), 0, 4.6, -1));
-    body.add(at(rot(inked(new THREE.TorusGeometry(7.4, 4.2, 10, 24), mSkin), PI / 2, 0, 0), 1, 11.5, -.5));
-    body.add(at(inked(new THREE.CylinderGeometry(7.6, 7.6, 8, 18), mSkin), 0, 16, 0));
-    const tail = at(new THREE.Group(), 9, 3, 6); body.add(tail);
-    tail.add(rot(inked(new THREE.ConeGeometry(3.6, 14, 10), mSkin), PI / 2, .8, 0));
+    hipY = 19; const sm = M(0xffffff, {map:scaleTex(skinHex, 22)}), pts = [], N = 30, turns = 1.62;
+    /* one long coil: the tail's end lies on the base, the body winds in and up to the waist */
+    for (let i = 0; i <= N; i++) { const e = i / N, th = e * TAU * turns, rad = lerp(14.2, 6.4, Math.pow(e, .9)); pts.push([rad * Math.sin(th), lerp(3.9, 12.6, Math.pow(e, 1.15)), rad * Math.cos(th) - 1]); }
+    pts.push([1.2, 15.6, .4], [0, 18.4, 0], [0, 21, 0]);
+    body.add(inked(limb(pts, t => lerp(3.7, 7.4, sstep(0, .9, t)) + .5 * sstep(.86, 1, t), {round:0, nS:120, nR:14}), sm, .55));
+    const tail = at(new THREE.Group(), pts[0][0], pts[0][1], pts[0][2]); body.add(tail);
+    tail.add(inked(limb([[.6, 0, 0], [-5, -.5, .6], [-9.4, -.3, 2.8], [-11.6, 1.8, 5.6], [-11, 4.6, 7.2]], t => 3.7 * Math.pow(1 - t, .75), {round:0, nS:22}), M(0xffffff, {map:scaleTex(skinHex, 5)}), .45));
     rig.tail = tail;
   }
-  if (R.tail) {
-    const tail = at(new THREE.Group(), 0, hipY - 2, -6); body.add(tail);
-    tail.add(at(rot(inked(new THREE.ConeGeometry(3.6 * Wd, 18, 10), mSkin), -1.2, 0, 0), 0, -4, -7));
-    rig.tail = tail;
+  if (R.tail || R.beast === 'wolf') {
+    const tail = at(new THREE.Group(), 0, hipY - 2, -6 * Wd); body.add(tail); rig.tail = tail;
+    if (R.beast === 'wolf') { /* a brush: full in the middle, pale at the tip */
+      const path = [[0, 0, 0], [0, 1.5, -5.4], [0, 6.6, -9.6], [0, 13.4, -10.4]], rr = t => 1.7 + 3.1 * Math.sin(PI * Math.min(1, t * .86 + .06));
+      tail.add(inked(limb(path, rr, {round:0, nS:24}), furM(), .5));
+      tail.add(inked(limb([[0, 9, -10.2], [0, 12, -10.5], [0, 15.2, -10]], t => 3.3 * Math.sin(PI * Math.min(1, t * .7 + .3)) + .1, {round:0, nS:12}), M(mix(skinHex, '#ffffff', .45)), .4));
+    } else { /* a lizard's tail: heavy at the root, down to the ground and round to the side, with a ridge of spines */
+      const path = [[0, 0, 0], [0, -3.4, -6.2], [0, -7.2, -11.2], [1.2, -8.9 - (hipY - 13.4), -15.4], [5, -9.3 - (hipY - 13.4), -18.2], [9.4, -8.6 - (hipY - 13.4), -18.4]];
+      tail.add(inked(limb(path, t => 4.3 * Wd * Math.pow(1 - t, .7) + .25, {round:0, nS:30, nR:12}), M(0xffffff, {map:scaleTex(skinHex, 7)}), .5));
+      const cm = M(hairHex), cv = new THREE.CatmullRomCurve3(VV(path), false, 'centripetal'), q = new V3();
+      [.12, .26, .4, .53].forEach((t, i) => { cv.getPointAt(t, q); const r = 4.3 * Wd * Math.pow(1 - t, .7), c = inked(new THREE.ConeGeometry(1.5, 3.6 - i * .5, 4), cm, .3); c.scale.x = .35; c.rotation.x = -.9 - t; tail.add(at(c, q.x, q.y + r * .82, q.z - r * .5)); });
+    }
   }
   at(torso, 0, hipY, hipZ); body.add(torso);
 
@@ -835,6 +858,10 @@ function buildFigure(spec, opt = {}){
       out.set(r * Wd * Math.sin(ph), q.y, r * Wd * D * Math.cos(ph)); }, {wrap:true});
     const pos = geo.attributes.position, uv = geo.attributes.uv; for (let i = 0; i < pos.count; i++) uv.setY(i, clamp(pos.getY(i) / yTop, 0, 1));
     torso.add(inked(geo, g.torsoMat || M(main), .6));
+  }
+  if (R.beast === 'bug') { /* wing cases down the back, glossy like a beetle's */
+    const sm = MM(shade(skinHex, .85));
+    [-1, 1].forEach(s => { const e = inked(new THREE.SphereGeometry(1, 18, 14), sm, .45); e.scale.set(4.9 * Wd, TH * .56, 3); e.rotation.set(.1, 0, s * .1); torso.add(at(e, s * 4.2 * Wd, TH * .47, -(rY(TH * .5) * Wd * D + 1.1))); });
   }
   const shY = TH - 2.6, shX = (fem ? 8.2 : 9.8) * Wd;
   /* neck and head */
@@ -1019,34 +1046,107 @@ function hairLattice(pos, HR){
   const locks = []; for (let s = 0; s < S; s++) { const rings = list.filter(c => c.s === s).sort((a, b) => a.b - b.b); if (rings.length) locks.push(rings); }
   return {cells:list, locks, vc, vw};
 }
+/* ---------- race parts: ears, horns, snouts, beaks, tails. Each is a tube along a path (see tube) ---------- */
+const VV = a => a.map(p => new V3(p[0], p[1], p[2]));
+const UPY = (p, t, o) => o.set(0, 1, 0), UPZ = (p, t, o) => o.set(0, 0, 1), UPX = (p, t, o) => o.set(1, 0, 0);
+/* r(t) -> a radius or [width, thickness]; the far end is rounded off over `round` of the length (0: left as r gives it), the near end over `round0` */
+function limb(pts, r, o = {}){
+  const round = o.round ?? .14, r0 = o.round0 || 0;
+  return tube(VV(pts), t => { let q = r(t); if (!Array.isArray(q)) q = [q, q];
+    const k = (round && t > 1 - round ? Math.sqrt(Math.max(0, 1 - Math.pow((t - (1 - round)) / round, 2))) : 1) * (r0 && t < r0 ? Math.sqrt(Math.max(0, 1 - Math.pow(1 - t / r0, 2))) : 1);
+    return [Math.max(.012, q[0] * k), Math.max(.012, q[1] * k)]; }, o.up || UPY, {nS:o.nS || 20, nR:o.nR || 10});
+}
+/* a leaf: flat, widest a third of the way along, ending in a point (ears, feathers, fins' rays) */
+const leaf = (pts, w, th, up, nS = 14) => limb(pts, t => [w * Math.pow(Math.sin(PI * Math.min(1, t * .8 + .2)), .8), th], {up, round:0, nS});
+const texCache = new Map();
+/* horn: cream with growth rings, darker towards the tip (v runs along the horn) */
+function hornTex(){
+  if (texCache.has('horn')) return texCache.get('horn');
+  const cv = canvas(16, 256), x = cv.getContext('2d'), g = x.createLinearGradient(0, 256, 0, 0); g.addColorStop(0, '#e9dfc4'); g.addColorStop(.6, '#cdbd98'); g.addColorStop(1, '#7c6a52');
+  x.fillStyle = g; x.fillRect(0, 0, 16, 256); x.fillStyle = 'rgba(70,50,30,.32)'; for (let i = 0; i < 22; i++) x.fillRect(0, 6 + i * 11.4, 16, 3);
+  const t = ctex(cv); texCache.set('horn', t); return t;
+}
+/* scales for snake and lizard bodies: u runs round the tube (.25 its top, .75 its belly), v along it */
+function scaleTex(hex, rep){
+  const key = 'scale' + hex + rep; if (texCache.has(key)) return texCache.get(key);
+  const cv = canvas(128, 64), x = cv.getContext('2d'), belly = mix(hex, '#f3ecc0', .5);
+  x.fillStyle = hex; x.fillRect(0, 0, 128, 64);
+  x.strokeStyle = shade(hex, .7); x.lineWidth = 2; for (let j = 0; j < 4; j++) for (let i = -1; i < 9; i++) { x.beginPath(); x.arc(i * 16 + (j % 2) * 8 + 8, j * 16 + 2, 8, .15, PI - .15); x.stroke(); }
+  x.fillStyle = shade(hex, .82); for (let j = 0; j < 2; j++) { x.beginPath(); x.ellipse(32, j * 32 + 16, 13, 9, 0, 0, TAU); x.fill(); } /* blotches along the back */
+  x.fillStyle = belly; x.fillRect(74, 0, 44, 64); x.strokeStyle = shade(belly, .78); x.lineWidth = 2; for (let j = 0; j < 4; j++) { x.beginPath(); x.moveTo(74, j * 16 + 8); x.lineTo(118, j * 16 + 8); x.stroke(); }
+  const t = ctex(cv, true); t.repeat.set(1, rep); texCache.set(key, t); return t;
+}
+/* a flat fin with a scalloped edge between its rays: tips [[a, b], ...] in the fin's own plane from `root`, 0.5 thick */
+function finGeo(root, tips, dip = .72){
+  const sh = new THREE.Shape(); sh.moveTo(root[0], root[1]); sh.lineTo(tips[0][0], tips[0][1]);
+  for (let i = 1; i < tips.length; i++) { const a = tips[i - 1], b = tips[i], mx = lerp(root[0], (a[0] + b[0]) / 2, dip), my = lerp(root[1], (a[1] + b[1]) / 2, dip); sh.quadraticCurveTo(mx, my, b[0], b[1]); }
+  sh.lineTo(root[0], root[1]);
+  const g = new THREE.ExtrudeGeometry(sh, {depth:.5, bevelEnabled:false, curveSegments:6}); g.translate(0, 0, -.25); return g;
+}
+function fin(root, tips, mat, rayMat){
+  const g = new THREE.Group(); g.add(inked(finGeo(root, tips), mat, .35));
+  tips.forEach(tp => g.add(new THREE.Mesh(limb([[root[0], root[1], 0], [lerp(root[0], tp[0], .5), lerp(root[1], tp[1], .5), 0], [tp[0], tp[1], 0]], t => [.42 * (1 - t * .6), .42], {round:0, nS:6, nR:6, up:UPZ}), rayMat)));
+  return g;
+}
 function headExtras(head, HR, R, spec, M, mSkin, hairHex, hair, hood){
-  let ears = R.ears; const skin = mSkin;
+  let ears = R.ears; const skin = mSkin, k = HR / 11.5, skinHex = (R.skins[spec.skin] || R.skins[0]).c, light = mix(skinHex, '#ffffff', .32), dark = '#1c1614';
+  const P = pts => pts.map(p => [p[0] * k, p[1] * k, p[2] * k]), mir = (s, pts) => P(pts).map(p => [s * p[0], p[1], p[2]]);
+  const sp = (az, el, r = 1.01) => [HR * r * Math.cos(el) * Math.sin(az), HR * r * Math.sin(el), HR * r * Math.cos(el) * Math.cos(az)];
   if (hood) ears = 'none';
-  if (ears === 'round' && (!hair || hair.roundEars)) [-1, 1].forEach(s => { const e = inked(new THREE.SphereGeometry(2.8, 16, 12), skin, .45); e.scale.set(.5, 1, .78); e.rotation.y = s * .25; head.add(at(e, s * HR * .96, -1.2, -.6));
-    const c = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 10), M(shade((R.skins[spec.skin] || R.skins[0]).c, .82))); c.scale.set(.3, 1, .7); head.add(at(c, s * (HR * .96 + 1.05), -1.2, -.35)); });
-  if (ears === 'pointy' || ears === 'long' || ears === 'goblin') [-1, 1].forEach(s => {
-    const L = ears === 'long' ? 11 : ears === 'goblin' ? 12 : 6.5, r = ears === 'goblin' ? 4.6 : 2.5;
-    const e = inked(new THREE.ConeGeometry(r, L, 12), skin, .5); e.scale.z = .45;
-    e.rotation.z = -s * (PI / 2 - (ears === 'goblin' ? .15 : .55)); at(e, s * (HR * .9 + L * .35), 1.5, -1); head.add(e); });
-  if (ears === 'wolf' || ears === 'goat') [-1, 1].forEach(s => { const e = inked(new THREE.ConeGeometry(3.6, 8, 4), skin, .5); e.rotation.z = -s * .45; at(e, s * HR * .62, HR * .82, -1.5); if (ears === 'goat') { e.rotation.z = -s * 1.3; at(e, s * HR * .98, 2, 0); } head.add(e); });
-  if (ears === 'fins') [-1, 1].forEach(s => { const f = new THREE.Mesh(new THREE.CircleGeometry(8, 12, -.9, 1.8), toon(mix(R.skins[spec.skin].c, '#ffffff', .25), {side:THREE.DoubleSide})); f.rotation.y = s * PI / 2; f.rotation.z = s > 0 ? 0 : PI; at(f, s * HR * .95, 1, -1); head.add(f); });
-  if (R.nose) head.add(at(inked(new THREE.SphereGeometry(3.1, 14, 10), skin, .45), 0, -2.2, HR * .98));
-  if (R.tusks) [-1, 1].forEach(s => head.add(at(rot(inked(new THREE.ConeGeometry(1.4, 5, 8), M('#f2ead2'), .4), -.3, 0, s * -.2), s * 4.6, -HR * .52, HR * .82)));
-  if (R.horns && !hood) [-1, 1].forEach(s => { const h = inked(new THREE.TorusGeometry(5.4, 1.9, 8, 16, PI * 1.25), M('#d8ccb0'), .45); h.rotation.set(0, s * PI / 2, s > 0 ? .3 : PI - .3); at(h, s * 6.2, HR * .92, -1.5); head.add(h); });
-  if (R.beast === 'wolf') { const sn = inked(new THREE.CapsuleGeometry(4.6, 6, 6, 12), skin, .5); sn.rotation.x = PI / 2; head.add(at(sn, 0, -3.2, HR * .82));
-    head.add(at(new THREE.Mesh(new THREE.SphereGeometry(1.8, 10, 8), M('#1a1414')), 0, -2, HR + 5.2)); }
-  if (R.beast === 'bird') { const b = inked(new THREE.ConeGeometry(3.4, 9, 10), M('#d9a83a'), .5); b.rotation.x = PI / 2; at(b, 0, -2.5, HR + 3.2); head.add(b);
-    for (let i = 0; i < 3; i++) { const f = inked(new THREE.ConeGeometry(1.8, 8, 6), M(hairHex), .4); f.rotation.x = -.9 - i * .25; at(f, (i - 1) * 2.5, HR * .9, -2 - i); head.add(f); } }
-  if (R.beast === 'lizard') { const sn = inked(new THREE.SphereGeometry(5.2, 16, 12), skin, .5); sn.scale.set(1, .62, 1.3); at(sn, 0, -3.5, HR * .78); head.add(sn);
-    for (let i = 0; i < 4; i++) { const c = inked(new THREE.ConeGeometry(1.6, 5, 6), M(hairHex), .35); c.rotation.x = -.5; at(c, 0, HR * (.98 - i * .1), 3 - i * 4); head.add(c); } }
-  if (R.beast === 'fish') { head.add(at(inked(new THREE.TorusGeometry(2, 1, 8, 14), M('#e08a7a'), .35), 0, -5, HR * .95));
-    const d = new THREE.Mesh(new THREE.CircleGeometry(8, 12, 0, PI), toon(mix(R.skins[spec.skin].c, '#ffffff', .25), {side:THREE.DoubleSide})); d.rotation.y = PI / 2; at(d, 0, HR * .8, -2); head.add(d); }
-  if (R.beast === 'bug') { const em = M(pick(EYES, spec.eyes)[2]);
+  if (ears === 'round' && (!hair || hair.roundEars)) [-1, 1].forEach(s => { const big = R.tusks ? 1.35 : 1, e = inked(new THREE.SphereGeometry(2.8 * big, 16, 12), skin, .45); e.scale.set(.5, 1, .78); e.rotation.y = s * .25; head.add(at(e, s * HR * .96, -1.2, -.6));
+    const c = new THREE.Mesh(new THREE.SphereGeometry(1.6 * big, 12, 10), M(shade(skinHex, .82))); c.scale.set(.3, 1, .7); head.add(at(c, s * (HR * .96 + 1.05 * big), -1.2, -.35)); });
+  /* pointed ears: a leaf from the side of the head, with the hollow of the ear a shade darker */
+  const EAR = {pointy:{L:7, w:2.5, a:.5, curl:.1}, long:{L:10.5, w:2.6, a:.5, curl:.14}, goblin:{L:12.5, w:3.7, a:.16, curl:-.3}, goat:{L:8, w:2.5, a:-.42, curl:-.25, y:-3, z:1.5}}[ears];
+  if (EAR) [-1, 1].forEach(s => { const o = EAR, L = o.L * k, b = [s * HR * .84, (o.y ?? -.6) * k, (o.z ?? -1) * k], a2 = o.a + o.curl;
+    const pts = [b, [b[0] + s * L * .5 * Math.cos(o.a), b[1] + L * .5 * Math.sin(o.a), b[2] - L * .1], [b[0] + s * L * (.5 * Math.cos(o.a) + .5 * Math.cos(a2)), b[1] + L * (.5 * Math.sin(o.a) + .5 * Math.sin(a2)), b[2] - L * .26]];
+    head.add(inked(leaf(pts, o.w * k, .75 * k, UPZ), ears === 'goat' && R.coat ? M(hairHex) : skin, .45));
+    head.add(new THREE.Mesh(leaf(pts.map(p => [lerp(b[0], p[0], .84) + s * 1.2 * k, lerp(b[1], p[1], .84), p[2] + .62 * k]), o.w * k * .5, .3 * k, UPZ, 10), M(mix(skinHex, '#8a3a44', .3)))); });
+  if (ears === 'wolf') [-1, 1].forEach(s => { const pts = mir(s, [[5.4, 7.4, -1], [7.3, 12.6, -1.8], [8.3, 17.2, -1.2]]);
+    head.add(inked(leaf(pts, 3.9 * k, 1 * k, UPZ), skin, .5));
+    head.add(new THREE.Mesh(leaf(pts.map((p, i) => [p[0] - s * .1 * k, p[1] - i * .7 * k, p[2] + .9 * k]), 2.2 * k, .35 * k, UPZ, 10), M(mix(skinHex, '#d79a9a', .55)))); });
+  if (ears === 'fins') { const fm = toon(mix(skinHex, '#ffffff', .3), {side:THREE.DoubleSide}), rm = M(shade(skinHex, .62));
+    [-1, 1].forEach(s => { const f = fin([0, 0], [[3.5 * k, 8 * k], [7.4 * k, 5.6 * k], [9 * k, 1.6 * k], [7.8 * k, -2.8 * k], [4.4 * k, -5.4 * k]], fm, rm); f.scale.x = s; f.rotation.y = -s * .5; head.add(at(f, s * HR * .9, .5 * k, -1.5 * k)); }); }
+  if (R.nose === 'long') head.add(inked(limb(P([[0, -2, 10], [0, -2.5, 13.2], [0, -3.6, 15.8]]), t => lerp(1.9, .75, t) * k, {round:.35}), skin, .45));
+  else if (R.nose === 'wide') { const n = inked(new THREE.SphereGeometry(2.6 * k, 14, 10), skin, .45); n.scale.set(1.45, .85, .8); head.add(at(n, 0, -2.6 * k, HR * .97)); }
+  else if (R.nose) head.add(at(inked(new THREE.SphereGeometry(3.1, 14, 10), skin, .45), 0, -2.2, HR * .98));
+  /* tusks curve up out of the lower jaw */
+  if (R.tusks) [-1, 1].forEach(s => head.add(inked(limb(mir(s, [[3.6, -7.8, 8], [5, -7, 10.4], [5.7, -5.4, 11], [5.6, -3.6, 10.8]]), t => 1.1 * k * (1 - t * .86), {round:0, nS:14, nR:8}), M('#f2ead2'), .4)));
+  /* ram's horns: up out of the hair, back, down round the ear and forward again, with growth rings */
+  if (R.horns && !hood) { const hm = M(0xffffff, {map:hornTex()});
+    [-1, 1].forEach(s => head.add(inked(limb(mir(s, [[5, 8, 1.5], [8.3, 13.6, -.4], [12.4, 14.2, -5], [15.6, 9.6, -7.8], [16.6, 3.4, -5.4], [16.2, -.4, -.4], [15, 1.2, 4.2]]), t => 2.85 * k * (1 - t * .8) * (1 + .07 * Math.sin(t * 66)), {round:0, nS:48, nR:10}), hm, .45))); }
+  if (R.beast === 'wolf') { const lm = M(light);
+    head.add(inked(limb(P([[0, -3.4, 5.6], [0, -3.7, 11.4], [0, -3.9, 16.4]]), t => [lerp(5.1, 3.1, t) * k, lerp(3.7, 2.6, t) * k], {round:.3}), skin, .5));
+    head.add(inked(limb(P([[0, -5.9, 5], [0, -6.6, 10.8], [0, -6.8, 14.6]]), t => [lerp(4.2, 2.3, t) * k, lerp(2.2, 1.3, t) * k], {round:.3}), lm, .45));
+    const n = inked(new THREE.SphereGeometry(1.9 * k, 12, 10), M(dark), .3); n.scale.set(1.2, .85, 1); head.add(at(n, 0, -2.5 * k, 16.4 * k));
+    [-1, 1].forEach(s => { head.add(at(rot(inked(new THREE.ConeGeometry(.75 * k, 2.6 * k, 8), M('#fbf7ef'), .25), PI, 0, 0), s * 2 * k, -6.1 * k, 13.6 * k));
+      for (let i = 0; i < 3; i++) { const c = inked(new THREE.ConeGeometry(2.7 * k, (7.4 - i) * k, 5), i ? lm : skin, .45); c.scale.z = .5; c.rotation.z = -s * (PI / 2 + .2 + i * .42); head.add(at(c, s * (HR * .93 + (1.4 - i * .5) * k), (-2.6 - i * 2.9) * k, (1.4 - i * .4) * k)); } });
+    for (let i = -1; i <= 1; i++) { const c = inked(new THREE.ConeGeometry(1.9 * k, 5.4 * k, 5), skin, .4); c.rotation.set(-.7, 0, -i * .35); head.add(at(c, i * 2.3 * k, HR * .98 + (1 - Math.abs(i)) * k, -1.5 * k)); } }
+  if (R.beast === 'bird') { const bc = '#d9a83a', fm = M(hairHex);
+    head.add(inked(limb(P([[0, -1.9, 7.6], [0, -1.9, 12.6], [0, -3.2, 16.2], [0, -5.8, 17.4]]), t => [3.9 * k * Math.pow(1 - t, .62), 3.1 * k * Math.pow(1 - t, .7)], {round:0, nS:22}), M(bc), .5));
+    head.add(inked(limb(P([[0, -4.9, 7.4], [0, -5.4, 11.6], [0, -5.9, 14.4]]), t => [2.9 * k * Math.pow(1 - t, .7), 1.5 * k * Math.pow(1 - t, .7)], {round:0}), M(shade(bc, .78)), .4));
+    [-1, 1].forEach(s => head.add(at(new THREE.Mesh(new THREE.SphereGeometry(.5 * k, 8, 6), M(shade(bc, .45))), s * 1.9 * k, -.6 * k, 12.2 * k)));
+    for (let i = -2; i <= 2; i++) { const a = Math.abs(i); head.add(inked(leaf(P([[i * 1.5, 9.6, 3.4 - a * .9], [i * 2.3, 13.8 - a * .8, -2.5], [i * 3.4, 12.6 - a * 1.6, -10 + a * 1.2]]), (2.1 - a * .2) * k, .5 * k, UPY), fm, .4)); }
+    [-1, 1].forEach(s => { for (let i = 0; i < 2; i++) head.add(inked(leaf(mir(s, [[9.4, -2.5 - i * 2.6, 2], [11.6, -4.6 - i * 2.8, -1], [12.2, -7.6 - i * 2.6, -4.6]]), 1.7 * k, .45 * k, UPZ, 10), i ? fm : skin, .35)); }); }
+  if (R.beast === 'lizard') { const bm = M(mix(skinHex, '#f3ecc0', .5)), cm = M(hairHex);
+    head.add(inked(limb(P([[0, -4, 5.2], [0, -4.4, 11.4], [0, -5, 16.6]]), t => [lerp(5.9, 3.7, t) * k, lerp(3.5, 2.3, t) * k], {round:.3}), skin, .5));
+    head.add(inked(limb(P([[0, -6.4, 4.8], [0, -7.1, 11], [0, -7.3, 15.2]]), t => [lerp(5.2, 3, t) * k, lerp(2.1, 1.3, t) * k], {round:.3}), bm, .45));
+    [-1, 1].forEach(s => { head.add(at(new THREE.Mesh(new THREE.SphereGeometry(.55 * k, 8, 6), M(dark)), s * 1.5 * k, -2.9 * k, 15.6 * k));
+      [[4.3, 10.2], [3.9, 12.4], [3.2, 14.4]].forEach(([tx, tz]) => head.add(at(rot(new THREE.Mesh(new THREE.ConeGeometry(.5 * k, 1.5 * k, 6), M('#fbf7ef')), PI, 0, 0), s * tx * k, -6.3 * k, tz * k)));
+      head.add(inked(limb(mir(s, [[3.2, 3.6, 9.6], [5.6, 4.3, 8.9], [8.2, 3.2, 7]]), t => [1.15 * k * (1 - t * .5), .8 * k], {round:.3, round0:.3, nS:10, nR:8}), skin, .35)); }); /* brow ridges */
+    for (let i = 0; i < 6; i++) { const a = -.5 + i * .46, h = (5.6 - Math.abs(i - 2) * .8) * k, c = inked(new THREE.ConeGeometry(2.1 * k, h, 4), cm, .4); c.scale.x = .32; c.rotation.x = -a;
+      head.add(at(c, 0, (HR + h * .32) * Math.cos(a), -(HR + h * .32) * Math.sin(a))); } }
+  if (R.beast === 'fish') { const lip = inked(new THREE.TorusGeometry(2.1 * k, 1.05 * k, 10, 18), M('#e08a7a'), .35); lip.scale.set(1.3, .85, 1); head.add(at(lip, 0, -5 * k, HR * .95));
+    const fm = toon(mix(skinHex, '#ffffff', .3), {side:THREE.DoubleSide}), rm = M(shade(skinHex, .62));
+    const d = fin([0, 3 * k], [[6.4 * k, 10.4 * k], [3 * k, 16 * k], [-2.4 * k, 17.6 * k], [-7.6 * k, 15.4 * k], [-11.4 * k, 10.6 * k], [-11 * k, 4 * k]], fm, rm); d.rotation.y = -PI / 2; head.add(d);
+    [-1, 1].forEach(s => { for (let i = 0; i < 3; i++) head.add(new THREE.Mesh(limb([sp(s * (1.02 + i * .17), -.3), sp(s * (1.08 + i * .17), -.52), sp(s * (1.1 + i * .17), -.72)], () => .32 * k, {nS:6, nR:6, round:.3, round0:.3, up:UPX}), rm));
+      head.add(inked(limb([sp(s * .34, -.5, .98), sp(s * .5, -.74, 1.12), sp(s * .62, -.98, 1.02)], t => .5 * k * (1 - t * .7), {round:0, nS:8, nR:6, up:UPX}), M('#e08a7a'), .25)); }); } /* gills and barbels */
+  if (R.beast === 'bug') { const em = M(pick(EYES, spec.eyes)[2]), hm = M('#241e1c');
+    const plate = inked(new THREE.SphereGeometry(3.6 * k, 14, 10), M(mix(skinHex, '#ffffff', .22)), .35); plate.scale.set(1.25, .8, .5); head.add(at(plate, 0, -HR * .5, HR * .84));
     [-1, 1].forEach(s => { head.add(at(inked(new THREE.SphereGeometry(4.4, 16, 12), em, .5), s * 5.2, 1, HR * .78));
       head.add(at(new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 6), new THREE.MeshBasicMaterial({color:0xffffff})), s * 4.4 + 1, 3, HR * .78 + 3.4));
-      const a = new THREE.Group(); at(a, s * 3, HR * .85, 2); a.rotation.set(-.5, 0, -s * .5); head.add(a);
-      a.add(at(new THREE.Mesh(new THREE.CylinderGeometry(.5, .5, 11, 6), M('#1a1a1a')), 0, 5.5, 0)); a.add(at(new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 6), M('#1a1a1a')), 0, 11, 0));
-      head.add(at(rot(inked(new THREE.ConeGeometry(1.1, 5, 6), M('#2a2a2a'), .35), PI * .6, 0, s * .4), s * 2.4, -HR * .6, HR * .75)); }); }
+      const ant = mir(s, [[2.6, 9.4, 3], [4.4, 15, 5], [7.6, 18.2, 3.6], [11, 17, .8]]); head.add(inked(limb(ant, t => .6 * k * (1 - t * .3), {round:0, nS:18, nR:6}), hm, .3));
+      head.add(at(inked(new THREE.SphereGeometry(1.25 * k, 10, 8), hm, .3), ant[3][0], ant[3][1], ant[3][2]));
+      head.add(inked(limb(mir(s, [[3.4, -5.8, 8.4], [5, -8.2, 11], [3, -10.4, 12.6], [.9, -10, 11.6]]), t => 1.3 * k * (1 - t * .82), {round:0, nS:14, nR:8}), hm, .35)); }); }
   if (R.snakes && !hood) snakes(head, HR, M, hairHex);
   if (!R.nohair && !R.snakes) beard(head, HR, spec, M, hairHex);
 }
