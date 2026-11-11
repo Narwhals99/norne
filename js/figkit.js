@@ -1507,7 +1507,7 @@ function pose(rig, name, t){
     return; }
   if (name === 'dodge') { /* ducks and leans out of the way of the blow, then straightens up */
     const k = eOut(seg(ms, 0, 200)) * (1 - eIO(seg(ms, 600, 1000)));
-    body.rotation.z = .34 * k; body.position.y = 6 - 4 * k; torso.rotation.x = .18 * k; head.rotation.z = -.2 * k;
+    body.rotation.z = .5 * k; body.position.y = 6 - 6 * k; torso.rotation.x = .25 * k; torso.rotation.z = .12 * k; head.rotation.z = -.3 * k;
     armL.sh.rotation.z = -.2 - .85 * k; armR.sh.rotation.z = .2 + .35 * k; armR.sh.rotation.x = -.4 * k;
     legs.forEach((l, i) => { l.rotation.z = (i % 2 ? -.12 : .2) * k; });
     return; }

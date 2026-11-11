@@ -734,7 +734,7 @@ function pose(rig, name, t){
   if (name === 'dodge') {
     /* crouches and sways its whole body aside, then settles back */
     const k = eOut(seg(ms, 0, 200)) * (1 - eIO(seg(ms, 600, 1000)));
-    body.rotation.z += .26 * k; body.position.y -= 2.5 * k;
+    body.rotation.z += .38 * k; body.position.y -= 4 * k;
     if (head) head.rotation.z += -.18 * k;
     if (wings.length) wings.forEach(w => { w.rotation.z += w.userData.s * .5 * k; });
     if (id === 'serpent') { rig.segs[0].rotation.y += .5 * k; rig.segs[1].rotation.y += -.3 * k; }
