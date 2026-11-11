@@ -214,7 +214,7 @@ function shoot(spec){
     const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xfff0dc, 0x40386a, 1.9));
     const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(-300, 700, 600); sc.add(sun);
     const s = K.faceFix(JSON.parse(JSON.stringify(spec))); s.hair = K.hairId(s.hair || 'bald');
-    const rig = K.buildFigure(s); sc.add(rig.root); rig.root.rotation.y = .35; rig.root.updateMatrixWorld(true); K.animate(rig, 'idle', 0);
+    const rig = K.buildFigure(s, {fine:true}); sc.add(rig.root); rig.root.rotation.y = .35; rig.root.updateMatrixWorld(true); K.animate(rig, 'idle', 0);
     const cam = new THREE.PerspectiveCamera(28, W / H, 1, 5000), h = Math.max(rig.h, (rig.len || 0) * .7) + 8;
     const d = h * .6 / Math.tan(THREE.MathUtils.degToRad(14)) / (W / H < .8 ? (W / H) / .8 : 1);
     cam.position.set(0, h * .5 + d * .2, d); cam.lookAt(0, Math.min(h, rig.h + 8) * .47, 0);
@@ -320,7 +320,7 @@ function start(box, THREE, K){
     return ready = K.loadHair(spec.hair).catch(() => { toast('That hairstyle could not load. Check the connection and pick it again.'); }).then(() => {
       if (my !== want || !running) return;
       if (rig) { scene.remove(rig.root); K.dispose(rig); }
-      rig = K.buildFigure(spec); K.addFx(scene, rig); scene.add(rig.root);
+      rig = K.buildFigure(spec, {fine:true}); K.addFx(scene, rig); scene.add(rig.root);
       rig.root.visible = view === 'one';
       frame();
     });
@@ -425,7 +425,7 @@ function start(box, THREE, K){
         grp('Brows', nm(K.BROWS, spec.brows), K.BROWS.map(([id, n]) => opt(id, n, id === spec.brows, 'brows', ic({brows:id, expr:'calm'}, 'eyes'))).join(''), 'grid faces');
         if (!beast) {
           grp('Nose', nm(K.NOSES, spec.nose), K.NOSES.map(([id, n]) => opt(id, n, id === spec.nose, 'nose')).join(''), 'grid steps');
-          grp('Mouth', nm(K.MOUTHS, spec.mouth), K.MOUTHS.map(([id, n]) => opt(id, n, id === spec.mouth, 'mouth', ic({mouth:id}, 'mouth'))).join(''), 'grid faces');
+          grp('Mouth', nm(K.MOUTHS, spec.mouth), K.MOUTHS.map(([id, n]) => opt(id, n, id === spec.mouth, 'mouth', ic({mouth:id, expr:'smile'}, 'mouth'))).join(''), 'grid faces');
         }
         grp('Expression', nm(K.EXPRS, spec.expr), K.EXPRS.map(([id, n]) => opt(id, n, id === spec.expr, 'expr', ic({expr:id}, 'expr'))).join(''), 'grid faces');
         if (!beast) grp('Marks', (spec.marks || []).length ? '' : 'None', K.MARKS.map(([id, n]) => opt(id, n, (spec.marks || []).includes(id), 'mark')).join(''));

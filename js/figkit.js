@@ -212,30 +212,56 @@ const EYE_SIZES = [['s', 'Small', .84], ['m', 'Medium', 1], ['l', 'Large', 1.16]
 const BROWS = [['thin', 'Thin'], ['thick', 'Thick'], ['arched', 'Arched'], ['short', 'Short'], ['none', 'None']];
 const NOSES = [['none', 'None'], ['hint', 'Hint'], ['small', 'Small']];
 const MOUTHS = [['small', 'Small'], ['wide', 'Wide'], ['full', 'Full'], ['cat', 'Cat']];
-/* lid: upper lid down (0 open, 1 shut), lidI / lidO: more at the inner / outer end, low: lower lid up, wide: opened wider,
-   closed: 'up' (happy arcs) or 'down' (calm, lashes down), dot: shrunk to dots, pupil: size, look / lookY: where the eyes look,
-   brow: + frowning, - worried, raise: brows up, browOne: one brow up, then the mouth's pose and blush, bags, sweat */
+/* eyes: lid: upper lid down (0 open, 1 shut), lidI / lidO: more at the inner / outer end, low: lower lid up (cheeks pushing),
+   wide: opened wider, iris / pupil: their size (small in a wide eye = white all round), closed: 'up' (happy arcs), 'down'
+   (calm, lashes down) or 'squeeze', look / lookY: where the eyes look, uneven: one lid heavier, shine / dull: more / less
+   sparkle, tear, joy (a laughing tear), shadow: shade under the brows, bags.
+   brows: brow: + frowning, - worried, raise: up, arch: more curve, browOne: one up and one down, browTh: thicker.
+   skin: furrow (creases between the brows), fold (nose to mouth lines), cheek (lines under smiling eyes), blush, flush (anger), sweat.
+   mouth: a pose from MOUTH_POSES. */
 const EXPRS = [
-  ['calm', 'Calm', {lid:.12, mouth:'line'}],
-  ['smile', 'Smile', {lid:.06, low:.18, mouth:'smile'}],
-  ['happy', 'Happy', {closed:'up', mouth:'smile', blush:.5}],
-  ['laugh', 'Laughing', {closed:'up', mouth:'open', blush:.6, raise:.3}],
-  ['grin', 'Grin', {low:.15, mouth:'grin', raise:.2}],
-  ['surprised', 'Surprised', {wide:1.18, pupil:.72, raise:1, mouth:'o'}],
-  ['shocked', 'Shocked', {dot:1, raise:1.2, mouth:'O'}],
-  ['angry', 'Angry', {lid:.16, lidI:.38, brow:1, mouth:'frown'}],
-  ['glare', 'Glare', {lid:.4, lidI:.16, brow:.7, look:.75, mouth:'flat'}],
-  ['fierce', 'Fierce', {lidI:.28, brow:1.2, mouth:'teeth'}],
-  ['sad', 'Sad', {lid:.22, lidO:.32, brow:-1, lookY:-.35, mouth:'frown'}],
-  ['worried', 'Worried', {brow:-.85, raise:.3, mouth:'wavy', sweat:1}],
-  ['tired', 'Tired', {lid:.46, bags:1, brow:-.2, mouth:'flat'}],
-  ['sleepy', 'Sleepy', {lid:.74, brow:-.15, mouth:'small'}],
-  ['smug', 'Smug', {lid:.42, low:.12, browOne:1, mouth:'smirk'}],
-  ['shy', 'Shy', {lid:.1, look:-.8, lookY:-.25, brow:-.45, blush:1, mouth:'small'}],
-  ['serene', 'Serene', {closed:'down', mouth:'smile', blush:.35}],
+  ['calm', 'Calm', {lid:.1, mouth:'line'}],
+  ['smile', 'Smile', {lid:.04, low:.24, raise:.2, mouth:'smile', blush:.3, shine:1, cheek:1}],
+  ['happy', 'Happy', {closed:'up', raise:.6, arch:.4, mouth:'beam', blush:.8, cheek:1}],
+  ['laugh', 'Laughing', {closed:'up', raise:.9, arch:.5, mouth:'laugh', blush:.7, cheek:1, fold:.9, joy:1}],
+  ['grin', 'Grin', {low:.46, lid:.04, raise:.5, arch:.3, mouth:'grin', fold:.8, shine:1, cheek:1}],
+  ['surprised', 'Surprised', {wide:1.22, iris:.8, pupil:.8, raise:1.4, arch:1, mouth:'o'}],
+  ['shocked', 'Shocked', {wide:1.4, iris:.5, pupil:.62, raise:1.9, arch:.8, brow:-.4, mouth:'gasp', sweat:1}],
+  ['angry', 'Angry', {lid:.08, lidI:.52, low:.16, brow:1, browTh:1.3, furrow:1, flush:.7, mouth:'scowl'}],
+  ['glare', 'Glare', {lid:.4, lidI:.2, low:.26, brow:.8, browTh:1.2, furrow:.6, shadow:1, look:.7, iris:.9, mouth:'tight'}],
+  ['fierce', 'Fierce', {wide:1.12, lidI:.46, iris:.7, pupil:.6, brow:1.4, browTh:1.5, furrow:1, shadow:.6, flush:.5, fold:1, mouth:'snarl'}],
+  ['sad', 'Sad', {lid:.2, lidO:.42, brow:-1.2, lookY:-.4, pupil:1.12, tear:1, mouth:'sad'}],
+  ['worried', 'Worried', {wide:1.1, iris:.84, brow:-.95, raise:.45, look:-.25, mouth:'wavy', sweat:1}],
+  ['tired', 'Tired', {lid:.5, low:.1, bags:1, brow:-.35, raise:-.25, dull:1, lookY:-.25, mouth:'slack'}],
+  ['sleepy', 'Sleepy', {lid:.7, uneven:.08, brow:-.25, raise:.25, dull:1, lookY:-.6, mouth:'ah'}],
+  ['smug', 'Smug', {lid:.44, low:.3, browOne:1, look:.55, mouth:'smirk', blush:.2}],
+  ['shy', 'Shy', {lid:.16, look:-.8, lookY:-.45, brow:-.65, raise:.15, blush:1.3, mouth:'pursed'}],
+  ['serene', 'Serene', {closed:'down', raise:.3, arch:.3, mouth:'smile', blush:.4}],
 ];
 /* not in the list: the face a figure pulls while it is hit or knocked down */
-const HURT = {closed:'squeeze', brow:.8, mouth:'teeth'};
+const HURT = {closed:'squeeze', brow:1.1, browTh:1.2, furrow:1, flush:.4, mouth:'grit'};
+/* mouth poses, in mouth half-widths: w half width, c corners up (cl / cr each side), u / l the middle of the upper / lower lip
+   (no l: shut), ku / kl how square each lip is, teeth 'top' | 'bare' (both rows and canines, open between) | 'clench',
+   oval [rx, ry] for round open mouths, dimple / tick (pressed corners) / pout (lower lip pushed up) / wave */
+const MOUTH_POSES = {
+  line:   {w:1, c:.02, u:-.06},
+  smile:  {w:1.15, c:.28, u:-.3, dimple:1},
+  beam:   {w:1.5, c:.44, u:-.42, dimple:1},
+  laugh:  {w:1.4, c:.4, u:.12, l:-1.8, kl:.72, teeth:'top', tongue:1},
+  grin:   {w:1.55, c:.36, u:0, l:-.98, kl:.62, teeth:'clench', dimple:1},
+  o:      {oval:[.4, .52]},
+  gasp:   {oval:[.66, 1.1], teeth:'top', tongue:1},
+  ah:     {oval:[.36, .26]},
+  scowl:  {w:1.1, c:-.44, u:.36, tick:1, pout:1},
+  tight:  {w:.95, c:-.1, u:.05, tick:1},
+  snarl:  {w:1.5, c:-.14, u:.56, l:-1.4, ku:.88, kl:.8, teeth:'bare'},
+  grit:   {w:1.3, c:-.12, u:.32, l:-.66, ku:.75, kl:.75, teeth:'clench'},
+  sad:    {w:.82, c:-.44, u:.3, pout:1},
+  slack:  {w:.72, c:-.18, u:.1},
+  smirk:  {w:1.05, cl:-.06, cr:.52, u:-.16, dx:.12, dimple:1},
+  wavy:   {w:1.15, c:-.05, u:0, wave:.17},
+  pursed: {w:.5, c:.14, u:-.2, wave:.07},
+};
 const MARKS = [['blush', 'Blush'], ['freckles', 'Freckles'], ['bags', 'Eye bags'], ['lipstick', 'Lipstick'], ['mole', 'Beauty mark'], ['scar', 'Scar']];
 /* looks saved before heads had parts used one of six faces: each becomes eyes, brows and an expression */
 const OLD_FACE = {kind:{eyeShape:'soft', expr:'smile'}, bright:{eyeShape:'round', expr:'grin'}, stern:{eyeShape:'narrow', expr:'calm', brows:'thick'},
@@ -478,13 +504,14 @@ function warpHead(head, warp){
 const FS = {W:512, H:416, K:320, X0:.8, Y0:.44};
 const bez = (a, b, c, d, t) => { const u = 1 - t; return [u * u * u * a[0] + 3 * u * u * t * b[0] + 3 * u * t * t * c[0] + t * t * t * d[0], u * u * u * a[1] + 3 * u * u * t * b[1] + 3 * u * t * t * c[1] + t * t * t * d[1]]; };
 const lerp2 = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k)];
-function faceSheet(spec, R){
-  const cv = canvas(FS.W, FS.H), x = cv.getContext('2d'), K = FS.K, beast = R.beast;
+function faceSheet(spec, R, q = 1){
+  const cv = canvas(FS.W * q, FS.H * q), x = cv.getContext('2d'), K = FS.K, beast = R.beast;
   if (beast === 'bug') return cv;
+  x.scale(q, q); /* q: a sharper picture for the maker's one big figure (opt.fine) */
   const X = u => (u + FS.X0) * K, Y = v => (FS.Y0 - v) * K;
   const skin = (R.skins[spec.skin] || R.skins[0]).c, hairHex = pick(HAIRC, spec.hairCol)[2], irisC = pick(EYES, spec.eyes)[2];
   const E = spec.expr === 'hurt' ? HURT : pick(EXPRS, spec.expr)[2], marks = new Set(spec.marks || []), sz = pick(EYE_SIZES, spec.eyeSize)[2];
-  const P = Object.assign({}, pick(EYE_SHAPES, E.dot ? 'dot' : spec.eyeShape)[2]); P.w *= sz; P.h *= sz;
+  const P = Object.assign({}, pick(EYE_SHAPES, spec.eyeShape)[2]); P.w *= sz; P.h *= sz;
   /* a man's eyes: lower and flatter, a thin lash line with no flick or lashes, heavier straight brows (see brows) */
   const man = spec.body === 'm' && !beast;
   if (man && !P.dot) { P.h *= .72; P.w *= .97; P.up *= .86; P.lash *= .5; P.wing = (P.wing || 0) * .3; P.lashes = 0; }
@@ -503,11 +530,13 @@ function faceSheet(spec, R){
     g.addColorStop(0, `rgba(238,100,112,${.5 * blushK})`); g.addColorStop(1, 'rgba(238,100,112,0)'); x.save(); x.fillStyle = g; x.translate(X(s * .4), Y(-.4)); x.scale(1, .55); x.translate(-X(s * .4), -Y(-.4));
     x.fillRect(X(s * .4) - .13 * K, Y(-.4) - .13 * K, .26 * K, .26 * K); x.restore();
     if (blushK >= .9) for (let i = 0; i < 3; i++) line([[s * .35 + i * .035 - .015, -.38], [s * .35 + i * .035 - .035, -.42]], 'rgba(214,80,96,.7)', .006); });
+  if (E.flush && !beast) { [[-.34, -.34, .27], [.34, -.34, .27], [0, -.27, .2]].forEach(([fx, fy, fr]) => { const g = x.createRadialGradient(X(fx), Y(fy), 0, X(fx), Y(fy), fr * K);
+    g.addColorStop(0, `rgba(206,62,48,${.17 * E.flush})`); g.addColorStop(1, 'rgba(206,62,48,0)'); x.save(); x.translate(X(fx), Y(fy)); x.scale(1, .6); x.translate(-X(fx), -Y(fy)); x.fillStyle = g; x.fillRect(X(fx) - fr * K, Y(fy) - fr * K, fr * 2 * K, fr * 2 * K); x.restore(); }); }
   if (marks.has('freckles') && !beast) { x.fillStyle = shade(skin, .62); x.globalAlpha = .7;
     for (let i = 0; i < 18; i++) { const s = i % 2 ? 1 : -1, k = (i * 0.618) % 1, k2 = (i * 0.382 + .2) % 1; ell(s * (.14 + k * .26), -.27 - k2 * .12, .009, .009, shade(skin, .62)); }
     x.globalAlpha = 1; }
   if ((marks.has('bags') || E.bags) && !P.dot && !beast) [-1, 1].forEach(s => { const cx = s * cx0, w = P.w, h = P.h;
-    x.save(); x.globalAlpha = .22; ell(cx + s * w * .1, cy - h * .95, w * .78, h * .5, '#7a5a8a'); x.restore();
+    x.save(); x.globalAlpha = .2; ell(cx + s * w * .1, cy - h * .92, w * .74, h * .36, '#7a5a8a'); x.restore();
     line(curve([cx - s * w * .55, cy - h - .03], [cx - s * w * .2, cy - h - .08], [cx + s * w * .3, cy - h - .08], [cx + s * w * .78, cy - h - .025]), shade(skin, .62), .007, .8); });
   if (pick(JAWS, spec.jaw)[2].line && !beast) [-1, 1].forEach(s => line(curve([s * .58, -.3], [s * .58, -.4], [s * .55, -.5], [s * .47, -.6]), shade(skin, .66), .007, .75));
   /* nose */
@@ -517,78 +546,125 @@ function faceSheet(spec, R){
     else if (spec.nose === 'small' && man) { line(curve([-.042, -.35], [-.022, -.395], [.022, -.395], [.042, -.35]), shade(skin, .64), .009); line([[.02, -.2], [.026, -.33]], shade(skin, .7), .007, .7); }
     else if (spec.nose === 'small') { line(curve([-.03, -.35], [-.015, -.39], [.015, -.39], [.03, -.35]), shade(skin, .64), .009); line([[.012, -.28], [.018, -.33]], shade(skin, .72), .006, .6); }
   }
-  /* mouth: its shape (size, lips) in the pose the expression gives it */
+  /* mouth: its shape (size, lips) in the pose the expression gives it (MOUTH_POSES) */
+  const crease = shade(skin, .64), path = pts => { x.beginPath(); pts.forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1]))); };
+  const filled = (pts, fill, stroke, lw = .008) => { path(pts); x.closePath(); if (fill) { x.fillStyle = fill; x.fill(); } if (stroke) { x.strokeStyle = stroke; x.lineWidth = lw * K; x.lineJoin = 'round'; x.stroke(); } };
   if (!beast) {
-    const my = -.57, ms = spec.mouth, MW = ({small:.05, wide:.08, full:.06, cat:.055}[ms] || .05) * (man ? 1.18 : 1), pose = E.mouth || 'line', mc = man ? '#4e2620' : '#5a2620', lw = man ? .012 : .011;
-    const lips = marks.has('lipstick') ? '#a3283f' : ms === 'full' ? mix(skin, '#c4505a', man ? .22 : .45) : null;
-    if (lips && !['o', 'O', 'open', 'grin', 'teeth'].includes(pose)) { const up = pose === 'smile' ? .012 : pose === 'frown' ? -.01 : 0;
-      x.beginPath(); const pts = curve([-MW * 1.05, my + up], [-MW * .5, my - .045], [MW * .5, my - .045], [MW * 1.05, my + up]); pts.forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1])));
-      curve([MW * 1.05, my + up], [MW * .4, my + .03], [-MW * .4, my + .03], [-MW * 1.05, my + up]).forEach(p => x.lineTo(X(p[0]), Y(p[1]))); x.closePath(); x.fillStyle = lips; x.fill();
-      x.save(); x.globalAlpha = .45; ell(MW * .25, my - .022, MW * .3, .008, '#ffffff'); x.restore(); }
-    const filled = (pts, fill, stroke) => { x.beginPath(); pts.forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1]))); x.closePath(); x.fillStyle = fill; x.fill(); if (stroke) { x.strokeStyle = stroke; x.lineWidth = .008 * K; x.lineJoin = 'round'; x.stroke(); } };
-    if (ms === 'cat' && ['line', 'smile', 'small', 'flat'].includes(pose)) { const w = MW * .55, d = pose === 'smile' ? .02 : .013;
-      line(curve([-w * 2, my + .006], [-w * 1.6, my - d], [-w * .4, my - d], [0, my + .004]), mc, lw); line(curve([0, my + .004], [w * .4, my - d], [w * 1.6, my - d], [w * 2, my + .006]), mc, lw); }
-    else if (pose === 'line') line(curve([-MW, my], [-MW * .3, my - .008], [MW * .3, my - .008], [MW, my]), mc, lw);
-    else if (pose === 'flat') line([[-MW * .8, my], [MW * .8, my - .003]], mc, lw);
-    else if (pose === 'small') line([[-MW * .5, my], [MW * .5, my]], mc, lw);
-    else if (pose === 'smile') line(curve([-MW, my + .014], [-MW * .45, my - .025], [MW * .45, my - .025], [MW, my + .014]), mc, lw);
-    else if (pose === 'frown') line(curve([-MW * .9, my - .013], [-MW * .4, my + .018], [MW * .4, my + .018], [MW * .9, my - .013]), mc, lw);
-    else if (pose === 'smirk') line(curve([-MW * .8, my - .002], [-MW * .1, my - .012], [MW * .5, my - .008], [MW, my + .022]), mc, lw);
-    else if (pose === 'wavy') { const o = []; for (let i = 0; i <= 24; i++) { const t = i / 24; o.push([lerp(-MW, MW, t), my + .008 * Math.sin(t * TAU * 1.5)]); } line(o, mc, lw * .9); }
-    else if (pose === 'o' || pose === 'O') { const r = pose === 'O' ? 1.35 : 1; ell(0, my - .005, MW * .42 * r, MW * .55 * r, '#4a1a1c'); x.strokeStyle = mc; x.lineWidth = .008 * K; x.stroke();
-      x.save(); x.clip(); ell(0, my - MW * .5 * r, MW * .4 * r, MW * .25 * r, '#c45a62'); x.restore(); }
-    else if (pose === 'open' || pose === 'grin') { const w = MW * (pose === 'open' ? 1.15 : 1.25), d = pose === 'open' ? .075 : .055;
-      const pts = [[-w, my + .012]].concat(curve([-w, my + .012], [-w * .7, my - d], [w * .7, my - d], [w, my + .012], 18)); filled(pts, '#4a1a1c', mc);
-      x.save(); x.clip(); ell(0, my - d * .75, w * .55, d * .4, '#d0646c'); if (pose === 'grin') { x.fillStyle = '#fbf7ef'; x.fillRect(X(-w), Y(my + .012), w * 2 * K, .018 * K); } x.restore(); }
-    else if (pose === 'teeth') { const w = MW * 1.15, pts = curve([-w, my - .004], [-w * .4, my + .02], [w * .4, my + .02], [w, my - .004], 12).concat(curve([w, my - .004], [w * .4, my - .03], [-w * .4, my - .03], [-w, my - .004], 12));
-      filled(pts, '#fbf7ef', mc); x.save(); x.clip(); line([[-w, my], [w, my]], '#b7a99a', .005); for (let i = -2; i <= 2; i++) line([[i * w * .3, my + .02], [i * w * .3, my - .03]], '#b7a99a', .004); x.restore(); }
-    if (R.fangs) [-1, 1].forEach(s => filled([[s * .012, my - .002], [s * .028, my - .002], [s * .02, my - .03]], '#ffffff', '#7a5a5a'));
+    const my = -.57, ms = spec.mouth, m = ({small:.118, wide:.162, full:.138, cat:.128}[ms] || .118) * (man ? 1.1 : 1), mc = man ? '#4a2420' : '#5a2620', lw = man ? .015 : .014;
+    let Q = MOUTH_POSES[E.mouth] || MOUTH_POSES.line; const inC = '#3f1418', tongueC = '#d4636e', white = '#fbf7ef', gap = '#b9aa9c';
+    const lipC = marks.has('lipstick') ? '#a3283f' : ms === 'full' ? mix(skin, '#c4505a', man ? .25 : .5) : null, lk = man ? .75 : 1;
+    const sinp = (t, p) => Math.pow(Math.max(0, Math.sin(PI * t)), p);
+    if (Q.oval) { const rx = Q.oval[0] * m * (ms === 'wide' ? .85 : 1), ry = Q.oval[1] * m * (ms === 'wide' ? .85 : 1), oy = my - ry * .35;
+      if (lipC) { ell(0, oy, rx + .2 * m * lk, ry + .22 * m * lk, lipC); } else line(curve([-rx * .6, oy - ry - .3 * m], [-rx * .2, oy - ry - .38 * m], [rx * .2, oy - ry - .38 * m], [rx * .6, oy - ry - .3 * m], 8), crease, .008, .6);
+      ell(0, oy, rx, ry, inC); x.save(); x.clip();
+      if (Q.tongue) { ell(0, oy - ry * .72, rx * .78, ry * .5, tongueC); line([[0, oy - ry * .4], [0, oy - ry]], '#b24a58', .006, .7); }
+      if (Q.teeth) { x.fillStyle = white; x.fillRect(X(-rx), Y(oy + ry), rx * 2 * K, ry * .42 * K); for (let i = -1; i <= 1; i++) line([[i * rx * .42, oy + ry], [i * rx * .42, oy + ry * .58]], gap, .004); }
+      x.restore(); ell(0, oy, rx, ry); x.strokeStyle = mc; x.lineWidth = lw * .85 * K; x.stroke(); }
+    else {
+      const w = Q.w * m, cl = (Q.cl ?? Q.c) * m, cr = (Q.cr ?? Q.c) * m, dx = (Q.dx || 0) * m, ku = Q.ku || .5, kl = Q.kl || .5, open = Q.l != null;
+      const Cl = [dx - w, my + cl], Cr = [dx + w, my + cr];
+      let up = curve(Cl, [dx - w * ku, my + Q.u * m + cl * .2], [dx + w * ku, my + Q.u * m + cr * .2], Cr, 28);
+      if (Q.wave) up = up.map((p, i) => [p[0], p[1] + Q.wave * m * Math.sin(i / 28 * TAU * 1.5) * sinp(i / 28, .4)]);
+      const cat = ms === 'cat' && !open && !Q.wave && !Q.pout;
+      if (cat) { const d = (.2 + Math.max(0, Q.c ?? .2) * .5) * m, y0 = my + Math.max(cl, cr) * .4 + .1 * m;
+        up = curve(Cl, [dx - w * .8, y0 - d * 1.6], [dx - w * .25, y0 - d * 1.6], [dx, y0], 14).concat(curve([dx, y0], [dx + w * .25, y0 - d * 1.6], [dx + w * .8, y0 - d * 1.6], Cr, 14).slice(1)); }
+      const lo = open ? curve(Cl, [dx - w * kl, my + Q.l * m], [dx + w * kl, my + Q.l * m], Cr, 28) : up, midY = lo[14][1];
+      if (lipC && !cat) { band(up, t => .21 * m * lk * sinp(t, .7) * (1 - .32 * Math.exp(-Math.pow((t - .5) / .09, 2))), lipC, 1); band(lo, t => .27 * m * lk * sinp(t, .8), lipC, -1);
+        x.save(); x.globalAlpha = .4; ell(dx + w * .22, midY - .12 * m * lk, w * .2, .035 * m, '#ffffff'); x.restore(); }
+      else line(curve([dx - w * .34, midY - (Q.pout ? .3 : .36) * m], [dx - w * .12, midY - (Q.pout ? .2 : .44) * m], [dx + w * .12, midY - (Q.pout ? .2 : .44) * m], [dx + w * .34, midY - (Q.pout ? .3 : .36) * m], 8), crease, Q.pout ? .011 : .008, Q.pout ? .8 : .55);
+      if (open) { const ring = up.concat(lo.slice().reverse()); filled(ring, inC); x.save(); x.clip();
+        const tH = (Q.teeth === 'bare' ? .32 : .3) * m, cols = [.12, .26, .42, .58, .74, .88];
+        if (Q.tongue) { ell(dx, midY + .28 * m, w * .58, .5 * m, tongueC); line([[dx, midY + .7 * m], [dx, midY]], '#b24a58', .006, .7); }
+        if (Q.teeth === 'clench') { filled(ring, white); const mid = up.map((p, i) => [(p[0] + lo[i][0]) / 2, (p[1] + lo[i][1]) / 2]); line(mid, gap, .007);
+          cols.forEach(t => { const i = Math.round(t * 28); line([up[i], lo[i]], gap, .004); }); }
+        else if (Q.teeth) { x.lineJoin = 'round'; path(up); x.strokeStyle = white; x.lineWidth = tH * 2 * K; x.stroke();
+          if (Q.teeth === 'bare') { path(lo); x.lineWidth = tH * 1.3 * K; x.stroke();
+            [.2, .8].forEach(t => { const p = up[Math.round(t * 28)]; filled([[p[0] - .13 * m, p[1] - tH * .6], [p[0] + .13 * m, p[1] - tH * .6], [p[0], p[1] - tH * 1.85]], white); });
+            [.3, .7].forEach(t => { const p = lo[Math.round(t * 28)]; filled([[p[0] - .11 * m, p[1] + tH * .5], [p[0] + .11 * m, p[1] + tH * .5], [p[0], p[1] + tH * 1.35]], white); });
+            cols.forEach(t => { const p = lo[Math.round(t * 28)]; line([p, [p[0], p[1] + tH * .75]], gap, .004); }); }
+          cols.forEach(t => { const p = up[Math.round(t * 28)]; line([p, [p[0], p[1] - tH]], gap, .004); }); }
+        x.restore(); filled(ring, null, mc, lw * .8); line(up, mc, lw); }
+      else line(up, mc, lw * (Q.wave ? .9 : 1));
+      [-1, 1].forEach(s => { const C = s < 0 ? Cl : Cr, c = (s < 0 ? cl : cr) / m;
+        if (Q.dimple && c > .1) line(curve([C[0] + s * .012, C[1] + .034], [C[0] + s * .034, C[1] + .016], [C[0] + s * .034, C[1] - .008], [C[0] + s * .014, C[1] - .024], 8), crease, .008, .5 + c * .7);
+        if (Q.tick) line([C, [C[0] + s * .012, C[1] - .016]], mc, lw * .8);
+        if (E.fold) { const ax = C[0] + s * .05; line(curve([ax - s * .03, C[1] + .1], [ax + s * .012, C[1] + .06], [ax + s * .014, C[1] + .005], [ax - s * .012, C[1] - .04], 10), crease, .009, .7 * E.fold);
+          if (Q.teeth === 'bare') line(curve([s * .07, -.36], [s * .1, -.37], [s * .13, -.4], [s * .145, -.45], 8), crease, .009, .8); } });
+    }
+    if (R.fangs) [-1, 1].forEach(s => filled([[s * .012, my - .002], [s * .034, my - .002], [s * .024, my - .042]], '#ffffff', '#7a5a5a', .005));
   }
+  /* shade under frowning brows, drawn under the eyes */
+  if (E.shadow && !P.dot) [-1, 1].forEach(s => { const ex = X(s * cx0), ey = Y(cy + P.h * .55), g = x.createRadialGradient(ex, ey, 0, ex, ey, P.w * 1.5 * K);
+    const sc = hx(shade(skin, .42)).join(','); g.addColorStop(0, `rgba(${sc},${.3 * E.shadow})`); g.addColorStop(.6, `rgba(${sc},${.14 * E.shadow})`); g.addColorStop(1, `rgba(${sc},0)`);
+    x.save(); x.translate(ex, ey); x.scale(1, .62); x.translate(-ex, -ey); x.fillStyle = g; x.fillRect(ex - P.w * 1.5 * K, ey - P.w * 1.5 * K, P.w * 3 * K, P.w * 3 * K); x.restore(); });
   /* eyes */
+  const drop = (dxu, dyu, r, a = 1) => { x.save(); x.globalAlpha = a; x.beginPath(); x.moveTo(X(dxu), Y(dyu + r * 2.1)); x.quadraticCurveTo(X(dxu + r * 1.5), Y(dyu + r * .1), X(dxu), Y(dyu - r)); x.quadraticCurveTo(X(dxu - r * 1.5), Y(dyu + r * .1), X(dxu), Y(dyu + r * 2.1));
+    x.fillStyle = '#c6e8ff'; x.fill(); x.strokeStyle = '#3a6a9a'; x.lineWidth = .006 * K; x.stroke(); ell(dxu - r * .3, dyu + r * .1, r * .28, r * .4, '#ffffff'); x.restore(); };
   const eye = s => {
     const cx = s * cx0, w = P.w, h = P.h * (E.wide || 1), tilt = P.tilt || 0;
-    if (E.closed === 'squeeze') { line([[cx + s * w * .75, cy + h * .7], [cx - s * w * .45, cy + h * .05], [cx + s * w * .75, cy - h * .55]], ink, .024); return; }
-    if (E.closed === 'up') { line(curve([cx - s * w * .85, cy - h * .2], [cx - s * w * .35, cy + h * 1.05], [cx + s * w * .35, cy + h * 1.05], [cx + s * w * .9, cy - h * .15]), ink, .022); return; }
-    if (E.closed === 'down') { const pts = curve([cx - s * w * .9, cy + h * .15], [cx - s * w * .35, cy - h * .75], [cx + s * w * .4, cy - h * .75], [cx + s * w * .95, cy + h * .2]);
-      line(pts, ink, .018); [.62, .78, .92].forEach((t, i) => { const p = bez(...[[cx - s * w * .9, cy + h * .15], [cx - s * w * .35, cy - h * .75], [cx + s * w * .4, cy - h * .75], [cx + s * w * .95, cy + h * .2]], t); line([p, [p[0] + s * .012 * (i + 1), p[1] - .03]], ink, .008); }); return; }
-    if (P.dot) { ell(cx + (E.look || 0) * .015, cy + (E.lookY || 0) * .015, w * (E.wide || 1), h * (E.wide || 1), '#1d1418'); ell(cx - .014, cy + .022, w * .3, w * .3, '#ffffff'); return; }
+    if (E.closed === 'squeeze') { line([[cx + s * w * .8, cy + h * .75], [cx - s * w * .5, cy + h * .05], [cx + s * w * .8, cy - h * .6]], ink, .026);
+      line([[cx - s * w * .62, cy + h * .5], [cx - s * w * .8, cy + h * .2]], crease, .008, .7); return; }
+    if (E.closed === 'up') { const a = [cx - s * w * .9, cy - h * .25], b = [cx - s * w * .38, cy + h * 1.1], c = [cx + s * w * .38, cy + h * 1.1], d = [cx + s * w * .95, cy - h * .2], arc = curve(a, b, c, d, 24);
+      band(arc, t => .034 * (.35 + .65 * Math.sin(PI * t)), ink, 1); line(arc, ink, .012);
+      if (!man) line([d, [d[0] + s * .03, d[1] + .012]], ink, .011);
+      if (E.cheek) line(curve([cx - s * w * .6, cy - h * .5], [cx - s * w * .2, cy - h * .28], [cx + s * w * .3, cy - h * .28], [cx + s * w * .72, cy - h * .52], 10), crease, .008, .65);
+      if (E.joy && s > 0) drop(d[0] + s * .012, d[1] - .012, .017, .95); return; }
+    if (E.closed === 'down') { const q = [[cx - s * w * .9, cy + h * .15], [cx - s * w * .35, cy - h * .75], [cx + s * w * .4, cy - h * .75], [cx + s * w * .95, cy + h * .2]], arc = curve(...q, 24);
+      band(arc, t => .026 * (.35 + .65 * Math.sin(PI * t)), ink, -1); line(arc, ink, .012);
+      (man ? [.9] : [.5, .66, .8, .92]).forEach((t, i) => { const p = bez(...q, t); line([p, [p[0] + s * .009 * (i + 1), p[1] - .034]], ink, .008); });
+      line(curve([cx - s * w * .6, cy + h * .75], [cx - s * w * .2, cy + h * .95], [cx + s * w * .3, cy + h * .95], [cx + s * w * .7, cy + h * .75], 10), crease, .006, .55); return; }
+    if (P.dot) { ell(cx + (E.look || 0) * .015, cy + (E.lookY || 0) * .015, w * (E.wide || 1), h * (1 - .55 * clamp((E.lid || 0), 0, 1)), '#1d1418'); ell(cx - .014, cy + .022, w * .3, w * .3, '#ffffff');
+      if (E.tear && s < 0) drop(cx - s * .01, cy - h - .1, .02); return; }
     const I = [cx - s * w, cy - tilt * h * .3], O = [cx + s * w, cy + tilt * h * .7];
     const U1 = [cx - s * w * .45, cy + h * P.up], U2 = [cx + s * w * .45, cy + h * P.up * .95 + tilt * h * .3];
     const L1 = [cx - s * w * .4, cy - h * P.low], L2 = [cx + s * w * .45, cy - h * P.low * .95 + tilt * h * .2];
-    const kI = clamp((E.lid || 0) + (E.lidI || 0), 0, .95), kO = clamp((E.lid || 0) + (E.lidO || 0), 0, .95), kb = E.low || 0;
+    const un = s > 0 ? (E.uneven || 0) : 0, kI = clamp((E.lid || 0) + (E.lidI || 0) + un, 0, .95), kO = clamp((E.lid || 0) + (E.lidO || 0) + un, 0, .95), kb = E.low || 0;
     const A1 = lerp2(U1, L1, kI), A2 = lerp2(U2, L2, kO), B1 = lerp2(L1, U1, kb * .6), B2 = lerp2(L2, U2, kb);
     const lid = curve(I, A1, A2, O, 24), low = curve(O, B2, B1, I, 24);
-    x.beginPath(); lid.concat(low).forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1]))); x.closePath();
+    path(lid.concat(low)); x.closePath();
     x.fillStyle = '#fbf8f3'; x.fill(); x.save(); x.clip();
-    const ix = cx + (E.look || 0) * w * .38, iy = cy + (E.lookY || 0) * h * .45 - h * .04, rI = w * (man ? .5 : .55), ry = rI * 1.12;
+    const ix = cx + (E.look || 0) * w * .38, iy = cy + (E.lookY || 0) * h * .45 - h * .04, rI = w * (man ? .5 : .55) * (E.iris || 1), ry = rI * 1.12;
     const g = x.createLinearGradient(0, Y(iy + ry), 0, Y(iy - ry)); g.addColorStop(0, shade(irisC, .22)); g.addColorStop(.55, shade(irisC, .85)); g.addColorStop(1, mix(irisC, '#ffffff', .5));
-    ell(ix, iy, rI, ry, g); x.strokeStyle = shade(irisC, .28); x.lineWidth = .008 * K; x.stroke();
+    ell(ix, iy, rI, ry, g); x.strokeStyle = shade(irisC, .28); x.lineWidth = .009 * K; x.stroke();
+    x.save(); x.clip(); x.globalAlpha = .3; for (let i = 0; i < 18; i++) { const a = i / 18 * TAU + .2; line([[ix + Math.cos(a) * rI * .45, iy + Math.sin(a) * ry * .45], [ix + Math.cos(a) * rI, iy + Math.sin(a) * ry]], i % 2 ? shade(irisC, .45) : mix(irisC, '#ffffff', .45), .004, .3); }
+    x.globalAlpha = .55; ell(ix, iy - ry * .55, rI * .62, ry * .36, mix(irisC, '#ffffff', .55)); x.restore();
     ell(ix, iy - ry * .04, rI * .42 * (E.pupil || 1), ry * .5 * (E.pupil || 1), shade(irisC, .14));
-    x.save(); x.globalAlpha = man ? .14 : .22; x.strokeStyle = man ? '#3a2a24' : '#3c2448'; x.lineWidth = h * .38 * K; x.beginPath(); lid.forEach((p, i) => x[i ? 'lineTo' : 'moveTo'](X(p[0]), Y(p[1]))); x.stroke(); x.restore();
-    const hl = man ? .62 : 1; ell(ix - rI * .34, iy + ry * .36, rI * .3 * hl, ry * .27 * hl, '#ffffff'); if (!man) ell(ix + rI * .32, iy - ry * .42, rI * .12, rI * .12, 'rgba(255,255,255,.85)');
+    x.save(); x.globalAlpha = (man ? .14 : .22) + .26 * (E.shadow || 0) + (E.dull ? .1 : 0); x.strokeStyle = man ? '#3a2a24' : '#3c2448'; x.lineWidth = h * (.38 + .25 * (E.shadow || 0)) * K; path(lid); x.stroke(); x.restore();
+    const hl = (man ? .62 : 1) * (E.dull ? .55 : E.shine || E.tear ? 1.2 : 1); ell(ix - rI * .34, iy + ry * .36, rI * .3 * hl, ry * .27 * hl, E.dull ? 'rgba(255,255,255,.75)' : '#ffffff');
+    if ((!man || E.shine || E.tear) && !E.dull) ell(ix + rI * .32, iy - ry * .42, rI * .12, rI * .12, 'rgba(255,255,255,.85)');
+    if (E.shine || E.tear) ell(ix + rI * .42, iy + ry * .12, rI * .07, rI * .07, 'rgba(255,255,255,.9)');
+    if (E.tear) { x.globalAlpha = .75; path(low); x.strokeStyle = '#cfeaff'; x.lineWidth = h * .34 * K; x.stroke(); x.globalAlpha = 1; }
     x.restore();
     /* lash line along the lid, thicker towards the outer end, with a wing for sharp eyes */
     band(lid, t => P.lash * .05 * (.3 + .7 * sstep(0, .5, t)) * (1 - .4 * sstep(.88, 1, t)), ink);
     if (P.wing) { const e = lid[lid.length - 1], q = lid[lid.length - 4]; x.beginPath(); x.moveTo(X(q[0]), Y(q[1] + .02 * P.lash)); x.lineTo(X(e[0] + s * w * .3 * P.wing), Y(e[1] + h * .45 * P.wing)); x.lineTo(X(e[0]), Y(e[1] - .004)); x.closePath(); x.fillStyle = ink; x.fill(); }
-    line(curve(O, B2, B1, I, 16, .05, .55), '#5a4048', .007, .8);
+    line(curve(O, B2, B1, I, 16, .05, kb > .2 ? .9 : .55), kb > .2 ? '#3c2a32' : '#5a4048', kb > .2 ? .009 : .007, .8);
+    if (E.cheek) line(curve([cx - s * w * .55, cy - h * P.low * .9 - .02], [cx - s * w * .2, cy - h * P.low - .045], [cx + s * w * .3, cy - h * P.low - .045], [cx + s * w * .7, cy - h * P.low * .85 - .02], 10), crease, .007, .36);
     if (kI < .5 && kO < .5) line(curve(I, [U1[0], U1[1] + h * .4], [U2[0], U2[1] + h * .38], O, 16, .22, .85), shade(skin, .66), .005, man ? .4 : .7);
+    else if (!E.shadow) line(curve(I, [U1[0], U1[1] + h * .25], [U2[0], U2[1] + h * .25], O, 16, .12, .9), shade(skin, .62), .007, .7);
     if (P.lashes) [.72, .84, .95].forEach((t, i) => { const p = bez(I, A1, A2, O, t); line([p, [p[0] + s * (.018 + i * .01), p[1] + .03 - i * .004]], ink, .009); });
+    if (E.tear) { const p = low[9]; if (s < 0) { line([[p[0], p[1] - .004], [p[0] - s * .004, p[1] - .07]], '#c6e8ff', .012, .8); drop(p[0] - s * .004, p[1] - .1, .021); } else drop(low[5][0], low[5][1] - .012, .013, .9); }
   };
   [-1, 1].forEach(eye);
-  /* brows: hair-coloured, frowning or worried with the expression */
+  /* brows: hair-coloured, frowning, worried or lifted with the expression */
   if (spec.brows !== 'none') [-1, 1].forEach(s => {
-    const cx = s * cx0, bw = P.dot ? .1 : P.w * (man ? 1.14 : 1.05), a = E.brow || 0, by = cy + (P.dot ? .13 : P.h * .9) + (man ? .04 : .045) + (E.raise || 0) * .04 + (E.browOne && s > 0 ? .05 : 0);
+    const one = E.browOne ? s : 0, a = (E.brow || 0) + (one < 0 ? .55 : one > 0 ? -.15 : 0), ap = Math.max(0, a), an = Math.max(0, -a), tk = (E.browTh || 1) * (1 + .1 * ap);
+    const cx = s * (cx0 - .04 * ap), bw = P.dot ? .1 : P.w * (man ? 1.14 : 1.05);
+    const by = cy + (P.dot ? .13 : P.h * .9) + (man ? .04 : .045) + (E.raise || 0) * .05 + (one > 0 ? .075 : one < 0 ? -.025 : 0) - ap * .006;
     const col = beast ? shade(skin, .6) : lum(hairHex) > .6 ? shade(hairHex, .58) : lum(hairHex) < .2 ? hairHex : shade(hairHex, .82);
-    const inr = [cx - s * bw * .8, by - a * .045], out = [cx + s * bw, by - .015 + a * .02];
-    if (spec.brows === 'short') { x.save(); x.translate(X(cx - s * bw * .3), Y(by + .02 - a * .02)); x.rotate(s * a * .25); x.beginPath(); x.ellipse(0, 0, .045 * K, .022 * K, 0, 0, TAU); x.fillStyle = col; x.fill(); x.restore(); return; }
-    const arch = (spec.brows === 'arched' ? .045 : spec.brows === 'thick' ? .018 : .028) * (man ? .45 : 1), th = (spec.brows === 'thick' ? .038 : spec.brows === 'arched' ? .022 : .021) * (man ? 1.3 : 1);
+    const inr = [cx - s * bw * .8, by - ap * .085 + an * .07], out = [cx + s * bw, by - .015 + ap * .045 - an * .055];
+    if (spec.brows === 'short') { x.save(); x.translate(X(cx - s * bw * .3), Y(by + .02 - ap * .05 + an * .04)); x.rotate(s * a * .55); x.beginPath(); x.ellipse(0, 0, .048 * K * tk, .023 * K * tk, 0, 0, TAU); x.fillStyle = col; x.fill(); x.restore(); return; }
+    const arch = (spec.brows === 'arched' ? .045 : spec.brows === 'thick' ? .018 : .028) * (man ? .45 : 1) * (1 - .7 * Math.min(1, ap)) + ((E.arch || 0) * .03 + (one > 0 ? .025 : 0)) + an * .012;
+    const th = (spec.brows === 'thick' ? .04 : spec.brows === 'arched' ? .028 : .028) * (man ? 1.3 : 1) * tk;
     const m1 = [lerp(inr[0], out[0], .33), lerp(inr[1], out[1], .33) + arch], m2 = [lerp(inr[0], out[0], .7), lerp(inr[1], out[1], .7) + arch * .9];
-    band(curve(inr, m1, m2, out, 18), t => th * (1 - (man ? .38 : .62) * t), col, 1);
+    band(curve(inr, m1, m2, out, 18), t => th * (1 - (man ? .38 : .62) * t) * (.7 + .3 * sstep(0, .12, t)), col, 1);
+    if (E.furrow && !beast) { const fx = Math.max(.035, Math.abs(inr[0]) - .075); line(curve([s * fx, inr[1] - .03], [s * (fx - .012), inr[1] + .005], [s * (fx + .004), inr[1] + .04], [s * (fx + .02), inr[1] + .075], 8), crease, .009, .85 * E.furrow);
+      if (E.furrow >= 1) line([[s * (fx + .05), inr[1] + .07], [s * (fx + .1), inr[1] + .1]], crease, .006, .5); }
   });
   if (marks.has('scar') && !beast) { const cx = -cx0; line([[cx - .07, cy + .25], [cx + .06, cy - .22]], mix(skin, '#b0505a', .55), .013);
     [.25, .5, .75].forEach(t => { const p = [lerp(cx - .07, cx + .06, t), lerp(cy + .25, cy - .22, t)]; line([[p[0] - .022, p[1] - .006], [p[0] + .022, p[1] + .006]], mix(skin, '#b0505a', .4), .006); }); }
   if (marks.has('mole') && !beast) ell(-.13, -.63, .011, .011, '#4a2a22');
-  if (E.sweat) { const sx = .52, sy = .16; x.beginPath(); x.moveTo(X(sx), Y(sy + .06)); x.quadraticCurveTo(X(sx + .04), Y(sy - .01), X(sx), Y(sy - .025)); x.quadraticCurveTo(X(sx - .04), Y(sy - .01), X(sx), Y(sy + .06));
+  if (E.sweat) { const sx = .655, sy = .0; x.beginPath(); x.moveTo(X(sx), Y(sy + .06)); x.quadraticCurveTo(X(sx + .04), Y(sy - .01), X(sx), Y(sy - .025)); x.quadraticCurveTo(X(sx - .04), Y(sy - .01), X(sx), Y(sy + .06));
     x.fillStyle = '#bfe4ff'; x.fill(); x.strokeStyle = '#3a6a9a'; x.lineWidth = .006 * K; x.stroke(); }
   return cv;
 }
@@ -612,8 +688,8 @@ function faceIcon(spec, over, mode = 'face'){
   const key = mode + JSON.stringify([s.race, s.body, s.skin, s.hair, s.hairCol, s.eyes, s.headSize, s.headShape, s.jaw, s.eyeShape, s.eyeSize, s.brows, s.nose, s.mouth, s.expr, s.marks]);
   if (iconCache.has(key)) return iconCache.get(key); if (iconCache.size > 400) iconCache.clear();
   const o = canvas(112, 112), x = o.getContext('2d'), sheet = faceSheet(s, R), warp = headWarp(s, R, 1);
-  const r0 = mode === 'eyes' ? 92 : mode === 'mouth' ? 280 : mode === 'expr' ? 78 : 48 * pick(HEAD_SIZES, s.headSize)[2], cx = 56,
-    cy = mode === 'eyes' ? 56 - .12 * r0 : mode === 'mouth' ? 56 - .5 * r0 : mode === 'expr' ? 58 - .33 * r0 : 54;
+  const r0 = mode === 'eyes' ? 92 : mode === 'mouth' ? 190 : mode === 'expr' ? 78 : 48 * pick(HEAD_SIZES, s.headSize)[2], cx = 56,
+    cy = mode === 'eyes' ? 56 - .12 * r0 : mode === 'mouth' ? 56 - .56 * r0 : mode === 'expr' ? 58 - .33 * r0 : 54;
   const pts = [];
   for (let k = 0; k < 72; k++) { const a = k / 72 * TAU, ca = Math.cos(a), sa = Math.sin(a); let best = null, bd = -1;
     for (let j = 0; j <= 12; j++) { const e = j / 12 * PI / 2, p = new V3(Math.sin(e) * ca, Math.sin(e) * sa, Math.cos(e)); if (warp) warp(p); const d = p.x * ca + p.y * sa; if (d > bd) { bd = d; best = p; } }
@@ -793,7 +869,7 @@ function buildFigure(spec, opt = {}){
   const ft = ctex(faceTex(spec, R, hairInfo && !hood ? hairInfo : null));
   const mFace = M(0xffffff, {map:ft, gradientMap:SOFT}); rig.face = mFace;
   head.add(inked(headGeo(HR, warp), mFace, .65));
-  if (R.beast !== 'bug') { const fm = faceSheetMesh(HR, warp, ctex(faceSheet(spec, R)), M); head.add(fm); rig.faceSheet = fm; }
+  if (R.beast !== 'bug') { const fm = faceSheetMesh(HR, warp, ctex(faceSheet(spec, R, opt.fine ? 1.5 : 1)), M); head.add(fm); rig.faceSheet = fm; rig.fine = !!opt.fine; }
   headExtras(head, HR, R, spec, M, mSkin, hairHex, hairInfo, hood);
   if (g.hood) hoodParts(head, HR, g, headY);
   if (g.after) g.after(head, HR, headY);
@@ -1362,7 +1438,7 @@ function animate(rig, name, t){ if (rig.beast) return BK.pose(rig, name, t); pos
 /* the face sheet's picture for a move (made the first time it is needed) */
 function faceFor(rig, expr){
   const fm = rig.faceSheet; if (!fm || rig.faceNow === expr) return; rig.faceNow = expr; const F = rig.faces || (rig.faces = {base:fm.material.map});
-  if (expr && !F[expr]) F[expr] = ctex(faceSheet(Object.assign({}, rig.spec, {expr}), RACES[rig.spec.race] || RACES.Human));
+  if (expr && !F[expr]) F[expr] = ctex(faceSheet(Object.assign({}, rig.spec, {expr}), RACES[rig.spec.race] || RACES.Human, rig.fine ? 1.5 : 1));
   fm.material.map = expr ? F[expr] : F.base; fm.material.needsUpdate = true;
 }
 /* arms push soft hair out of the way. Each lock is a chain of rings from the root down: a ring that an arm reaches is pushed
