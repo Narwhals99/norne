@@ -481,8 +481,20 @@ N.channelsFor = (role, shut) => {
 };
 /* Everyone is table talk only: no speaking in character and no fights there. The GM can make a group chat or party Meta only too */
 N.metaOnly = ch => ch === 'table' || !!N.grpOf(ch)?.meta;
-/* a party chat the GM paused: players read it but can't send (Jake) */
-N.chPaused = ch => { const gr = N.grpOf(ch); return !!(gr && gr.party && gr.paused); };
+/* a party or group chat the GM paused: players read it but can't send (Jake) */
+N.chPaused = ch => { const gr = N.grpOf(ch); return !!(gr && gr.paused); };
+/* Jake's calendar (Calendar_Seasons_Weather): the week's days and the months with their lengths, for the GM's Next day line */
+N.WEEKDAYS = ['First Market', 'Second Market', 'Third Market', 'Fourth Market', 'Freeday', 'Restday', 'Readyday'];
+N.MONTHS = [['First Rain', 30], ['Seed Sow', 29], ['Sun’s Show', 30], ['First Heat', 31], ['High Shine', 31], ['Last Heat', 31],
+  ['First Fall', 30], ['Harvest Hour', 29], ['Sun’s Leave', 30], ['First Frost', 31], ['Hearth Fire', 31], ['Last Frost', 31]];
+N.ordinal = n => { const t = n % 100, e = n % 10; return n + (t > 10 && t < 14 ? 'th' : e === 1 ? 'st' : e === 2 ? 'nd' : e === 3 ? 'rd' : 'th'); };
+/* d: {w, d, m, y} (indexes into the lists, the date, the year as typed) or {u:true}. "Freeday, 3rd of Seed Sow, 1204" */
+N.dayLine = d => d.u ? 'Date unknown' : `${N.WEEKDAYS[d.w]}, ${N.ordinal(d.d)} of ${N.MONTHS[d.m][0]}${String(d.y || '').trim() ? ', ' + String(d.y).trim() : ''}`;
+/* the day after d, by Jake's month lengths; a year that is a plain number goes up after Last Frost */
+N.dayAfter = d => { if (!d || d.u) return null; let {w, d:n, m, y} = d; w = (w + 1) % 7; n++;
+  if (n > N.MONTHS[m][1]) { n = 1; m++; if (m > 11) { m = 0; const t = String(y || '').trim(); if (/^\d+$/.test(t)) y = String(+t + 1); } }
+  return {w, d:n, m, y:y || ''}; };
+N.NEXT_DAY_META = 'GM will now refresh Fate points and Gold, and will run Strength checks on Consequences.';
 /* in a Meta-only chat a person shows by their own name, not "Jack · Brann" */
 N.metaName = by => N.metaPerson(by).name;
 /* the same person on another of their characters counts as "you" in Everyone */

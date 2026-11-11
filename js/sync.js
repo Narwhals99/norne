@@ -228,7 +228,7 @@ N.groupsReady = () => GROUPS_OK;
 N.saveGroup = (gr, before, hist = true) => {
   if (!isGM()) return;
   const g = G(), i = g.groups.findIndex(x => x.id === gr.id); if (i < 0) g.groups.push(gr); else g.groups[i] = gr;
-  track(F.setDoc(dref('groups/' + gr.id), {name:gr.name, seats:gr.seats, t:gr.t || Date.now(), party:!!gr.party, meta:!!gr.meta, paused:!!(gr.party && gr.paused), ...(gr.pic ? {pic:gr.pic} : {})}));
+  track(F.setDoc(dref('groups/' + gr.id), {name:gr.name, seats:gr.seats, t:gr.t || Date.now(), party:!!gr.party, meta:!!gr.meta, paused:!!gr.paused, ...(gr.pic ? {pic:gr.pic} : {})}));
   if (gr.party) listenParty(gr.id);
   if (before && before.join() !== gr.seats.join()) {
     const added = gr.seats.filter(s => !before.includes(s));

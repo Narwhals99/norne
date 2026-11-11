@@ -2719,6 +2719,46 @@
 .app .ct-goal{display:flex;align-items:center;gap:10px}
 .app .ct-goal small{font:700 12.5px/1 var(--f-ui);color:var(--ink-2)}
 .app .ct-goal .seg button{min-width:44px;justify-content:center}
+/* Jake: a chat portrait seen bigger (hold on a phone, click on a computer) */
+.app .msgs .m > .av:has(img){cursor:zoom-in;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.app .msgs .m > .av img{-webkit-touch-callout:none;pointer-events:none}
+.app .avpeek{position:fixed;z-index:90;display:grid;justify-items:center;gap:8px;pointer-events:none;animation:avpeek .16s cubic-bezier(.2,.9,.3,1.2) both}
+.app .avpeek .av.big{border-radius:22px;margin:0;visibility:visible;display:grid;
+  box-shadow:0 0 0 3px var(--page-solid),0 0 0 5px color-mix(in srgb,var(--c) 85%,transparent),0 24px 50px -16px rgba(0,0,0,.85)}
+.app .avpeek .av.big img{border-radius:22px}
+.app .avpeek b{max-width:100%;padding:5px 12px;border-radius:999px;background:var(--raise);color:var(--ink);font:800 13px/1.2 var(--f-ui);
+  box-shadow:0 0 0 1px var(--line-2),0 8px 18px -10px rgba(0,0,0,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@keyframes avpeek{from{opacity:0;transform:scale(.6)}}
+@media (prefers-reduced-motion:reduce){.app .avpeek{animation:none}}
+/* Group chats in the chat list: roleplay ones and Meta-only ones under their own small labels */
+.app .shg .shsub{display:flex;align-items:center;gap:6px;margin:6px 0 2px;padding:0 12px;font:700 10.5px/1 var(--f-ui);letter-spacing:.06em;color:var(--ink-4)}
+.app .shg .shsub svg{width:12px;height:12px}
+.app .shg .shsub ~ .shsub{margin-top:10px}
+.app .shelf.mini .shg .shsub{font-size:0;padding:0;margin:4px 14px;height:1px;background:var(--line);gap:0}
+.app .shelf.mini .shg .shsub svg{display:none}
+/* Next day: the GM's date picker and the line it posts */
+.app .ndunk{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);cursor:pointer}
+.app .ndunk input{width:20px;height:20px;accent-color:var(--gold);flex:none}
+.app .ndunk span{display:grid;gap:3px}
+.app .ndunk b{font:800 14.5px/1.2 var(--f-ui);color:var(--ink)}
+.app .ndunk small{font:600 12.5px/1.35 var(--f-ui);color:var(--ink-3)}
+.app .ndgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+.app .ndgrid.off{opacity:.45}
+@media (min-width:640px){.app .ndgrid{grid-template-columns:1.4fr .7fr 1.4fr 1fr}}
+.app .ndprev{display:grid;gap:8px}
+.app .ndl{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:12px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line);font:500 14px/1.45 var(--f-ui);color:var(--ink-2)}
+.app .ndl svg{width:18px;height:18px;flex:none;margin-top:1px;color:var(--ink-3)}
+.app .ndl.n svg{color:var(--gold-tx)}
+.app .ndl span{display:grid;gap:2px}
+.app .ndl small{font:800 10px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4)}
+.app .ndl.n span{font:400 16px/1.45 var(--f-display);color:var(--ink)}
+.app .narr.dayl .who svg{width:12px;height:12px}
+.app .narr.dayl .who .tag{height:17px;font-size:9px}
+/* the GM's phone bar in a roleplay group chat holds Next day, Pause and Edit too: slimmer buttons leave the chat's name room */
+.app .top.ph.busy{gap:2px}
+.app .top.ph.busy .ibtn{width:34px}
+.app .top.ph.busy .chname{min-width:0}
 
 /* consequence states (Jake): Active / Stable / Recovering. The GM's three buttons under a filled slot, a tag for everyone.
    The colour is a dot so the tag reads on the card paper in every style */
