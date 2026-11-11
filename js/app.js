@@ -399,6 +399,41 @@ function bind(v){
     const [grip, G2] = gripOf(e.target), box = grip && G2.box(grip); if (!box) return;
     const k = G2.key(box); v.ui[k] = null; try { localStorage.removeItem('norne-' + k.toLowerCase()); } catch(err) {} render(v);
   });
+  /* Jake: a chat portrait seen bigger. Phone: press and hold the little picture, it shows while the finger stays down.
+     Computer: click it, it stays until a click anywhere else. Only pictures, not the letter circles. The big one sits in the
+     .app root (data-keep, so redraws leave it alone), fixed on the screen next to the little one. */
+  const PEEK = '.msgs .m > .av';
+  const peekAv = t => { const a = t?.closest?.(PEEK); return a && a.querySelector('img') ? a : null; };
+  let pk = null, pkTouch = 0;
+  const peekHide = () => { if (!pk) return; clearTimeout(pk.tm); pk.el?.remove(); document.removeEventListener('touchmove', pkHold, {passive:false}); pk = null; };
+  const pkHold = e => { if (pk?.el && e.cancelable) e.preventDefault(); };
+  const peekShow = a => {
+    const r = a.getBoundingClientRect(), W = innerWidth, H = innerHeight, S = Math.min(TOUCH.matches ? 220 : 260, W - 32);
+    const who = a.parentElement.querySelector('.who')?.firstChild, name = (who && who.nodeType === 3 ? who.nodeValue : a.parentElement.querySelector('.who')?.textContent || '').trim();
+    const el = document.createElement('div'); el.className = 'avpeek'; el.setAttribute('data-keep', ''); el.setAttribute('aria-hidden', 'true');
+    const big = a.cloneNode(true); big.classList.add('big'); big.style.setProperty('--s', S + 'px'); el.appendChild(big);
+    if (name) { const b = document.createElement('b'); b.textContent = name; el.appendChild(b); }
+    /* phone: above the finger (the finger covers the little one), centred; computer: beside it, kept on the screen */
+    let x, y;
+    if (TOUCH.matches) { x = Math.max(16, Math.min(W - S - 16, r.left + r.width / 2 - S / 2)); y = r.top - S - 44; if (y < 12) y = Math.min(H - S - 40, r.bottom + 16); }
+    else { x = Math.min(W - S - 16, r.right + 12); y = Math.max(12, Math.min(H - S - 40, r.top - S / 2)); }
+    el.style.left = Math.round(x) + 'px'; el.style.top = Math.round(y) + 'px';
+    v.root.appendChild(el); pk.el = el; pk.av = a;
+  };
+  root.addEventListener('touchstart', e => {
+    peekHide(); pkTouch = Date.now();
+    const a = e.touches.length === 1 && peekAv(e.target); if (!a) return;
+    const t = e.touches[0]; pk = {x:t.clientX, y:t.clientY, tm:setTimeout(() => { if (!pk) return; peekShow(a); try { navigator.vibrate?.(8); } catch(err) {} document.addEventListener('touchmove', pkHold, {passive:false}); }, 170)};
+  }, {passive:true});
+  root.addEventListener('touchmove', e => { if (!pk || pk.el) return; const t = e.touches[0]; if (Math.hypot(t.clientX - pk.x, t.clientY - pk.y) > 8) peekHide(); }, {passive:true});
+  root.addEventListener('touchend', () => { pkTouch = Date.now(); peekHide(); });
+  root.addEventListener('touchcancel', peekHide);
+  root.addEventListener('click', e => { if (Date.now() - pkTouch < 700) return; const a = peekAv(e.target); if (!a) return;
+    const same = pk?.av === a; peekHide(); if (!same) { pk = {}; peekShow(a); } }, true);
+  document.addEventListener('pointerdown', e => { if (pk?.el && !TOUCH.matches && !peekAv(e.target)) peekHide(); }, true);
+  root.addEventListener('scroll', e => { if (pk?.el && e.target.matches?.('.msgs')) peekHide(); }, true);
+  addEventListener('keydown', e => { if (e.key === 'Escape') peekHide(); });
+  addEventListener('resize', peekHide);
   /* long-press a message on a phone to react, reply or (GM) edit it; a right-click does the same on a computer */
   let lp = null;
   /* a new finger down is a new tap: the 'swallow the lift' guard below is only for the press that opened the menu.
@@ -409,7 +444,7 @@ function bind(v){
   root.addEventListener('touchstart', e => {
     clearTimeout(lp?.tm); lp = null;
     const w = e.touches.length === 1 && e.target.closest('.msgs [data-mid]');
-    if (!w || e.target.closest('button,a,input,textarea,.roll .rh')) return;
+    if (!w || e.target.closest('button,a,input,textarea,.roll .rh') || peekAv(e.target)) return;
     const t = e.touches[0], id = w.dataset.mid;
     lp = {x:t.clientX, y:t.clientY, id, tm:setTimeout(() => { lp.fired = true; v.lpHold = true; try { getSelection()?.removeAllRanges(); } catch(err) {} try { navigator.vibrate?.(12); } catch(err) {} lpOpen(id); }, 480)};
   }, {passive:true});
@@ -419,6 +454,7 @@ function bind(v){
   root.addEventListener('selectstart', e => { const t = e.target.nodeType === 1 ? e.target : e.target.parentElement; if (TOUCH.matches && !t?.closest('input,textarea,[contenteditable]')) e.preventDefault(); });
   root.addEventListener('contextmenu', e => {
     const w = e.target.closest('.msgs [data-mid]'); if (!w || e.target.closest('textarea,input')) return;
+    if (TOUCH.matches && peekAv(e.target)) { e.preventDefault(); return; }
     e.preventDefault(); if (lp?.fired || v.ui.pop?.mid === w.dataset.mid) return; lpOpen(w.dataset.mid);
   });
   root.addEventListener('click', e => {
@@ -718,6 +754,7 @@ function input(v, el){
   switch (i) {
     case 'draft': v.ui.draft = val; grow(el); return;
     case 'fcDraft': v.ui.fcDraft = val; return;
+    case 'ndayY': if (v.ui.nday) { v.ui.nday.y = val.slice(0, 24); const p = v.root.querySelector(`#ndp-${v.id}`); if (p) p.innerHTML = N.nextDayPrev(v.ui.nday); } return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
     case 'itQ': v.ui.itQ = val; render(v); return;
     case 'shopQ': v.ui.shopQ = val; render(v); return;
@@ -814,11 +851,13 @@ function change(v, el){
   if (i === 'shopName' || i === 'shopPrice') renderAll();
   if (i === 'memName') { N.renameMember(el.dataset.v, val); toast(v, 'Name saved.'); render(v); }
   if (i === 'sdAspOn') { const a = v.ui.sd.aspects[+el.dataset.n]; if (a) { if (val) a.on = val; else delete a.on; } render(v); }
+  if (/^nday[UWDM]$/.test(i) && v.ui.nday) { const d = v.ui.nday, k = i[4];
+    if (k === 'U') d.u = el.checked; else d[k.toLowerCase()] = parseInt(val, 10) || 0; render(v); }
   if (i === 'invQ') { const n = parseInt(val, 10); v.ui.invQ = n > 0 ? n : 1; }
 }
 
 /* ---------------- chat ---------------- */
-/* a paused party chat (Jake) takes nothing from its players: no messages, pictures, GIFs or rolls */
+/* a paused party or group chat (Jake) takes nothing from its players: no messages, pictures, GIFs or rolls */
 function hushed(v, ch){ if (isGM(v) || !N.chPaused(ch)) return false; toast(v, 'The GM paused this chat. You can read it, but not send anything until they resume it.'); render(v); return true; }
 function send(v){
   const text = v.ui.draft.trim(); if (!text) return;
@@ -1486,7 +1525,12 @@ function act(v, a, el, e){
   case 'grpEdit': if (!gm) break; openSheet(v, 'grpEdit', {v:val}); break;
   case 'gdParty': ui.gd.party = val === '1'; break;
   /* Jake: the GM pauses a party's chat; its players can read but not send until the GM lets them talk again */
-  case 'grpPause': { const gr = gm && N.grpOf('grp-' + val); if (!gr || !gr.party) break; const on = !gr.paused;
+  case 'ndayGo': { const d = ui.nday, ch = ui.ch; if (!gm || !d || !N.grpOf(ch) || N.metaOnly(ch)) break;
+    const day = d.u ? {u:true} : {w:clamp(d.w, 0, 6), d:clamp(d.d, 1, 31), m:clamp(d.m, 0, 11), y:String(d.y || '').trim()};
+    const a = push({ch, kind:'rp', by:'gm', as:'Narrator', text:N.dayLine(day), day});
+    push({ch, kind:'meta', by:'gm', text:N.NEXT_DAY_META, t:a.t + 1});
+    ui.nday = null; ui.sheet = null; ui.stick = true; toast(v, 'Next day posted.'); renderAll(); return; }
+  case 'grpPause': { const gr = gm && N.grpOf('grp-' + val); if (!gr) break; const on = !gr.paused;
     N.saveGroup(on ? {...gr, paused:true} : (({paused, ...x}) => x)(gr), null);
     sys(on ? `${N.gmName()} paused this chat. Players can read but not send until it’s resumed.` : `${N.gmName()} resumed the chat. Everyone can talk again.`, 'grp-' + gr.id);
     toast(v, on ? 'Chat paused. Players can’t send messages.' : 'Chat resumed.'); renderAll(); return; }
@@ -1500,7 +1544,7 @@ function act(v, a, el, e){
   case 'gdSave': {
     const d = ui.gd, name = d.name.trim(); if (!gm || !name || !d.seats.length) break;
     const old = d.id && g.groups.find(x => x.id === d.id), seats = N.seats().filter(s => d.seats.includes(s));
-    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {}), ...(d.meta ? {meta:true} : {}), ...(d.party && old?.paused ? {paused:true} : {}), ...(d.pic ? {pic:d.pic} : {})};
+    const gr = {id:d.id || uid('g'), name, seats, t:old?.t || N.now(), ...(d.party ? {party:true} : {}), ...(d.meta ? {meta:true} : {}), ...(old?.paused ? {paused:true} : {}), ...(d.pic ? {pic:d.pic} : {})};
     /* a player is in one party at a time: putting them in this one takes them out of any other. A party whose
        players all come along (a Solo party) stays as their group chat with all its history, so the 1-on-1
        roleplay with the GM is never lost; from a bigger party only the players who move leave. */
@@ -2293,6 +2337,9 @@ function act(v, a, el, e){
 function openSheet(v, s, d={}){
   const g = G(), ui = v.ui;
   ui.sheet = s; ui.sheetArg = d.c || d.v || null;
+  /* Next day starts on the day after the last one posted in this chat (or, failing that, in any chat) */
+  if (s === 'nextDay') { const last = [...g.msgs].reverse(), here = last.find(m => m.day && m.ch === ui.ch) || last.find(m => m.day);
+    const nx = here && N.dayAfter(here.day); ui.nday = nx ? {...nx, u:false, from:true} : {w:0, d:1, m:0, y:here?.day?.y || '', u:!!here?.day?.u}; }
   if (s === 'cbBoost') { ui.cbBo = d.c || null; ui.cbBoOn = null; ui.cbBoName = ''; ui.cbBoLast = 2; }
   if (s === 'grpEdit') { const gr = d.v && g.groups.find(x => x.id === d.v); ui.gd = gr ? {id:gr.id, name:gr.name, seats:[...gr.seats], party:!!gr.party, meta:!!gr.meta, pic:gr.pic || null, hist:true} : {id:null, name:'', seats:[], party:!!d.party, meta:false, pic:null, hist:true}; }
   if (s === 'scene') {

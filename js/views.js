@@ -92,6 +92,13 @@ function shelfRow(v, c){
   return `<button type="button" class="shr${n&&!cur?' new':''}" data-a="ch" data-v="${c}" title="${esc(N.chName(c, v.role))}" ${cur?'aria-current="true"':''}>${chanIcon(v,c)}<span class="t"><b>${esc(N.chName(c, v.role))}</b><small>${esc(chanLast(v, c).replace(/\s+/g, ' ').slice(0, 90))}</small></span>${fight?`<span class="tag ember">${IC('swords')}</span>`:''}${n&&!cur?`<span class="badge">${n}</span>`:''}</button>`;
 }
 N.shelfHtml = v => shelfHtml(v);
+/* Group chats (Jake): the roleplay ones together first, then the Meta-only ones, each under its own small label */
+function grpGroup(v, list){
+  if (!list.length) return '';
+  const rp = list.filter(c => !N.metaOnly(c)), meta = list.filter(c => N.metaOnly(c));
+  const sub = (t, l) => l.length ? `<h4 class="shsub">${IC(t === 'Roleplay' ? 'mask' : 'chatL')}${t}</h4>${l.map(c => shelfRow(v, c)).join('')}` : '';
+  return `<div class="shg" role="group" aria-label="Group chats"><h3>Group chats</h3>${meta.length ? sub('Roleplay', rp) + sub('Meta only', meta) : list.map(c => shelfRow(v, c)).join('')}</div>`;
+}
 function shelfHtml(v){
   const gm = isGM(v), chs = N.channelsFor(v.role), ph = v.dev === 'phone';
   const group = (t, list) => list.length ? `<div class="shg" role="group" aria-label="${t}"><h3>${t}</h3>${list.map(c => shelfRow(v, c)).join('')}</div>` : '';
@@ -106,7 +113,7 @@ function shelfHtml(v){
       ${gm ? group('Parties', chs.filter(c => N.grpOf(c)?.party)) : ''}
       ${group(gm ? 'Private chats' : 'Just you and the GM', chs.filter(c => c.startsWith('dm-')))}
       ${gm && N.seats().length ? `<button type="button" class="shr shnew" data-a="sheet" data-v="dms" title="Private chats"><span class="cic">${IC('whisper')}</span><span class="t"><b>Private chats</b><small>${N.seats().some(s => !N.dmOn(s)) ? 'Open one with a player' : 'Pick who has one with you'}</small></span></button>` : ''}
-      ${group('Group chats', chs.filter(c => c.startsWith('grp-') && !N.grpOf(c)?.party))}
+      ${grpGroup(v, chs.filter(c => c.startsWith('grp-') && !N.grpOf(c)?.party))}
       ${gm ? `<button type="button" class="shr shnew" data-a="grpNew" title="New group chat"><span class="cic">${IC('plus')}</span><span class="t"><b>New group chat</b><small>A few players in one chat, or a party</small></span></button>` : ''}
       ${group('Only you', chs.filter(c => c === 'gm'))}
     </div>
@@ -182,9 +189,12 @@ function railShown(v){
 function chatView(v, side){
   const g = G(), gm = isGM(v), ch = v.ui.ch, sc = g.scenes[ch], cb = g.combat;
   const fa = fightAvail(v), grpBtn = gm && !!N.grpOf(ch);
-  const topPh = `<div class="top ph">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${grpBtn && !fa && N.grpOf(ch)?.party ? `<button type="button" class="ibtn${N.chPaused(ch) ? ' on' : ''}" data-a="grpPause" data-v="${ch.slice(4)}" aria-label="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}" title="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}">${IC(N.chPaused(ch) ? 'play' : 'lock')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn" data-a="grpEdit" data-v="${ch.slice(4)}" aria-label="Edit this group chat" title="Edit this group chat">${IC('gear')}</button>` : ''}<button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>${sideBtn(v, 'chat')}</div>`;
+  /* Jake: the GM ends the day in a party or group chat where people roleplay (not a Meta-only one) */
+  const dayBtn = grpBtn && !N.metaOnly(ch);
+  const topPh = `<div class="top ph${dayBtn && !fa ? ' busy' : ''}">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${dayBtn && !fa ? `<button type="button" class="ibtn" data-a="sheet" data-v="nextDay" aria-label="Next day" title="Next day">${IC('sun')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn${N.chPaused(ch) ? ' on' : ''}" data-a="grpPause" data-v="${ch.slice(4)}" aria-label="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}" title="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}">${IC(N.chPaused(ch) ? 'play' : 'lock')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn" data-a="grpEdit" data-v="${ch.slice(4)}" aria-label="Edit this group chat" title="Edit this group chat">${IC('gear')}</button>` : ''}<button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>${sideBtn(v, 'chat')}</div>`;
   const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
-    ${grpBtn && N.grpOf(ch)?.party ? `<button type="button" class="btn sm${N.chPaused(ch) ? ' gold' : ''}" data-a="grpPause" data-v="${ch.slice(4)}" style="--h:36px" title="${N.chPaused(ch) ? 'Let the players talk again' : 'Stop the players from sending messages'}">${IC(N.chPaused(ch) ? 'play' : 'lock')}${N.chPaused(ch) ? 'Resume chat' : 'Pause chat'}</button>` : ''}
+    ${dayBtn && !fa ? `<button type="button" class="btn sm" data-a="sheet" data-v="nextDay" style="--h:36px" title="End the day and start the next one">${IC('sun')}Next day</button>` : ''}
+    ${grpBtn ? `<button type="button" class="btn sm${N.chPaused(ch) ? ' gold' : ''}" data-a="grpPause" data-v="${ch.slice(4)}" style="--h:36px" title="${N.chPaused(ch) ? 'Let the players talk again' : 'Stop the players from sending messages'}">${IC(N.chPaused(ch) ? 'play' : 'lock')}${N.chPaused(ch) ? 'Resume chat' : 'Pause chat'}</button>` : ''}
     ${grpBtn ? `<button type="button" class="btn sm" data-a="grpEdit" data-v="${ch.slice(4)}" style="--h:36px">${IC('gear')}Edit group</button>` : ''}
     <button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
@@ -303,11 +313,11 @@ function renderMsgs(v, side){
   const cut = Math.max(0, ms.length - N.msgWin(v));
   if (cut) out += `<button type="button" class="more-msgs" data-a="moreMsgs">Show earlier messages <small>(${cut})</small></button>`;
   for (const [i, m] of ms.entries()) {
-    if (i < cut) { if (m.kind === 'rp' && m.by === 'gm' && m.as === 'Narrator') firstNarr = false; if (m.kind === 'scene') firstNarr = true; prev = m; continue; }
+    if (i < cut) { if (m.kind === 'rp' && m.by === 'gm' && m.as === 'Narrator' && !m.day) firstNarr = false; if (m.kind === 'scene') firstNarr = true; prev = m; continue; }
     if (!divDone && m.by !== v.role && m.t > seen && seen > 0 && v.ui.showNew) { out += `<div class="day-div" style="color:var(--ember)">New</div>`; divDone = true; }
     const h = rMsg(v, m, m.re ? null : prev, firstNarr);
     out += h ? msgWrap(v, m, h) : h;
-    if (m.kind === 'rp' && m.by === 'gm' && m.as === 'Narrator') firstNarr = false;
+    if (m.kind === 'rp' && m.by === 'gm' && m.as === 'Narrator' && !m.day) firstNarr = false;
     if (m.kind === 'scene') firstNarr = true;
     prev = m;
   }
@@ -393,6 +403,7 @@ function rMsg(v, m, prev, firstNarr){
     return `<div class="m ${big ? 'emom' : 'ooc'}${mine?' mine':''}${cont?' cont':''}">${N.av(p,32)}<div class="body">${cont?'':`<div class="who" style="--who:var(--ink-3)">${esc(p.name)} ${time}</div>`}<div class="${big ? 'bigemo' : 'bub'}">${txt}</div></div></div>`;
   }
   const s = N.speakerObj(m);
+  if (s.narr && m.day) return `<div class="narr dayl"><div class="who">${IC('sun')}Narrator<span class="tag gold">Next day</span> ${time}</div><p>${txt}</p></div>`;
   if (s.narr) return `<div class="narr${firstNarr?' first':''}"><div class="who">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}Narrator ${time}</div><p>${txt}</p></div>`;
   const gmv = mine && isGM(v) ? ' gmv' : '';
   return `<div class="m say${s.npc?' npc':''}${mine?' mine':''}${gmv}${cont?' cont':''}" style="--spk:${s.color}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${N.emoText(sayFmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '')}</div></div></div>`;

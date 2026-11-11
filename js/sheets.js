@@ -76,6 +76,7 @@ N.farOf = (v, r) => {
 N.vsFind = (v, r, id) => id ? N.vsCands(v, r).find(n => n.id === id) || null : null;
 N.rollerOf = (v, key) => N.allRollers(v).find(r => r.key === key) || N.rollers(v)[0];
 
+N.nextDayPrev = d => `<div class="ndl n">${IC('sun')}<span><small>Narrator</small>${esc(N.dayLine(d))}</span></div><div class="ndl mt">${IC('chatL')}<span><small>Meta · ${esc(N.gmName())}</small>${esc(N.NEXT_DAY_META)}</span></div>`;
 N.sheetHtml = function(v){
   const g = G(), gm = isGM(v), s = v.ui.sheet, arg = v.ui.sheetArg;
   switch (s) {
@@ -750,6 +751,25 @@ N.sheetHtml = function(v){
         <p class="muted" style="margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)">${d.hist === false ? 'They won’t see anything said here before you add them, only what comes after.' : 'They can scroll back through the whole chat, from the first message.'}</p></div>`; })()}
       ${d.id ? `<button type="button" class="btn sm danger" data-a="sheet" data-v="grpDel" data-c="${esc(d.id)}" style="justify-self:start">${IC('trash')}Delete this group chat</button>` : ''}`;
     return sheet(d.id ? (d.party ? 'Edit party' : 'Edit group chat') : (d.party ? 'New party' : 'New group chat'), body, `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="gdSave" ${d.name.trim() && d.seats.length && ready ? '' : 'disabled'}>${IC('check')}${d.id ? 'Save' : d.party ? 'Make the party' : 'Make the chat'}</button>`);
+  }
+  /* Jake: the GM ends the day in a roleplay party or group chat. A Narrator line with the new date (or "Date unknown"),
+     then a Meta line saying the GM refreshes Fate points and Gold and runs Strength checks on Consequences */
+  case 'nextDay': {
+    const d = v.ui.nday; if (!d || !gm) return '';
+    const opt = (list, cur) => list.map((t, i) => `<option value="${i}"${i === cur ? ' selected' : ''}>${esc(t)}</option>`).join('');
+    const days = Array.from({length:31}, (_, i) => i + 1).map(n => `<option value="${n}"${n === d.d ? ' selected' : ''}>${n}</option>`).join('');
+    const dis = d.u ? ' disabled' : '';
+    const body = `<p class="muted" style="margin:0;font:600 13px/1.45 var(--f-ui)">Ends the day in <b>${esc(N.chName(v.ui.ch, 'gm'))}</b>. ${d.from ? 'Filled in with the day after the last one you posted.' : 'Pick the new date.'}</p>
+      <label class="ndunk"><input type="checkbox" data-i="ndayU"${d.u ? ' checked' : ''}><span><b>Unknown</b><small>Leave the date blank. The line reads “Date unknown”.</small></span></label>
+      <div class="ndgrid${d.u ? ' off' : ''}">
+        <label class="field ndw"><span>Day of the week</span><select class="inp" data-i="ndayW"${dis}>${opt(N.WEEKDAYS, d.w)}</select></label>
+        <label class="field ndd"><span>Date</span><select class="inp" data-i="ndayD"${dis}>${days}</select></label>
+        <label class="field ndm"><span>Month</span><select class="inp" data-i="ndayM"${dis}>${opt(N.MONTHS.map(x => x[0]), d.m)}</select></label>
+        <label class="field ndy"><span>Year</span><input class="inp" id="ndy-${v.id}" data-i="ndayY" value="${esc(d.y || '')}" placeholder="e.g. 1204" autocomplete="off"${dis}></label>
+      </div>
+      ${!d.u && d.d > N.MONTHS[d.m][1] ? `<div class="note">${IC('warn')}${esc(N.MONTHS[d.m][0])} has ${N.MONTHS[d.m][1]} days in the calendar.</div>` : ''}
+      <div><h4>What the chat gets</h4><div class="ndprev" id="ndp-${v.id}">${N.nextDayPrev(d)}</div></div>`;
+    return sheet('Next day', body, `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="ndayGo">${IC('sun')}Post the next day</button>`);
   }
   case 'grpDel': {
     const gr = (g.groups || []).find(x => x.id === arg); if (!gr) return '';
