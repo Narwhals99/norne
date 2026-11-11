@@ -423,7 +423,7 @@ function syncNow(){
       writeUnits('gm/maps', asUnits(g.maps, (m,i) => ({...m, pins:m.pins.map(p => pinOut(m, p)), o:i})));
       /* places shown to some players only: a map everyone sees carries the public places, and each of those players gets
          their own extra places in only/<seat> (key q:<map id>); a map for some players carries each one's own places */
-      const pinPub = (m, p) => { const {see, ...o} = pinOut(m, p); return {...o, vis:true}; }, forSeat = (p, st) => !p.vis && p.type !== 'party' && (p.see || []).includes(st);
+      const pinPub = (m, p) => { const {see, ...o} = pinOut(m, p); if (o.wiki && !pubLink('wiki', o.wiki)) delete o.wiki; return {...o, vis:true}; }, forSeat = (p, st) => !p.vis && p.type !== 'party' && (p.see || []).includes(st);
       const pinsFor = (m, st) => m.pins.filter(p => p.vis || p.type === 'party' || (st && forSeat(p, st))).map(p => pinPub(m, p));
       writeUnits('game/maps', asUnits(g.maps, (m,i) => {
         const a = N.audOf(m, 'map'), {see, ...pub} = m;
@@ -536,7 +536,7 @@ const OLDBG = {forest:'dark-forest', tavern:'town-alley', street:'town-alley', c
 const oldBg = src => ({'dark-forest':'forest', 'town-alley':'tavern', 'cave-temple-deep':'cave', 'castle-ramparts':'castle', 'mountain-pass-raid':'snow', 'harbor-ship':'ship'})[(String(src).match(/^art\/bg\/([\w-]+)\.jpg$/) || [])[1]] || 'forest';
 const combatOut = c => ({...c, art:c.bg, bg:oldBg(c.bg), scene:c.aspects, zones:c.zones.map(z => ({...z, color:z.col})), tokens:c.tokens.map(npcTokOut)});
 /* a named NPC's token carries a copy of its card's consequences, so players (who can't read NPC cards) see them in the fight */
-const npcTokOut = t => { if (t.kind !== 'npc') return t; const n = t.type !== 'nameless' && G().npcs.find(x => x.id === t.ref); return {...t, ...(t.label == null ? {label:''} : {}), ...(n ? {cons:{...(n.cons || {})}} : {})}; };
+const npcTokOut = t => { if (t.kind !== 'npc') return t; const n = t.type !== 'nameless' && G().npcs.find(x => x.id === t.ref); return {...t, ...(t.label == null ? {label:''} : {}), ...(n ? {cons:{...(n.cons || {})}, conSt:n.conSt ? {...n.conSt} : null} : {})}; };
 function normCombat(c){
   if (!c) return N.freshCombat();
   const f = N.freshCombat(), legacy = !c.joined;
@@ -836,7 +836,7 @@ N.importLore = file => file.text().then(txt => {
   const g = G();
   /* pictures the GM added to an entry stay when the lore file replaces its text */
   for (const e of d.wiki) { const i = g.wiki.findIndex(x => x.id === e.id); if (i >= 0) { const was = g.wiki[i]; if (was.imgs && !e.imgs) { e.imgs = was.imgs; delete e.img; } if (was.parts && !e.parts) e.parts = was.parts; g.wiki[i] = e; } else g.wiki.push(e); }
-  for (const m0 of d.maps) { const m = normMap(m0), i = g.maps.findIndex(x => x.id === m.id); if (i >= 0) { if (g.maps[i].dir && !m.dir) m.dir = g.maps[i].dir; /* re-import keeps the GM's level and default */ if (g.maps[i].lvl != null && m.lvl == null) m.lvl = g.maps[i].lvl; if (g.maps[i].def) m.def = true; /* a place keeps the map the GM linked it to */ for (const p of m.pins) { const was = g.maps[i].pins.find(x => x.id === p.id); if (was && was.to && !p.to) p.to = was.to; if (was && was.see?.length && !p.vis && !p.see) p.see = was.see; if (was && was.sub && !p.sub) p.sub = was.sub; } g.maps[i] = m; } else g.maps.push(m); }
+  for (const m0 of d.maps) { const m = normMap(m0), i = g.maps.findIndex(x => x.id === m.id); if (i >= 0) { if (g.maps[i].dir && !m.dir) m.dir = g.maps[i].dir; /* re-import keeps the GM's level and default */ if (g.maps[i].lvl != null && m.lvl == null) m.lvl = g.maps[i].lvl; if (g.maps[i].def) m.def = true; /* a place keeps the map the GM linked it to */ for (const p of m.pins) { const was = g.maps[i].pins.find(x => x.id === p.id); if (was && was.to && !p.to) p.to = was.to; if (was && was.see?.length && !p.vis && !p.see) p.see = was.see; if (was && was.sub && !p.sub) p.sub = was.sub; if (was && was.wiki && !p.wiki) p.wiki = was.wiki; } g.maps[i] = m; } else g.maps.push(m); }
   return Promise.all(Object.entries(d.mapimgs || {}).map(([id, data]) => { const v = g.maps.find(m => m.src === 'fs:' + id)?.vis !== false; MIMG.set(id, {url:data, p:null}); MVIS.set(id, v); return F.setDoc(dref('mapimgs/' + id), {data, vis:v}); }))
     .then(() => { syncNow(); return d; });
 });

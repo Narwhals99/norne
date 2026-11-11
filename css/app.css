@@ -2364,6 +2364,14 @@
 .app .pin.go .pl{display:inline-flex;align-items:center;gap:2px}
 .app .pin.dotp.go .pl{display:none}
 .app .pin.go .pl svg{width:11px;height:11px;opacity:.85}
+.app .pin.wk .pl svg:first-of-type{opacity:.95}
+/* a place with a map and a wiki article: the place card asks which one to open */
+.app .pincard .pinpick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.app .pincard .pinpick .btn{height:auto;min-height:52px;padding:8px 12px;justify-content:flex-start;text-align:left;white-space:normal}
+.app .pincard .pinpick .btn span{display:grid;min-width:0;font:600 14px/1.2 var(--f-ui)}
+.app .pincard .pinpick .btn small{font:600 11px/1.2 var(--f-ui);opacity:.8;text-transform:uppercase;letter-spacing:.05em}
+.app .pincard .pinwarn{display:flex;gap:6px;align-items:flex-start;font-size:12.5px!important;color:var(--ink-3)!important}
+.app .pincard .pinwarn svg{flex:none;width:15px;height:15px;margin-top:1px}
 @media (hover:hover){
   .app .pin.go .pm{transition:filter .15s,box-shadow .15s,scale .15s}
   .app .pin.go:hover .pm{filter:brightness(1.18);scale:1.15;box-shadow:0 0 0 2.5px #fff,0 0 16px 4px color-mix(in srgb,var(--pc,#f4c46e) 75%,transparent)}
@@ -2751,3 +2759,23 @@
 .app .top.ph.busy{gap:2px}
 .app .top.ph.busy .ibtn{width:34px}
 .app .top.ph.busy .chname{min-width:0}
+
+/* consequence states (Jake): Active / Stable / Recovering. The GM's three buttons under a filled slot, a tag for everyone.
+   The colour is a dot so the tag reads on the card paper in every style */
+.app .con-v{display:grid;gap:6px;min-width:0}
+.app .cst{display:flex;padding:3px;gap:2px;border-radius:999px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line);width:max-content;max-width:100%}
+.app .cst button{min-height:28px;padding:0 11px;border-radius:999px;font:700 12px/1 var(--f-ui);color:var(--ink-3);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.app .cst button::before,.app .cst-tag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--st);flex:none;opacity:.55}
+.app .cst button[aria-pressed="true"]{color:var(--ink);background:linear-gradient(180deg,var(--raise-2),var(--raise));box-shadow:0 2px 8px -2px rgba(0,0,0,.4),0 0 0 1px var(--line-2)}
+.app .cst button[aria-pressed="true"]::before{opacity:1}
+.app .st-active{--st:var(--ember)}
+.app .st-stable{--st:var(--gold)}
+.app .st-recovering{--st:var(--accent)}
+.app .cst-tag{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:2px 8px;border-radius:999px;font:800 9.5px/1.3 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;font-style:normal;vertical-align:1px;box-shadow:inset 0 0 0 1px currentColor;opacity:.85}
+.app .cst-tag::before{opacity:1}
+.app .cq .cst-tag{margin:2px 0 0;justify-self:start}
+.app .cq-ed .cst button{min-height:26px;padding:0 9px;font-size:11.5px}
+/* GM only: the catalog's GM notes under an inventory item */
+.app .inv-gm{display:flex;gap:6px;margin-top:4px;padding:6px 9px;border-radius:10px;background:var(--sunk);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold) 35%,var(--line));font:600 12px/1.4 var(--f-ui);color:var(--ink-2);overflow-wrap:anywhere;white-space:pre-line}
+.app .inv-gm svg{width:13px;height:13px;flex:none;margin-top:1px;color:var(--gold-tx)}
+.app .inv-gm b{display:block;font:800 9.5px/1.3 var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--gold-tx);white-space:normal}
