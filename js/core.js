@@ -481,6 +481,8 @@ N.channelsFor = (role, shut) => {
 };
 /* Everyone is table talk only: no speaking in character and no fights there. The GM can make a group chat or party Meta only too */
 N.metaOnly = ch => ch === 'table' || !!N.grpOf(ch)?.meta;
+/* Jake: the GM screen's "Working in" row lists only chats where roleplay happens (group chats, parties and private chats that aren't Meta only), then GM notes */
+N.gmWorkChans = () => N.channelsFor('gm').filter(c => c === 'gm' || !N.metaOnly(c));
 /* a party or group chat the GM paused: players read it but can't send (Jake) */
 N.chPaused = ch => { const gr = N.grpOf(ch); return !!(gr && gr.paused); };
 /* Jake's calendar (Calendar_Seasons_Weather): the week's days and the months with their lengths, for the GM's Next day line */
@@ -687,14 +689,14 @@ N.importItems = list => {
 N.itemNote = it => [N.itemGears(it).map(([k, l]) => `${l} +${+it[k]}`).join(', '), (it.d || '').trim()].filter(Boolean).join(' · ');
 /* ---------- storefronts (Jake): a store the GM sets up in a chat, like a fight ----------
    G.shops = {<chat>: {id, ch, state:'setup'|'open', name, pcs:[char ids], npcs:[{name, portrait}], items:[shop item], t}}
-   One store per chat, only in a player's private chat or a group chat / party that isn't Meta only.
+   One store per chat, only in a player's private chat, a group chat / party that isn't Meta only, or GM notes (Jake: a store only the GM sees).
    The GM keeps every store in gm/shops; an open one is also written to that chat's fights/<seat or group> document (unit s),
    so only the players of that chat receive it. A store being set up never leaves the GM's device.
    A shop item is a copy of the catalog item's player-safe parts (never the GM's notes) plus its price in gold:
    {k, it:catalog id, name, kind, ic, d, path, gears:[[rating key, value]], silver, price} */
 N.shopOf = ch => (N.G.shops || {})[ch] || null;
 N.shopOpen = ch => { const s = N.shopOf(ch); return s && s.state === 'open' ? s : null; };
-N.shopOk = ch => !!N.chKey(ch) && !N.metaOnly(ch);
+N.shopOk = ch => ch === 'gm' || (!!N.chKey(ch) && !N.metaOnly(ch));
 /* a player's open request in a store chat: kind 'buy' (Purchase, waits for the GM to confirm) or 'haggle' (Bargain) */
 N.shopAsk = (ch, cid, k, kind) => N.G.msgs.find(m => m.ch === ch && m[kind] && m[kind].c === cid && m[kind].k === k && m[kind].st === 'ask') || null;
 N.shopItem = it => ({k:N.uid('si'), it:it.id, name:it.name, kind:N.itemKind(it.kind)[0], ic:it.ic || '',

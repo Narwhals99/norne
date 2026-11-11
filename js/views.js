@@ -3,6 +3,14 @@
 const N = window.N, {esc, fmt, IC, STAR, MARK, sgn, ladderWord, rollTotal, diceSum, outcome} = N;
 const G = () => N.G;
 const hhmm = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+/* Jake: the real-world day a message was sent. Chats get a divider line wherever the day changes, and every time shows its full date on hover */
+const dayKey = t => { const d = new Date(t); return d.getFullYear() * 400 + d.getMonth() * 32 + d.getDate(); };
+const fullDate = t => new Date(t).toLocaleDateString([], {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+const dayName = t => { const d = new Date(t), now = new Date(), y = new Date(now); y.setDate(now.getDate() - 1);
+  if (dayKey(d) === dayKey(now)) return 'Today';
+  if (dayKey(d) === dayKey(y)) return 'Yesterday';
+  return d.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric', ...(d.getFullYear() === now.getFullYear() ? {} : {year:'numeric'})}); };
+const timeTag = t => `<time datetime="${new Date(t).toISOString()}" title="${esc(fullDate(t))} · ${hhmm(t)}">${hhmm(t)}</time>`;
 const isGM = v => v.role === 'gm';
 const pn = c => G().P[c.player]?.name || 'A former player';
 const fateDie = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8.2v7.6M8.2 12h7.6"/></svg>';
@@ -298,7 +306,7 @@ function inOldFight(m){
 }
 /* on desktop the actions always live in Recent actions, folded or not; they never spill into the chat */
 const actionsOut = (v, side) => !side && v.dev === 'desktop' && v.ui.tab === 'chat' && railShown(v);
-N.isAction = isAction; N.isFightAct = isFightAct; N.hhmm = hhmm;
+N.isAction = isAction; N.isFightAct = isFightAct; N.hhmm = hhmm; N.timeTag = timeTag; N.dayName = dayName;
 /* how many of a chat's newest messages are drawn; "Show earlier messages" adds more */
 N.MSGWIN = 150;
 N.msgWin = v => (v.ui.more || {})[v.ui.ch] || N.MSGWIN;
@@ -314,8 +322,11 @@ function renderMsgs(v, side){
   if (cut) out += `<button type="button" class="more-msgs" data-a="moreMsgs">Show earlier messages <small>(${cut})</small></button>`;
   for (const [i, m] of ms.entries()) {
     if (i < cut) { if (m.kind === 'rp' && m.by === 'gm' && m.as === 'Narrator' && !m.day) firstNarr = false; if (m.kind === 'scene') firstNarr = true; prev = m; continue; }
+    /* a new real-world day (and the first message drawn) gets a date line, and starts a fresh speaker group */
+    const newDay = m.t && (i === cut || !prev || !prev.t || dayKey(prev.t) !== dayKey(m.t));
+    if (newDay) out += `<div class="day-div date-div" role="separator"><span title="${esc(fullDate(m.t))}">${esc(dayName(m.t))}</span></div>`;
     if (!divDone && m.by !== v.role && m.t > seen && seen > 0 && v.ui.showNew) { out += `<div class="day-div" style="color:var(--ember)">New</div>`; divDone = true; }
-    const h = rMsg(v, m, m.re ? null : prev, firstNarr);
+    const h = rMsg(v, m, m.re || newDay ? null : prev, firstNarr);
     out += h ? msgWrap(v, m, h) : h;
     if (m.kind === 'rp' && m.by === 'gm' && m.as === 'Narrator' && !m.day) firstNarr = false;
     if (m.kind === 'scene') firstNarr = true;
@@ -363,7 +374,7 @@ function rxPill(v, m){
   return `<button type="button" class="rxp${me ? ' me' : ''}${fresh ? ' rxnew' : ''}" data-a="msgMenu" data-v="${m.id}" title="${esc(who)}" aria-label="Reactions: ${esc(who)}">${order.slice(0, 3).map(e => `<span>${N.emj(e)}</span>`).join('')}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
 }
 function rMsg(v, m, prev, firstNarr){
-  const g = G(), mine = isMe(v, m), time = `<time>${hhmm(m.t)}</time>`, txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
+  const g = G(), mine = isMe(v, m), time = timeTag(m.t), txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
   /* a store opening or closing is a line in the chat like a scene, with Browse while that store is still open */
   if (m.kind === 'sys' && m.shop) { const live = N.shopOpen(m.ch), on = m.shop === 'open' && live && live.id === m.shopId;
     return `<div class="scenem shopm${m.shop === 'end' ? ' end' : ''}"><span class="th">${IC('coins')}</span><span><span>${m.shop === 'open' ? 'Store open' : 'Shopping over'}</span><b>${esc(m.shopName || 'The store')}</b></span>${on ? `<button type="button" class="btn sm gold" data-a="sheet" data-v="store" data-c="${esc(m.ch)}">Browse</button>` : ''}</div>`; }
@@ -615,7 +626,7 @@ function picShelf(v){
 }
 function gmPage(v){
   const ph = v.dev === 'phone', cur = v.ui.ch;
-  const chans = N.channelsFor('gm');
+  const chans = N.gmWorkChans();
   const top = ph ? `<div class="top ph">${meBtn(v)}<h1>GM screen</h1></div>` : `<div class="top dt" style="display:flex"><h1>GM screen</h1></div>`;
   const forRow = `<section class="gs-sec gm-for"><div class="gs-h"><h3>Working in</h3></div><div class="seg" role="group" aria-label="Chat">${chans.map(c => `<button type="button" data-a="gmFor" data-v="${c}" aria-pressed="${cur===c}">${c === 'table' ? IC('users') : c === 'gm' ? IC('lock') : ''}${esc(N.chName(c,'gm'))}</button>`).join('')}</div></section>`;
   return `<div class="scroll" data-sk="gmp" style="min-height:0">${top}<div class="gm-page">${gmScreen(v).replace('<div class="gs">', '<div class="gs">' + forRow)}</div></div>`;

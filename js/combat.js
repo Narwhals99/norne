@@ -241,9 +241,9 @@ function actRows(v, ms, past, near){
   const g = G(), cb = g.combat, keep = v._lastRoll; v._lastRoll = past ? null : (ms.findLast(m => m.kind === 'roll') || {}).id;
   const live = m => (m.kind === 'fight' || m.kind === 'combat') && cb.state !== 'off' && m.cid === cb.id;
   const go = m => near ? ` data-a="nearMsg" data-v="${m.id}" title="Show this moment in the chat"` : '';
-  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll${near ? ' near' : ''}" data-mid="${m.id}"${go(m)}><div class="who">${esc(m.roll.who)}${secretM(m) ? '<span class="tag gold">Secret</span>' : ''}<time>${N.hhmm(m.t)}</time>${near ? `<span class="inchat">${IC('chatL')}In chat</span>` : ''}</div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '').replace(/<button type="button" class="btn sm shbtn"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
+  const rows = ms.map(m => m.kind === 'roll' ? `<div class="rc-roll${near ? ' near' : ''}" data-mid="${m.id}"${go(m)}><div class="who">${esc(m.roll.who)}${secretM(m) ? '<span class="tag gold">Secret</span>' : ''}${N.timeTag(m.t)}${near ? `<span class="inchat">${IC('chatL')}In chat</span>` : ''}</div>${past ? N.rRoll(v, m).replace(/<button type="button" class="btn sm" data-a="invoke"[\s\S]*?<\/button>/, '').replace(/<button type="button" class="btn sm shbtn"[\s\S]*?<\/button>/, '') : N.rRoll(v, m)}</div>`
     : m.kind === 'sys' && m.res ? N.resCard(m.res, past ? null : v, v).replace('<div class="resm', `<div data-mid="${m.id}" class="resm`)
-    : m.fc ? `<div class="fcm${m.by === v.role ? ' mine' : ''}"><b>${esc(N.personObj(m.by).name)}</b><span>${N.emoText(N.marks(esc(m.text)))}</span><time>${N.hhmm(m.t)}</time></div>`
+    : m.fc ? `<div class="fcm${m.by === v.role ? ' mine' : ''}"><b>${esc(N.personObj(m.by).name)}</b><span>${N.emoText(N.marks(esc(m.text)))}</span>${N.timeTag(m.t)}</div>`
     : m.fightEnd ? `<div data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}" title="See what happened" class="go ff end"><span class="ffi">${IC('swords')}</span><span class="fft">${esc(m.text)} <b>See what happened</b></span></div>`
     : live(m) ? feedRow(m, false).replace('<div class="ff', `<div data-a="mode" data-v="cb" title="Open the fight" class="go ff`)
     : near ? feedRow(m, false).replace('<div class="ff', `<div${go(m)} class="go near ff`)
