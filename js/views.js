@@ -1179,7 +1179,15 @@ const invEditRow = (v, key, own, i, n, q, d, ic) => `<div class="it ied">
 N.invList = invList;
 /* GM only (Jake): the catalog's GM notes on an inventory item, looked up live by its name and never saved on the row,
    so players' devices never get them. '' for players, items not in the catalog, and catalog items without notes */
-N.invGm = (v, row) => { const it = v && isGM(v) && N.rowItem(row); return it && (it.gm || '').trim() ? `<span class="inv-gm" title="Only you see this">${IC('lock').replace('<svg', '<svg aria-hidden="true"')}<span><b>GM notes</b>${N.emoText(N.marks(esc(it.gm.trim())))}</span></span>` : ''; };
+N.invGm = (v, row) => { const it = v && isGM(v) && N.rowItem(row); return (it && (it.gm || '').trim() ? `<span class="inv-gm" title="Only you see this">${IC('lock').replace('<svg', '<svg aria-hidden="true"')}<span><b>GM notes</b>${N.emoText(N.marks(esc(it.gm.trim())))}</span></span>` : '') + N.invPv(v, row && row[0]); };
+/* the catalog's notes for some players only (N.itemPvFor), by item name. The GM sees every note with who it is for;
+   a player sees only the ones sent to them (G.ivMine, from their own only/<seat>) */
+N.invPv = (v, name) => {
+  if (!v || !name) return '';
+  const box = (who, t) => `<span class="inv-gm inv-pv" title="${esc(who)}">${IC('eye').replace('<svg', '<svg aria-hidden="true"')}<span><b>${esc(who)}</b>${N.emoText(N.marks(esc(t)))}</span></span>`;
+  if (isGM(v)) { const it = N.itemByName(name); return it ? N.itemPvOk(it).map(p => { const ss = (p.see || []).filter(s => G().P[s]); return box(ss.length ? `Only ${N.namesList(ss)} ${ss.length > 1 ? 'see' : 'sees'} this` : 'Nobody picked yet · only you see it', p.text.trim()); }).join('') : ''; }
+  return ((G().ivMine || {})[N.pvKey(name)] || []).map(t => box('Only you see this', t)).join('');
+};
 function invBody(v){
   const gm = isGM(v);
   const list = gm ? N.pcs() : [N.charOf(v.role)].filter(Boolean);
