@@ -109,7 +109,8 @@ N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), fz:N.fzOk(o.fz), ui:newUi(o.role)};
   try { v.vg = localStorage.getItem('norne-vg') !== '0'; v.dp = localStorage.getItem('norne-dp') !== '0'; } catch(e) { v.vg = v.dp = true; }
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
-  try { for (const k of ['railW','railWc','rcH','rcHc','shelfW']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1'; } catch(e) {}
+  try { for (const k of ['railW','railWc','rcH','rcHc','shelfW']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1';
+    for (const k of ['paneA','paneB','paneAc','paneBc']) { const p = localStorage.getItem('norne-' + k.toLowerCase()); if (p) v.ui[k] = p; } } catch(e) {}
   views.push(v); bind(v); render(v);
   return v;
 };
@@ -275,12 +276,14 @@ function render(v){
   const ta = root.querySelector('.composer textarea'); if (ta) grow(ta);
   hsArrows(root);
   /* a redraw keeps the map element but sets its pins back to the markup, so their size is put on again */
-  if (v.ui.tab === 'map') { root.querySelectorAll('.mapst').forEach(e => { e._k = null; }); applyMap(v); }
+  if (v.ui.tab === 'map' || paneShows(v, 'map')) { root.querySelectorAll('.mapst').forEach(e => { e._k = null; }); applyMap(v); }
   if (v.ui.fresh) setTimeout(() => { v.ui.fresh = null; }, 900);
   if (N.onRender) N.onRender(v);
   syncBack();
 }
 N.render = render;
+/* is this page open in one of the desktop side panels right now (deskPage notes them on every draw) */
+const paneShows = N.paneShows = (v, id) => v.dev === 'desktop' && v.ui.tab === 'chat' && !!v._panes?.includes(id);
 const renderAll = N.renderAll = () => views.forEach(render);
 function grow(ta){ ta.style.height = 'auto'; if (ta.value) ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; }
 
@@ -391,7 +394,7 @@ function bind(v){
     e.preventDefault(); grip.setPointerCapture(e.pointerId);
     const page = grip.closest('.page') || grip.closest('.shell'); page.classList.add('resizing'); grip.classList.add('on');
     const r = box.getBoundingClientRect(), k = G2.key(box), host = G2.host ? G2.host(box) : box;
-    const move = ev => { v.ui[k] = Math.round(G2.size(r, ev)); host.style.setProperty(G2.css, v.ui[k] + 'px'); };
+    const move = ev => { v.ui[k] = Math.round(G2.size(r, ev)); host.style.setProperty(G2.css, v.ui[k] + 'px'); if (paneShows(v, 'map')) mapFrame(v); };
     const up = () => { grip.removeEventListener('pointermove', move); page.classList.remove('resizing'); grip.classList.remove('on'); try { localStorage.setItem('norne-' + k.toLowerCase(), v.ui[k]); } catch(err) {} };
     grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up, {once:true}); grip.addEventListener('pointercancel', up, {once:true});
   });
@@ -1331,7 +1334,7 @@ function addPinAt(v, e){
   setTimeout(() => { const f = v.root.querySelector(`#pinl-${v.id}`); if (f) { f.focus(); f.select(); } }, 30);
 }
 N.curMap = curMap;
-window.addEventListener('resize', () => { clearTimeout(window._mr); window._mr = setTimeout(() => views.forEach(v => { hsArrows(v.root); if (v.ui.tab === 'map') applyMap(v); }), 120); });
+window.addEventListener('resize', () => { clearTimeout(window._mr); window._mr = setTimeout(() => views.forEach(v => { hsArrows(v.root); if (v.ui.tab === 'map' || paneShows(v, 'map')) applyMap(v); }), 120); });
 
 /* ---------------- popovers ---------------- */
 function openPop(v, type, el){
@@ -1403,6 +1406,14 @@ function act(v, a, el, e){
   case 'railFold': ui[d.v] = !ui[d.v]; try { localStorage.setItem('norne-' + d.v.toLowerCase(), ui[d.v] ? '1' : '0'); } catch(e) {} break;
   case 'shelfDt': ui.shelfOff = !ui.shelfOff; try { localStorage.setItem('norne-shelfoff', ui.shelfOff ? '1' : '0'); } catch(e) {} break;
   case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
+  /* desktop side panels: show another page in the top (0) or bottom (1) panel; the page the other panel shows swaps over.
+     Remembered on this device, roleplay and combat each their own */
+  case 'pane': { close(); const mode = v._paneMode || 'rp', [i, id] = [+val[0], val.slice(2)], keys = N.PANE_KEYS[mode], picks = N.panePicks(v, mode);
+    if (picks[1 - i] === id) picks[1 - i] = picks[i]; picks[i] = id;
+    keys.forEach((k, j) => { ui[k] = picks[j]; try { localStorage.setItem('norne-' + k.toLowerCase(), picks[j]); } catch(e) {} });
+    if (i === 1 && ui.recentOff) { ui.recentOff = false; try { localStorage.setItem('norne-recent', '1'); } catch(e) {} }
+    if (id === 'map' && !gm && !ui.mapId) { const dm = N.defMap(false); if (dm) Object.assign(ui, {mapId:dm.id, mapBack:[], mapDir:null, pinSel:null, mapT:null, mapType:'all'}); }
+    break; }
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); if (val === 'search') { render(v); const f = v.root.querySelector(`#cq-${v.id}`); if (f) { f.focus({preventScroll:true}); f.select(); } return; } break;
   case 'closeSheet': if (ui.sheet === 'scenePics') { ui.sheet = 'scene'; break; } if (!askTell(v)) { ui.sheet = null; ui.tellAsk = null; } break;
@@ -1794,8 +1805,10 @@ function act(v, a, el, e){
   /* world */
   case 'wiki': { const en = g.wiki.find(x => x.id === val); if (!en || (!gm && en.gm)) break; close();
     /* phones remember the entries a link was followed from, so back returns to them one by one */
-    ui.wikiPrev = v.dev === 'phone' && ui.tab === 'world' && ui.wikiSel && ui.wikiSel !== val ? [...(ui.wikiPrev || []), ui.wikiSel] : [];
-    ui.tab = 'world'; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
+    /* a desktop side panel showing the wiki opens the entry there and the chat stays put */
+    const inPane = paneShows(v, 'world');
+    ui.wikiPrev = (v.dev === 'phone' && ui.tab === 'world' || inPane) && ui.wikiSel && ui.wikiSel !== val ? [...(ui.wikiPrev || []), ui.wikiSel] : [];
+    if (!inPane) ui.tab = 'world'; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
   case 'wCat': ui.wikiCat = ui.wikiCat === val ? null : val; if (v.dev === 'phone') ui.wikiSel = null; break;
   case 'wBack': if (ui.wikiSel && ui.wikiPrev?.length) { ui.wikiSel = ui.wikiPrev.pop(); const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; } else if (ui.wikiSel) ui.wikiSel = null; else ui.wikiCat = null; break;
   /* a link to a PC or NPC card (N.xl) opens it over the page, as this screen may see it; closing it goes back to where it was

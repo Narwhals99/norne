@@ -19,6 +19,7 @@ N.fateDie = fateDie;
 /* ================= shell ================= */
 N.appHtml = function(v){
   const g = G(), gm = isGM(v), ph = v.dev === 'phone';
+  v._panes = null; /* deskPage fills in what the desktop side panels show this time */
   /* phone players open their inventory from the character sheet, so no Inventory tab there */
   if (ph && !gm && v.ui.tab === 'inv') { v.ui.tab = 'hero'; v.ui.charSel = null; v.ui.heroInv = true; }
   const tabs = [['chat','Chat','chat'],['map','Map','map'],['world','World','world'],['news','News','newsL'], ...(gm ? [['cast','Cast','cast'], ['gm','GM','crown']] : [['hero','Character','hero'], ...(ph ? [] : [['inv','Inventory','bag']])])];
@@ -164,18 +165,57 @@ function chatPage(v){
   return deskPage(v, chatView(v), `<div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>`, 'rp');
 }
 /* desktop: the big panel (C) on the left, and on the right the top panel (A) over the actions (B).
-   The line on the right side's left edge drags to share the width; roleplay and combat remember their own widths. */
+   The line on the right side's left edge drags to share the width; roleplay and combat remember their own widths.
+   Jack (2026-11-12): each of the two right-hand panels has a picker in its header, so anyone can swap in another page
+   (map, wiki, news, inventory, ...). Picked per device (localStorage), roleplay and combat each remember their own. */
+const PANE_KEYS = {rp:['paneA', 'paneB'], cb:['paneAc', 'paneBc']};
+/* what a side panel can show here: [id, label, icon]. 'def' is the panel the screen came with on top, 'recent' the one under it */
+function paneOpts(v, mode){
+  const gm = isGM(v), rp = mode === 'rp';
+  return [
+    ['def', rp ? (gm ? 'GM screen' : 'Character card') : (gm ? 'Battlefield' : 'Character card'), rp ? (gm ? 'crown' : 'hero') : (gm ? 'swords' : 'hero')],
+    ['recent', rp ? 'Recent actions' : N.cbKind() === 'fight' ? 'Fight results and chat' : 'Results and chat', rp ? 'dice' : 'swords'],
+    ...(gm && !rp ? [['gms', 'GM screen', 'crown']] : []),
+    ['map', 'Map', 'map'], ['world', 'World', 'world'], ['news', 'News', 'newsL'],
+    ...(gm ? [['cast', 'Cast', 'cast']] : [['hero', 'Character sheet', 'scroll']]), ['inv', 'Inventory', 'bag']];
+}
+/* the two panels' picks for this screen, falling back to the panels it came with */
+function panePicks(v, mode){
+  const ids = paneOpts(v, mode).map(o => o[0]), [ka, kb] = PANE_KEYS[mode];
+  let a = ids.includes(v.ui[ka]) ? v.ui[ka] : 'def', b = ids.includes(v.ui[kb]) ? v.ui[kb] : 'recent';
+  if (a === b) b = a === 'recent' ? 'def' : 'recent';
+  return [a, b];
+}
+N.paneOpts = paneOpts; N.panePicks = panePicks; N.PANE_KEYS = PANE_KEYS;
+/* one page drawn into a side panel: pages read v._pane to lay themselves out narrow (one column, back buttons) */
+function paneBody(v, id, slot, a, mode){
+  if (id === 'def') return a;
+  if (id === 'recent') return `<div class="rcnt rc-in">${N.recentHtml(v, mode)}${mode === 'cb' ? fightComposer(v) : ''}</div>`;
+  if (id === 'gms') return `<div class="rail-a scroll" data-sk="rail-${slot}">${gmScreen(v)}</div>`;
+  v._pane = id;
+  try {
+    const page = id === 'map' ? mapPage(v) : id === 'world' ? worldPage(v) : id === 'news' ? newsPage(v) : id === 'hero' ? heroPage(v) : id === 'cast' ? castPage(v) : id === 'inv' ? invPage(v) : '';
+    return `<div class="pane-c pane-${id}">${page}</div>`;
+  } finally { v._pane = null; }
+}
+function paneHead(v, slot, id, mode, fold){
+  const o = paneOpts(v, mode).find(x => x[0] === id), off = v.ui.recentOff;
+  return `<div class="pane-h"><button type="button" class="pane-pick" data-a="pop" data-v="pane${slot.toUpperCase()}" aria-haspopup="menu" title="Pick what this panel shows">${IC(o[2])}<b>${esc(o[1])}</b>${IC('caret')}</button>${fold ? `<button type="button" class="pane-fold" data-a="recentFold" aria-expanded="${!off}" aria-label="${off ? 'Open' : 'Fold'} this panel" title="${off ? 'Open' : 'Fold'} this panel">${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>` : ''}</div>`;
+}
 function deskPage(v, c, a, mode, cls){
   /* every line between panels drags and every panel beside the main one folds; roleplay and combat remember their own sizes */
   const rp = mode === 'rp', off = v.ui.recentOff, wk = rp ? 'railW' : 'railWc', hk = rp ? 'rcH' : 'rcHc', ok = rp ? 'railOff' : 'railOffc';
   const w = v.ui[wk] || (!rp && isGM(v) ? 560 : 0), h = v.ui[hk];
-  if (v.ui[ok]) return `<main class="page with-rail rail-off${cls ? ' ' + cls : ''}">${c}<aside class="rail"><button type="button" class="railopen" data-a="railFold" data-v="${ok}" aria-label="Show the side panel" title="Show the side panel">${IC('left')}<span>${rp ? 'Card and actions' : N.cbKind() === 'fight' ? 'Fight panel' : 'Side panel'}</span></button></aside></main>`;
+  const [pa, pb] = panePicks(v, mode), plain = pa === 'def' && pb === 'recent';
+  v._paneMode = mode;
+  if (v.ui[ok]) return `<main class="page with-rail rail-off${cls ? ' ' + cls : ''}">${c}<aside class="rail"><button type="button" class="railopen" data-a="railFold" data-v="${ok}" aria-label="Show the side panel" title="Show the side panel">${IC('left')}<span>${!plain ? 'Side panels' : rp ? 'Card and actions' : N.cbKind() === 'fight' ? 'Fight panel' : 'Side panel'}</span></button></aside></main>`;
+  v._panes = off ? [pa] : [pa, pb];
   return `<main class="page with-rail${cls ? ' ' + cls : ''}" data-wk="${wk}" data-hk="${hk}"${w ? ` style="--railw:${w}px"` : ''}>${c}<aside class="rail${off ? ' rc-off' : ''}"${h && !off ? ` style="--rch:${h}px"` : ''}>
     <div class="railgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the side panel" title="Drag to resize"></div>
     <button type="button" class="railx" data-a="railFold" data-v="${ok}" aria-label="Hide the side panel" title="Hide the side panel">${IC('right')}</button>
-    ${a}
-    <section class="rcnt">${off ? '' : '<div class="rowgrip" role="separator" aria-orientation="horizontal" aria-label="Drag to resize" title="Drag to resize"></div>'}<button type="button" class="rc-h" data-a="recentFold" aria-expanded="${!off}">${IC(rp ? 'dice' : 'swords')}<b>${rp ? 'Recent actions' : N.cbKind() === 'fight' ? 'Fight results and chat' : 'Results and chat'}</b>${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>
-      ${off ? '' : N.recentHtml(v, mode) + (mode === 'cb' ? fightComposer(v) : '')}</section>
+    <section class="pane pa pane-is-${pa}">${paneHead(v, 'a', pa, mode)}${paneBody(v, pa, 'a', a, mode)}</section>
+    <section class="pane pb rcnt pane-is-${pb}">${off ? '' : '<div class="rowgrip" role="separator" aria-orientation="horizontal" aria-label="Drag to resize" title="Drag to resize"></div>'}${paneHead(v, 'b', pb, mode, true)}
+      ${off ? '' : paneBody(v, pb, 'b', a, mode)}</section>
   </aside></main>`;
 }
 /* desktop, when this chat has a fight: one switch between the roleplay screen and the combat screen.
@@ -755,6 +795,12 @@ function popHtml(v){
     const tip = `<p class="muted" style="margin:2px 10px 6px;font:600 12.5px/1.4 var(--f-ui)">Players can follow it only to what they can see; anyone else reads the plain name.</p>`;
     return `<div class="pop charpop" style="${pos}" role="dialog" aria-label="Insert link">${find}${tip}${v.ui.sheet === 'wEdit' ? people + wiki : wiki + people}</div>`;
   }
+  if (p.type === 'paneA' || p.type === 'paneB') {
+    /* a side panel's picker: every page it can show; picking the one the other panel shows swaps the two */
+    const mode = v._paneMode || 'rp', slot = p.type === 'paneA' ? 0 : 1, picks = panePicks(v, mode);
+    const row = ([id, l, ic]) => `<button type="button" class="opt" role="menuitemradio" aria-checked="${picks[slot] === id}" data-a="pane" data-v="${slot}:${id}"><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${esc(l)}${picks[1 - slot] === id ? `<small>Swaps with the ${slot ? 'top' : 'bottom'} panel</small>` : ''}</span>${picks[slot] === id ? `<span class="ck">${IC('check')}</span>` : ''}</button>`;
+    return `<div class="pop pane-pop" style="${pos}" role="menu" aria-label="Show in the ${slot ? 'bottom' : 'top'} panel"><div class="lbl">Show in the ${slot ? 'bottom' : 'top'} panel</div>${paneOpts(v, mode).map(row).join('')}</div>`;
+  }
   if (p.type === 'wnew') {
     const row = (a, ic, l, sub, x='') => `<button type="button" class="opt" data-a="${a}" ${x}><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${l}<small>${sub}</small></span></button>`;
     return `<div class="pop" style="${pos}" role="menu" aria-label="New">${row('wNew', 'quill', 'Wiki entry', 'A person, place or rule')}${row('writeNews', 'newsL', 'News edition', 'Players get a ping')}<div class="sep"></div>${row('sheet', 'gear', 'Categories', 'Rename, reorder, icons', 'data-v="wCats"')}</div>`;
@@ -849,12 +895,13 @@ function pinCard(v, m, p){
 
 /* ================= world ================= */
 function worldPage(v){
-  const g0 = G(), gm = isGM(v), ph = v.dev === 'phone';
+  /* in a desktop side panel (v._pane) the wiki steps through one column like a phone: categories, entries, the entry */
+  const g0 = G(), gm = isGM(v), ph = v.dev === 'phone' || v._pane === 'world';
   const g = Object.assign({}, g0, {wiki: g0.wiki.filter(e => gm || !e.gm)});
   const q = v.ui.wikiQ.trim().toLowerCase();
   const hit = e => !q || [e.title, e.summary, ...(e.body||[])].join(' ').toLowerCase().includes(q);
   const index = `<div class="wi scroll" data-sk="wi">
-    ${ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm ghost" data-a="sheet" data-v="wCats">${IC('gear')}Categories</button><button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
+    ${v._pane ? (gm ? `<div class="top ph" style="padding:0;justify-content:flex-end"><button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button></div>` : '') : ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm ghost" data-a="sheet" data-v="wCats">${IC('gear')}Categories</button><button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
     <div class="search">${IC('search')}<input class="inp" id="wq-${v.id}" data-i="wikiQ" placeholder="Search ${g.wiki.length} entries" value="${esc(v.ui.wikiQ)}"></div>
     ${q ? `<div class="ents">${g.wiki.filter(hit).slice(0,40).map(e => entBtn(v,e)).join('') || '<p class="muted" style="font-weight:600">Nothing matches.</p>'}</div>`
       : `<div class="cats">${N.catNames(g.wiki).map(c => { const es = g.wiki.filter(e => e.cat === c); if (!es.length) return ''; const open = v.ui.wikiCat === c; return `<button type="button" class="cat" data-a="wCat" data-v="${esc(c)}" aria-current="${open}"><span class="ci">${IC(N.catIcon(c))}</span><b>${esc(c)}</b><span class="n">${es.length}</span>${IC('right','car')}</button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${es.map(e => entBtn(v,e)).join('')}</div>` : ''}`; }).join('')}</div>`}
@@ -903,7 +950,7 @@ function articleHtml(v, e){
 /* ================= news: every paper the GM runs, each with its issues in order ================= */
 const npIcon = name => `<span class="np"><b>${esc(name.length > 12 ? name.split(/\s+/).map(w => w[0]).join('').slice(0, 4) : name)}</b><i></i><i class="s"></i><i></i><i></i><i class="s"></i></span>`;
 function newsPage(v){
-  const gm = isGM(v), ph = v.dev === 'phone', papers = N.papers();
+  const gm = isGM(v), ph = v.dev === 'phone' || v._pane === 'news', papers = N.papers();
   const seen = G().news.seen[v.role] || [], unseen = i => !gm && !seen.includes(i.id);
   const paper = papers.find(p => p.name === v.ui.paper);
   const issueBtn = i => `<button type="button" class="ent" data-a="newsSel" data-v="${i.id}" aria-current="${v.ui.newsSel===i.id}"><b>No. ${esc(i.no || '—')}${i.date ? ` <span class="nd">· ${esc(i.date)}</span>` : ''}${unseen(i) ? ' <span class="tag gold">New</span>' : ''}${gm ? audTag(i, 'news') : ''}</b><small>${N.emoText(N.marks(esc(i.headline)))}</small></button>`;
@@ -912,7 +959,7 @@ function newsPage(v){
   const none = `<div class="quiet"><div class="art" style="width:220px;height:180px"></div><p>${gm ? 'No papers yet. Write the first edition and give the paper a name. Players get a ping.' : `No news yet. ${esc(N.gmName())} publishes papers here.`}</p></div>`;
   const newBtn = gm ? (ph ? `<button type="button" class="btn sm primary" data-a="writeNews">${IC('plus')}New edition</button>` : `<button type="button" class="btn sm primary spark" data-a="writeNews">${IC('pen')}New edition</button>`) : '';
   const index = `<div class="wi scroll" data-sk="ni">
-    ${ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>News</h1>${newBtn}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">News</h1>${newBtn}</div>`}
+    ${v._pane ? (gm ? `<div class="top ph" style="padding:0;justify-content:flex-end">${newBtn}</div>` : '') : ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>News</h1>${newBtn}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">News</h1>${newBtn}</div>`}
     ${papers.length ? `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${papers.length > 1 ? `${papers.length} papers. ` : ''}Pick a paper to see its issues, oldest first.</p><div class="papers">${papers.map(paperBtn).join('')}</div>` : none}
   </div>`;
   const issue = paper && paper.issues.find(i => i.id === v.ui.newsSel);
@@ -1145,7 +1192,7 @@ N.sheetBody = function(v, c){
       <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.nat?`${esc(c.nat)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${N.emoText(N.marks(esc(N.pcTag(c))))}</div>`:''}</div>
       <div class="fp"><div class="res"><div><span class="eyebrow">Fate points · refresh ${c.refresh}</span><div class="coins">${coinsHtml(c, gm)}</div></div>${goldHtml(c, 'c', gm)}${gm ? N.xferBtn('c', c.id) : ''}</div>${gm?`<div class="gmbar"><button type="button" class="btn sm" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Edit card</button>${revBtn(c.id)}<button type="button" class="btn sm" data-a="pcToNpc" data-v="${c.id}" title="Make a new NPC card from this sheet">${IC('npc')}Copy as NPC</button><button type="button" class="btn sm danger" data-a="sheet" data-v="pcDel" data-c="${c.id}">${IC('trash')}Delete</button></div>`:''}</div>
     </section>
-    ${v.ui.tab === 'hero' && mine && !gm ? `<div class="full statrow"><button type="button" class="btn statbtn" data-a="heroStats" data-v="${c.id}">${IC('scroll')}Stats</button>${N.figOk && N.figOk() ? `<button type="button" class="btn statbtn" data-a="figOpen">${IC('hero')}Figure</button>` : ''}</div>` : ''}
+    ${(v.ui.tab === 'hero' || v._pane === 'hero') && mine && !gm ? `<div class="full statrow"><button type="button" class="btn statbtn" data-a="heroStats" data-v="${c.id}">${IC('scroll')}Stats</button>${N.figOk && N.figOk() ? `<button type="button" class="btn statbtn" data-a="figOpen">${IC('hero')}Figure</button>` : ''}</div>` : ''}
     ${wikiSec(v, c.id)}
     <section class="sec"><h3>Aspects</h3><div class="asps">${asps(N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a])) || '<p class="muted">None yet.</p>'}</div></section>
     <section class="sec"><h3>Skills${canRoll?' · tap one to roll':''}</h3><div class="lad">${rungs.map(([x,ns]) => `<div class="rung${x < 0 ? ' neg' : ''}"><span class="lv"><b>${sgn(x)}</b>${ladderWord(x)}</span><span class="sks">${ns.map(n => canRoll ? `<button type="button" data-a="roll" data-skill="${esc(n)}" data-c="${c.id}">${esc(n)}${N.discOf(c, n).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(c, n).join(', '))}</small>`:''}${fateDie.replace('<svg','<svg style="width:14px;height:14px;color:var(--ink-4)"')}</button>` : `<button type="button" disabled>${esc(n)}${N.discOf(c, n).length?`<small style="color:var(--ink-3);font-weight:600">${esc(N.discOf(c, n).join(', '))}</small>`:''}</button>`).join('')}</span></div>`).join('')}<div class="rung"><span class="lv"><b>+0</b>Mediocre</span><span class="sks"><span class="muted" style="font-weight:600;font-size:13px;padding:8px 0">Everything else</span></span></div></div></section>
@@ -1211,7 +1258,7 @@ function invBody(v){
 }
 function invPage(v){
   const ph = v.dev === 'phone';
-  const top = ph ? `<div class="top ph">${meBtn(v)}<h1>Inventory</h1></div>` : `<div class="top dt" style="display:flex"><h1>Inventory</h1></div>`;
+  const top = v._pane ? '' : ph ? `<div class="top ph">${meBtn(v)}<h1>Inventory</h1></div>` : `<div class="top dt" style="display:flex"><h1>Inventory</h1></div>`;
   return `<div class="scroll" data-sk="inv" style="min-height:0">${top}${invBody(v)}</div>`;
 }
 
