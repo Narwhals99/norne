@@ -15,6 +15,10 @@ service cloud.firestore {
         && request.auth.token.email_verified == true
         && request.auth.token.email.lower() == 'theusualsuspect41995@gmail.com';
     }
+    function isDeveloper() {
+      return signedIn() && request.auth.token.email_verified == true
+        && request.auth.token.email.lower() == 'jackhelling10@gmail.com';
+    }
     function memberPath() { return /databases/$(database)/documents/members/$(request.auth.uid); }
     function seat() {
       return signedIn() && exists(memberPath()) ? get(memberPath()).data.role : 'none';
@@ -104,19 +108,25 @@ service cloud.firestore {
     // re (optional) is the id of the message it replies to.
     match /msgs/{id} {
       allow read: if canReadMsg(resource.data);
-      allow create: if isGM()
-        || (isPlayer()
+      allow create: if (request.resource.data.get('kind', '') == 'dev'
+          ? (isDeveloper() && isPlayer() && mine(request.resource.data.by)
+             && request.resource.data.ch == 'table' && request.resource.data.aud == ['*'])
+          : (isGM() || (isPlayer()
             && mine(request.resource.data.by)
             && ((request.resource.data.ch == 'table' && request.resource.data.aud == ['*'])
                 || (request.resource.data.ch == 'dm-' + request.resource.data.by && request.resource.data.aud == [request.resource.data.by])
                 || (request.resource.data.ch.matches('grp-[a-z0-9]+')
                     && exists(groupPath(request.resource.data.ch.split('-')[1]))
                     && request.resource.data.by in get(groupPath(request.resource.data.ch.split('-')[1])).data.seats
-                    && request.resource.data.aud == get(groupPath(request.resource.data.ch.split('-')[1])).data.seats)));
+                    && request.resource.data.aud == get(groupPath(request.resource.data.ch.split('-')[1])).data.seats)))));
       // Players may change a roll (invokes), the words of their own messages, the voice of their own typed
       // messages (their character or Meta), and their own reactions (rx.p1 is p1's list of emoji on this message).
-      allow update: if isGM()
-        || (isPlayer() && mine(resource.data.by)
+      allow update: if (isDeveloper() && resource.data.get('kind', '') == 'dev'
+             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'ed'])
+             && request.resource.data.text is string)
+        || (isGM() && resource.data.get('kind', '') != 'dev' && request.resource.data.get('kind', '') != 'dev')
+        || (isPlayer() && resource.data.get('kind', '') != 'dev'
+            && request.resource.data.get('kind', '') != 'dev' && mine(resource.data.by)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'ed', 'roll', 'kind', 'as'])
             && request.resource.data.text is string
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['kind', 'as'])

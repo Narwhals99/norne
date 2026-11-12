@@ -1,0 +1,20 @@
+/* Developer announcements use the same treatment in every theme. */
+.dev-note {
+  box-sizing: border-box;
+  max-width: min(100%, 680px);
+  margin: 12px auto;
+  padding: 12px 16px 14px;
+  border: 2px solid #c89b3c;
+  border-radius: 8px;
+  background: #201a13;
+  color: #fff5df;
+  overflow-wrap: anywhere;
+}
+.dev-note-label {
+  margin-bottom: 7px;
+  color: #e6bd62;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.dev-note-label time { color: #e6bd62; }
+.dev-note-body { line-height: 1.5; }
