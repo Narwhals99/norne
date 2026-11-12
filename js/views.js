@@ -415,6 +415,7 @@ function rxPill(v, m){
 }
 function rMsg(v, m, prev, firstNarr){
   const g = G(), mine = isMe(v, m), time = timeTag(m.t), txt = N.emoText(fmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '');
+  if (m.kind === 'dev') return `<div class="dev-note"><div class="dev-note-label">Dev Note ${time}</div><div class="dev-note-body">${txt}</div></div>`;
   /* a store opening or closing is a line in the chat like a scene, with Browse while that store is still open */
   if (m.kind === 'sys' && m.shop) { const live = N.shopOpen(m.ch), on = m.shop === 'open' && live && live.id === m.shopId;
     return `<div class="scenem shopm${m.shop === 'end' ? ' end' : ''}"><span class="th">${IC('coins')}</span><span><span>${m.shop === 'open' ? 'Store open' : 'Shopping over'}</span><b>${esc(m.shopName || 'The store')}</b></span>${on ? `<button type="button" class="btn sm gold" data-a="sheet" data-v="store" data-c="${esc(m.ch)}">Browse</button>` : ''}</div>`; }

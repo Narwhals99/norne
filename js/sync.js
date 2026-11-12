@@ -734,7 +734,7 @@ async function enter(u){
     const j = JSON.stringify(d); if (j === last) return; last = j;
     /* each tab plays its own character: the one picked in this tab, else the one the account last picked (role) */
     const play = playSeat(u.uid, d);
-    ME = {uid:u.uid, email, name:d.name, role:play, seats:d.seats?.length ? N.seatsOf(d) : []};
+    ME = {uid:u.uid, email, emailVerified:u.emailVerified === true, name:d.name, role:play, seats:d.seats?.length ? N.seatsOf(d) : []};
     if (started) { if (play !== G().role) location.reload(); else N.renderAll(); return; }
     if (d.role === 'gm' || isSeat(d.role)) start(play).catch(fail);
     else if (d.role === 'removed') gate(`<p>You don’t have a seat at this table any more. Ask the GM if that’s a mistake.</p>${outBtn}`);

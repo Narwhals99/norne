@@ -8,7 +8,7 @@ const views = N.views = [];
 
 N.now = () => { const ms = G().msgs; const last = ms.length ? ms[ms.length - 1].t : 0; return Math.max(Date.now(), last + 1); };
 /* messages the GM can rewrite: anything typed, not rolls, scenes or cards */
-N.msgEditable = m => ['rp','ooc','meta','note'].includes(m.kind) && typeof m.text === 'string';
+N.msgEditable = m => ['rp','ooc','meta','note','dev'].includes(m.kind) && typeof m.text === 'string';
 /* the GM can edit any typed message, a player only their own */
 N.canEdit = (v, m) => N.msgEditable(m) && (isGM(v) || m.by === v.role);
 /* the voice a typed message went out in can be changed afterwards (sent as Meta by mistake, or as the wrong NPC):
@@ -870,19 +870,30 @@ function conOwner(d){ const g = G(); return d.c ? g.chars[d.c] : d.n ? g.npcs.fi
 /* a paused party or group chat (Jake) takes nothing from its players: no messages, pictures, GIFs or rolls */
 function hushed(v, ch){ if (isGM(v) || !N.chPaused(ch)) return false; toast(v, 'The GM paused this chat. You can read it, but not send anything until they resume it.'); render(v); return true; }
 function send(v){
-  const text = v.ui.draft.trim(); if (!text) return;
-  if (hushed(v, v.ui.ch)) return;
-  const ch = v.ui.ch, gm = isGM(v), g = G(), c = N.charOf(v.role);
+  let text = v.ui.draft.trim(); if (!text) return;
+  const devCommand = /^\/dev(?:\s|$)/i.test(text);
+  if (devCommand && !(N.me()?.email === 'jackhelling10@gmail.com' && N.me()?.emailVerified)) {
+    toast(v, 'Only the developer can send a Dev Note.'); return;
+  }
+  if (devCommand) {
+    text = text.replace(/^\/dev(?:\s+|$)/i, '').trim();
+    if (!text) { toast(v, 'Write a message after /dev.'); return; }
+  }
+  const ch = devCommand ? 'table' : v.ui.ch;
+  if (hushed(v, ch)) return;
+  const gm = isGM(v), g = G(), c = N.charOf(v.role);
   let m;
-  if (ch === 'gm') m = {kind:'note'};
+  if (devCommand) m = {kind:'dev'};
+  else if (ch === 'gm') m = {kind:'note'};
   /* emoji on their own are table talk, never part of the story */
   /* Everyone is Meta only: whatever the toggle says, it goes out as the person, not their character */
   else if (v.ui.mode === 'ooc' || N.metaOnly(ch) || N.emojiOnly(text)) m = {kind:'meta'};
   else if (gm) { const n = N.npcByName(v.ui.voice); m = {kind:'rp', as:v.ui.voice}; if (n?.portrait) m.pt = n.portrait; }
   else m = {kind:'rp', as:c && c.built ? c.short : g.P[v.role].name};
-  if (v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
+  if (!devCommand && v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
   push(Object.assign(m, {ch, by:v.role, text}));
   v.ui.draft = ''; v.ui.stick = true; v.ui.reply = null;
+  if (devCommand && v.ui.ch !== 'table') { v.ui.ch = 'table'; toast(v, 'Dev Note sent to Everyone.'); }
   renderAll();
   const ta = v.root.querySelector('.composer textarea'); if (ta) ta.focus({preventScroll:true});
 }
