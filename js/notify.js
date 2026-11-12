@@ -139,8 +139,9 @@ const worth = m => !(m.kind === 'scene' && m.quiet);
 /* without push: ping this device for messages from others while Norne is open but not in front */
 N.notifyMsgs = list => {
   if (pushed || N.notifyState() !== 'on' || (!document.hidden && document.hasFocus()) || otherInFront()) return;
-  const role = G().role;
-  const mine = list.filter(m => m.by !== role && worth(m) && N.channelsFor(role).includes(m.ch));
+  const role = G().role, me = N.me?.(), own = new Set([role, ...(me ? N.seatsOf(me) : [])]);
+  /* never ping for something this person wrote, under any of their characters */
+  const mine = list.filter(m => !own.has(m.by) && worth(m) && N.channelsFor(role).includes(m.ch));
   const byCh = {};
   for (const m of mine) { const t = line(m); if (t) (byCh[m.ch] = byCh[m.ch] || []).push(t); }
   for (const [ch, ts] of Object.entries(byCh)) show('Norne', pings(ts), ch);
@@ -158,10 +159,11 @@ function flush(){
   (N.pushList ? N.pushList() : Promise.resolve()).then(() => send(list));
 }
 function send(list){
-  const role = G().role, pushes = [], now = Date.now();
+  const role = G().role, uid = N.me?.()?.uid, pushes = [], now = Date.now();
   for (const d of N.PUSH || []) {
     const who = N.MEMBERS.find(x => x.uid === d.uid);
-    if (d.role === role || !who || !N.seatsOf(who).includes(d.role)) continue;
+    /* none of the sender's own devices, whichever character each one was saved as */
+    if (d.uid === uid || d.role === role || !who || !N.seatsOf(who).includes(d.role)) continue;
     /* Norne is open on that device right now, so they'll see it there */
     if (d.seen && now - d.seen < SEEN_FOR) continue;
     const byCh = {};
