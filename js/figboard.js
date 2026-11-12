@@ -217,6 +217,10 @@ function defPose(run, ft){
   if (out === 'block' || out === 'bstyle' || out === 'tie') return d >= -330 && d < 970 ? ['block', d + 330] : null;
   return d >= -200 && d < 1100 ? ['hit', d + 200] : null;
 }
+/* does this attack's figure thrust or punch, not swing (fx.js leaves out the swoosh then)? s is the screen's v._afx */
+N.figThrust = s => { const arm = s && s.a && s.a.arm, d = kit && arm && kit.K.WEAPONS[arm.w]; if (!d || d.cat !== 'melee') return false;
+  const mv = kit.K.offWeapon(arm) && kit.K.offWeapon(arm.o) ? kit.K.DUAL_MOVES : d.moves;
+  return ['poke', 'thrust', 'jabs', 'hook', 'flurry'].includes(mv[moveOf(s.id, true) % mv.length]); };
 /* the joints a pose moves, so one move can blend into the next instead of jumping */
 function joints(rig){
   if (rig._j) return rig._j;
@@ -277,6 +281,9 @@ function draw(S, now){
     if (out) { name = 'down'; pt = 1500; yaw = (F.face || 1) * 1.35; ring = el.classList.contains('sel') ? 'sel' : null; }
     else if (F.getup && now - F.getup < 700) { name = 'down'; pt = 1900 + (now - F.getup); busy = true; }
     else if (walking) { name = 'walk'; pt = now - F.tw.t0; yaw = Math.atan2(F.tw.x1 - F.tw.x0, (F.tw.y1 - F.tw.y0) / SIN); }
+    /* the attacker takes the weapon the attack was made with in hand (js/armory.js), as soon as the result arrives,
+       so building it can't stall the attack; with none it uses the plain sword or bow */
+    if (a && a.a && !a.done && t.id === a.a.att && F.armed !== a.id) { F.armed = a.id; K.hold(rig, a.a.arm || null); F.last = null; }
     if (ft != null && ft >= 0 && ft < run.total && (t.id === a.a.att || t.id === a.a.def)) {
       const att = t.id === a.a.att, O = S.figs.get(att ? a.a.def : a.a.att);
       const p = att ? atkPose(run, ft) : defPose(run, ft);
