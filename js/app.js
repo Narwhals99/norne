@@ -760,6 +760,8 @@ function input(v, el){
     case 'fcDraft': v.ui.fcDraft = val; return;
     case 'ndayY': if (v.ui.nday) { v.ui.nday.y = val.slice(0, 24); const p = v.root.querySelector(`#ndp-${v.id}`); if (p) p.innerHTML = N.nextDayPrev(v.ui.nday); } return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
+    case 'invTransferQ': if (v.ui.invTransfer) { v.ui.invTransfer.q = val; render(v); } return;
+    case 'invTransferQty': if (v.ui.invTransfer) v.ui.invTransfer.qty = val; return;
     case 'itQ': v.ui.itQ = val; render(v); return;
     case 'shopQ': v.ui.shopQ = val; render(v); return;
     case 'shopName': { const s = isGM(v) && N.shopOf(el.dataset.c); if (s) s.name = val; return; }
@@ -1951,6 +1953,28 @@ function act(v, a, el, e){
     if (!d.c) { ui.invQ = 1; toast(v, `Added to ${c.name}’s inventory.`); renderAll(); return; }
     sys(`${N.gmName()} added ${n} ×${q} to ${c.short}’s inventory.`, 'dm-' + c.player); ui.invQ = 1;
     toast(v, `Added to ${c.short}’s inventory. They got a note.`); renderAll(); return;
+  }
+  case 'invTransfer': {
+    if (!gm || d.nd) break;
+    const from = invOwner(d, v), row = from?.inv?.[+d.i]; if (!row) break;
+    ui.invTransfer = {from:from.id, npc:!from.player, i:+d.i, qty:1, q:''};
+    openSheet(v, 'invTransfer'); return;
+  }
+  case 'invTransferTo': if (gm && ui.invTransfer) { ui.invTransfer.to = val; render(v); } return;
+  case 'invTransferGo': {
+    const t = ui.invTransfer; if (!gm || !t) break;
+    const from = t.npc ? g.npcs.find(n => n.id === t.from) : g.chars[t.from];
+    const row = from?.inv?.[t.i], to = val.startsWith('npc:') ? g.npcs.find(n => n.id === val.slice(4)) : g.chars[val.slice(3)];
+    const qty = Math.floor(+t.qty);
+    if (!row || !to || to.id === from.id || !Number.isSafeInteger(qty) || qty < 1 || qty > row[1]) { toast(v, 'Choose a recipient and a valid quantity.'); return; }
+    const moved = JSON.parse(JSON.stringify(row)); moved[1] = qty;
+    if (N.invX(moved).eq || N.invX(moved).eq2) N.invSetX(moved, {eq:0, eq2:0});
+    to.inv = to.inv || []; to.inv.push(moved);
+    if (qty === row[1]) { from.inv.splice(t.i, 1); if (N.invX(row).eq) N.applyGear(from); }
+    else row[1] -= qty;
+    if (from.player) sys(`${N.gmName()} transferred ${moved[0]} ×${qty} from ${from.short} to ${to.short || to.name}.`, 'dm-' + from.player);
+    if (to.player && to.player !== from.player) sys(`${N.gmName()} transferred ${moved[0]} ×${qty} from ${from.short || from.name} to ${to.short}.`, 'dm-' + to.player);
+    ui.invTransfer = null; ui.sheet = null; toast(v, `Transferred ${moved[0]} ×${qty} to ${to.short || to.name}.`); renderAll(); return;
   }
   case 'invQty': { const c = invOwner(d, v), it = c?.inv?.[+d.i]; if (!it) break; it[1] += +d.d; if (it[1] <= 0) { c.inv.splice(+d.i, 1); if (N.invX(it).eq && !d.nd) N.applyGear(c); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); } renderAll(); return; }
   case 'invEdit': ui.invEdit = {key:d.nd ? 'nd' : invOwner(d, v)?.id, i:+d.i}; break;

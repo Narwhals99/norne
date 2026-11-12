@@ -600,6 +600,23 @@ N.sheetHtml = function(v){
       ${list.length ? lists : `<div class="note">${IC('info')}${all.length ? 'No items match.' : 'No items yet. Press New item to add one, or Import to load an items file.'}</div>`}`;
     return sheet('Item catalog', body, `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true});
   }
+  case 'invTransfer': {
+    const t = v.ui.invTransfer, from = t && (t.npc ? g.npcs.find(n => n.id === t.from) : g.chars[t.from]), row = from?.inv?.[t.i];
+    if (!gm || !row) return '';
+    const scenes = Object.keys(g.scenes || {}).filter(ch => g.scenes[ch]);
+    const inScene = ch => { const f = N.sceneFolk(ch); return from.player ? f.pcs.some(x => x.id === from.id) : f.npcs.some(x => x.id === from.id); };
+    const scene = scenes.find(ch => ch === v.ui.ch && inScene(ch)) || scenes.find(inScene);
+    const f = scene && N.sceneFolk(scene);
+    const pcs = (f ? f.pcs : N.pcs().filter(x => x.built)).filter(x => x.id !== from.id);
+    const npcs = (f ? f.npcs : g.npcs).filter(x => x.id !== from.id);
+    const q = (t.q || '').trim().toLowerCase();
+    const people = [...pcs.map(x => ({id:'pc:' + x.id, name:x.short || x.name, type:'PC'})), ...npcs.map(x => ({id:'npc:' + x.id, name:x.name, type:'NPC'}))].filter(x => x.name.toLowerCase().includes(q));
+    const body = `<p class="muted">Move ${esc(row[0])} from ${esc(from.short || from.name)}. ${scene ? 'Showing characters in the current scene.' : 'Showing all existing characters.'}</p>
+      <label class="field"><span>Quantity</span><input class="inp" type="number" min="1" max="${row[1]}" value="${esc(t.qty)}" data-i="invTransferQty"></label>
+      <label class="field"><span>Find recipient</span><input class="inp" value="${esc(t.q)}" data-i="invTransferQ" placeholder="Search PCs and NPCs"></label>
+      <div class="itc-list">${people.map(x => `<button type="button" class="itc-row" data-a="invTransferTo" data-v="${esc(x.id)}" aria-pressed="${t.to === x.id}"><span class="itc-t"><b>${esc(x.name)}</b><small>${x.type}</small></span></button>`).join('') || '<p class="muted">No matching characters.</p>'}</div>`;
+    return sheet('Transfer item', body, `<button type="button" class="btn primary" data-a="invTransferGo" data-v="${esc(t.to || '')}" ${t.to ? '' : 'disabled'}>Transfer</button>`, {wide:true});
+  }
   /* ---------------- storefronts (Jake): the GM's setup, the catalog picker, and the store players browse ---------------- */
   case 'shop': {
     const sh = gm && N.shopOf(arg); if (!sh) return '';
