@@ -513,16 +513,23 @@ function bind(v){
   const DRAGS = 'input,textarea,select,.tok,[data-rs],[data-zl],[data-mapcv],.fr-stage';
   const NOSWIPE = HS + ',' + DRAGS + ',.pop,.sheet';
   let sw = null;
+  /* a swipe that never took hold gives back the page it had already built underneath */
+  const drop = () => { const s = sw; sw = null; if (s?.built && !s.on) { s.back(); v.swiping = 0; if (v._later) { v._later = false; render(v); } } };
   root.addEventListener('touchstart', e => {
+    drop();
     if (swBusy(v)) return;
-    sw = null;
     const ui = v.ui, t = e.touches[0];
     if (v.dev !== 'phone' || e.touches.length > 1) return;
     const fa = ui.tab === 'chat' && N.fightAvail(v), inFight = fa && ui.fightPane === 'fight', side = N.sideOpen(v);
     const s = {x:t.clientX, y:t.clientY, pts:[[t.clientX, e.timeStamp]]};
     if (ui.shelf) { if (e.target.closest('.shelf,.shelf-scrim')) sw = Object.assign(s, {k:'shelf'}); return; }
     /* in a chat, in from the right edge opens the side panels (the same two as the desktop's right side) */
-    if (ui.tab === 'chat' && !side && !inFight && !ui.sheet && !ui.pop && t.clientX > root.clientWidth - SW_EDGE && !e.target.closest(DRAGS)) { sw = Object.assign(s, {k:'side', edge:true}); return; }
+    if (ui.tab === 'chat' && !side && !inFight && !ui.sheet && !ui.pop && t.clientX > root.clientWidth - SW_EDGE_R && !e.target.closest(DRAGS)) {
+      sw = Object.assign(s, {k:'side', edge:true});
+      /* build the side panels now, while the finger is still crossing the first few pixels, so the swipe doesn't stall when it starts */
+      setTimeout(() => { if (sw === s && !s.on && !s.built && (s.built = swStart(v, s, -1))) v.swiping = performance.now(); }, 0);
+      return;
+    }
     if (t.clientX < SW_EDGE && !inFight && !e.target.closest(DRAGS)) { sw = Object.assign(s, {k:'back', edge:true}); return; }
     if (ui.sheet || ui.pop || e.target.closest(NOSWIPE)) return;
     /* with the side panels open a swipe to the right anywhere goes back a step (a page's own back arrow first) */
@@ -536,8 +543,9 @@ function bind(v){
     if (!sw) return;
     const t = e.touches[0], dx = t.clientX - sw.x, dy = t.clientY - sw.y;
     if (!sw.on) {
-      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
-      if (e.touches.length > 1 || Math.abs(dx) < Math.abs(dy) * (sw.edge ? .9 : 1.5) || v.suppress || !swStart(v, sw, dx)) { sw = null; return; }
+      const dead = sw.edge ? 6 : 10;
+      if (Math.abs(dx) < dead && Math.abs(dy) < dead) return;
+      if (e.touches.length > 1 || Math.abs(dx) < Math.abs(dy) * (sw.edge ? .9 : 1.5) || v.suppress || (sw.built ? dx > 0 : !swStart(v, sw, dx))) { drop(); return; }
       sw.on = true; v.swiping = performance.now();
     }
     if (e.cancelable) e.preventDefault();
@@ -546,21 +554,21 @@ function bind(v){
   }, {passive:false});
   root.addEventListener('touchend', e => {
     const s = sw; sw = null;
-    if (!s?.on) return;
+    if (!s?.on) { if (s?.built) { sw = s; drop(); } return; }
     const t = e.changedTouches[0]; s.pts.push([t.clientX, e.timeStamp]);
     /* how fast the finger was going at the end, in px per ms, towards the goal */
     const a = s.pts.find(p => e.timeStamp - p[1] < 90) || s.pts[0], dt = Math.max(1, e.timeStamp - a[1]);
     const vel = (t.clientX - a[0]) / dt * s.dir, g = s.g = s.at(t.clientX - s.x);
     swEnd(v, s, vel > -.2 && (g > .4 || (vel > .3 && g > .04)), vel);
   });
-  root.addEventListener('touchcancel', () => { const s = sw; sw = null; if (s?.on) swEnd(v, s, false, 0); });
+  root.addEventListener('touchcancel', () => { const s = sw; sw = null; if (s?.on) swEnd(v, s, false, 0); else if (s?.built) { sw = s; drop(); } });
 }
 
 /* ---------------- swipes ----------------
    A swipe drags something with the finger and, when let go, glides on to the end (or back) from the speed it had.
    Going back: the page slides off to the right and the page it goes back to shows underneath, a little behind, the way
    an iPhone app does it. Popups and sheets slide away alone; the chat list slides in and out by its edge. */
-const SW_EDGE = 32;
+const SW_EDGE = 32, SW_EDGE_R = 44; /* the right edge is a little wider: thumbs start a swipe in from there further from the glass edge */
 /* while a swipe is under way, redraws wait for it to end (a stuck one stops counting after a few seconds) */
 const swBusy = v => !!v.swiping && performance.now() - v.swiping < 3000;
 /* a wide table or picture row that scrolls sideways keeps its own swipe */

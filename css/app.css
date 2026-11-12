@@ -2851,3 +2851,6 @@
 .app .rail.sp>.pane.pb{border-top:1px solid var(--line)}
 .app .rail.sp .pane.pa>.pane-h,.app .rail.sp .pane.pb>.pane-h{padding:6px 12px 2px}
 .app .rail.sp .pane-c .top.ph{padding:0}
+
+/* phone side panels, a little smaller (Jack, 2026-11-12): everything in them is drawn at 86% so more fits; the map keeps its true size so its touches stay exact */
+.app .sp-top,.app .rail.sp .pane-h,.app .rail.sp .rail-a,.app .rail.sp .rcnt.rc-in,.app .rail.sp .pane-c:not(.pane-map){zoom:.86}
