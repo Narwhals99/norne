@@ -825,7 +825,7 @@ N.tokHasShield = t => {
   const rows = [...(c && c.inv || []), ...(t.inv || [])];
   return rows.some(r => r && (SHIELD_RX.test(r[0] || '') || (N.rowItem && N.itemSlot(N.rowItem(r)) === 'shield')));
 };
-/* what a fighter attacks with, for the figures (Jack, 2026-11-11): {w:<shape>, m:<metal>, wd:<wood>, sp:1 spiked}, or
+/* what a fighter attacks with, for the figures (Jack, 2026-11-11): {w:<shape>, m:<metal>, wd:<wood>, sp:1 spiked, o:{the off hand's}}, or
    null for the plain sword or bow. Nobody sets it: it is read from the fighter's gear when the attack is rolled.
    In order: a weapon the GM has equipped, else the best-rated one in the inventory, else the first thing in the
    inventory whose name says what it is ("Grandfather's halberd"). Only weapons that fit the attack count: close
@@ -863,6 +863,7 @@ const WPN_METALS = [['dwarven', /\bdwarven\b|\bdwarf/], ['steel', /\bsteel\b/], 
 const WPN_WOODS = ['oak', 'willow', 'whitewood', 'redwood', 'ironwood', 'kapok', 'bamboo', 'pine', 'palm'];
 /* things that only sound like a weapon: what goes with one, not the weapon itself */
 const WPN_NOT = /\b(arrows?|bolts?|quarrels?|quivers?|sheaths?|scabbards?|holsters?|polish|whetstones?|oil|strings?|straps?|belts?|cases?|kits?|racks?|handles?|hilts?|shards?|pieces?|broken|toy|paintings?|books?|notes?|letters?|maps?|keys?)\b/i;
+const WPN_PAIR = /\b(twin|twinned|paired|pair of|two(?!-? ?hand)|dual|akimbo|matched|matching)\b/i;
 N.weaponLook = name => {
   const s = String(name || '').toLowerCase(); if (!s || WPN_NOT.test(s)) return null;
   const sh = WPN_SHAPES.find(x => x[2].test(s)); if (!sh) return null;
@@ -882,8 +883,17 @@ N.tokWeapon = (t, skill) => {
     const f = N.weaponLook(r[0]); if (!f || (kind === 'sword') !== (f.cat === 'melee')) return;
     /* equipped first, then a bow before something thrown, then the better rating, then the higher in the list */
     const score = (N.invX(r).eq ? 1e6 : 0) + (f.cat === 'shot' ? 1e4 : 0) + (it ? 1e3 + 10 * (N.itemRating(it) || 0) : 0) - i * .001;
-    if (!best || score > best.score) best = {score, look:f.look}; });
-  return best ? best.look : null;
+    if (!best || score > best.score) best = {score, look:f.look, name:String(r[0]), q:+r[1] || 1}; });
+  if (!best) return null;
+  /* a weapon in each hand: the two the GM equipped to dual-wield, or one item that says it is a pair ("Twin daggers"), */
+  const look = best.look;
+  if (kind === 'sword') {
+    const mel = c && N.eqOf ? N.eqOf(c, 'melee') : [], two = mel[1] && mel[0].dual && mel[1].dual ? mel.slice(0, 2).map(it => N.weaponLook(it.name)) : null;
+    if (two && two[0] && two[1] && two[0].cat === 'melee' && two[1].cat === 'melee') return {...two[0].look, o:two[1].look};
+    /* or two of a small weapon (daggers, hatchets) carried together */
+    if (WPN_PAIR.test(best.name) || best.q >= 2 && /^(dagger|hatchet)$/.test(look.w)) return {...look, o:{...look}};
+  }
+  return look;
 };
 /* the GM's pick after an attack with style: the full damage, or 2 less and a boost on the defender */
 N.cbStyle = function(choice){

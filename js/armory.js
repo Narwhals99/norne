@@ -1,7 +1,7 @@
 /* Norne weapons for the toy figures (Jack, 2026-11-11): every kind of weapon in the GM's item catalog has its own
    model and its own way of being used, so fighters no longer all swing the same plain sword or draw the same bow.
    Built from shapes in code in the figures' style (toon colours, ink outlines), no outside art.
-   What a fighter holds is small JSON {w:'<shape>', m:'<metal>', wd:'<wood>'}; js/combat.js works it out from the
+   What a fighter holds is small JSON {w:'<shape>', m:'<metal>', wd:'<wood>', o:{a second one for the off hand}}; js/combat.js works it out from the
    fighter's gear when the attack is rolled (N.tokWeapon) and sends it with the attack, so every device shows the same.
    makeArmory(THREE, H) gets figkit's drawing helpers in H and gives back
      hold(rig, look)  the figure takes this weapon in hand (built the first time), or its plain one with no look
@@ -162,20 +162,21 @@ function paints(look){
   return {metal, trim, wood:toon(wd || (def.wood && !look.wd ? 0x9a6a3a : WOOD)), wrap:toon(WRAP), leather:toon(LEATHER), stone:toon((METALS[look.m] || METALS.stone)[0])};
 }
 const keyOf = look => look.w + '|' + (look.m || '') + '|' + (look.wd || '') + (look.sp ? '|s' : '');
+/* can this one go in the off hand, to fight with two weapons? a one-handed close weapon */
+const offOk = o => okLook(o) && W[o.w].cat === 'melee' && !W[o.w].two && !W[o.w].both;
 
-/* the figure takes a weapon in hand. Each is built once per figure, and kept hidden until an attack shows it. */
+/* the figure takes a weapon in hand. Each is built once per figure, and kept hidden until an attack shows it.
+   look.o is a second weapon for the off hand (two daggers, a sword and a hatchet): then it fights with both. */
 function hold(rig, look){
   if (rig.beast || !rig.w) return;
   if (!okLook(look)) { rig.held = null; return; }
-  const key = keyOf(look);
-  if (rig.held && rig.held.key === key) return;
+  const off = offOk(look) && offOk(look.o) ? look.o : null, key = keyOf(look), lkey = off ? 'L|' + keyOf(off) : key + '|L';
+  if (rig.held && rig.held.key === key && rig.held.lkey === (off || W[look.w].both ? lkey : '')) return;
   const def = W[look.w];
-  if (!rig.w[key]) {
-    const mk = () => { const m = new THREE.Group(); m.add(def.make(paints(look), look)); m.rotation.x = def.both ? 0 : PI / 2; m.visible = false; return m; };
-    const m = mk(); (def.hand === 'L' ? rig.armL : rig.armR).hand.add(m); rig.w[key] = m;
-    if (def.both) { const l = mk(); rig.armL.hand.add(l); rig.w[key + '|L'] = l; }
-  }
-  rig.held = {key, w:look.w, def, m:rig.w[key], l:rig.w[key + '|L'] || null};
+  const mk = (d, lk) => { const m = new THREE.Group(); m.add(d.make(paints(lk), lk)); m.rotation.x = d.both ? 0 : PI / 2; m.visible = false; return m; };
+  if (!rig.w[key]) { const m = mk(def, look); (def.hand === 'L' ? rig.armL : rig.armR).hand.add(m); rig.w[key] = m; }
+  if ((off || def.both) && !rig.w[lkey]) { const l = off ? mk(W[off.w], off) : mk(def, look); rig.armL.hand.add(l); rig.w[lkey] = l; }
+  rig.held = {key, lkey:off || def.both ? lkey : '', w:look.w, def, two:!!off, m:rig.w[key], l:off || def.both ? rig.w[lkey] : null};
 }
 
 /* ---------- the moves ---------- */
@@ -302,13 +303,38 @@ const MOVES = {
     body.position.z = lerp(-4 * eOut(wind), 7, s) * low; c.step(s * low * 1.3);
     level(w, armR, .22 * (1 - s) + 1.2 * (1 - eOut(Math.min(1, wind * 2.4)))); w.visible = ms < 1050; }
 };
+/* a weapon in each hand */
+Object.assign(MOVES, {
+  /* the off hand cuts first, the main hand follows through the target */
+  twin(c){ const {ms, armL, armR, torso, body, w, l} = c, wl = seg(ms, 120, 400), sl = eOut(seg(ms, 400, 520)), wind = seg(ms, 360, 640), s = eOut(seg(ms, 640, 790)), back = 1 - eIO(seg(ms, 1050, 1500));
+    armL.sh.rotation.x = lerp(lerp(0, -2.5, eIO(wl)), -.35, sl) * back; armL.sh.rotation.z = -.2 - .7 * eOut(Math.min(1, wl * 1.6)) * (1 - sl) * back;
+    armR.sh.rotation.x = lerp(lerp(0, -2.6, eIO(wind)), -.15, s) * back; armR.sh.rotation.z = .2 + .85 * eOut(Math.min(1, wind * 1.6)) * (1 - s) * back;
+    torso.rotation.y = lerp(lerp(-.5 * eOut(wl), .5, sl), -.55, s) * back; torso.rotation.x = (.1 * sl + .14 * s) * back;
+    body.position.z = (2 * sl + 3.5 * s) * back; c.step(s * back);
+    w.rotation.x = l.rotation.x = PI / 2 - .25; },
+  /* quick stabs, left, right, left, and the right again to finish */
+  flurry(c){ const {ms, armL, armR, torso, body, w, l} = c, g = eOut(seg(ms, 0, 180)) * (1 - eIO(seg(ms, 1050, 1480))), back = 1 - eIO(seg(ms, 1050, 1480));
+    const pk = (a, b) => eOut(seg(ms, a, a + 90)) * (1 - eIO(seg(ms, a + 110, b))), L = pk(280, 470) + pk(520, 690), R = pk(400, 580), s = eOut(seg(ms, 640, 745));
+    armL.sh.rotation.x = (-.85 - .75 * L) * g; armL.sh.rotation.z = -.2 + .28 * g;
+    armR.sh.rotation.x = (-.85 - .75 * Math.max(R, s)) * g; armR.sh.rotation.z = .2 - .28 * g;
+    torso.rotation.y = (-.4 * L + .4 * R - .55 * s) * back + .15 * g; torso.rotation.x = .14 * g;
+    body.position.z = (2.5 * (L + R) + 7 * s) * back; body.position.y = 6 - 1.6 * g; c.step(s * back * 1.1);
+    level(w, armR, .05 + .9 * (1 - g)); level(l, armL, .05 + .9 * (1 - g)); },
+  /* both arms flung wide, then both blades cut inwards together */
+  scissor(c){ const {ms, armL, armR, torso, body, w, l} = c, wind = seg(ms, 120, 600), s = eOut(seg(ms, 620, 780)), back = 1 - eIO(seg(ms, 1050, 1500)), k = eOut(Math.min(1, wind * 1.8)) * back;
+    const sp = lerp(1.0 * eOut(wind), -.5, s) * back;
+    armR.sh.rotation.x = armL.sh.rotation.x = -1.35 * k; armR.sh.rotation.z = .2 + sp; armL.sh.rotation.z = -.2 - sp;
+    torso.rotation.x = lerp(-.16 * eOut(wind), .24, s) * back; body.position.y = 6 + 3 * Math.sin(seg(ms, 380, 700) * PI) - 2 * s * back; body.position.z = 5 * s * back; c.step(s * back * .9, true);
+    level(w, armR, .1 + .8 * (1 - k)); level(l, armL, .1 + .8 * (1 - k)); w.rotation.z = -sp * .6; l.rotation.z = sp * .6; }
+});
+const DUAL = ['twin', 'flurry', 'scissor'];
 const DUR = {melee:1700, shot:1900, thrown:1900};
 
 /* acts out the attack with the weapon in hand; false when this figure has none for that kind of attack */
 function pose(rig, kind, ms, t){
   const h = rig.held; if (!h) return false;
   const cat = h.def.cat; if ((kind === 'sword') !== (cat === 'melee')) return false;
-  const mv = h.def.moves, i = rig.var != null ? rig.var : Math.floor(t / DUR[cat]);
+  const mv = h.two ? DUAL : h.def.moves, i = rig.var != null ? rig.var : Math.floor(t / DUR[cat]);
   const w = h.m, l = h.l, legs = rig.legs, legK = rig.robe ? .45 : 1;
   [w, l].forEach(o => { if (!o) return; o.visible = true; o.rotation.order = 'XYZ'; o.rotation.set(PI / 2, 0, 0); o.position.set(0, 0, 0); });
   LEAN = rig;
@@ -319,5 +345,5 @@ function pose(rig, kind, ms, t){
     arrow:(a, b, hgt) => { const f = rig.fx && rig.fx.arrow; if (f && ms > a && ms < b) { const k = seg(ms, a, b); f.visible = true; f.position.set(0, rig.h * hgt, 18 + k * 160); f.rotation.set(0, 0, 0); } }});
   return true;
 }
-return {W, LIST, METALS, WOODS, okLook, hold, pose};
+return {W, LIST, METALS, WOODS, DUAL, okLook, offOk, hold, pose};
 }

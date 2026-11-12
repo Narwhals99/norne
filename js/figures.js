@@ -315,7 +315,7 @@ function start(box, THREE, K){
       if (my !== want || !running) return;
       if (rig) { scene.remove(rig.root); K.dispose(rig); }
       rig = K.buildFigure(spec, {fine:true}); K.addFx(scene, rig); scene.add(rig.root);
-      K.hold(rig, wpn ? {w:wpn} : null); $('wpnRow').hidden = !!spec.beast;
+      K.hold(rig, wpnLook()); $('wpnRow').hidden = !!spec.beast;
       rig.root.visible = view === 'one';
       frame();
     });
@@ -472,10 +472,11 @@ function start(box, THREE, K){
   const markAnim = () => animBar.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.a === anim)));
   animBar.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (!b) return; anim = b.dataset.a; t0 = performance.now(); frozen = null; markAnim(); });
   /* try a weapon: only a look at how the figure uses each kind. In a fight the weapon comes from the fighter's gear. */
+  const wpnLook = () => !wpn ? null : wpn === '2' ? {w:'dagger', o:{w:'dagger', m:'obsidian'}} : {w:wpn};
   const wpnSel = $('wpn');
-  wpnSel.innerHTML = '<option value="">Plain sword and bow</option>' + K.WEAPON_LIST.filter(id => id !== 'sword').map(id => `<option value="${id}">${K.WEAPONS[id].n}</option>`).join('');
-  wpnSel.addEventListener('change', () => { wpn = wpnSel.value; if (rig) K.hold(rig, wpn ? {w:wpn} : null);
-    if (wpn) anim = K.WEAPONS[wpn].cat === 'melee' ? 'sword' : 'bow'; t0 = performance.now(); frozen = null; markAnim(); });
+  wpnSel.innerHTML = '<option value="">Plain sword and bow</option>' + K.WEAPON_LIST.filter(id => id !== 'sword').map(id => `<option value="${id}">${K.WEAPONS[id].n}</option>`).join('') + '<option value="2">Two daggers</option>';
+  wpnSel.addEventListener('change', () => { wpn = wpnSel.value; if (rig) K.hold(rig, wpnLook());
+    if (wpn) anim = wpn === '2' || K.WEAPONS[wpn].cat === 'melee' ? 'sword' : 'bow'; t0 = performance.now(); frozen = null; markAnim(); });
   $('views').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
   function setView(w){
     view = w;

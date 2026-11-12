@@ -219,7 +219,8 @@ function defPose(run, ft){
 }
 /* does this attack's figure thrust or punch, not swing (fx.js leaves out the swoosh then)? s is the screen's v._afx */
 N.figThrust = s => { const arm = s && s.a && s.a.arm, d = kit && arm && kit.K.WEAPONS[arm.w]; if (!d || d.cat !== 'melee') return false;
-  return ['poke', 'thrust', 'jabs', 'hook'].includes(d.moves[moveOf(s.id, true) % d.moves.length]); };
+  const mv = kit.K.offWeapon(arm) && kit.K.offWeapon(arm.o) ? kit.K.DUAL_MOVES : d.moves;
+  return ['poke', 'thrust', 'jabs', 'hook', 'flurry'].includes(mv[moveOf(s.id, true) % mv.length]); };
 /* the joints a pose moves, so one move can blend into the next instead of jumping */
 function joints(rig){
   if (rig._j) return rig._j;

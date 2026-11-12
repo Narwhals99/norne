@@ -1717,7 +1717,7 @@ const AR = makeArmory(THREE, {inked, toon, at, rot});
 const okSpec = s => !!(s && (s.beast ? BK.isBeast(s) : RACES[s.race]));
 const API = {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS, randomSpec,
   defaultSpec, faceFix, buildFigure, animate, pose, flash, addFx, dispose, faceIcon, ANIMS, pick, hoodOf, loadHair, hairId, setHairBase,
-  WEAPONS:AR.W, WEAPON_LIST:AR.LIST, METALS:AR.METALS, WOODS:AR.WOODS, hold:AR.hold, okWeapon:AR.okLook,
+  WEAPONS:AR.W, WEAPON_LIST:AR.LIST, METALS:AR.METALS, WOODS:AR.WOODS, hold:AR.hold, okWeapon:AR.okLook, offWeapon:AR.offOk, DUAL_MOVES:AR.DUAL,
   BEASTS:BK.BEASTS, BEAST_LIST:BK.LIST, beastOf:BK.beastOf, beastSpec:BK.defaultSpec, isBeast:BK.isBeast, okSpec};
 return API;
 }
