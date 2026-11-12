@@ -1963,9 +1963,9 @@ function act(v, a, el, e){
     if (!n) { toast(v, 'Type an item name first.'); break; }
     if (!c.inv) c.inv = [];
     /* a name from the GM's item catalog brings its description and picture along */
-    const cat = N.itemByName(n), ic = cat && cat.ic && cat.ic !== 'bag' ? cat.ic : null;
+    const cat = N.itemByName(n), ic = cat ? (cat.ic || N.itemKind(cat.kind)[2]) : null, icx = ic && ic !== 'bag' ? ic : null; /* same default picture the catalog shows (its kind's) */
     if (cat && !note) note = N.itemNote(cat);
-    const ex = c.inv.find(x => x[0].toLowerCase() === n.toLowerCase()); if (ex) { ex[1] += q; if (note) ex[2] = note; } else c.inv.push(ic ? [cat.name, q, note, ic] : note ? [cat ? cat.name : n, q, note] : [cat ? cat.name : n, q]);
+    const ex = c.inv.find(x => x[0].toLowerCase() === n.toLowerCase()); if (ex) { ex[1] += q; if (note) ex[2] = note; if (icx) ex[3] = icx; } else c.inv.push(icx ? [cat.name, q, note, icx] : note ? [cat ? cat.name : n, q, note] : [cat ? cat.name : n, q]);
     const nr = ex || c.inv[c.inv.length - 1]; if (cat && N.itemSlot(cat)) N.invSetX(nr, {w:1, ...(cat.ammo && N.invX(nr).am == null ? {am:N.AMMO_MAX} : {})});
     if (d.nd) { ui.invQ = 1; renderAll(); return; }
     if (!d.c) { ui.invQ = 1; toast(v, `Added to ${c.name}’s inventory.`); renderAll(); return; }
