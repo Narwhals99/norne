@@ -553,29 +553,37 @@ const BUILD = {
   },
 };
 
-/* ---------- the dreadape: a great white-furred ape with bare grey skin on its face, chest and fists. It has its own
+/* ---------- the dreadape: a great white-furred ape with four arms and bare grey skin on its face, chest and fists. It has its own
    body (shaggy fur in layers of tufts, knees, big fists) and its own moves (see DREAD below), because it fights with
    its hands only ---------- */
-/* fur: leaf-shaped tufts, each [where, which way it points, length, width, which way its flat side faces]; one drawing per bone */
-function tufts(list, mat, t = .2){
+/* fur: soft rounded tufts (a fat petal with a blunt tip that lifts a little), each [where, which way it points,
+   length, width, which way its flat side faces]; one drawing per bone and shade */
+function petal(len, w){
+  const g = new THREE.SphereGeometry(1, 9, 8), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), u = (p.getY(i) + 1) / 2, r0 = Math.hypot(x, z), r = Math.pow(Math.sin(PI * Math.pow(u, .78)), .6) * lerp(1.12, .62, u);
+    p.setXYZ(i, r0 ? x / r0 * r * w : 0, u * len, (r0 ? z / r0 * r * w * .52 : 0) + u * u * len * .14); }
+  g.computeVertexNormals(); return g;
+}
+function tufts(list, mat, t = .16){
   const X = new V3(), Y = new V3(), Z = new V3(), mx = new THREE.Matrix4();
   return inked(merge(list.map(([p, d, len, w, n]) => {
-    const g = new THREE.ConeGeometry(w * 1.7, len * .92, 6, 1).translate(0, len * .46, 0).scale(1, 1, .42);
     Y.copy(d).normalize(); Z.copy(n || UPZ(0, 0, Z)); Z.addScaledVector(Y, -Z.dot(Y)); if (Z.lengthSq() < 1e-6) Z.set(Y.y, Y.z, Y.x).cross(Y); Z.normalize(); X.crossVectors(Y, Z);
-    return g.applyMatrix4(mx.makeBasis(X, Y, Z).setPosition(p));
+    return petal(len, w).applyMatrix4(mx.makeBasis(X, Y, Z).setPosition(p));
   })), mat, t);
 }
-/* a ring of tufts round a limb at height y (the limb runs down -y), pointing along `down` and flaring out */
+/* a ring of tufts round a limb at height y (the limb runs down -y), pointing down it and flaring out */
 function fringe(out, rnd, y, rx, rz, n, len, w, o = {}){
-  const a0 = rnd() * TAU, down = o.down == null ? -1 : o.down, flare = o.flare == null ? .45 : o.flare, from = o.from || 0, to = o.to || TAU;
-  for (let i = 0; i < n; i++) { const a = from + (to - from) * (i + (o.from != null ? .5 : rnd() * .6)) / n + (o.from != null ? 0 : a0), ca = Math.cos(a), sa = Math.sin(a), nr = v(ca, 0, sa);
-    out.push([v(ca * rx + (o.x || 0), y + (rnd() - .5) * len * .15, sa * rz + (o.z || 0)), v(ca * flare, down, sa * flare), len * (.8 + rnd() * .4), w * (.85 + rnd() * .3), nr]); }
+  const a0 = rnd() * TAU, flare = o.flare == null ? .45 : o.flare;
+  for (let i = 0; i < n; i++) { const a = a0 + TAU * (i + rnd() * .4) / n, ca = Math.cos(a), sa = Math.sin(a);
+    out.push([v(ca * rx, y + (rnd() - .5) * len * .12, sa * rz), v(ca * flare, -1, sa * flare), len * (.85 + rnd() * .3), w * (.9 + rnd() * .2), v(ca, 0, sa)]); }
   return out;
 }
 function dreadape(rig, cl, M, mats){
   const {body} = rig, mFur = M(cl.c), mLow = M(cl.low || shade(cl.c, .85)), mSkin = M(cl.skin), mDeep = M(shade(cl.skin, .72)), mTooth = M('#f6f1e2'), mMouth = M('#8e2f3a');
   let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const hip = 15, lean = .3, Lt = 17, r0 = 7.4, r1 = 10.6, wide = 1.22;
+  const hip = 15, lean = .3, Lt = 18.5, r0 = 7.4, r1 = 10.6, wide = 1.22;
+  /* fur on a bone in two shades: the under rows a little darker, so the coat reads as layers */
+  const coat = (par, top, low) => { if (low && low.length) par.add(tufts(low, mLow)); if (top.length) par.add(tufts(top, mFur)); };
   const torso = at(new THREE.Group(), 0, hip, 0); body.add(torso); rig.torso = torso; torso.rotation.x = lean; rig.lean = lean;
   /* the trunk is bare skin in front; the back and flanks are under a pelt */
   const prof = t => lerp(r0, r1, Math.pow(t, .8)) * dome(t, .22) * (t < .12 ? Math.sqrt(1 - Math.pow((.12 - t) / .12, 2) * .75) : 1);
@@ -583,17 +591,15 @@ function dreadape(rig, cl, M, mats){
   torso.add(at(inked(sph(r1 * wide * 1.05, Lt * .5, r1 * .86, 20), mFur, .55), 0, Lt * .66, -r1 * .36));
   torso.add(at(inked(sph(r0 * wide * 1.1, Lt * .42, r0 * .86, 18), mFur, .5), 0, Lt * .2, -r0 * .42));
   /* chest and belly muscles */
-  [-1, 1].forEach(s => torso.add(at(rot(inked(sph(r1 * .56, r1 * .4, r1 * .3, 16), mSkin, .4), -.12, s * .22, s * .1), s * r1 * .5, Lt * .7, r1 * .68)));
-  for (let i = 0; i < 3; i++) [-1, 1].forEach(s => torso.add(at(inked(sph(r0 * (.36 - i * .02), r0 * .24, r0 * .16, 12), mSkin, .3), s * r0 * .36, Lt * (.4 - i * .135), prof(.42 - i * .1) * .9 + r0 * .08)));
-  const T = [];
-  /* the pelt's ragged edges: down the flanks, across the shoulders and back, a skirt round the hips */
-  [-1, 1].forEach(s => { for (let i = 0; i < 4; i++) { const u = i / 3, y = Lt * (.16 + u * .6), r = prof(.2 + u * .6) * wide;
-    T.push([v(s * r * .98, y, r0 * .25), v(s * .55, -1, .5), 5.5 + rnd() * 2, 2.6, v(s, 0, .6)]); T.push([v(s * r * 1.02, y + 1.5, -r0 * .25), v(s * .7, -1, -.1), 6 + rnd() * 2, 2.8, v(s, 0, 0)]); } });
-  for (let j = 0; j < 4; j++) { const y = Lt * (.98 - j * .2), n = 5; for (let i = 0; i < n; i++) { const a = PI * (1.08 + .84 * (i + (j % 2) * .5) / n), ca = Math.cos(a), sa = Math.sin(a), r = r1 * (1.02 - j * .05);
-    T.push([v(ca * r * wide, y, sa * r * .9 - r1 * .3), v(ca * .4, -1, sa * .55), 6.5 + rnd() * 2.5, 3, v(ca, 0, sa)]); } }
-  fringe(T, rnd, 1.2, r0 * wide * 1.0, r0 * .98, 9, 6.5, 2.9, {flare:.3});
-  fringe(T, rnd, -1.5, r0 * wide * .8, r0 * .8, 7, 5.5, 2.6, {flare:.15});
-  torso.add(tufts(T, mFur));
+  [-1, 1].forEach(s => torso.add(at(rot(inked(sph(r1 * .56, r1 * .4, r1 * .3, 16), mSkin, .4), -.12, s * .22, s * .1), s * r1 * .5, Lt * .72, r1 * .68)));
+  for (let i = 0; i < 3; i++) [-1, 1].forEach(s => torso.add(at(inked(sph(r0 * (.36 - i * .02), r0 * .24, r0 * .16, 12), mSkin, .3), s * r0 * .36, Lt * (.42 - i * .125), prof(.44 - i * .1) * .9 + r0 * .08)));
+  /* the pelt: rows of tufts down the back, a skirt round the hips */
+  const T = [], Tl = [];
+  for (let j = 0; j < 5; j++) { const y = Lt * (1.0 - j * .19), n = 5; for (let i = 0; i < n; i++) { const a = PI * (1.06 + .88 * (i + (j % 2) * .5) / n), ca = Math.cos(a), sa = Math.sin(a), r = r1 * (1.04 - j * .05);
+    (j % 2 ? Tl : T).push([v(ca * r * wide, y, sa * r * .9 - r1 * .3), v(ca * .35, -1, sa * .5), 7.5 + rnd() * 2, 4.2, v(ca, 0, sa)]); } }
+  fringe(T, rnd, 1.6, r0 * wide * 1.0, r0 * .98, 8, 6.5, 3.6, {flare:.3});
+  fringe(Tl, rnd, -1.2, r0 * wide * .82, r0 * .82, 7, 5.5, 3.2, {flare:.15});
+  coat(torso, T, Tl);
 
   /* head: a dark face in a great mane; it looks forward whatever the lean */
   const r = 6.3, head = at(new THREE.Group(), 0, Lt + 3.2, r1 * .42); torso.add(head); rig.head = head; head.rotation.x = -lean * .8; rig.headLean = head.rotation.x;
@@ -604,7 +610,7 @@ function dreadape(rig, cl, M, mats){
   head.add(at(inked(sph(r * .2, r * .2, r * .2, 10), mSkin, .3), 0, r * .2, r * 1.02));
   [-1, 1].forEach(s => { head.add(at(inked(sph(r * .17, r * .12, r * .08, 10), new THREE.MeshBasicMaterial({color:BEASTS.dreadape.eye}), .2), s * r * .33, r * .08, r * 1.0));
     head.add(at(new THREE.Mesh(sph(r * .065, r * .075, r * .04, 8), new THREE.MeshBasicMaterial({color:0x121016})), s * r * .3, r * .07, r * 1.07)); });
-  /* flat nose, broad muzzle; the upper teeth sit inside it and show when the jaw drops */
+  /* flat nose, broad muzzle; the teeth sit inside it and show when the jaw drops */
   head.add(at(inked(sph(r * .27, r * .17, r * .2, 12), mDeep, .3), 0, -r * .1, r * 1.12));
   [-1, 1].forEach(s => head.add(at(new THREE.Mesh(sph(r * .07, r * .05, r * .05, 6), new THREE.MeshBasicMaterial({color:0x17141a})), s * r * .12, -r * .13, r * 1.3)));
   head.add(at(inked(sph(r * .6, r * .3, r * .46, 16), mSkin, .4), 0, -r * .36, r * .82));
@@ -616,48 +622,52 @@ function dreadape(rig, cl, M, mats){
   jaw.add(at(new THREE.Mesh(sph(r * .3, r * .08, r * .32, 10), M('#d0626e')), 0, r * .06, r * .5));
   [-1, 1].forEach(s => { jaw.add(spike(r * .08, r * .3, mTooth, v(s * r * .22, -r * .1, r * .74), v(0, 1, .05), .15, 6));
     for (let i = 0; i < 2; i++) jaw.add(at(inked(sph(r * .065, r * .065, r * .05, 6), mTooth, .12), s * r * (.05 + i * .11), -r * .02, r * .8 - i * r * .02)); });
-  /* the mane: a crest swept up and back, a ruff round the face that spills over the shoulders, a beard */
+  /* the mane: a ruff of big soft tufts round the face that spills onto the shoulders, a crest swept back, a beard */
   const Mn = [], Ml = [];
-  for (let j = 0; j < 3; j++) { const n = 9 + j; for (let i = 0; i < n; i++) { const a = TAU * (i + (j % 2) * .5) / n, ca = Math.cos(a), sa = Math.sin(a), bot = sa < -.35, k = 1 + j * .16;
+  for (let j = 0; j < 3; j++) { const n = 9 + j; for (let i = 0; i < n; i++) { const a = TAU * (i + (j % 2) * .5) / n, ca = Math.cos(a), sa = Math.sin(a), bot = sa < -.35, k = 1 + j * .2;
     if (j === 0 && sa < -.72) continue;
-    (j === 1 ? Ml : Mn).push([v(ca * r * (.8 + j * .1), sa * r * (.84 + j * .08) + (j ? -r * .1 * j : 0), r * (.42 - j * .42)), v(ca * 1.0, sa * (bot ? 1.25 : 1) + (bot ? 0 : .25), .2 - j * .4), r * (bot ? 1.05 : .9) * k * (.85 + rnd() * .3), r * .36 * k, v(ca * .25, sa * .25, 1)]); } }
-  for (let i = 0; i < 5; i++) Mn.push([v((i - 2) * r * .26, r * (.86 - Math.abs(i - 2) * .06), r * (.3 - (i % 2) * .5)), v((i - 2) * .22, 1, -.5 - (i % 2) * .25), r * (1.15 - Math.abs(i - 2) * .14), r * .36, v(0, .4, 1)]);
-  for (let i = 0; i < 7; i++) { const a = PI * (1.1 + .8 * i / 6); Mn.push([v(Math.cos(a) * r * .9, r * .1 + Math.sin(a) * r * .2, -r * .7), v(Math.cos(a) * .8, .1, -1), r * 1.1, r * .4, v(0, 1, 0)]); }
-  head.add(tufts(Mn, mFur)); head.add(tufts(Ml, mLow));
+    (j === 1 ? Ml : Mn).push([v(ca * r * (.74 + j * .1), sa * r * (.8 + j * .08) - r * .1 * j, r * (.4 - j * .42)), v(ca, sa * (bot ? 1.25 : 1) + (bot ? 0 : .2), .1 - j * .45), r * (bot ? 1.05 : .9) * k * (.9 + rnd() * .2), r * .44 * k, v(ca * .3, sa * .3, 1)]); } }
+  for (let i = 0; i < 5; i++) Mn.push([v((i - 2) * r * .26, r * (.8 - Math.abs(i - 2) * .06), r * (.3 - (i % 2) * .5)), v((i - 2) * .22, 1, -.6 - (i % 2) * .25), r * (1.1 - Math.abs(i - 2) * .14), r * .46, v(0, .4, 1)]);
+  for (let i = 0; i < 6; i++) { const a = PI * (1.1 + .8 * i / 5); Ml.push([v(Math.cos(a) * r * .9, r * .1 + Math.sin(a) * r * .2, -r * .7), v(Math.cos(a) * .8, -.1, -1), r * 1.1, r * .5, v(0, 1, 0)]); }
+  coat(head, Mn, Ml);
 
-  /* arms: a great shoulder, upper arm, a forearm that swells toward the wrist, and a fist as big as its head */
+  /* four arms. The upper pair is the bigger: a great shoulder, upper arm, a forearm that swells toward the wrist and a
+     fist as big as its head, held wide. The lower pair comes out of the flanks under them and hangs by the knees. */
   const aR = 3.7, L1 = 10, L2 = 8.5;
-  rig.arms = [-1, 1].map(s => {
-    const sh = at(new THREE.Group(), s * r1 * wide * .98, Lt * .84, -.5); torso.add(sh);
-    sh.rotation.x = -lean + .2; sh.rotation.z = s * .42; sh.userData.r = [sh.rotation.x, sh.rotation.z];
-    sh.add(inked(sph(aR * 1.5, aR * 1.4, aR * 1.4, 16), mFur, .5));
-    sh.add(limb([v(0, 0, 0), v(0, -L1 * .5, 0), v(0, -L1, .6)], aR * 1.2, aR * .95, mFur, UPZ, .5, {bulge:.16}));
-    const U = [];
-    for (let i = 0; i < 4; i++) { const a = PI * (s > 0 ? -.45 + .9 * i / 3 : .55 + .9 * i / 3), ca = Math.cos(a), sa = Math.sin(a); U.push([v(ca * aR * 1.2, aR * .5, sa * aR * 1.1), v(ca * 1.1, -.45, sa * .9), 6.5 + rnd() * 2, 3, v(ca, .6, sa)]); }
-    fringe(U, rnd, -1.5, aR * 1.25, aR * 1.2, 6, 6, 2.7, {flare:.4});
-    fringe(U, rnd, -6, aR * 1.1, aR * 1.1, 6, 5.5, 2.5, {flare:.3});
-    sh.add(tufts(U, mFur));
-    const el = at(new THREE.Group(), 0, -L1, .6); sh.add(el); el.rotation.x = -.5; el.userData.r = el.rotation.x;
-    el.add(limb([v(0, .5, 0), v(0, -L2 * .5, 0), v(0, -L2, 0)], aR * .95, aR * 1.12, mFur, UPZ, .5, {bulge:.12}));
-    const F = [];
-    fringe(F, rnd, -.5, aR * 1.0, aR * 1.0, 6, 5, 2.5, {flare:.45});
-    fringe(F, rnd, -4.4, aR * 1.1, aR * 1.1, 7, 4.6, 2.6, {flare:.7});
-    el.add(tufts(F, mFur));
-    const hand = at(new THREE.Group(), 0, -L2 - 2.6, .2); el.add(hand);
+  const mkArm = (s, x, y, z, k, rx, rz, re) => {
+    const R = aR * k, l1 = L1 * k, l2 = L2 * k;
+    const sh = at(new THREE.Group(), x, y, z); torso.add(sh); sh.rotation.x = rx; sh.rotation.z = s * rz;
+    sh.add(inked(sph(R * 1.5, R * 1.4, R * 1.4, 16), mFur, .5));
+    sh.add(limb([v(0, 0, 0), v(0, -l1 * .5, 0), v(0, -l1, .6)], R * 1.2, R * .95, mFur, UPZ, .5, {bulge:.16}));
+    const U = [], Ul = [];
+    for (let i = 0; i < 4; i++) { const a = PI * (s > 0 ? -.45 + .9 * i / 3 : .55 + .9 * i / 3), ca = Math.cos(a), sa = Math.sin(a); U.push([v(ca * R * 1.15, R * .7, sa * R * 1.05), v(ca * 1.1, -.5, sa * .9), (7 + rnd() * 1.5) * k, 3.9 * k, v(ca, .6, sa)]); }
+    fringe(Ul, rnd, -1.5 * k, R * 1.22, R * 1.2, 6, 6.2 * k, 3.5 * k, {flare:.4});
+    fringe(U, rnd, -5.6 * k, R * 1.08, R * 1.08, 6, 5.4 * k, 3.2 * k, {flare:.32});
+    coat(sh, U, Ul);
+    const el = at(new THREE.Group(), 0, -l1, .6); sh.add(el); el.rotation.x = re;
+    el.add(limb([v(0, .5, 0), v(0, -l2 * .5, 0), v(0, -l2, 0)], R * .95, R * 1.12, mFur, UPZ, .5, {bulge:.12}));
+    const F = [], Fl = [];
+    fringe(Fl, rnd, -.4 * k, R * 1.0, R * 1.0, 6, 5 * k, 3.3 * k, {flare:.45});
+    fringe(F, rnd, -4.2 * k, R * 1.1, R * 1.1, 7, 4.6 * k, 3.3 * k, {flare:.7});
+    coat(el, F, Fl);
+    const hk = .55 + .45 * k, hand = at(new THREE.Group(), 0, -l2 - 2.6 * hk, .2); el.add(hand); hand.scale.setScalar(hk);
     hand.add(inked(sph(4.9, 4.4, 4.6, 16), mSkin, .45));
     for (let i = 0; i < 4; i++) hand.add(at(inked(sph(1.35, 1.5, 1.7, 10), mSkin, .3), (i - 1.5) * 2.2, -3.4, 1.7 - Math.abs(i - 1.5) * .35));
     hand.add(at(rot(inked(sph(1.5, 1.4, 2.7, 10), mSkin, .3), .3, -s * .5, 0), -s * 2.8, -.6, 3.9));
-    return {sh, el, hand, s};
-  });
+    return {sh, el, hand, s, hk};
+  };
+  rig.arms = [-1, 1].map(s => mkArm(s, s * r1 * wide * 1.0, Lt * .88, -.8, 1, -lean + .05, 1.02, -1.15));
+  rig.arms2 = [-1, 1].map(s => mkArm(s, s * prof(.5) * wide * .92, Lt * .47, 1.8, .8, -lean + .1, .52, -.7));
+  rig.arms.forEach((a, i) => { a.low = rig.arms2[i]; a.fix = [.15, -.6, .65]; a.low.fix = [.1, -.12, .22]; });
   rig.armL = rig.arms[0]; rig.armR = rig.arms[1];
   /* legs: short and bent, with a knee, and broad feet */
   rig.legs = [-1, 1].map(s => {
     const g = at(new THREE.Group(), s * r0 * .74, hip + .5, 0); body.add(g); g.rotation.x = -.5; g.rotation.z = s * .16;
     g.add(limb([v(0, 0, 0), v(0, -3.5, 0), v(0, -7, 0)], 4.3, 3.4, mFur, UPZ, .5, {bulge:.12}));
-    const G1 = []; fringe(G1, rnd, -.5, 4.5, 4.5, 6, 5.5, 2.6, {flare:.35}); fringe(G1, rnd, -4.4, 3.8, 3.8, 6, 4.6, 2.4, {flare:.42}); g.add(tufts(G1, mFur));
+    const G1 = [], G1l = []; fringe(G1l, rnd, -.5, 4.5, 4.5, 6, 5.5, 3.3, {flare:.35}); fringe(G1, rnd, -4.2, 3.8, 3.8, 6, 4.6, 3, {flare:.42}); coat(g, G1, G1l);
     const kn = at(new THREE.Group(), 0, -7, 0); g.add(kn); kn.rotation.x = .9;
     kn.add(limb([v(0, .4, 0), v(0, -3, 0), v(0, -6.2, 0)], 3.3, 2.9, mFur, UPZ, .45, {bulge:.1}));
-    const G2 = []; fringe(G2, rnd, -.6, 3.4, 3.4, 6, 4.4, 2.3, {flare:.4}); fringe(G2, rnd, -3.4, 3.1, 3.1, 6, 3.4, 2.2, {flare:.6}); kn.add(tufts(G2, mFur));
+    const G2 = [], G2l = []; fringe(G2l, rnd, -.6, 3.4, 3.4, 6, 4.4, 2.9, {flare:.4}); fringe(G2, rnd, -3.2, 3.1, 3.1, 6, 3.4, 2.8, {flare:.6}); coat(kn, G2, G2l);
     const foot = at(new THREE.Group(), 0, -6.6, 0); kn.add(foot); foot.rotation.x = -.45;
     foot.add(at(inked(sph(3, 1.5, 4.1, 14), mSkin, .4), 0, 0, 1.6));
     for (let i = 0; i < 4; i++) foot.add(at(inked(sph(.9, .85, 1.2, 8), mSkin, .25), (i - 1.5) * 1.45, -.25, 5.4 - Math.abs(i - 1.5) * .35));
@@ -722,8 +732,17 @@ const bump = (ms, a, p, b) => ms < p ? eOut(seg(ms, a, p)) : 1 - eIO(seg(ms, p, 
 const DREAD_MOVES = {sword:5, hit:2, dodge:2};
 function dread(rig, name, ms, t){
   const {body, torso, head, jaw, dims:d} = rig, [B, A] = rig.arms, D = ANIMS[name] || 2000;
-  const arm = (a, x = 0, z = 0, e = 0, y = 0) => { a.sh.rotation.x += x; a.sh.rotation.z += a.s * z; a.sh.rotation.y += a.s * y; a.el.rotation.x += e; };
-  const both = (x, z, e) => { arm(A, x, z, e); arm(B, x, z, e); };
+  /* an arm moved from its rest: x swings it forward (-) or back, z out from the body, e bends the elbow. The lower arm
+     under it follows at `f` of the way unless the move poses it itself (f = 0) */
+  const arm = (a, x = 0, z = 0, e = 0, f = .6) => {
+    /* the moves are written from arms hanging at the sides; at rest they are held out wide, so an arm leaves that
+       stance as far as the move takes hold of it */
+    const g = Math.min(1, Math.max(Math.abs(x), Math.abs(z) * 1.6, Math.abs(e))), c = a.fix;
+    a.sh.rotation.x += x + c[0] * g; a.sh.rotation.z += a.s * (z + c[1] * g); a.el.rotation.x += e + c[2] * g;
+    if (f && a.low) arm(a.low, x * f, z * f, e * f);
+  };
+  const both = (x, z, e, f) => { arm(A, x, z, e, f); arm(B, x, z, e, f); };
+  const [D2, C] = rig.arms2;
   const bend = c => rig.legs.forEach(l => { l.g.rotation.x -= .45 * c; l.kn.rotation.x += .9 * c; l.foot.rotation.x -= .45 * c; });
   const crouch = c => { bend(c); body.position.y -= c > 0 ? 3.8 * c : 1.4 * c; };
   const which = n => ((rig.var != null ? rig.var : Math.floor(t / D)) % n + n) % n;
@@ -733,7 +752,7 @@ function dread(rig, name, ms, t){
     const sw = Math.sin(t / 1300);
     body.position.x += sw * .7; torso.rotation.z += sw * .025; torso.rotation.x += Math.sin(t / 760) * .02;
     head.rotation.y += Math.sin(t / 1900) * .16; head.rotation.x += Math.sin(t / 1100) * .04;
-    [A, B].forEach((a, i) => { arm(a, Math.sin(t / 760 + i * 1.3) * .05, Math.sin(t / 760) * .03, 0); a.hand.scale.setScalar(1 + .04 * Math.sin(t / 420 + i * 2)); });
+    [A, B].forEach((a, i) => { arm(a, Math.sin(t / 760 + i * 1.3) * .05, Math.sin(t / 760) * .03, 0); a.hand.scale.multiplyScalar(1 + .04 * Math.sin(t / 420 + i * 2)); a.low.hand.scale.multiplyScalar(1 + .04 * Math.sin(t / 420 + i * 2 + 1)); });
     /* now and then it snorts, or rears and beats its chest */
     const c = t % 9600;
     if (c > 3000 && c < 3700) { const k = Math.sin(seg(c, 3000, 3700) * PI); head.rotation.x += -.22 * k; jaw.rotation.x += .3 * k; head.rotation.z += Math.sin(c / 45) * .04 * k; }
@@ -776,7 +795,7 @@ function dread(rig, name, ms, t){
       /* rears up and drums its chest, then rams both fists straight out */
       const rear = eIO(seg(ms, 80, 280)) * (1 - seg(ms, 540, 650)), ram = eOut(seg(ms, 630, 735)), hold = 1 - eIO(seg(ms, 1100, 1560)), r = ram * hold;
       drum(rear, (ms - 80) / 62);
-      both(-1.6 * r, -.3 * r, .5 * r);
+      both(-1.6 * r, -.3 * r, .5 * r, 1);
       torso.rotation.x += -.5 * rear + .26 * r; head.rotation.x += -.3 * rear - .2 * r; jaw.rotation.x += .9 * rear + .5 * r * (1 - seg(ms, 850, 1050));
       crouch(-.7 * rear + .45 * r); body.position.z += -3 * rear + 12 * r;
     } else if (k === 3) {
@@ -785,16 +804,19 @@ function dread(rig, name, ms, t){
       const yaw = ms <= 400 ? -.7 * coil : ms <= 720 ? lerp(-.7, PI * 1.5, u * u) : lerp(PI * 1.5, TAU, eOut(seg(ms, 720, 940)));
       body.rotation.y += yaw;
       const ext = eOut(seg(ms, 420, 600)) * (1 - eIO(seg(ms, 800, 1000)));
-      arm(A, -.25 * coil * (1 - ext) - .08 * ext, lerp(-.3 * coil, 1.12, ext), lerp(-1.2 * coil, .5, ext));
+      arm(A, -.25 * coil * (1 - ext) - .08 * ext, lerp(-.3 * coil, 1.12, ext), lerp(-1.2 * coil, .5, ext), .9);
       arm(B, -.7 * coil * hold, -.3 * coil * hold, -1.5 * coil * hold);
       crouch(.7 * coil * (1 - seg(ms, 400, 560)) + .5 * seg(ms, 700, 760) * hold);
       body.position.y += 4.5 * Math.sin(seg(ms, 440, 740) * PI); body.position.z += 8 * eIO(seg(ms, 460, 720)) * hold;
       torso.rotation.x += .12 * ext; jaw.rotation.x += .7 * ext;
     } else {
-      /* two quick jabs, then jumps in with a great overhand */
+      /* a flurry of jabs from all four fists, then jumps in with a great overhand */
       const g = eIO(seg(ms, 90, 250)), hold = 1 - eIO(seg(ms, 1120, 1560)), j1 = bump(ms, 290, 370, 460), j2 = bump(ms, 430, 510, 600), wind = eIO(seg(ms, 550, 650)), st = eOut(seg(ms, 655, 740));
-      arm(B, lerp(-.9, -1.78, j1) * g * hold, -.3 * g * hold, lerp(-1.7, .45, j1) * g * hold);
-      arm(A, lerp(lerp(-.9, -1.78, j2), lerp(-2.7, -1.45, st), wind) * g * hold, lerp(-.3, lerp(.3, -.35, st), wind) * g * hold, lerp(lerp(-1.7, .45, j2), lerp(-1.3, .35, st), wind) * g * hold);
+      const j3 = bump(ms, 360, 440, 530), j4 = bump(ms, 500, 580, 670);
+      arm(B, lerp(-.9, -1.78, j1) * g * hold, -.3 * g * hold, lerp(-1.7, .45, j1) * g * hold, 0);
+      arm(C, lerp(-.6, -1.55, j3) * g * hold, -.25 * g * hold, lerp(-1.2, .55, j3) * g * hold);
+      arm(D2, lerp(-.6, -1.55, j4) * g * hold, -.25 * g * hold, lerp(-1.2, .55, j4) * g * hold);
+      arm(A, lerp(lerp(-.9, -1.78, j2), lerp(-2.7, -1.45, st), wind) * g * hold, lerp(-.3, lerp(.3, -.35, st), wind) * g * hold, lerp(lerp(-1.7, .45, j2), lerp(-1.3, .35, st), wind) * g * hold, 0);
       body.rotation.y += (.4 * j1 - .4 * j2 + wind * lerp(.6, -.65, st)) * hold;
       body.position.z += (2.5 * eOut(seg(ms, 290, 370)) + 2.5 * eOut(seg(ms, 430, 510)) + 7 * st) * hold;
       body.position.y += 5.5 * Math.sin(seg(ms, 560, 735) * PI);
