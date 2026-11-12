@@ -54,17 +54,15 @@ const push = N.push = o => { const m = Object.assign({id:uid('m'), t:N.now(), as
   G().msgs.push(m); return m; };
 /* a small grey line in the chat; players write their own (the rules only let them post as themselves) */
 const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, text});
-/* Jake: fate point and gold changes of a player character are noted in their party's chat, and in no other chat.
+/* Fate point and gold changes of a player character are noted only in their solo GM chat.
    Taps close together (−/+ several times) fold into one line: the first value stays on the line (purse.from) and only its
    words change, which is all a player may change on their own message. A GM's line that ends back where it began is removed */
 const PURSE_MS = 120000;
 /* xf: a transfer between two cards (N.xferGo). Its line says who gave and who got ("Brann gave 5 gold to Isolde (140 → 135)"),
    names the other side when xf.other is set, and stands alone: it never folds into an earlier line, and later taps don't fold into it */
-/* inCh: the chat where it happened (a store purchase), instead of the character's party chat */
-N.purseNote = (c, k, before, xf, inCh) => {
+N.purseNote = (c, k, before, xf) => {
   if (!c || !c.player || !c.built) return null;
-  const pt = N.partyOf(c.player); if (!pt && !inCh) return null;
-  const ch = inCh || 'grp-' + pt.id, now = k === 'fp' ? (c.fp || 0) : (parseInt(c.gold, 10) || 0), g = G();
+  const ch = 'dm-' + c.player, now = k === 'fp' ? (c.fp || 0) : (parseInt(c.gold, 10) || 0), g = G();
   let last = null; for (let i = g.msgs.length - 1; i >= 0; i--) if (g.msgs[i].ch === ch) { last = g.msgs[i]; break; }
   const join = !xf && last && last.purse && !last.purse.xf && last.purse.c === c.id && last.purse.k === k && last.by === g.role && N.now() - last.t < PURSE_MS;
   const from = join ? last.purse.from : before;
@@ -2095,7 +2093,7 @@ function act(v, a, el, e){
   case 'xfGo': { if (!gm || !ui.xf) break; const r = N.xferInfo(ui.xf); if (!r.a || !r.b || r.err) break;
     const {a, b, k, q, ha, hb} = r, set = (o, n) => { if (k === 'fp') o.fp = n; else o.gold = n; };
     set(a.o, ha - q); set(b.o, hb + q);
-    /* each player character's party chat gets its line, as with any gold or fate point change; an NPC's fate points stay unnamed */
+    /* Each player character's solo chat gets its line; an NPC's fate points stay unnamed. */
     const other = w => k === 'gold' || w.pc ? w.label : '';
     const na = a.pc ? N.purseNote(a.o, k, ha, {other:other(b)}) : null, nb = b.pc ? N.purseNote(b.o, k, hb, {other:other(a)}) : null;
     const amt = k === 'fp' ? `${q} ${q === 1 ? 'fate point' : 'fate points'}` : N.goldTxt(q);
@@ -2288,9 +2286,8 @@ function act(v, a, el, e){
   case 'cbAbsorb': cbAbsorb(v, d.k, +d.i); return;
   case 'tokClose': ui.tokSel = null; break;
   case 'tokFp': { const t = N.tokById(d.t), pool = t && N.tokFpPool(t); if (!pool) return; const o = pool.o, before = o.fp || 0; o.fp = clamp(before + (+d.d), 0, 10);
-    /* a PC's change goes in the fight chat; an NPC's pool stays the GM's secret */
-    if (o.fp !== before && pool.pc) { const pn = N.purseNote(o, 'fp', before);
-      if (!pn || pn.ch !== N.fightCh()) Object.assign(N.sys(+d.d > 0 ? `${N.gmName()} gave ${pool.name} a fate point.` : `${N.gmName()} took a fate point from ${pool.name}.`, N.fightCh()), {fight:true}); }
+    /* PC balance notices belong in that character's solo chat; NPC pools stay secret. */
+    if (o.fp !== before && pool.pc) N.purseNote(o, 'fp', before);
     renderAll(); return; }
   case 'tokStress': { const t = N.tokById(d.t), s = N.tokStress(t); s.s[+d.i] = !s.s[+d.i]; renderAll(); return; }
   case 'tokTurn': { const o = N.order(), i = o.findIndex(t => t.id === d.t); if (i >= 0) { cb.turn = i; cb.acted = false; cb.moved = false; cb.pending = null; } ui.tokSel = null; ui.sheet = null; renderAll(); return; }
@@ -2388,7 +2385,7 @@ function act(v, a, el, e){
     if (row) { row[1] += 1; if (note) row[2] = note; if (ic !== 'bag') row[3] = ic; } else { row = ic !== 'bag' ? [b.name, 1, note, ic] : note ? [b.name, 1, note] : [b.name, 1]; c.inv.push(row); }
     if (it && N.itemSlot(it)) N.invSetX(row, {w:1, ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})});
     b.st = 'ok'; m.text = `${b.who} bought ${b.name} for ${N.goldTxt(b.price)}.`;
-    N.purseNote(c, 'gold', before, null, m.ch);
+    N.purseNote(c, 'gold', before);
     toast(v, `${c.short} paid ${N.goldTxt(b.price)}. ${b.name} is in their inventory.`); renderAll(); return; }
   case 'buyNo': { const m = gm && g.msgs.find(x => x.id === val), b = m && (m.buy || m.haggle); if (!b || (m.buy ? b.st !== 'ask' : b.st === 'done')) break;
     if (m.buy) { b.st = 'no'; m.text = `${N.gmName()} turned down ${b.who}’s purchase of ${b.name}.`; } else b.st = 'done';
