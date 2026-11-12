@@ -7,7 +7,7 @@
    beats as the people's moves so the fight board's effects (js/fx.js) still land on time.
    The Giant is a person figure, only bigger, so it is built by figkit's buildFigure. */
 export function makeBeasts(THREE, H){
-const {inked, toon, tube, at, rot, SHADOW, GLOW, mix, shade, canvas, ctex, metalCap} = H;
+const {inked, toon, tube, at, rot, SHADOW, GLOW, mix, shade, canvas, ctex, metalCap, merge} = H;
 const V3 = THREE.Vector3, PI = Math.PI, TAU = PI * 2;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, u) => a + (b - a) * u;
 const v = (x, y, z) => new V3(x, y, z);
@@ -17,6 +17,7 @@ const UPY = (p, t, o) => o.set(0, 1, 0), UPZ = (p, t, o) => o.set(0, 0, 1), UPX 
 const C = (n, c, o = {}) => Object.assign({n, c}, o);
 const BEASTS = {
   horse:    {k:1.12, n:'Horse', plan:'quad', base:25, coats:[C('Bay', '#8a5530', {mane:'#241a16', belly:'#9a6640', sock:'#2a201a'}), C('Chestnut', '#a8562c', {mane:'#7a3a1c'}), C('Grey', '#b9b5ae', {mane:'#6e6a66', belly:'#d6d2ca'}), C('Black', '#2f2a28', {mane:'#171312'}), C('White', '#ebe5d8', {mane:'#d9d0bd'})]},
+  dreadape: {k:1.3, n:'Dreadape', plan:'ape', base:27, own:1, coats:[C('White', '#efecf3', {skin:'#5d5b69', low:'#cfcbd9'}), C('Ash', '#a9a6ad', {skin:'#4a4852', low:'#86838c'}), C('Night', '#3a3842', {skin:'#6a6672', low:'#27252d'})], eye:'#f4f1e6'},
   gorilla:  {k:1.12, n:'Gorilla', plan:'ape', base:23, coats:[C('Black', '#3c3a42', {skin:'#5a4c48'}), C('Silverback', '#3c3a42', {back:'#a3a3a8', skin:'#5a4c48'}), C('Brown', '#5a4636', {skin:'#4a3a32'})]},
   cat:      {k:0.85, n:'Cat', plan:'quad', base:18, coats:[C('Ginger', '#d58a3f', {belly:'#f0d2a8', pat:'tabby', dark:'#a8602a'}), C('Grey tabby', '#8d8a86', {belly:'#d8d4cc', pat:'tabby', dark:'#4f4c4a'}), C('Black', '#2a2729', {belly:'#3a3638'}), C('White', '#efeae2', {belly:'#ffffff'})], eye:'#9bd04a'},
   dog:      {n:'Dog', plan:'quad', base:20, coats:[C('Brown', '#8a5a34', {belly:'#c89a6a'}), C('Golden', '#d9a75c', {belly:'#efd2a0'}), C('Black and tan', '#2c2624', {belly:'#a8683a', sock:'#a8683a'}), C('Grey', '#8f8f94', {belly:'#d0d0d4'})]},
@@ -40,13 +41,13 @@ const BEASTS = {
   lizard:   {n:'Large lizard', plan:'quad', base:23, coats:[C('Dusk', '#6e6a58', {belly:'#b8b08a', pat:'spots', dark:'#4a4636'}), C('Green', '#5f8f3f', {belly:'#c8d48a', pat:'spots', dark:'#3f6a2a'}), C('Red', '#9a4f3a', {belly:'#d8b08a', pat:'spots', dark:'#6a3426'})], eye:'#e0a020'},
   snowcat:  {n:'Snow cat', plan:'quad', base:22, coats:[C('Snow', '#e4e0d8', {belly:'#ffffff', pat:'rosettes', dark:'#55545a'}), C('Smoke', '#b6b2ac', {belly:'#e8e6e0', pat:'rosettes', dark:'#3f3e44'}), C('Frost blue', '#d8e2ea', {belly:'#ffffff', pat:'rosettes', dark:'#4a5a6e'})], eye:'#a8d8e0'},
 };
-const LIST = ['horse', 'dog', 'cat', 'wolf', 'fox', 'tiger', 'snowcat', 'elephant', 'gorilla', 'werewolf', 'troll', 'giant', 'swamp', 'trex', 'dragon', 'wyvern', 'phoenix', 'spider', 'serpent', 'crab', 'beetle', 'croc', 'lizard'];
+const LIST = ['horse', 'dog', 'cat', 'wolf', 'fox', 'tiger', 'snowcat', 'elephant', 'gorilla', 'dreadape', 'werewolf', 'troll', 'giant', 'swamp', 'trex', 'dragon', 'wyvern', 'phoenix', 'spider', 'serpent', 'crab', 'beetle', 'croc', 'lizard'];
 const ANIMS = {idle:2400, walk:900, sword:1700, bow:1900, magic:1900, hit:1300, block:1300, dodge:1300, down:2600};
 
 /* a name ("wolf", "Large spider", "T-rex") to a beast, so an NPC whose race is an animal stands as that animal */
 const ALIAS = {'t-rex':'trex', 'trex':'trex', 'tyrannosaurus rex':'trex', 'dinosaur':'trex', 'snake':'serpent', 'giant snake':'serpent', 'serpent':'serpent', 'spider':'spider', 'giant spider':'spider',
   'crab':'crab', 'giant crab':'crab', 'beetle':'beetle', 'giant beetle':'beetle', 'crocodile':'croc', 'alligator':'croc', 'croc':'croc', 'lizard':'lizard', 'giant lizard':'lizard', 'snow leopard':'snowcat', 'snowcat':'snowcat', 'snow cat':'snowcat',
-  'hound':'dog', 'puppy':'dog', 'kitten':'cat', 'ape':'gorilla', 'pony':'horse', 'stallion':'horse', 'mare':'horse', 'drake':'dragon', 'swamp monster':'swamp', 'swamp thing':'swamp', 'bog monster':'swamp'};
+  'hound':'dog', 'puppy':'dog', 'kitten':'cat', 'ape':'gorilla', 'dread ape':'dreadape', 'dreadape':'dreadape', 'pony':'horse', 'stallion':'horse', 'mare':'horse', 'drake':'dragon', 'swamp monster':'swamp', 'swamp thing':'swamp', 'bog monster':'swamp'};
 function beastOf(name){
   const s = String(name || '').trim().toLowerCase(); if (!s) return null;
   if (BEASTS[s]) return s;
@@ -552,6 +553,129 @@ const BUILD = {
   },
 };
 
+/* ---------- the dreadape: a great white-furred ape with four arms and bare grey skin on its face, chest and fists. It has its own
+   body (shaggy fur in layers of tufts, knees, big fists) and its own moves (see DREAD below), because it fights with
+   its hands only ---------- */
+/* fur: soft rounded tufts (a fat petal with a blunt tip that lifts a little), each [where, which way it points,
+   length, width, which way its flat side faces]; one drawing per bone and shade */
+function petal(len, w){
+  const g = new THREE.SphereGeometry(1, 9, 8), p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), u = (p.getY(i) + 1) / 2, r0 = Math.hypot(x, z), r = Math.pow(Math.sin(PI * Math.pow(u, .78)), .6) * lerp(1.12, .62, u);
+    p.setXYZ(i, r0 ? x / r0 * r * w : 0, u * len, (r0 ? z / r0 * r * w * .52 : 0) + u * u * len * .14); }
+  g.computeVertexNormals(); return g;
+}
+function tufts(list, mat, t = .16){
+  const X = new V3(), Y = new V3(), Z = new V3(), mx = new THREE.Matrix4();
+  return inked(merge(list.map(([p, d, len, w, n]) => {
+    Y.copy(d).normalize(); Z.copy(n || UPZ(0, 0, Z)); Z.addScaledVector(Y, -Z.dot(Y)); if (Z.lengthSq() < 1e-6) Z.set(Y.y, Y.z, Y.x).cross(Y); Z.normalize(); X.crossVectors(Y, Z);
+    return petal(len, w).applyMatrix4(mx.makeBasis(X, Y, Z).setPosition(p));
+  })), mat, t);
+}
+/* a ring of tufts round a limb at height y (the limb runs down -y), pointing down it and flaring out */
+function fringe(out, rnd, y, rx, rz, n, len, w, o = {}){
+  const a0 = rnd() * TAU, flare = o.flare == null ? .45 : o.flare;
+  for (let i = 0; i < n; i++) { const a = a0 + TAU * (i + rnd() * .4) / n, ca = Math.cos(a), sa = Math.sin(a);
+    out.push([v(ca * rx, y + (rnd() - .5) * len * .12, sa * rz), v(ca * flare, -1, sa * flare), len * (.85 + rnd() * .3), w * (.9 + rnd() * .2), v(ca, 0, sa)]); }
+  return out;
+}
+function dreadape(rig, cl, M, mats){
+  const {body} = rig, mFur = M(cl.c), mLow = M(cl.low || shade(cl.c, .85)), mSkin = M(cl.skin), mDeep = M(shade(cl.skin, .72)), mTooth = M('#f6f1e2'), mMouth = M('#8e2f3a');
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const hip = 15, lean = .3, Lt = 18.5, r0 = 7.4, r1 = 10.6, wide = 1.22;
+  /* fur on a bone in two shades: the under rows a little darker, so the coat reads as layers */
+  const coat = (par, top, low) => { if (low && low.length) par.add(tufts(low, mLow)); if (top.length) par.add(tufts(top, mFur)); };
+  const torso = at(new THREE.Group(), 0, hip, 0); body.add(torso); rig.torso = torso; torso.rotation.x = lean; rig.lean = lean;
+  /* the trunk is bare skin in front; the back and flanks are under a pelt */
+  const prof = t => lerp(r0, r1, Math.pow(t, .8)) * dome(t, .22) * (t < .12 ? Math.sqrt(1 - Math.pow((.12 - t) / .12, 2) * .75) : 1);
+  torso.add(inked(tube([v(0, -r0 * .6, 0), v(0, Lt * .35, r0 * .12), v(0, Lt * .75, .6), v(0, Lt, -r1 * .1)], t => { const k = prof(t); return [k * wide, k * .92]; }, UPZ, {nS:18, nR:20}), mSkin, .6));
+  torso.add(at(inked(sph(r1 * wide * 1.05, Lt * .5, r1 * .86, 20), mFur, .55), 0, Lt * .66, -r1 * .36));
+  torso.add(at(inked(sph(r0 * wide * 1.1, Lt * .42, r0 * .86, 18), mFur, .5), 0, Lt * .2, -r0 * .42));
+  /* chest and belly muscles */
+  [-1, 1].forEach(s => torso.add(at(rot(inked(sph(r1 * .56, r1 * .4, r1 * .3, 16), mSkin, .4), -.12, s * .22, s * .1), s * r1 * .5, Lt * .72, r1 * .68)));
+  for (let i = 0; i < 3; i++) [-1, 1].forEach(s => torso.add(at(inked(sph(r0 * (.36 - i * .02), r0 * .24, r0 * .16, 12), mSkin, .3), s * r0 * .36, Lt * (.42 - i * .125), prof(.44 - i * .1) * .9 + r0 * .08)));
+  /* the pelt: rows of tufts down the back, a skirt round the hips */
+  const T = [], Tl = [];
+  for (let j = 0; j < 5; j++) { const y = Lt * (1.0 - j * .19), n = 5; for (let i = 0; i < n; i++) { const a = PI * (1.06 + .88 * (i + (j % 2) * .5) / n), ca = Math.cos(a), sa = Math.sin(a), r = r1 * (1.04 - j * .05);
+    (j % 2 ? Tl : T).push([v(ca * r * wide, y, sa * r * .9 - r1 * .3), v(ca * .35, -1, sa * .5), 7.5 + rnd() * 2, 4.2, v(ca, 0, sa)]); } }
+  fringe(T, rnd, 1.6, r0 * wide * 1.0, r0 * .98, 8, 6.5, 3.6, {flare:.3});
+  fringe(Tl, rnd, -1.2, r0 * wide * .82, r0 * .82, 7, 5.5, 3.2, {flare:.15});
+  coat(torso, T, Tl);
+
+  /* head: a dark face in a great mane; it looks forward whatever the lean */
+  const r = 6.3, head = at(new THREE.Group(), 0, Lt + 3.2, r1 * .42); torso.add(head); rig.head = head; head.rotation.x = -lean * .8; rig.headLean = head.rotation.x;
+  head.add(inked(sph(r * 1.02, r * 1.04, r, 20), mFur, .5));
+  head.add(at(inked(sph(r * .8, r * .86, r * .52, 18), mSkin, .4), 0, -r * .08, r * .56));
+  /* heavy brow, drawn down in the middle: it always looks angry */
+  [-1, 1].forEach(s => head.add(at(rot(inked(sph(r * .44, r * .17, r * .24, 12), mSkin, .35), .15, 0, s * .3), s * r * .36, r * .3, r * .98)));
+  head.add(at(inked(sph(r * .2, r * .2, r * .2, 10), mSkin, .3), 0, r * .2, r * 1.02));
+  [-1, 1].forEach(s => { head.add(at(inked(sph(r * .17, r * .12, r * .08, 10), new THREE.MeshBasicMaterial({color:BEASTS.dreadape.eye}), .2), s * r * .33, r * .08, r * 1.0));
+    head.add(at(new THREE.Mesh(sph(r * .065, r * .075, r * .04, 8), new THREE.MeshBasicMaterial({color:0x121016})), s * r * .3, r * .07, r * 1.07)); });
+  /* flat nose, broad muzzle; the teeth sit inside it and show when the jaw drops */
+  head.add(at(inked(sph(r * .27, r * .17, r * .2, 12), mDeep, .3), 0, -r * .1, r * 1.12));
+  [-1, 1].forEach(s => head.add(at(new THREE.Mesh(sph(r * .07, r * .05, r * .05, 6), new THREE.MeshBasicMaterial({color:0x17141a})), s * r * .12, -r * .13, r * 1.3)));
+  head.add(at(inked(sph(r * .6, r * .3, r * .46, 16), mSkin, .4), 0, -r * .36, r * .82));
+  head.add(at(new THREE.Mesh(sph(r * .46, r * .3, r * .4, 12), mMouth), 0, -r * .52, r * .72));
+  [-1, 1].forEach(s => { head.add(spike(r * .085, r * .34, mTooth, v(s * r * .3, -r * .5, r * 1.1), v(0, -1, .05), .15, 6));
+    for (let i = 0; i < 2; i++) head.add(at(inked(sph(r * .07, r * .07, r * .05, 6), mTooth, .12), s * r * (.06 + i * .13), -r * .57, r * 1.17 - i * r * .02)); });
+  const jaw = at(new THREE.Group(), 0, -r * .5, r * .3); head.add(jaw); rig.jaw = jaw;
+  jaw.add(at(inked(sph(r * .56, r * .27, r * .5, 16), mSkin, .4), 0, -r * .13, r * .46));
+  jaw.add(at(new THREE.Mesh(sph(r * .3, r * .08, r * .32, 10), M('#d0626e')), 0, r * .06, r * .5));
+  [-1, 1].forEach(s => { jaw.add(spike(r * .08, r * .3, mTooth, v(s * r * .22, -r * .1, r * .74), v(0, 1, .05), .15, 6));
+    for (let i = 0; i < 2; i++) jaw.add(at(inked(sph(r * .065, r * .065, r * .05, 6), mTooth, .12), s * r * (.05 + i * .11), -r * .02, r * .8 - i * r * .02)); });
+  /* the mane: a ruff of big soft tufts round the face that spills onto the shoulders, a crest swept back, a beard */
+  const Mn = [], Ml = [];
+  for (let j = 0; j < 3; j++) { const n = 9 + j; for (let i = 0; i < n; i++) { const a = TAU * (i + (j % 2) * .5) / n, ca = Math.cos(a), sa = Math.sin(a), bot = sa < -.35, k = 1 + j * .2;
+    if (j === 0 && sa < -.72) continue;
+    (j === 1 ? Ml : Mn).push([v(ca * r * (.74 + j * .1), sa * r * (.8 + j * .08) - r * .1 * j, r * (.4 - j * .42)), v(ca, sa * (bot ? 1.25 : 1) + (bot ? 0 : .2), .1 - j * .45), r * (bot ? 1.05 : .9) * k * (.9 + rnd() * .2), r * .44 * k, v(ca * .3, sa * .3, 1)]); } }
+  for (let i = 0; i < 5; i++) Mn.push([v((i - 2) * r * .26, r * (.8 - Math.abs(i - 2) * .06), r * (.3 - (i % 2) * .5)), v((i - 2) * .22, 1, -.6 - (i % 2) * .25), r * (1.1 - Math.abs(i - 2) * .14), r * .46, v(0, .4, 1)]);
+  for (let i = 0; i < 6; i++) { const a = PI * (1.1 + .8 * i / 5); Ml.push([v(Math.cos(a) * r * .9, r * .1 + Math.sin(a) * r * .2, -r * .7), v(Math.cos(a) * .8, -.1, -1), r * 1.1, r * .5, v(0, 1, 0)]); }
+  coat(head, Mn, Ml);
+
+  /* four arms. The upper pair is the bigger: a great shoulder, upper arm, a forearm that swells toward the wrist and a
+     fist as big as its head, held wide. The lower pair comes out of the flanks under them and hangs by the knees. */
+  const aR = 3.7, L1 = 10, L2 = 8.5;
+  const mkArm = (s, x, y, z, k, rx, rz, re) => {
+    const R = aR * k, l1 = L1 * k, l2 = L2 * k;
+    const sh = at(new THREE.Group(), x, y, z); torso.add(sh); sh.rotation.x = rx; sh.rotation.z = s * rz;
+    sh.add(inked(sph(R * 1.5, R * 1.4, R * 1.4, 16), mFur, .5));
+    sh.add(limb([v(0, 0, 0), v(0, -l1 * .5, 0), v(0, -l1, .6)], R * 1.2, R * .95, mFur, UPZ, .5, {bulge:.16}));
+    const U = [], Ul = [];
+    for (let i = 0; i < 4; i++) { const a = PI * (s > 0 ? -.45 + .9 * i / 3 : .55 + .9 * i / 3), ca = Math.cos(a), sa = Math.sin(a); U.push([v(ca * R * 1.15, R * .7, sa * R * 1.05), v(ca * 1.1, -.5, sa * .9), (7 + rnd() * 1.5) * k, 3.9 * k, v(ca, .6, sa)]); }
+    fringe(Ul, rnd, -1.5 * k, R * 1.22, R * 1.2, 6, 6.2 * k, 3.5 * k, {flare:.4});
+    fringe(U, rnd, -5.6 * k, R * 1.08, R * 1.08, 6, 5.4 * k, 3.2 * k, {flare:.32});
+    coat(sh, U, Ul);
+    const el = at(new THREE.Group(), 0, -l1, .6); sh.add(el); el.rotation.x = re;
+    el.add(limb([v(0, .5, 0), v(0, -l2 * .5, 0), v(0, -l2, 0)], R * .95, R * 1.12, mFur, UPZ, .5, {bulge:.12}));
+    const F = [], Fl = [];
+    fringe(Fl, rnd, -.4 * k, R * 1.0, R * 1.0, 6, 5 * k, 3.3 * k, {flare:.45});
+    fringe(F, rnd, -4.2 * k, R * 1.1, R * 1.1, 7, 4.6 * k, 3.3 * k, {flare:.7});
+    coat(el, F, Fl);
+    const hk = .55 + .45 * k, hand = at(new THREE.Group(), 0, -l2 - 2.6 * hk, .2); el.add(hand); hand.scale.setScalar(hk);
+    hand.add(inked(sph(4.9, 4.4, 4.6, 16), mSkin, .45));
+    for (let i = 0; i < 4; i++) hand.add(at(inked(sph(1.35, 1.5, 1.7, 10), mSkin, .3), (i - 1.5) * 2.2, -3.4, 1.7 - Math.abs(i - 1.5) * .35));
+    hand.add(at(rot(inked(sph(1.5, 1.4, 2.7, 10), mSkin, .3), .3, -s * .5, 0), -s * 2.8, -.6, 3.9));
+    return {sh, el, hand, s, hk};
+  };
+  rig.arms = [-1, 1].map(s => mkArm(s, s * r1 * wide * 1.0, Lt * .88, -.8, 1, -lean + .05, 1.02, -1.15));
+  rig.arms2 = [-1, 1].map(s => mkArm(s, s * prof(.5) * wide * .92, Lt * .47, 1.8, .8, -lean + .1, .52, -.7));
+  rig.arms.forEach((a, i) => { a.low = rig.arms2[i]; a.fix = [.15, -.6, .65]; a.low.fix = [.1, -.12, .22]; });
+  rig.armL = rig.arms[0]; rig.armR = rig.arms[1];
+  /* legs: short and bent, with a knee, and broad feet */
+  rig.legs = [-1, 1].map(s => {
+    const g = at(new THREE.Group(), s * r0 * .74, hip + .5, 0); body.add(g); g.rotation.x = -.5; g.rotation.z = s * .16;
+    g.add(limb([v(0, 0, 0), v(0, -3.5, 0), v(0, -7, 0)], 4.3, 3.4, mFur, UPZ, .5, {bulge:.12}));
+    const G1 = [], G1l = []; fringe(G1l, rnd, -.5, 4.5, 4.5, 6, 5.5, 3.3, {flare:.35}); fringe(G1, rnd, -4.2, 3.8, 3.8, 6, 4.6, 3, {flare:.42}); coat(g, G1, G1l);
+    const kn = at(new THREE.Group(), 0, -7, 0); g.add(kn); kn.rotation.x = .9;
+    kn.add(limb([v(0, .4, 0), v(0, -3, 0), v(0, -6.2, 0)], 3.3, 2.9, mFur, UPZ, .45, {bulge:.1}));
+    const G2 = [], G2l = []; fringe(G2l, rnd, -.6, 3.4, 3.4, 6, 4.4, 2.9, {flare:.4}); fringe(G2, rnd, -3.2, 3.1, 3.1, 6, 3.4, 2.8, {flare:.6}); coat(kn, G2, G2l);
+    const foot = at(new THREE.Group(), 0, -6.6, 0); kn.add(foot); foot.rotation.x = -.45;
+    foot.add(at(inked(sph(3, 1.5, 4.1, 14), mSkin, .4), 0, 0, 1.6));
+    for (let i = 0; i < 4; i++) foot.add(at(inked(sph(.9, .85, 1.2, 8), mSkin, .25), (i - 1.5) * 1.45, -.25, 5.4 - Math.abs(i - 1.5) * .35));
+    return {g, kn, foot, s, f:s};
+  });
+  rig.dims = {yB:hip, R:r1, L:Lt, wR:1, hR:1};
+}
+
 /* ---------- build ---------- */
 function build(spec, opt = {}, K){
   const id = BEASTS[spec.beast] ? spec.beast : 'wolf', B = BEASTS[id], cl = Object.assign({}, B.coats[spec.skin] || B.coats[0]);
@@ -562,7 +686,7 @@ function build(spec, opt = {}, K){
   /* big beasts stand taller than people on the board, small ones smaller; the base keeps its size */
   const size = at(new THREE.Group(), 0, 6, 0); size.scale.setScalar(B.k || 1); root.add(size);
   const body = new THREE.Group(); size.add(body); rig.body = body;
-  BUILD[id](rig, cl, M, mats);
+  (B.own ? dreadape : BUILD[id])(rig, cl, M, mats);
   /* how tall it stands (for the name over its head and the camera) */
   root.updateMatrixWorld(true);
   const box = new THREE.Box3().setFromObject(body); rig.h = Math.max(30, box.max.y + 2); rig.len = Math.max(box.max.z - box.min.z, box.max.x - box.min.x);
@@ -599,6 +723,181 @@ function rest(rig){
 }
 /* the close attack's beat: wind up 150-650, land at 720, back by 1500 (the people's sword swing) */
 const MELEE = ms => { const wind = seg(ms, 150, 650), strike = seg(ms, 640, 760), rec = seg(ms, 1050, 1500); return {wind:eIO(wind), strike:eOut(strike), back:1 - eIO(rec), w0:wind}; };
+
+/* ---------- the dreadape's own moves. It has no weapon, so "sword" is one of five ways of hitting with its hands, a
+   different one each attack (rig.var, set by the fight board from the attack, so every device sees the same one; the
+   figure maker plays them in turn). All five land on the people's sword beat (720 ms). Being hit and dodging have two
+   ways each. ---------- */
+const bump = (ms, a, p, b) => ms < p ? eOut(seg(ms, a, p)) : 1 - eIO(seg(ms, p, b));
+const DREAD_MOVES = {sword:5, hit:2, dodge:2};
+function dread(rig, name, ms, t){
+  const {body, torso, head, jaw, dims:d} = rig, [B, A] = rig.arms, D = ANIMS[name] || 2000;
+  /* an arm moved from its rest: x swings it forward (-) or back, z out from the body, e bends the elbow. The lower arm
+     under it follows at `f` of the way unless the move poses it itself (f = 0) */
+  const arm = (a, x = 0, z = 0, e = 0, f = .6) => {
+    /* the moves are written from arms hanging at the sides; at rest they are held out wide, so an arm leaves that
+       stance as far as the move takes hold of it */
+    const g = Math.min(1, Math.max(Math.abs(x), Math.abs(z) * 1.6, Math.abs(e))), c = a.fix;
+    a.sh.rotation.x += x + c[0] * g; a.sh.rotation.z += a.s * (z + c[1] * g); a.el.rotation.x += e + c[2] * g;
+    if (f && a.low) arm(a.low, x * f, z * f, e * f);
+  };
+  const both = (x, z, e, f) => { arm(A, x, z, e, f); arm(B, x, z, e, f); };
+  const [D2, C] = rig.arms2;
+  const bend = c => rig.legs.forEach(l => { l.g.rotation.x -= .45 * c; l.kn.rotation.x += .9 * c; l.foot.rotation.x -= .45 * c; });
+  const crouch = c => { bend(c); body.position.y -= c > 0 ? 3.8 * c : 1.4 * c; };
+  const which = n => ((rig.var != null ? rig.var : Math.floor(t / D)) % n + n) % n;
+  /* fists drumming on the chest: k how far into the pose, ph the beat */
+  const drum = (k, ph) => { [A, B].forEach((a, i) => { const up = Math.max(0, Math.sin(ph + i * PI)); arm(a, (-.7 - .25 * up) * k, -.62 * k, (-1.75 + .45 * up) * k); }); };
+  if (name === 'idle') {
+    const sw = Math.sin(t / 1300);
+    body.position.x += sw * .7; torso.rotation.z += sw * .025; torso.rotation.x += Math.sin(t / 760) * .02;
+    head.rotation.y += Math.sin(t / 1900) * .16; head.rotation.x += Math.sin(t / 1100) * .04;
+    [A, B].forEach((a, i) => { arm(a, Math.sin(t / 760 + i * 1.3) * .05, Math.sin(t / 760) * .03, 0); a.hand.scale.multiplyScalar(1 + .04 * Math.sin(t / 420 + i * 2)); a.low.hand.scale.multiplyScalar(1 + .04 * Math.sin(t / 420 + i * 2 + 1)); });
+    /* now and then it snorts, or rears and beats its chest */
+    const c = t % 9600;
+    if (c > 3000 && c < 3700) { const k = Math.sin(seg(c, 3000, 3700) * PI); head.rotation.x += -.22 * k; jaw.rotation.x += .3 * k; head.rotation.z += Math.sin(c / 45) * .04 * k; }
+    if (c > 7200 && c < 8700) { const k = eIO(seg(c, 7200, 7500)) * (1 - eIO(seg(c, 8350, 8700)));
+      torso.rotation.x += -.3 * k; head.rotation.x += -.25 * k; jaw.rotation.x += .75 * k; crouch(-.5 * k); drum(k, (c - 7200) / 70); }
+    return;
+  }
+  if (name === 'walk') {
+    /* a rolling knuckle-walk */
+    const p = ms / D * TAU;
+    rig.legs.forEach((l, i) => { const ph = p + i * PI; l.g.rotation.x += Math.sin(ph) * .5; l.kn.rotation.x += Math.max(0, Math.cos(ph)) * .55; });
+    [A, B].forEach((a, i) => arm(a, -.25 + Math.sin(p + i * PI) * .5, 0, .15));
+    torso.rotation.x += .16; torso.rotation.y += Math.sin(p) * .14; body.rotation.z += Math.sin(p) * .05;
+    body.position.y += Math.abs(Math.cos(p)) * 1.6 - .8; head.rotation.x += -.12 + Math.sin(p * 2) * .04;
+    return;
+  }
+  if (name === 'sword') {
+    const k = which(DREAD_MOVES.sword);
+    if (k === 0) {
+      /* leaps and brings both fists down like a hammer */
+      const w = eIO(seg(ms, 120, 430)), air = Math.sin(seg(ms, 430, 728) * PI), up = eIO(seg(ms, 180, 560)), fall = eOut(seg(ms, 650, 730)), hold = 1 - eIO(seg(ms, 1080, 1560));
+      const sq = .9 * w * (1 - seg(ms, 430, 500)), land = fall * hold;
+      bend(sq + .5 * air + .55 * land);
+      body.position.y += -3.8 * sq + 9.5 * air - 2.1 * land + (ms > 730 ? 1.5 * Math.sin(seg(ms, 730, 900) * PI) : 0);
+      body.position.z += 9 * eIO(seg(ms, 430, 720)) * hold;
+      both(-2.9 * up * (1 - fall) - 1.05 * land, -.28 * up * hold, -.3 * up * (1 - fall) + .45 * land);
+      torso.rotation.x += -.42 * up * (1 - fall) + .36 * land; head.rotation.x += .3 * up * (1 - fall) - .3 * land;
+      jaw.rotation.x += .85 * Math.max(up * (1 - fall), land * (1 - seg(ms, 900, 1150)));
+    } else if (k === 1) {
+      /* a wide haymaker with one fist, then an uppercut with the other */
+      const w = eIO(seg(ms, 150, 560)), s1 = eOut(seg(ms, 620, 740)), s2 = eOut(seg(ms, 860, 1000)), hold = 1 - eIO(seg(ms, 1180, 1600));
+      body.rotation.y += (lerp(lerp(.85 * w, -.8, s1), .6, s2)) * hold;
+      arm(A, lerp(lerp(.75 * w, -1.75, s1), -.8, s2) * hold, lerp(lerp(.55 * w, -.45, s1), -.2, s2) * hold, lerp(lerp(-1.3 * w, .2, s1), -1.6, s2) * hold);
+      arm(B, lerp(lerp(-.8 * w, .45, s1), -2.45, s2) * hold, lerp(-.2 * w, -.35, s2) * hold, lerp(lerp(-1.5 * w, -.9, s1), -1.25, s2) * hold);
+      crouch((.5 * w + .3 * s1 - 1.3 * s2) * hold);
+      body.position.y += 6 * Math.sin(seg(ms, 860, 1180) * PI);
+      body.position.z += (7 * s1 + 3 * s2) * hold; torso.rotation.x += (.22 * s1 - .5 * s2) * hold; head.rotation.x += .25 * s2 * hold;
+      jaw.rotation.x += .7 * Math.max(s1 * (1 - s2), w * .4) * hold;
+    } else if (k === 2) {
+      /* rears up and drums its chest, then rams both fists straight out */
+      const rear = eIO(seg(ms, 80, 280)) * (1 - seg(ms, 540, 650)), ram = eOut(seg(ms, 630, 735)), hold = 1 - eIO(seg(ms, 1100, 1560)), r = ram * hold;
+      drum(rear, (ms - 80) / 62);
+      both(-1.6 * r, -.3 * r, .5 * r, 1);
+      torso.rotation.x += -.5 * rear + .26 * r; head.rotation.x += -.3 * rear - .2 * r; jaw.rotation.x += .9 * rear + .5 * r * (1 - seg(ms, 850, 1050));
+      crouch(-.7 * rear + .45 * r); body.position.z += -3 * rear + 12 * r;
+    } else if (k === 3) {
+      /* coils, then spins right round with one arm flung out: a backfist */
+      const coil = eIO(seg(ms, 130, 400)), u = seg(ms, 400, 720), hold = 1 - eIO(seg(ms, 1150, 1560));
+      const yaw = ms <= 400 ? -.7 * coil : ms <= 720 ? lerp(-.7, PI * 1.5, u * u) : lerp(PI * 1.5, TAU, eOut(seg(ms, 720, 940)));
+      body.rotation.y += yaw;
+      const ext = eOut(seg(ms, 420, 600)) * (1 - eIO(seg(ms, 800, 1000)));
+      arm(A, -.25 * coil * (1 - ext) - .08 * ext, lerp(-.3 * coil, 1.12, ext), lerp(-1.2 * coil, .5, ext), .9);
+      arm(B, -.7 * coil * hold, -.3 * coil * hold, -1.5 * coil * hold);
+      crouch(.7 * coil * (1 - seg(ms, 400, 560)) + .5 * seg(ms, 700, 760) * hold);
+      body.position.y += 4.5 * Math.sin(seg(ms, 440, 740) * PI); body.position.z += 8 * eIO(seg(ms, 460, 720)) * hold;
+      torso.rotation.x += .12 * ext; jaw.rotation.x += .7 * ext;
+    } else {
+      /* a flurry of jabs from all four fists, then jumps in with a great overhand */
+      const g = eIO(seg(ms, 90, 250)), hold = 1 - eIO(seg(ms, 1120, 1560)), j1 = bump(ms, 290, 370, 460), j2 = bump(ms, 430, 510, 600), wind = eIO(seg(ms, 550, 650)), st = eOut(seg(ms, 655, 740));
+      const j3 = bump(ms, 360, 440, 530), j4 = bump(ms, 500, 580, 670);
+      arm(B, lerp(-.9, -1.78, j1) * g * hold, -.3 * g * hold, lerp(-1.7, .45, j1) * g * hold, 0);
+      arm(C, lerp(-.6, -1.55, j3) * g * hold, -.25 * g * hold, lerp(-1.2, .55, j3) * g * hold);
+      arm(D2, lerp(-.6, -1.55, j4) * g * hold, -.25 * g * hold, lerp(-1.2, .55, j4) * g * hold);
+      arm(A, lerp(lerp(-.9, -1.78, j2), lerp(-2.7, -1.45, st), wind) * g * hold, lerp(-.3, lerp(.3, -.35, st), wind) * g * hold, lerp(lerp(-1.7, .45, j2), lerp(-1.3, .35, st), wind) * g * hold, 0);
+      body.rotation.y += (.4 * j1 - .4 * j2 + wind * lerp(.6, -.65, st)) * hold;
+      body.position.z += (2.5 * eOut(seg(ms, 290, 370)) + 2.5 * eOut(seg(ms, 430, 510)) + 7 * st) * hold;
+      body.position.y += 5.5 * Math.sin(seg(ms, 560, 735) * PI);
+      crouch((.3 * g + .25 * st) * hold); bend(.4 * Math.sin(seg(ms, 560, 735) * PI));
+      torso.rotation.x += (.08 * (j1 + j2) - .2 * wind * (1 - st) + .22 * st) * hold; head.rotation.x += -.15 * st * hold;
+      jaw.rotation.x += .75 * wind * (1 - seg(ms, 950, 1150));
+    }
+    return;
+  }
+  if (name === 'bow' || name === 'magic') {
+    /* from a distance: drums its chest, then throws its arms wide and roars */
+    const R0 = name === 'bow' ? 1050 : 960, draw = eIO(seg(ms, 100, 420)), rel = eOut(seg(ms, R0 - 80, R0 + 60)), low = eIO(seg(ms, R0 + 450, R0 + 820));
+    const back = draw * (1 - rel), push = rel * (1 - low);
+    drum(back, (ms - 100) / 62);
+    both(-.5 * push, 1.0 * push, .25 * push);
+    torso.rotation.x += -.45 * back + .12 * push; head.rotation.x += -.3 * back - .2 * push; crouch(-.7 * back + .7 * push);
+    body.position.z += -2 * back + 3 * push; jaw.rotation.x += .5 * back + 1.0 * push;
+    head.rotation.z += Math.sin(ms / 28) * .05 * push;
+    if (name === 'magic') flash(rig, .5 * Math.sin(Math.min(1, ms / (R0 + 200)) * PI), 0xff7a2a);
+    boltFrom(rig, ms, R0);
+    return;
+  }
+  if (name === 'hit') {
+    const k = eOut(seg(ms, 200, 270)), r = seg(ms, 270, 1000), on = ms > 200 ? 1 : 0, gone = 1 - eIO(r), snarl = bump(ms, 620, 820, 1200);
+    if (which(DREAD_MOVES.hit) === 0) {
+      /* its head snaps round and it staggers back, arms flung out; then it snarls back */
+      body.position.z += -10 * k * gone; body.rotation.y += .5 * k * gone; torso.rotation.x += -.4 * k * gone + .22 * snarl;
+      head.rotation.y += .6 * k * (1 - eIO(seg(ms, 270, 650))); head.rotation.x += -.35 * k * gone - .15 * snarl;
+      arm(A, .5 * k * gone, .9 * k * gone, .2 * k * gone); arm(B, -.3 * k * gone, .7 * k * gone, .2 * k * gone);
+      rig.legs.forEach((l, i) => { l.g.rotation.x += (i ? .5 : -.3) * k * gone; });
+    } else {
+      /* doubled over a blow to the belly, skidding back; then it shakes it off */
+      body.position.z += -8 * k * gone; torso.rotation.x += .55 * k * gone - .12 * snarl; head.rotation.x += .3 * k * gone - .3 * snarl;
+      both(-.55 * k * gone, -.6 * k * gone, -1.5 * k * gone); crouch(.7 * k * gone);
+    }
+    body.position.x += Math.sin(ms * .09) * 2.5 * (1 - r) * on; head.rotation.z += Math.sin(ms / 30) * .06 * snarl;
+    jaw.rotation.x += .6 * k * gone + .8 * snarl;
+    flash(rig, on ? 1 - seg(ms, 200, 600) : 0, 0xff3a28);
+    return;
+  }
+  if (name === 'block') {
+    /* braces behind crossed forearms and is shoved back a step */
+    const up = eOut(seg(ms, 80, 320)) * (1 - eIO(seg(ms, 850, 1200))), shove = ms > 330 ? eOut(seg(ms, 330, 400)) * (1 - eIO(seg(ms, 420, 900))) : 0;
+    arm(A, -1.5 * up, -.8 * up, -1.5 * up); arm(B, -1.35 * up, -.8 * up, -1.7 * up);
+    crouch(.6 * up + .3 * shove); torso.rotation.x += .1 * up - .15 * shove; head.rotation.x += .2 * up;
+    body.position.z += -1.5 * up - 4 * shove;
+    flash(rig, ms > 330 ? .5 * (1 - seg(ms, 330, 700)) : 0, 0x3d8bff);
+    return;
+  }
+  if (name === 'dodge') {
+    if (which(DREAD_MOVES.dodge) === 0) {
+      /* springs back out of reach and lands low on its knuckles */
+      const go = eOut(seg(ms, 60, 400)), air = Math.sin(seg(ms, 60, 420) * PI), back = 1 - eIO(seg(ms, 680, 1080)), land = bump(ms, 380, 460, 900);
+      body.position.z += -11 * go * back; body.position.y += 7 * air; bend(.6 * air); crouch(.8 * land);
+      torso.rotation.x += -.25 * air + .3 * land; both(-.9 * air - .5 * land, .35 * air, .3 * land); head.rotation.x += -.2 * land;
+      jaw.rotation.x += .5 * land;
+    } else {
+      /* drops under the blow, swaying its whole body aside with a fist on the ground */
+      const k = eOut(seg(ms, 0, 220)) * (1 - eIO(seg(ms, 620, 1020)));
+      body.rotation.z += .3 * k; body.position.x += -4 * k; crouch(.8 * k); body.rotation.y += -.35 * k;
+      torso.rotation.x += .25 * k; head.rotation.z += -.3 * k; head.rotation.x += -.2 * k;
+      arm(A, -.7 * k, -.2 * k, -1.4 * k); arm(B, -.5 * k, .15 * k, -.5 * k);
+    }
+    return;
+  }
+  if (name === 'down') {
+    /* crashes onto its back with its arms thrown wide, bounces once, and heaves itself up again */
+    const f = seg(ms, 250, 750), upp = seg(ms, 1900, 2450), k = eBack(f) * (1 - eIO(upp)), kk = Math.min(1, k), a = PI / 2 * .9 * k;
+    body.rotation.x += -a; body.position.z += (d.yB + d.L * .35) * Math.sin(a) * .62; body.position.y += (d.R * .95 - d.yB * Math.cos(a)) * kk + 2 * Math.sin(seg(ms, 750, 1000) * PI);
+    torso.rotation.x += -.25 * kk; head.rotation.x += .35 * kk; head.rotation.z += .25 * kk; jaw.rotation.x += .6 * kk;
+    arm(A, -.9 * kk, .9 * kk, .3 * kk); arm(B, -1.3 * kk, .6 * kk, -.5 * kk);
+    rig.legs.forEach((l, i) => { l.g.rotation.x += (i ? -.7 : -.25) * kk; l.kn.rotation.x += (i ? .5 : -.5) * kk; });
+    flash(rig, ms > 200 ? 1 - seg(ms, 200, 500) : 0, 0xff2a4a);
+    return;
+  }
+}
+/* the roar's bolt flying from the head (bow and magic) */
+function boltFrom(rig, ms, R0){
+  const head = rig.head; if (!(rig.fx.bolt && ms > R0 - 10 && ms < R0 + 540 && head)) return;
+  const k = seg(ms, R0 - 10, R0 + 540); rig.fx.bolt.visible = true; head.updateMatrixWorld(true); const hp = head.getWorldPosition(new V3()); rig.root.worldToLocal(hp); rig.fx.bolt.position.set(hp.x, hp.y - k * 10, hp.z + 10 + k * 160);
+}
 function pose(rig, name, t){
   rest(rig);
   const D = ANIMS[name] || 2000, ms = t % D, u = ms / D, plan = rig.plan, d = rig.dims, id = rig.beast;
@@ -614,6 +913,7 @@ function pose(rig, name, t){
   if (plan === 'bird') { const fl = Math.sin(t / 260); wings.forEach(w => { w.rotation.z += w.userData.s * fl * .35; w.rotation.y += -w.userData.s * .1; }); torso.position.y += Math.sin(t / 520) * 1.4; }
   else if (wings.length) wings.forEach(w => { w.rotation.z += -w.userData.s * .35; w.rotation.y += w.userData.s * .55; w.rotation.x += .15 + Math.sin(t / 900) * .04; }); /* half folded, held up off the back */
   if (rig.segs) rig.segs.forEach((g, i) => { g.rotation.z += Math.sin(t / 700 + i) * .06; g.rotation.x += Math.sin(t / 900 + i * .5) * .03; });
+  if (rig.beast === 'dreadape') return dread(rig, name, ms, t);
   if (name === 'idle') {
     if (head) { head.rotation.y += Math.sin(t / 1700) * .12; head.rotation.x += Math.sin(t / 1100) * .04; }
     if (rig.tongue && (t % 2400) > 1500 && (t % 2400) < 1900) { rig.tongue.visible = true; rig.tongue.scale.z = .6 + .4 * Math.sin((t % 2400 - 1500) / 400 * PI); }
@@ -703,7 +1003,7 @@ function pose(rig, name, t){
     if (rig.tongue && id === 'serpent') rig.tongue.visible = open > .3;
     if (rig.trunk) rig.trunk.rotation.x += -1.6 * (back + push * .8);
     if (name === 'magic') flash(rig, .5 * Math.sin(Math.min(1, ms / (R0 + 200)) * PI), rig.plan === 'bird' ? 0xffb030 : 0xff7a2a);
-    if (rig.fx.bolt && ms > R0 - 10 && ms < R0 + 540 && head) { const k = seg(ms, R0 - 10, R0 + 540); rig.fx.bolt.visible = true; head.updateMatrixWorld(true); const hp = head.getWorldPosition(new V3()); rig.root.worldToLocal(hp); rig.fx.bolt.position.set(hp.x, hp.y - k * 10, hp.z + 10 + k * 160); }
+    boltFrom(rig, ms, R0);
     return;
   }
   if (name === 'hit') {

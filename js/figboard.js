@@ -209,6 +209,7 @@ function atkPose(run, ft){
   if (run.wpn === 'bow') { const t = ft < run.TR ? ft * 1050 / run.TR : ft - run.TR + 1050; return t < 1900 ? ['bow', t] : null; }
   const t = ft < run.TF ? ft * 960 / run.TF : ft - run.TF + 960; return t < 1900 ? ['magic', t] : null;
 }
+function moveOf(id, att){ let h = att ? 7 : 3; for (const c of String(id || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % 60; }
 function defPose(run, ft){
   const d = ft - run.TI, out = run.out;
   if (out === 'out') return d >= 250 ? ['down', Math.min(d, 1500)] : d >= -200 ? ['hit', d + 200] : null;
@@ -279,6 +280,9 @@ function draw(S, now){
     if (ft != null && ft >= 0 && ft < run.total && (t.id === a.a.att || t.id === a.a.def)) {
       const att = t.id === a.a.att, O = S.figs.get(att ? a.a.def : a.a.att);
       const p = att ? atkPose(run, ft) : defPose(run, ft);
+      /* a figure with several ways of doing a move (the dreadape's five attacks) picks one from the attack itself, so
+         every device shows the same one */
+      if (p) rig.var = moveOf(a.id, att);
       if (p) { [name, pt] = p; busy = true; }
       else if (!att && run.out === 'out' && ft - run.TI >= 250) { name = 'down'; pt = 1500; }
       /* they turn toward each other, three-quarter on: someone further up the board is faced as if level, so a fight

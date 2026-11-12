@@ -393,7 +393,8 @@ function start(box, THREE, K){
       const B = K.BEASTS[spec.beast];
       grp('Animal or monster', B.n, K.BEAST_LIST.map(id => opt(id, K.BEASTS[id].n, id === spec.beast, 'beast', beastPic(id))).join(''), 'grid beasts');
       grp(spec.beast === 'giant' ? 'Kind of giant' : 'Coat, scales or shell', B.coats[spec.skin] ? B.coats[spec.skin].n : '', B.coats.map((c, i) => sw(i, c.n, c.c, i === +spec.skin, 'coat')).join(''), 'sws');
-      o.push(`<p class="note">Animals and monsters come as they are: pick one and its colours. In a fight, <b>Sword</b> is its bite, pounce or smash, and <b>Bow</b> and <b>Magic</b> are a roar or a breath from a distance.</p>`);
+      o.push(spec.beast === 'dreadape' ? `<p class="note">The dreadape fights with its four fists only. <b>Sword</b> is one of five attacks (a leaping hammer blow, a haymaker and uppercut, a chest drum and four-fist ram, a spinning backfist, a four-fist flurry and an overhand); leave it playing to see them all. A fight picks one each attack. <b>Hit</b> and <b>Dodge</b> have two ways each, and <b>Bow</b> and <b>Magic</b> are a chest-drumming roar.</p>`
+        : `<p class="note">Animals and monsters come as they are: pick one and its colours. In a fight, <b>Sword</b> is its bite, pounce or smash, and <b>Bow</b> and <b>Magic</b> are a roar or a breath from a distance.</p>`);
       $('opts').innerHTML = o.join('');
       return;
     }
