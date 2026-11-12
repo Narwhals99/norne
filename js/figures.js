@@ -65,6 +65,9 @@ const CSS = `
 .figx .load{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--ink-2);font:800 14px/1.4 var(--f-ui)}
 .figx .bar{display:flex;flex-wrap:wrap;gap:6px}
 .figx .chip{min-height:38px;padding:0 13px;border:0;border-radius:999px;background:var(--raise);color:var(--ink-2);font:800 13px/1 var(--f-ui);cursor:pointer;box-shadow:0 0 0 1px var(--line)}
+.figx .wpn{display:flex;align-items:center;gap:8px;color:var(--ink-2);font:800 13px/1.2 var(--f-ui)}
+.figx .wpn select{flex:1;min-width:0;max-width:260px;min-height:38px;padding:0 10px;border:0;border-radius:12px;background:var(--raise);color:var(--ink);font:800 16px/1 var(--f-ui);box-shadow:0 0 0 1px var(--line)}
+.figx .wpn small{flex-basis:100%;color:var(--ink-3);font:700 11.5px/1.3 var(--f-ui)}
 .figx .chip[aria-pressed="true"]{background:var(--gold);color:var(--gold-ink);box-shadow:none}
 .figx button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .figx .panel{display:grid;gap:14px;padding:14px;border-radius:24px;background:rgba(16,19,52,.82);box-shadow:0 0 0 1px var(--line),0 10px 30px -12px rgba(0,0,0,.6);min-width:0}
@@ -112,6 +115,7 @@ const HTML = `
     <section class="stagecol" aria-label="Figure preview">
       <div class="stage" data-r="stage"><canvas aria-hidden="true"></canvas><div class="labels" data-r="labels"></div><span class="tag" data-r="tag"></span><span class="spin" data-r="spin">Drag to turn</span><div class="load" data-r="load">Loading the figure maker…</div></div>
       <div class="bar" data-r="anims" role="group" aria-label="Moves"></div>
+      <label class="wpn" data-r="wpnRow"><span>Try a weapon</span><select data-r="wpn" aria-label="Weapon to try"></select></label>
       <div class="bar" data-r="views" role="group" aria-label="View">
         <button type="button" class="chip" data-v="one" aria-pressed="true">My figure</button>
         <button type="button" class="chip" data-v="all" aria-pressed="false">Every race's default</button>
@@ -251,8 +255,8 @@ function start(box, THREE, K){
   scene.add(new THREE.HemisphereLight(0xfff0dc, 0x40386a, 1.9));
   const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(-300, 700, 600); scene.add(sun);
 
-  const ANIM_NAMES = [['idle', 'Stand'], ['walk', 'Walk'], ['sword', 'Sword'], ['bow', 'Bow'], ['magic', 'Magic'], ['hit', 'Hit'], ['block', 'Block'], ['dodge', 'Dodge'], ['down', 'Knocked down']];
-  let spec = null, rig = null, all = [], view = 'one', tab = 'body', anim = 'idle', t0 = performance.now(), spin = .35, frozen = null, running = true;
+  const ANIM_NAMES = [['idle', 'Stand'], ['walk', 'Walk'], ['sword', 'Attack'], ['bow', 'Shoot'], ['magic', 'Magic'], ['hit', 'Hit'], ['block', 'Block'], ['dodge', 'Dodge'], ['down', 'Knocked down']];
+  let spec = null, rig = null, all = [], view = 'one', tab = 'body', anim = 'idle', wpn = '', t0 = performance.now(), spin = .35, frozen = null, running = true;
   /* whose figure this is (targetOf); with none (the GM from Profile) there is nothing to save */
   const T = openT, mine = () => T ? T.get() : null, who = mine(), cname = T ? T.name : '', pc = T && T.kind === 'pc';
   const DRAFT = 'norne-fig-test', copy = s => JSON.parse(JSON.stringify(s));
@@ -311,6 +315,7 @@ function start(box, THREE, K){
       if (my !== want || !running) return;
       if (rig) { scene.remove(rig.root); K.dispose(rig); }
       rig = K.buildFigure(spec, {fine:true}); K.addFx(scene, rig); scene.add(rig.root);
+      K.hold(rig, wpn ? {w:wpn} : null); $('wpnRow').hidden = !!spec.beast;
       rig.root.visible = view === 'one';
       frame();
     });
@@ -466,6 +471,11 @@ function start(box, THREE, K){
   animBar.innerHTML = ANIM_NAMES.map(([id, n]) => `<button type="button" class="chip" data-a="${id}" aria-pressed="${id === anim}">${n}</button>`).join('');
   const markAnim = () => animBar.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.a === anim)));
   animBar.addEventListener('click', e => { const b = e.target.closest('[data-a]'); if (!b) return; anim = b.dataset.a; t0 = performance.now(); frozen = null; markAnim(); });
+  /* try a weapon: only a look at how the figure uses each kind. In a fight the weapon comes from the fighter's gear. */
+  const wpnSel = $('wpn');
+  wpnSel.innerHTML = '<option value="">Plain sword and bow</option>' + K.WEAPON_LIST.filter(id => id !== 'sword').map(id => `<option value="${id}">${K.WEAPONS[id].n}</option>`).join('');
+  wpnSel.addEventListener('change', () => { wpn = wpnSel.value; if (rig) K.hold(rig, wpn ? {w:wpn} : null);
+    if (wpn) anim = K.WEAPONS[wpn].cat === 'melee' ? 'sword' : 'bow'; t0 = performance.now(); frozen = null; markAnim(); });
   $('views').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
   function setView(w){
     view = w;

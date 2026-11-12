@@ -65,6 +65,24 @@ const ARROW = `<path d="M-74,0 L-14,0" stroke="${INK}" stroke-width="5.6" stroke
   <path d="M-17,-6.5 L0,0 L-17,6.5 Z" fill="#aab5c3" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>
   <path d="M-72,0 L-80,-8.5 L-62,-8.5 L-57,0 Z" fill="#e8463a" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round"/>
   <path d="M-72,0 L-80,8.5 L-62,8.5 L-57,0 Z" fill="#f4efe2" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round"/>`;
+/* what flies when the attacker's figure holds a weapon of its own (res.anim.arm, js/armory.js): a crossbow's quarrel,
+   a sling's stone, a thrown knife, star, axe or javelin. Drawn like the arrow, point at 0,0 and flying to the right;
+   the ones in a .spin group tumble on the way. col is the metal it is made of. */
+const PJ_METAL = {iron:'#8e939c', steel:'#c5cedb', silver:'#f4f7fb', dwarven:'#9db6d3', obsidian:'#3a3246', meteorite:'#55607a', dragontooth:'#efe5c8', unicorn:'#fbeff6', manticore:'#c8742a', brass:'#d9a441', stone:'#9c978c'};
+const PROJ = {
+  quarrel:c => `<path d="M-46,0 L-12,0" stroke="${INK}" stroke-width="6.4" stroke-linecap="round"/><path d="M-46,0 L-12,0" stroke="#8a5a34" stroke-width="3.4" stroke-linecap="round"/>
+    <path d="M-16,-6 L0,0 L-16,6 Z" fill="${c}" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M-46,0 L-50,-6.5 L-38,-6.5 L-34,0 L-38,6.5 L-50,6.5 Z" fill="#f4efe2" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round"/>`,
+  stone:c => `<circle cx="-9" cy="0" r="8.5" fill="${c}" stroke="${INK}" stroke-width="2.8"/><circle cx="-11.5" cy="-2.8" r="2.6" fill="#fff" fill-opacity=".45"/>`,
+  knife:c => `<g class="spin"><rect x="-44" y="-3.6" width="19" height="7.2" rx="3" fill="#4a3020" stroke="${INK}" stroke-width="2.6"/>
+    <path d="M-26,-6 L-9,-5 L0,0 L-9,5 L-26,6 Z" fill="${c}" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/><path d="M-24,0 L-7,0" stroke="#fff" stroke-opacity=".6" stroke-width="1.4" stroke-linecap="round"/></g>`,
+  star:c => `<g class="spin"><path d="M-22,-18 L-17,-5 L-4,0 L-17,5 L-22,18 L-27,5 L-40,0 L-27,-5 Z" fill="${c}" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/><circle cx="-22" cy="0" r="2.6" fill="${INK}"/></g>`,
+  axe:c => `<g class="spin"><path d="M-48,0 L-6,0" stroke="${INK}" stroke-width="7.4" stroke-linecap="round"/><path d="M-48,0 L-6,0" stroke="#7b4723" stroke-width="4.2" stroke-linecap="round"/>
+    <path d="M-18,-3 L-22,-16 Q-10,-22 2,-15 L-4,-3 Z" fill="${c}" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/></g>`,
+  javelin:c => `<path d="M-104,0 L-16,0" stroke="${INK}" stroke-width="5.6" stroke-linecap="round"/><path d="M-104,0 L-16,0" stroke="#8a5a34" stroke-width="2.8" stroke-linecap="round"/>
+    <path d="M-24,-5.5 L0,0 L-24,5.5 Z" fill="${c}" stroke="${INK}" stroke-width="2.6" stroke-linejoin="round"/>`
+};
+const PROJ_OF = {crossbow:'quarrel', sling:'stone', tknife:'knife', tstar:'star', taxe:'axe', javelin:'javelin'};
 const SHIELD_P = 'M-24,-30 Q0,-37 24,-30 L24,-6 Q24,22 0,34 Q-24,22 -24,-6 Z';
 const SHIELD = `<ellipse class="ward" cx="0" cy="0" rx="46" ry="50" fill="url(#fxWard)" opacity="0"/>
   <path d="${SHIELD_P}" fill="#2f63c9" stroke="#14112a" stroke-width="3.6" stroke-linejoin="round"/>
@@ -135,6 +153,10 @@ function build(board, s){
 
   const svg = document.createElementNS(NS, 'svg');
   set(svg, {class:'fxsvg', width:W, height:H, viewBox:`0 0 ${W} ${H}`, 'aria-hidden':'true'});
+  /* a figure with a weapon of its own looses that weapon's missile, not the arrow */
+  const pj = wpn === 'bow' && A.fig && an.arm ? PROJ_OF[an.arm.w] : null;
+  /* a figure that thrusts or punches (js/armory.js) has no swing for the swoosh to follow */
+  fx.noArc = !!(A.fig && wpn === 'sword' && N.figThrust && N.figThrust(s));
   const sparks = Array.from({length:8}, () => '<line stroke-linecap="round"/>').join('');
   const bolts = Array.from({length:5}, () => '<polyline class="lg" fill="none" stroke="#58b2ff" stroke-linejoin="round" stroke-linecap="round"/><polyline class="lc" fill="none" stroke="#f2fbff" stroke-linejoin="round" stroke-linecap="round"/>').join('');
   const trail = Array.from({length:9}, () => '<circle fill="#8fd0ff"/>').join('');
@@ -143,14 +165,14 @@ function build(board, s){
   svg.innerHTML = `${DEFS}<g class="g-trail" opacity="0"><path class="t1" fill="none" stroke="#ffffff" stroke-linecap="round"/><path class="t2" fill="none" stroke="#ffffff" stroke-linecap="round"/></g>
     <g class="g-tr">${trail}</g><g class="g-pt">${parts}</g>
     <g class="g-wpn" opacity="0">${A.fig ? '' : wpn === 'sword' ? SWORD : wpn === 'bow' ? BOW(0) : ''}</g>
-    <g class="g-proj" opacity="0">${wpn === 'bow' ? ARROW : wpn === 'bolt' ? '<circle class="og" fill="url(#fxGlow)"/><circle class="oc" fill="url(#fxOrb)" stroke="#eaf7ff"/><circle class="oh" fill="#fff"/>' : ''}</g>
+    <g class="g-proj" opacity="0">${wpn === 'bow' ? (pj ? PROJ[pj](PJ_METAL[an.arm.m] || (pj === 'stone' ? PJ_METAL.stone : PJ_METAL.steel)) : ARROW) : wpn === 'bolt' ? '<circle class="og" fill="url(#fxGlow)"/><circle class="oc" fill="url(#fxOrb)" stroke="#eaf7ff"/><circle class="oh" fill="#fff"/>' : ''}</g>
     <g class="g-sh" opacity="0">${SHIELD}</g>
     <g class="g-fx"><circle class="ring" fill="none" opacity="0"/><path class="b1" opacity="0"/><path class="b2" opacity="0"/><g class="sp" stroke="${o.core}">${sparks}</g><g class="lt" opacity="0">${bolts}</g></g>
     <g class="g-tw">${tw}</g>`;
   cam.appendChild(svg);
   fx.svg = svg;
   const q = c => svg.querySelector(c);
-  fx.g = {trail:q('.g-trail'), t1:q('.t1'), t2:q('.t2'), wpn:q('.g-wpn'), str:q('.bstr'), proj:q('.g-proj'), og:q('.og'), oc:q('.oc'), oh:q('.oh'), sh:q('.g-sh'), ward:q('.ward'),
+  fx.g = {trail:q('.g-trail'), t1:q('.t1'), t2:q('.t2'), wpn:q('.g-wpn'), str:q('.bstr'), proj:q('.g-proj'), spin:q('.g-proj .spin'), og:q('.og'), oc:q('.oc'), oh:q('.oh'), sh:q('.g-sh'), ward:q('.ward'),
     ring:q('.ring'), b1:q('.b1'), b2:q('.b2'), sp:[...svg.querySelectorAll('.sp line')], lt:q('.lt'), lg:[...svg.querySelectorAll('.lt .lg')], lc:[...svg.querySelectorAll('.lt .lc')],
     tr:[...svg.querySelectorAll('.g-tr circle')], pt:[...svg.querySelectorAll('.g-pt circle')], tw:[...svg.querySelectorAll('.g-tw path')]};
   set(fx.g.ring, {stroke:o.glow}); set(fx.g.b1, {fill:o.col, stroke:INK, 'stroke-width':Math.max(1.5, R * .09), 'stroke-linejoin':'round'}); set(fx.g.b2, {fill:o.core});
@@ -258,7 +280,7 @@ function swordAt(fx, t){
   set(fx.g.wpn, {transform:`translate(${(ax + Math.cos(rad) * R * .82).toFixed(2)} ${(ay + Math.sin(rad) * R * .82).toFixed(2)}) rotate(${th.toFixed(2)}) scale(${k.toFixed(4)})`, opacity:(1 - seg(t, 900, 1080)).toFixed(3)});
   /* the swoosh behind the blade */
   const end = o.hit || o.dodge ? 560 : TI;
-  if (t >= 400 && t < end + 200) {
+  if (!fx.noArc && t >= 400 && t < end + 200) {
     const l0 = Math.max(-115, lam - 125), rs = R * .82 + 2.35 * R * .62, w = 2.35 * R * .38;
     const arc = (r0, from, to) => { const a0 = (fx.phi + s * from) * Math.PI / 180, a1 = (fx.phi + s * to) * Math.PI / 180; return `M${(ax + Math.cos(a0) * r0).toFixed(1)},${(ay + Math.sin(a0) * r0).toFixed(1)} A${r0.toFixed(1)},${r0.toFixed(1)} 0 0 ${s > 0 ? 1 : 0} ${(ax + Math.cos(a1) * r0).toFixed(1)},${(ay + Math.sin(a1) * r0).toFixed(1)}`; };
     set(fx.g.t1, {d:arc(rs, l0, lam), 'stroke-width':w.toFixed(1), 'stroke-opacity':.28});
@@ -298,6 +320,8 @@ function bowAt(fx, t){
     }
   }
   set(fx.g.proj, {transform:`translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${a.toFixed(2)}) scale(${kb.toFixed(4)})`, opacity:op.toFixed(3)});
+  /* a thrown knife, star or axe tumbles in flight; it lands point first on a hit and keeps tumbling when it is turned away */
+  if (fx.g.spin) { const turns = Math.max(1, Math.round((TI - TR) * 1.35 / 360)) * 360, sp = t < TR ? 0 : t < TI ? seg(t, TR, TI) * turns : o.hit ? 0 : (t - TR) / (TI - TR) * turns; set(fx.g.spin, {transform:`rotate(${(s * sp).toFixed(1)} -22 0)`}); }
 }
 
 function boltAt(fx, t){

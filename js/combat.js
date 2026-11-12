@@ -811,6 +811,8 @@ N.cbResolve = function(again){
   if (fx.box != null) res.anim.box = fx.box;
   /* a defended attack shows a shield block only if the defender carries a shield; otherwise they dodge */
   if ((fo === 'block' || fo === 'bstyle') && N.tokHasShield(d)) res.anim.sh = 1;
+  /* the weapon the attacker's figure uses, from their gear */
+  const held = N.tokWeapon(a, p.skill); if (held) res.anim.arm = held;
   N.push({ch:N.fightCh(), kind:'sys', by:g.role, text:`${title}: ${sgn(p.total)} against ${sgn(dt)}. ${calc ? calc + '. ' : ''}${out.t}. ${after}`, res});
 };
 /* does this fighter carry a shield (Jack, 2026-11-11)? An equipped catalog shield, an inventory item from the Shields
@@ -822,6 +824,66 @@ N.tokHasShield = t => {
   const g = G(), c = t.kind === 'pc' ? g.chars[t.ref] : g.npcs.find(n => n.id === t.ref);
   const rows = [...(c && c.inv || []), ...(t.inv || [])];
   return rows.some(r => r && (SHIELD_RX.test(r[0] || '') || (N.rowItem && N.itemSlot(N.rowItem(r)) === 'shield')));
+};
+/* what a fighter attacks with, for the figures (Jack, 2026-11-11): {w:<shape>, m:<metal>, wd:<wood>, sp:1 spiked}, or
+   null for the plain sword or bow. Nobody sets it: it is read from the fighter's gear when the attack is rolled.
+   In order: a weapon the GM has equipped, else the best-rated one in the inventory, else the first thing in the
+   inventory whose name says what it is ("Grandfather's halberd"). Only weapons that fit the attack count: close
+   weapons for Fighting (and anything else that plays as a blow), bows, crossbows, slings and thrown ones for Shooting.
+   The shape comes from the kind of weapon in the name, the colours from what it is made of. The shapes the figures
+   have are in js/armory.js; a kind without a shape of its own borrows the nearest one (a rapier is a sword, a
+   halberd a glaive), so a new kind in the catalog still looks sensible until it gets its own. Magic keeps the staff. */
+const WPN_SHAPES = [
+  /* [shape, where it is used from, what the name says]: the first that fits wins, so the narrow ones come first */
+  ['tknife', 'thrown', /\bthrowing (kni(fe|ves)|daggers?|darts?|needles?|spikes?)\b|\bdarts?\b|\bkunai\b/],
+  ['tstar', 'thrown', /\bthrowing (stars?|discs?|disks?)\b|\bshurikens?\b|\bchakrams?\b/],
+  ['taxe', 'thrown', /\bthrowing (axes?|hatchets?)\b|\btomahawks?\b|\bfranciscas?\b/],
+  ['javelin', 'thrown', /\bjavelins?\b|\bthrowing spears?\b|\bpilum\b|\bharpoons?\b/],
+  ['crossbow', 'shot', /\bcrossbows?\b|\barbalests?\b/],
+  ['longbow', 'shot', /\blong ?bows?\b|\bwar ?bows?\b|\bgreat ?bows?\b/],
+  ['shortbow', 'shot', /\bbows?\b/],
+  ['sling', 'shot', /\bslings?\b|\bslingshots?\b/],
+  ['knuckles', 'melee', /\bknuckles?\b|\bknuckle ?dusters?\b|\bcest(us|i)\b|\bfist/],
+  ['greatsword', 'melee', /\bgreat ?swords?\b|\bclaymores?\b|\bzweih[aä]nders?\b|\btwo-?handed swords?\b/],
+  ['waraxe', 'melee', /\bwar ?axes?\b|\bgreat ?axes?\b|\btwo-?handed axes?\b|\bpole ?axes?\b|\bbardiches?\b/],
+  ['warhammer', 'melee', /\bwar ?hammers?\b|\bmauls?\b|\bsledge ?hammers?\b|\bgreat ?hammers?\b/],
+  ['glaive', 'melee', /\bglaives?\b|\bhalberds?\b|\bnaginatas?\b|\bscythes?\b|\bpolearms?\b|\bvoulges?\b/],
+  ['staff', 'melee', /\bstaffs?\b|\bstaves\b|\bquarterstaffs?\b/],
+  ['spear', 'melee', /\bspears?\b|\bpikes?\b|\blances?\b|\btridents?\b|\bpitchforks?\b/],
+  ['dagger', 'melee', /\bdaggers?\b|\bkni(fe|ves)\b|\bdirks?\b|\bstilettos?\b|\bshivs?\b|\bsickles?\b|\bkukris?\b/],
+  ['hatchet', 'melee', /\bhatchets?\b|\bhand ?axes?\b/],
+  ['battleaxe', 'melee', /\bbattle ?-?axes?\b|\baxes?\b/],
+  ['mace', 'melee', /\bmaces?\b|\bmorning ?stars?\b|\bflails?\b|\bhammers?\b/],
+  ['club', 'melee', /\bclubs?\b|\bcudgels?\b|\bbatons?\b|\btruncheons?\b|\bbludgeons?\b/],
+  ['shortsword', 'melee', /\bshort ?swords?\b|\bgladius\b|\bwakizashis?\b/],
+  ['sword', 'melee', /\bswords?\b|\bsab(re|er)s?\b|\brapiers?\b|\bscimitars?\b|\bkatanas?\b|\bfalchions?\b|\bcutlass(es)?\b|\bblades?\b|\bmachetes?\b/]
+];
+const WPN_METALS = [['dwarven', /\bdwarven\b|\bdwarf/], ['steel', /\bsteel\b/], ['iron', /\biron\b(?!wood)/], ['silver', /\bsilver/], ['obsidian', /\bobsidian\b/], ['meteorite', /\bmeteor/],
+  ['dragontooth', /\bdragon('s)? ?(tooth|teeth|fang|bone)/], ['unicorn', /\bunicorn/], ['manticore', /\bman[ti]{1,2}core/], ['brass', /\bbrass\b|\bbronze\b|\bcopper\b|\bgold/], ['stone', /\bstone\b|\bflint\b/]];
+const WPN_WOODS = ['oak', 'willow', 'whitewood', 'redwood', 'ironwood', 'kapok', 'bamboo', 'pine', 'palm'];
+/* things that only sound like a weapon: what goes with one, not the weapon itself */
+const WPN_NOT = /\b(arrows?|bolts?|quarrels?|quivers?|sheaths?|scabbards?|holsters?|polish|whetstones?|oil|strings?|straps?|belts?|cases?|kits?|racks?|handles?|hilts?|shards?|pieces?|broken|toy|paintings?|books?|notes?|letters?|maps?|keys?)\b/i;
+N.weaponLook = name => {
+  const s = String(name || '').toLowerCase(); if (!s || WPN_NOT.test(s)) return null;
+  const sh = WPN_SHAPES.find(x => x[2].test(s)); if (!sh) return null;
+  const o = {w:sh[0]}, m = WPN_METALS.find(x => x[1].test(s)), wd = WPN_WOODS.find(x => s.includes(x));
+  /* a bow or a sling is wood or leather: what else its name mentions is not what it is made of */
+  if (m && !/bow$|^sling$/.test(sh[0]) || m && sh[0] === 'crossbow') o.m = m[0]; if (wd) o.wd = wd; if (/\bspike|\bstudded\b/.test(s)) o.sp = 1;
+  return {look:o, cat:sh[1]};
+};
+N.tokWeapon = (t, skill) => {
+  if (!t) return null;
+  const kind = N.fxWeapon ? N.fxWeapon(skill) : 'sword'; if (kind === 'bolt') return null;
+  const g = G(), c = t.kind === 'pc' ? g.chars[t.ref] : g.npcs.find(n => n.id === t.ref);
+  const rows = [...(c && c.inv || []), ...(t.inv || [])];
+  let best = null;
+  rows.forEach((r, i) => { if (!r || !r[0]) return;
+    const it = N.rowItem ? N.rowItem(r) : null; if (it && it.kind && it.kind !== 'weapon') return;
+    const f = N.weaponLook(r[0]); if (!f || (kind === 'sword') !== (f.cat === 'melee')) return;
+    /* equipped first, then a bow before something thrown, then the better rating, then the higher in the list */
+    const score = (N.invX(r).eq ? 1e6 : 0) + (f.cat === 'shot' ? 1e4 : 0) + (it ? 1e3 + 10 * (N.itemRating(it) || 0) : 0) - i * .001;
+    if (!best || score > best.score) best = {score, look:f.look}; });
+  return best ? best.look : null;
 };
 /* the GM's pick after an attack with style: the full damage, or 2 less and a boost on the defender */
 N.cbStyle = function(choice){

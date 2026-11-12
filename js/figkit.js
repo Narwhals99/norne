@@ -5,6 +5,7 @@
    (len 0..1 = Short / Medium / Long, see HAIR_LEN). Load the hairstyle first (loadHair(spec.hair)), then build.
    Loaded as a module by js/figures.js, only when the maker opens. */
 import {makeBeasts} from './beastkit.js';
+import {makeArmory} from './armory.js';
 export function makeKit(THREE){
 const V3 = THREE.Vector3, TAU = Math.PI * 2, PI = Math.PI, DEG = PI / 180;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v)), lerp = (a, b, u) => a + (b - a) * u;
@@ -1639,6 +1640,8 @@ function pose(rig, name, t){
     body.position.y = 6 + Math.abs(Math.cos(p)) * 2.4; torso.rotation.y = s * .08;
     if (!legs.length) body.rotation.z = s * .08;
     return; }
+  /* a figure holding a weapon of its own (js/armory.js) uses it its own way; without one, the plain sword and bow */
+  if ((name === 'sword' || name === 'bow') && AR.pose(rig, name, ms, t)) return;
   if (name === 'sword') { const w = rig.w.sword; w.visible = true;
     const wind = seg(ms, 150, 650), strike = seg(ms, 650, 800), rec = seg(ms, 1050, 1500), back = 1 - eIO(rec);
     armR.sh.rotation.x = lerp(lerp(0, -2.6, eIO(wind)), -.15, eOut(strike)) * back;
@@ -1708,10 +1711,13 @@ function dispose(rig){
 }
 /* animals and monsters (js/beastkit.js) are drawn with the same helpers */
 const BK = makeBeasts(THREE, {inked, toon, tube, at, rot, SHADOW, GLOW, mix, shade, canvas, ctex, metalCap, merge});
+/* the weapons the figures hold (js/armory.js) */
+const AR = makeArmory(THREE, {inked, toon, at, rot});
 /* a look figkit can build: a person of a known race, or a known beast */
 const okSpec = s => !!(s && (s.beast ? BK.isBeast(s) : RACES[s.race]));
 const API = {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS, randomSpec,
   defaultSpec, faceFix, buildFigure, animate, pose, flash, addFx, dispose, faceIcon, ANIMS, pick, hoodOf, loadHair, hairId, setHairBase,
+  WEAPONS:AR.W, WEAPON_LIST:AR.LIST, METALS:AR.METALS, WOODS:AR.WOODS, hold:AR.hold, okWeapon:AR.okLook,
   BEASTS:BK.BEASTS, BEAST_LIST:BK.LIST, beastOf:BK.beastOf, beastSpec:BK.defaultSpec, isBeast:BK.isBeast, okSpec};
 return API;
 }
