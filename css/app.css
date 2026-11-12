@@ -2791,3 +2791,41 @@
 .app .inv-pv{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,var(--line))}
 .app .inv-pv svg,.app .inv-pv b{color:var(--accent-tx)}
 .app .shop-it-t .inv-pv,.app .itc-t .inv-pv{margin-top:6px}
+
+/* ---------- desktop side panels you can swap (Jack, 2026-11-12) ----------
+   Each of the two panels right of the chat has a picker in its header (.pane-h); a page drawn in one (.pane-c) lays itself
+   out narrow: one column, phone-style back buttons (worldPage/newsPage read v._pane). */
+.app .rail>.pane{min-height:0;display:flex;flex-direction:column}
+.app .rail>.pane.pa{position:relative}
+.app .rail>.pane>:not(.pane-h,.rowgrip){flex:1 1 0;min-height:0}
+.app .pane-h{flex:none;display:flex;align-items:center;gap:4px;min-width:0}
+.app .pane.pa>.pane-h{padding:8px 12px 2px}
+.app .pane-pick{flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:32px;padding:0 6px;border-radius:10px;font:800 11px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);text-align:left}
+.app .pane-pick b{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:800}
+.app .pane-pick svg{flex:none;width:16px;height:16px;color:var(--gold-tx)}
+.app .pane-pick svg:last-child{width:13px;height:13px;color:var(--ink-3);margin-right:auto}
+.app .pane-fold{flex:none;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--ink-3)}
+.app .pane-fold svg{width:16px;height:16px}
+@media (hover:hover){ .app .pane-pick:hover,.app .pane-fold:hover{background:var(--raise);color:var(--ink)} }
+.app .rcnt.rc-in{padding:0;border-top:0}
+.app .pane-c{display:grid;min-height:0;overflow:hidden;container:pane / inline-size}
+.app .pane-c>*{min-height:0}
+.app .pane-c .world{grid-template-columns:minmax(0,1fr)}
+.app .pane-c .world .wi{border-right:0;padding:6px 12px 20px}
+.app .pane-c .world .article{padding:10px 14px 30px}
+.app .pane-c .world .article h1{font-size:26px}
+.app .pane-c .top.ph{display:flex;min-height:40px;padding:0 4px}
+.app .pane-c .wback.only-ph{display:revert}
+.app .pane-c .sheetv,.app .pane-c .cast{grid-template-columns:minmax(0,1fr);padding:6px 12px 24px;gap:14px}
+.app .pane-c .cgrid{grid-template-columns:minmax(0,1fr)}
+.app .pane-c .pc-hero{grid-template-columns:auto 1fr;padding:16px}
+.app .pane-c .pc-hero .fp{grid-column:1/-1;border-top:1px solid var(--line);padding-top:10px;flex-direction:row;align-items:center}
+.app .pane-c .pc-hero h2{font-size:24px}
+.app .pane-c .pc-hero .av{--s:64px}
+.app .pane-c .top.dt{padding:8px 12px 2px}
+.app .pane-c .top.dt h1{font-size:20px}
+.app .pane-c .mapov{padding:8px}
+.app .pane-c .pincard{left:8px;right:8px;top:auto;bottom:8px;width:auto}
+.app .pane-pop .opt small{display:block}
+.app .pane-c .cast .ttl{font-size:20px!important}
+.app .pane.pa .rcnt.rc-in{padding:0 12px 12px}
