@@ -872,8 +872,8 @@ function hushed(v, ch){ if (isGM(v) || !N.chPaused(ch)) return false; toast(v, '
 function send(v){
   let text = v.ui.draft.trim(); if (!text) return;
   const devCommand = /^\/dev(?:\s|$)/i.test(text);
-  if (devCommand && !(N.me()?.email === 'jackhelling10@gmail.com' && N.me()?.emailVerified)) {
-    toast(v, 'Only the developer can send a Dev Note.'); return;
+  if (devCommand && !(['jackhelling10@gmail.com', 'theusualsuspect41995@gmail.com'].includes(N.me()?.email) && N.me()?.emailVerified)) {
+    toast(v, 'Only the developers can send a Dev Note.'); return;
   }
   if (devCommand) {
     text = text.replace(/^\/dev(?:\s+|$)/i, '').trim();

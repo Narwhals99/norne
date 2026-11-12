@@ -17,7 +17,7 @@ service cloud.firestore {
     }
     function isDeveloper() {
       return signedIn() && request.auth.token.email_verified == true
-        && request.auth.token.email.lower() == 'jackhelling10@gmail.com';
+        && request.auth.token.email.lower() in ['jackhelling10@gmail.com', 'theusualsuspect41995@gmail.com'];
     }
     function memberPath() { return /databases/$(database)/documents/members/$(request.auth.uid); }
     function seat() {
@@ -109,7 +109,8 @@ service cloud.firestore {
     match /msgs/{id} {
       allow read: if canReadMsg(resource.data);
       allow create: if (request.resource.data.get('kind', '') == 'dev'
-          ? (isDeveloper() && isPlayer() && mine(request.resource.data.by)
+          ? (isDeveloper() && ((isGM() && request.resource.data.by == 'gm')
+                || (isPlayer() && mine(request.resource.data.by)))
              && request.resource.data.ch == 'table' && request.resource.data.aud == ['*'])
           : (isGM() || (isPlayer()
             && mine(request.resource.data.by)
