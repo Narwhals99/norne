@@ -156,7 +156,8 @@ function chatPage(v){
   if (v.dev === 'phone') {
     const sl = v.ui.slide ? ` slide-${v.ui.slide}` : '';
     if (fa && v.ui.fightPane === 'fight') return `<main class="page${sl}">${N.fightView(v)}</main>`;
-    return `<main class="page${sl}">${chatView(v)}${rollFx(v)}</main>`;
+    if (sideOpen(v)) return sidePage(v, sl);
+    return `<main class="page${sl}">${chatView(v)}${rollFx(v)}<button type="button" class="sidetab" data-a="sidePane" data-v="1" aria-label="Open the side panels" title="Side panels (or swipe in from the right edge)">${IC('left')}</button></main>`;
   }
   if (fa && v.ui.fightOpen && G().combat.state === 'live') return N.combatDesk(v);
   if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
@@ -201,6 +202,19 @@ function paneBody(v, id, slot, a, mode){
 function paneHead(v, slot, id, mode, fold){
   const o = paneOpts(v, mode).find(x => x[0] === id), off = v.ui.recentOff;
   return `<div class="pane-h"><button type="button" class="pane-pick" data-a="pop" data-v="pane${slot.toUpperCase()}" aria-haspopup="menu" title="Pick what this panel shows">${IC(o[2])}<b>${esc(o[1])}</b>${IC('caret')}</button>${fold ? `<button type="button" class="pane-fold" data-a="recentFold" aria-expanded="${!off}" aria-label="${off ? 'Open' : 'Fold'} this panel" title="${off ? 'Open' : 'Fold'} this panel">${IC('caret').replace('<svg', `<svg style="rotate:${off ? 0 : 180}deg"`)}</button>` : ''}</div>`;
+}
+/* phones (Jack, 2026-11-12): swipe in from the right edge of a chat for the same two panels the desktop has on its right
+   (Panel A over Panel B, each with its picker); swipe back to the right, or use the arrow, to return to the chat */
+const sideOpen = v => v.dev === 'phone' && v.ui.tab === 'chat' && !!v.ui.sidePane && !(fightAvail(v) && v.ui.fightPane === 'fight');
+N.sideOpen = sideOpen;
+function sidePage(v, sl){
+  const gm = isGM(v), mode = 'rp', off = v.ui.recentOff, [pa, pb] = panePicks(v, mode);
+  const a = `<div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>`;
+  v._paneMode = mode; v._panes = off ? [pa] : [pa, pb];
+  return `<main class="page sidepg${sl || ''}"><div class="sp-top"><button type="button" class="ibtn" data-a="sidePane" data-v="0" aria-label="Close the side panels and go back to the chat">${IC('left')}</button><span><b>${esc(N.chName(v.ui.ch, v.role))}</b><small>Side panels</small></span></div>
+    <div class="rail sp${off ? ' rc-off' : ''}">
+    <section class="pane pa pane-is-${pa}">${paneHead(v, 'a', pa, mode)}${paneBody(v, pa, 'a', a, mode)}</section>
+    <section class="pane pb rcnt pane-is-${pb}">${paneHead(v, 'b', pb, mode, true)}${off ? '' : paneBody(v, pb, 'b', a, mode)}</section></div></main>`;
 }
 function deskPage(v, c, a, mode, cls){
   /* every line between panels drags and every panel beside the main one folds; roleplay and combat remember their own sizes */

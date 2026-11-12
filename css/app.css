@@ -2834,3 +2834,20 @@
 .app .pane-pop .opt small{display:block}
 .app .pane-c .cast .ttl{font-size:20px!important}
 .app .pane.pa .rcnt.rc-in{padding:0 12px 12px}
+
+/* ---------- phone side panels (Jack, 2026-11-12) ----------
+   Swipe in from the right edge of a chat: the two desktop right-hand panels (A over B, each with its picker) full width.
+   Swipe right, or the arrow, goes back to the chat. .sidetab is the little handle on the chat's right edge. */
+.app .sidetab{position:absolute;right:0;top:46%;z-index:6;width:16px;height:52px;padding:0;border-radius:10px 0 0 10px;display:grid;place-items:center;color:var(--ink-3);background:color-mix(in srgb,var(--raise) 82%,transparent);border:1px solid var(--line);border-right:0;opacity:.75}
+.app .sidetab svg{width:12px;height:12px}
+@container dev (min-width: 760px){ .app .sidetab{display:none} }
+.app .page.sidepg{display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.app .sp-top{flex:none;display:flex;align-items:center;gap:6px;padding:calc(6px + var(--safe-t,0px)) 8px 4px}
+.app .sp-top>span{min-width:0;display:grid}
+.app .sp-top b{font:800 15px/1.2 var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .sp-top small{font:700 11px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.app .rail.sp{display:grid!important;flex:1 1 0;min-height:0;border:0;background:none;grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
+.app .rail.sp.rc-off{grid-template-rows:minmax(0,1fr) auto}
+.app .rail.sp>.pane.pb{border-top:1px solid var(--line)}
+.app .rail.sp .pane.pa>.pane-h,.app .rail.sp .pane.pb>.pane-h{padding:6px 12px 2px}
+.app .rail.sp .pane-c .top.ph{padding:0}

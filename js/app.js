@@ -283,7 +283,7 @@ function render(v){
 }
 N.render = render;
 /* is this page open in one of the desktop side panels right now (deskPage notes them on every draw) */
-const paneShows = N.paneShows = (v, id) => v.dev === 'desktop' && v.ui.tab === 'chat' && !!v._panes?.includes(id);
+const paneShows = N.paneShows = (v, id) => (v.dev === 'desktop' ? v.ui.tab === 'chat' : N.sideOpen(v)) && !!v._panes?.includes(id);
 const renderAll = N.renderAll = () => views.forEach(render);
 function grow(ta){ ta.style.height = 'auto'; if (ta.value) ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; }
 
@@ -518,12 +518,15 @@ function bind(v){
     sw = null;
     const ui = v.ui, t = e.touches[0];
     if (v.dev !== 'phone' || e.touches.length > 1) return;
-    const fa = ui.tab === 'chat' && N.fightAvail(v), inFight = fa && ui.fightPane === 'fight';
+    const fa = ui.tab === 'chat' && N.fightAvail(v), inFight = fa && ui.fightPane === 'fight', side = N.sideOpen(v);
     const s = {x:t.clientX, y:t.clientY, pts:[[t.clientX, e.timeStamp]]};
     if (ui.shelf) { if (e.target.closest('.shelf,.shelf-scrim')) sw = Object.assign(s, {k:'shelf'}); return; }
+    /* in a chat, in from the right edge opens the side panels (the same two as the desktop's right side) */
+    if (ui.tab === 'chat' && !side && !inFight && !ui.sheet && !ui.pop && t.clientX > root.clientWidth - SW_EDGE && !e.target.closest(DRAGS)) { sw = Object.assign(s, {k:'side', edge:true}); return; }
     if (t.clientX < SW_EDGE && !inFight && !e.target.closest(DRAGS)) { sw = Object.assign(s, {k:'back', edge:true}); return; }
     if (ui.sheet || ui.pop || e.target.closest(NOSWIPE)) return;
-    if (!fa) { if (ui.tab !== 'map' && pageBack(v) && !hScroll(e.target, root)) sw = Object.assign(s, {k:'back'}); return; }
+    /* with the side panels open a swipe to the right anywhere goes back a step (a page's own back arrow first) */
+    if (!fa || side) { if (ui.tab !== 'map' && (side || pageBack(v)) && !hScroll(e.target, root)) sw = Object.assign(s, {k:'back'}); return; }
     /* the GM drawing zones drags on the board, so the board doesn't swipe then */
     if (inFight && isGM(v) && ui.cbTool === 'zone' && e.target.closest('[data-board]')) return;
     sw = Object.assign(s, {k:'pane'});
@@ -569,6 +572,11 @@ function swStart(v, s, dx){
   if (s.k === 'shelf') {
     const d = root.querySelector('.shelf.drawer'); if (dx > 0 || !d) return false;
     return swDrawer(v, s, d, root.querySelector('.shelf-scrim'), true);
+  }
+  if (s.k === 'side') {
+    if (dx > 0) return false;
+    s.go = () => { ui.sidePane = true; render(v); };
+    return swPage(v, s, fv => { fv.ui.sidePane = true; });
   }
   if (s.k === 'pane') {
     const to = dx < 0 ? 'fight' : 'chat'; if (ui.fightPane === to) return false;
@@ -716,6 +724,7 @@ function backStep(v, home){
   /* any page with its own back arrow (wiki, news, cast card, inventory) goes back the way that arrow does */
   const b = v.root.querySelector('.page [data-a][aria-label^="Back"]');
   if (b) return () => act(v, b.dataset.a, b);
+  if (N.sideOpen(v)) return () => { ui.sidePane = false; ui.stick = true; };
   if (ui.tab === 'chat' && N.fightAvail(v) && ui.fightPane === 'fight') return () => { ui.fightPane = 'chat'; ui.targeting = null; ui.slide = 'r'; ui.stick = true; };
   if (ui.tab === 'map' && ui.pinSel) return () => { ui.pinSel = null; };
   if (home && ui.tab !== 'chat') return () => { ui.tab = 'chat'; ui.stick = true; };
@@ -1421,6 +1430,7 @@ function act(v, a, el, e){
   case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   /* desktop side panels: show another page in the top (0) or bottom (1) panel; the page the other panel shows swaps over.
      Remembered on this device, roleplay and combat each their own */
+  case 'sidePane': ui.sidePane = val === '1'; ui.pop = null; if (!ui.sidePane) ui.stick = true; break;
   case 'pane': { close(); const mode = v._paneMode || 'rp', [i, id] = [+val[0], val.slice(2)], keys = N.PANE_KEYS[mode], picks = N.panePicks(v, mode);
     if (picks[1 - i] === id) picks[1 - i] = picks[i]; picks[i] = id;
     keys.forEach((k, j) => { ui[k] = picks[j]; try { localStorage.setItem('norne-' + k.toLowerCase(), picks[j]); } catch(e) {} });
