@@ -6,8 +6,8 @@ Read it before you add a style, change a colour, or build any new screen (new sc
 **Words used here**
 
 - A **style** is a whole look that people pick under Profile > **Style**: today *Storybook* (the default), *Parchment & Wax*,
-  *Oak & Iron*, *Sketchbook* and *4-the-gerleez*.
-- A **theme** is **Night** or **Day** (Profile > **Appearance**). Every style has both, so there are ten looks today.
+  *Oak & Iron*, *Sketchbook*, *4-the-gerleez* and *Onyx & Gold*.
+- A **theme** is **Night** or **Day** (Profile > **Appearance**). Every style has both, so there are twelve looks today.
 - Both are saved per device in `localStorage` (`norne-style`, `norne-theme`), like the text size (`norne-fz`).
   Two devices on the same account can each show a different look.
 
@@ -175,6 +175,25 @@ blush `#FFABAB`, peach `#FFC3A0`, rose `#FF677D`, dusty rose `#D4A5A5` and plum 
 - Fonts: Cherry Bomb One (titles and wordmark, one weight only, so `font-synthesis-weight:none`), Fredoka (interface),
   Playpen Sans (descriptions and aspect cards). All OFL.
 - Kept out on purpose: portraits, maps, GM-picked zone and pin colours, and the fixed attack animation colours (4.5).
+
+### 2.10 A look made of materials (Onyx & Gold)
+
+*Onyx & Gold* (`css/lux.css`, id `lux`) was built on 2026-11-12. Jack asked for every surface to be a material and for no
+plain-colour empty space, in muted black, silver, white and gold. Night is black open-pore wood, smoked glass, brushed gunmetal
+and gold; Day is pale ash, frosted glass, brushed aluminium and gold. What it learned:
+
+- **One brush tile makes every metal.** `art/ui/lux/brush.jpg` is a neutral grey hairline tile. A metal is three background
+  layers, a sheen gradient, the tile and a base gradient, with `background-blend-mode:normal,overlay,normal`. The stacks live in
+  the tokens `--mat-steel`, `--mat-gold` and `--mat-glass`, so Day only swaps the base colours. Restate the blend mode wherever a
+  stack is used.
+- **Empty space is the backdrop's job.** `--sky-art` is the wood tile under a soft overhead light, two faint reflection streaks
+  and a vignette, so a short chat or an empty page still shows grain.
+- **Gold is for the eye only:** the open tab, main buttons, send, your own in-character lines, titles. Titles use a metal
+  gradient with `background-clip:text` (`--goldtext`, `--silvertext`).
+- **Textures are generated**, not downloaded (the proxy blocks texture sites): periodic noise filtered in frequency space gives
+  tileable wood and brushed metal. The script and the stylesheet source are in the project files under `premiere-theme/source/`.
+- Jack's verdict: fine to keep, but not the slick, glossy, bubbly Apple-like look he wanted. That is a separate style.
+- Not done yet: a contrast audit, an iPhone check of the extra `backdrop-filter` panels, and a designed desktop pass.
 
 ## 3. The token contract
 

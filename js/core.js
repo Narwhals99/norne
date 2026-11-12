@@ -87,6 +87,9 @@ const STYLES = [
   {id:'sketch', name:'Sketchbook', sub:'Pencil, charcoal and pastel. Black and white only',
     night:{bg:'#141414 url(art/ui/sketch/paper-night.jpg) 0 0/180px', card:'#2a2a2a', ink:'#f3f3f3', acc:'#f0f0f0', hi:'#8c8c8c'},
     day:{bg:'#e9e9e9 url(art/ui/sketch/paper-day.jpg) 0 0/180px', card:'#ffffff', ink:'#141414', acc:'#1a1a1a', hi:'#8c8c8c'}},
+  {id:'lux', name:'Onyx & Gold', sub:'Smoked glass, brushed metal and black wood, with gold',
+    night:{bg:'#0b0b0c url(art/ui/lux/ebony.jpg) 0 0/120px', card:'#2a2b2e', ink:'#f3f1ec', acc:'#d6b25e', hi:'#c9ccd0'},
+    day:{bg:'#e6e5e1 url(art/ui/lux/ash.jpg) 0 0/120px', card:'#ffffff', ink:'#141414', acc:'#a8802f', hi:'#8d9096'}},
   {id:'gerleez', name:'4-the-gerleez', sub:'Blush, peach and rose with plum ink. Flowers, sparkles and hearts',
     night:{bg:'#292241', card:'#483b62', ink:'#fff0f0', acc:'#FF677D', hi:'#FFC3A0'},
     day:{bg:'#ffe6e0', card:'#fff6f1', ink:'#392F5A', acc:'#a64e6d', hi:'#FFABAB'}}
