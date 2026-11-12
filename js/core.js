@@ -87,6 +87,13 @@ const STYLES = [
   {id:'sketch', name:'Sketchbook', sub:'Pencil, charcoal and pastel. Black and white only',
     night:{bg:'#141414 url(art/ui/sketch/paper-night.jpg) 0 0/180px', card:'#2a2a2a', ink:'#f3f3f3', acc:'#f0f0f0', hi:'#8c8c8c'},
     day:{bg:'#e9e9e9 url(art/ui/sketch/paper-day.jpg) 0 0/180px', card:'#ffffff', ink:'#141414', acc:'#1a1a1a', hi:'#8c8c8c'}},
+  {id:'gloss', name:'Liquid', sub:'Glossy glass over satin and light. Pick a colour scheme',
+    night:{bg:'#0b0b0d url(art/ui/gloss/gold-night.jpg) center/cover', card:'#2c2c31', ink:'#f7f6f3', acc:'#e2c078', hi:'#d5dbe1'},
+    day:{bg:'#e6e7ea url(art/ui/gloss/gold-day.jpg) center/cover', card:'#ffffff', ink:'#131316', acc:'#c9a352', hi:'#9a9da3'},
+    /* colour schemes of the style: the first is the default; css/gloss.css has one [data-pal] block per scheme */
+    pals:[{id:'gold', name:'Onyx & Gold', a:'#101013', b:'#e2c078'}, {id:'platinum', name:'Onyx & Platinum', a:'#101013', b:'#dfe3e8'},
+      {id:'midnight', name:'Midnight & Champagne', a:'#0c1730', b:'#dbcb91'}, {id:'forest', name:'Evergreen & Gold', a:'#0c221b', b:'#e2c078'},
+      {id:'garnet', name:'Garnet & Rose gold', a:'#2c0e14', b:'#e6a28c'}, {id:'ice', name:'Graphite & Ice', a:'#161e24', b:'#93cfe3'}]},
   {id:'lux', name:'Onyx & Gold', sub:'Smoked glass, brushed metal and black wood, with gold',
     night:{bg:'#0b0b0c url(art/ui/lux/ebony.jpg) 0 0/120px', card:'#2a2b2e', ink:'#f3f1ec', acc:'#d6b25e', hi:'#c9ccd0'},
     day:{bg:'#e6e5e1 url(art/ui/lux/ash.jpg) 0 0/120px', card:'#ffffff', ink:'#141414', acc:'#a8802f', hi:'#8d9096'}},
@@ -96,6 +103,8 @@ const STYLES = [
 ];
 N.STYLES = STYLES;
 N.styleOk = id => STYLES.some(s => s.id === id) ? id : 'storybook';
+/* the colour scheme in use for a style: the saved one if that style has it, else its first, '' for a style without schemes */
+N.palOk = (style, id) => { const p = (STYLES.find(s => s.id === style) || {}).pals; return !p ? '' : p.some(x => x.id === id) ? id : p[0].id; };
 /* text sizes under Profile > Text size, saved per device like the style; k multiplies every font size */
 const FONT_SIZES = [{id:'s', name:'Small', k:.9}, {id:'m', name:'Normal', k:1}, {id:'l', name:'Large', k:1.12}, {id:'xl', name:'Larger', k:1.25}, {id:'xxl', name:'Largest', k:1.4}];
 N.FONT_SIZES = FONT_SIZES;

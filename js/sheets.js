@@ -884,7 +884,12 @@ function notifyToggle(){
 function stylePick(v){
   const sw = t => `<i style="--sw-bg:${t.bg};--sw-card:${t.card};--sw-ink:${t.ink};--sw-acc:${t.acc};--sw-hi:${t.hi}"><b></b><b></b><em></em></i>`;
   return `<div class="stylepick">${N.STYLES.map(s => `<button type="button" class="stc" data-a="style" data-v="${s.id}" aria-pressed="${v.style===s.id}">
-    <span class="sw" aria-hidden="true">${sw(s.night)}${sw(s.day)}</span><span class="t"><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span>${v.style===s.id?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}</div>`;
+    <span class="sw" aria-hidden="true">${sw(s.night)}${sw(s.day)}</span><span class="t"><b>${esc(s.name)}</b><small>${esc(s.sub)}</small></span>${v.style===s.id?`<span class="ck">${IC('check')}</span>`:''}</button>${v.style===s.id && s.pals ? palPick(v, s) : ''}`).join('')}</div>`;
+}
+/* the colour schemes of the style in use, right under its card */
+function palPick(v, s){
+  const cur = N.palOk(s.id, v.pal);
+  return `<div class="palpick" role="group" aria-label="Colour scheme">${s.pals.map(p => `<button type="button" data-a="pal" data-v="${p.id}" aria-pressed="${cur===p.id}"><i style="--pa:${p.a};--pb:${p.b}"></i><span>${esc(p.name)}</span></button>`).join('')}</div>`;
 }
 /* five sizes as a row of growing A's, with a line of sample text at the picked size underneath */
 function fzPick(v){
@@ -1182,7 +1187,7 @@ N.creditsHtml = () => `<div class="note">${IC('heart')}Everything here is free t
     ['Phosphor Icons','Interface icons','MIT'],
     ['Nörne maps and lore','Maps and wiki text','The GM’s own campaign notes'],
     ['Kenney UI Pack: Adventure','Frames, buttons, the ribbon, rings and the star of the Oak & Iron style, some recoloured · by Kenney','CC0 (public domain) · kenney.nl'],
-    ['Fonts','Cinzel, Fraunces, Nunito Sans, Nunito, IM Fell English, IM Fell DW Pica, Alegreya, UnifrakturMaguntia, Vollkorn, Grenze, Grenze Gotisch, Kalam, Caveat, Fredericka the Great, Noto Emoji, Fredoka, Cherry Bomb One, Playpen Sans, Marcellus, Hanken Grotesk, Newsreader','SIL Open Font License · Google Fonts'],
+    ['Fonts','Cinzel, Fraunces, Nunito Sans, Nunito, IM Fell English, IM Fell DW Pica, Alegreya, UnifrakturMaguntia, Vollkorn, Grenze, Grenze Gotisch, Kalam, Caveat, Fredericka the Great, Noto Emoji, Fredoka, Cherry Bomb One, Playpen Sans, Marcellus, Hanken Grotesk, Newsreader, Outfit','SIL Open Font License · Google Fonts'],
     ['Parchment & Wax textures','Papyrus, vellum and the wax seal were drawn for Norne','Free to use'],
     ['Sketchbook art','Drawing paper, black pastel paper, pencil frames, charcoal blocks and hatching were drawn for Norne','Free to use'],
     ['Twemoji','Flowers, sparkles, hearts and the bow in the 4-the-gerleez style · by Twitter and contributors (recoloured)','CC BY 4.0 · github.com/jdecked/twemoji'],

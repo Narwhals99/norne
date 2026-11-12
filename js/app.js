@@ -106,6 +106,7 @@ const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:n
 /* ---------------- mount + render ---------------- */
 N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), fz:N.fzOk(o.fz), ui:newUi(o.role)};
+  try { v.pal = localStorage.getItem('norne-pal') || ''; } catch(e) { v.pal = ''; }
   try { v.vg = localStorage.getItem('norne-vg') !== '0'; v.dp = localStorage.getItem('norne-dp') !== '0'; } catch(e) { v.vg = v.dp = true; }
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
   try { for (const k of ['railW','railWc','rcH','rcHc','shelfW']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1';
@@ -227,7 +228,7 @@ function render(v){
   const root = v.root;
   if (!root.isConnected) return;
   if (swBusy(v)) { v._later = true; return; }
-  root.dataset.theme = v.theme; root.dataset.style = v.style; root.dataset.dev = v.dev; root.dataset.role = v.role || '';
+  root.dataset.theme = v.theme; root.dataset.style = v.style; root.dataset.pal = N.palOk(v.style, v.pal); root.dataset.dev = v.dev; root.dataset.role = v.role || '';
   /* shading + depth: on by default, strong at night and soft by day (css/vignette.css, css/depth.css) */
   { const k = v.theme === 'day' ? 'soft' : 'strong'; if (v.vg === false) delete root.dataset.vg; else root.dataset.vg = k; if (v.dp === false) delete root.dataset.depth; else root.dataset.depth = k; }
   fzSet(v);
@@ -1455,6 +1456,7 @@ function act(v, a, el, e){
   case 'vg': v.vg = val === 'on'; try { localStorage.setItem('norne-vg', v.vg ? '1' : '0'); } catch(e) {} break;
   case 'dp': v.dp = val === 'on'; try { localStorage.setItem('norne-dp', v.dp ? '1' : '0'); } catch(e) {} break;
   case 'figsOn': if (N.figPref) N.figPref(val === 'on'); break;
+  case 'pal': v.pal = val; try { localStorage.setItem('norne-pal', val); } catch(e) {} break;
   case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {} break;
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;

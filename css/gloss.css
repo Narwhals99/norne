@@ -1,0 +1,252 @@
+/* NORNE: glossy style (id gloss). Slick, smooth, glossy, bubbly: liquid glass over satin with silver and gold light. */
+
+.app:where([data-style="gloss"]){
+  --sky-0:#08080a; --sky-1:#101013; --sky-2:#18181c;
+  --page:rgba(24,24,28,.6); --page-solid:#17171a;
+  --raise:rgba(255,255,255,.07); --raise-2:rgba(255,255,255,.12); --sunk:rgba(0,0,0,.34);
+  --line:rgba(255,255,255,.1); --line-2:rgba(255,255,255,.18); --line-3:rgba(255,255,255,.34);
+  --ink:#f7f6f3; --ink-2:#dedcd7; --ink-3:#b5b3ae; --ink-4:#9a9893;
+  --accent:#e2c078; --accent-2:#c9a352; --accent-3:#a07c2e; --accent-ink:#1a1408;
+  --accent-soft:rgba(226,192,120,.14); --accent-glow:rgba(226,192,120,.5);
+  --gold:#ecd08c; --gold-2:#d6b25e; --gold-3:#9a7a30; --gold-ink:#1a1408; --gold-soft:rgba(236,208,140,.14);
+  --ember:#e0705a; --ember-soft:rgba(224,112,90,.18); --jade:#a6c9aa; --jade-soft:rgba(166,201,170,.16);
+  --link:#ecd08c; --gold-tx:#ecd08c; --accent-tx:#e8c980; --ember-ink:#1a0907;
+  --card-paper:#f4f4f2; --card-ink:#141416; --card-rule:transparent; --card-line:transparent;
+  --scrim:rgba(0,0,0,.5);
+  --shadow-1:0 1px 0 rgba(255,255,255,.1) inset, 0 14px 34px -14px rgba(0,0,0,.8);
+  --shadow-2:0 30px 70px -20px #000, 0 0 0 1px rgba(255,255,255,.12);
+  --engrave:#ecd08c;
+  --c-p1:#ecd08c; --c-p2:#d5dbe1; --c-p3:#e6b09c; --c-p4:#b7cfb1; --c-p5:#f1ecdc; --c-p6:#cdbf9c; --c-p7:#b1c4cd; --c-p8:#d9b8c1;
+  --c-gm:#f3d994; --c-npc:#c6c3bc; --c-foe:#e0705a;
+  --map-grade:saturate(.85) brightness(.82);
+  --map-tint:linear-gradient(180deg, rgba(10,10,12,.2), rgba(10,10,12,.4));
+  --say-top:22%; --say-bot:10%;
+  --glass-tint:rgba(255,255,255,.14); --glass-tint-2:rgba(255,255,255,.04); --glass-mine:rgba(236,208,140,.36); --glass-mine-2:rgba(170,130,50,.16); --glass-mine-rim:rgba(255,236,180,.95);
+  --glass-sheen:rgba(255,255,255,.32); --glass-rim:rgba(255,255,255,.85); --glass-rim-2:rgba(255,255,255,.08); --glass-rim-3:rgba(255,255,255,.4);
+  --glass-shadow:0 12px 26px -12px rgba(0,0,0,.8); --glass-filter:blur(6px) saturate(150%) brightness(1.2);
+  --f-mark:'Outfit', system-ui, sans-serif; --f-display:'Outfit', system-ui, sans-serif;
+  --f-ui:ui-rounded, 'SF Pro Rounded', 'Nunito', system-ui, sans-serif; --f-desc:'Nunito', ui-rounded, system-ui, sans-serif;
+  accent-color:#d6b25e;
+  --r-xs:10px; --r-sm:14px; --r-md:18px; --r-lg:24px; --r-xl:30px;
+  /* liquid glass kit */
+  --gl-bg:radial-gradient(140% 70% at 50% -20%, rgba(255,255,255,.26), rgba(255,255,255,0) 60%), linear-gradient(180deg, rgba(255,255,255,.11), rgba(255,255,255,.035) 55%, rgba(255,255,255,.09));
+  --gl-edge:inset 0 1px 0 rgba(255,255,255,.6), inset 0 0 0 1px rgba(255,255,255,.13), inset 0 -10px 16px -10px rgba(255,255,255,.2), 0 14px 30px -14px rgba(0,0,0,.75);
+  --gl-blur:blur(16px) saturate(170%) brightness(1.12);
+  --btn-bg:radial-gradient(120% 90% at 50% -30%, rgba(255,255,255,.42), rgba(255,255,255,0) 58%), linear-gradient(180deg, rgba(255,255,255,.2), rgba(255,255,255,.06) 50%, rgba(255,255,255,.13));
+  --au-bg:radial-gradient(120% 95% at 50% -32%, rgba(255,255,255,.9), rgba(255,255,255,0) 58%), linear-gradient(180deg, #f6e4ac, #dcb760 48%, #c09638 52%, #d9b25a);
+  --au-edge:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -8px 12px -6px rgba(130,88,10,.6), inset 0 0 0 1px rgba(255,236,180,.5), 0 10px 24px -8px rgba(226,192,120,.6), 0 2px 4px rgba(0,0,0,.4);
+  --au-ink:#1a1408;
+  --well:inset 0 2px 6px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.07), 0 1px 0 rgba(255,255,255,.12);
+  --goldtext:linear-gradient(180deg, #fbf0cd 0%, #ecd08c 50%, #c9a352 100%);
+  --sky-art:url("../art/ui/gloss/gold-night.jpg") center/cover no-repeat;
+}
+.app:where([data-style="gloss"])[data-theme="day"]{
+  --sky-0:#d4d6da; --sky-1:#e3e4e7; --sky-2:#f2f2f4;
+  --page:rgba(255,255,255,.55); --page-solid:#f0f0f2;
+  --raise:rgba(255,255,255,.6); --raise-2:rgba(255,255,255,.82); --sunk:rgba(20,22,30,.08);
+  --line:rgba(10,10,20,.09); --line-2:rgba(10,10,20,.16); --line-3:rgba(10,10,20,.3);
+  --ink:#131316; --ink-2:#2b2b30; --ink-3:#48484e; --ink-4:#5a5a61;
+  --accent:#c9a352; --accent-2:#b48a36; --accent-3:#8a671c; --accent-ink:#1a1408;
+  --accent-soft:rgba(180,138,54,.15); --accent-glow:rgba(201,163,82,.55);
+  --gold:#cfa74e; --gold-2:#b48a36; --gold-3:#8a671c; --gold-ink:#1a1408; --gold-soft:rgba(180,138,54,.16);
+  --ember:#b0412c; --ember-soft:rgba(176,65,44,.12); --jade:#3f6f4c; --jade-soft:rgba(63,111,76,.12);
+  --link:#7a5a12; --gold-tx:#75560f; --accent-tx:#75560f; --ember-ink:#fff;
+  --card-paper:#ffffff; --card-ink:#141416; --scrim:rgba(20,20,26,.3);
+  --shadow-1:0 1px 0 #fff inset, 0 14px 30px -14px rgba(30,30,50,.35);
+  --shadow-2:0 30px 60px -24px rgba(30,30,50,.45), 0 0 0 1px rgba(255,255,255,.7);
+  --engrave:#8a671c;
+  --c-p1:#7a5a14; --c-p2:#4b5560; --c-p3:#8a4a36; --c-p4:#44603f; --c-p5:#5a5448; --c-p6:#6a5a30; --c-p7:#3f5661; --c-p8:#7a4a58;
+  --c-gm:#6b4d0c; --c-npc:#55534e; --c-foe:#b0412c;
+  --map-grade:saturate(.9) brightness(1.02); --map-tint:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.14));
+  --say-top:18%; --say-bot:8%;
+  --glass-tint:rgba(255,255,255,.6); --glass-tint-2:rgba(255,255,255,.3); --glass-mine:rgba(236,208,140,.62); --glass-mine-2:rgba(214,178,94,.36); --glass-mine-rim:rgba(150,110,30,.6);
+  --glass-sheen:rgba(255,255,255,.95); --glass-rim:#fff; --glass-rim-2:rgba(255,255,255,.4); --glass-rim-3:rgba(10,10,20,.16);
+  --glass-shadow:0 12px 24px -12px rgba(30,30,50,.35); --glass-filter:blur(6px) saturate(150%) brightness(1.05);
+  --gl-bg:radial-gradient(140% 70% at 50% -20%, rgba(255,255,255,.95), rgba(255,255,255,0) 60%), linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,.34) 55%, rgba(255,255,255,.55));
+  --gl-edge:inset 0 1px 0 #fff, inset 0 0 0 1px rgba(255,255,255,.75), inset 0 -10px 16px -10px rgba(255,255,255,.9), 0 0 0 1px rgba(10,10,20,.05), 0 14px 28px -14px rgba(30,30,50,.4);
+  --gl-blur:blur(16px) saturate(170%) brightness(1.04);
+  --btn-bg:radial-gradient(120% 90% at 50% -30%, #fff, rgba(255,255,255,0) 58%), linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.5) 50%, rgba(255,255,255,.75));
+  --well:inset 0 2px 5px rgba(20,20,40,.16), inset 0 0 0 1px rgba(10,10,20,.07), 0 1px 0 #fff;
+  --goldtext:linear-gradient(180deg, #a07c2e 0%, #75560f 55%, #5b4208 100%);
+  --sky-art:url("../art/ui/gloss/gold-day.jpg") center/cover no-repeat;
+}
+.app:where([data-style="gloss"]) .stars{display:none}
+.app:where([data-style="gloss"]) ::selection{background:rgba(226,192,120,.35)}
+.app:where([data-style="gloss"]) :focus-visible{outline-color:#d6b25e}
+.app:where([data-style="gloss"]) .eyebrow{font-weight:800;letter-spacing:.16em}
+.app:where([data-style="gloss"]) .spark::after,.app:where([data-style="gloss"]) .star4{background:var(--gold)}
+
+/* ---- shell: no bars, only floating glass ---- */
+.app:where([data-style="gloss"]) .top h1,.app:where([data-style="gloss"]) .chname b{font-family:var(--f-display);font-weight:500;letter-spacing:-.01em;font-size:22px}
+.app:where([data-style="gloss"]) .chname b{font-size:18px}
+.app:where([data-style="gloss"]) .tabbar{background:none;border-top:0;backdrop-filter:none;-webkit-backdrop-filter:none;isolation:isolate}
+.app:where([data-style="gloss"]) .tabbar::before{content:"";position:absolute;z-index:-1;pointer-events:none;inset:3px 8px calc(3px + var(--safe-b,0px));border-radius:999px;background:var(--gl-bg);box-shadow:var(--gl-edge);backdrop-filter:var(--gl-blur);-webkit-backdrop-filter:var(--gl-blur)}
+.app:where([data-style="gloss"]) .tabbar button{color:var(--ink-3);font-weight:800;letter-spacing:.01em}
+.app:where([data-style="gloss"]) .tabbar button[aria-current="page"]{color:var(--gold-tx)}
+.app:where([data-style="gloss"]) .tabbar button[aria-current="page"] .ti{color:var(--au-ink);background:var(--au-bg);box-shadow:var(--au-edge)}
+/* every round control is a glass bead */
+.app:where([data-style="gloss"]) .ibtn,.app:where([data-style="gloss"]) .chname .cic{background:var(--btn-bg);box-shadow:var(--gl-edge);backdrop-filter:blur(10px) saturate(160%);-webkit-backdrop-filter:blur(10px) saturate(160%);color:var(--ink)}
+.app:where([data-style="gloss"]) .chname .cic{color:var(--gold-tx)}
+
+/* ---- buttons: glossy pills ---- */
+.app:where([data-style="gloss"]) .btn{border:0;color:var(--ink);background:var(--btn-bg);box-shadow:var(--gl-edge);backdrop-filter:blur(10px) saturate(160%);-webkit-backdrop-filter:blur(10px) saturate(160%);font-weight:800}
+.app:where([data-style="gloss"])[data-theme] .btn:is(.primary,.gold){color:var(--au-ink);text-shadow:0 1px 0 rgba(255,246,214,.7);background:var(--au-bg);box-shadow:var(--au-edge);backdrop-filter:none;-webkit-backdrop-filter:none}
+.app:where([data-style="gloss"])[data-theme] .btn.ghost{background:var(--gl-bg);box-shadow:var(--gl-edge)}
+.app:where([data-style="gloss"])[data-theme] .btn.danger{color:var(--ember);background:var(--btn-bg);box-shadow:var(--gl-edge), inset 0 0 0 1.5px color-mix(in srgb,var(--ember) 55%,transparent)}
+.app:where([data-style="gloss"]) .btn:active{transform:scale(.96)}
+
+/* ---- glass panels ---- */
+.app:where([data-style="gloss"]) :is(.pc-hero,.trk,.scenem,.sec .con .slot,.stc,.catrow,.rl,.gmban,.nowbar,.gcard){background:var(--gl-bg);box-shadow:var(--gl-edge);backdrop-filter:var(--gl-blur);-webkit-backdrop-filter:var(--gl-blur)}
+.app:where([data-style="gloss"]) .pc-hero{border-radius:30px}
+.app:where([data-style="gloss"]) .pc-hero::after{opacity:.1}
+.app:where([data-style="gloss"]) :is(.pc-hero h2,.sheet h2,.gate h1,.narr.first p::first-letter,.lad .lv b,.fight-order .ex b){background:var(--goldtext);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.app:where([data-style="gloss"]) .pc-hero h2{font-weight:500;letter-spacing:-.01em}
+.app:where([data-style="gloss"]) .sec h3{color:var(--ink-3);letter-spacing:.2em}
+.app:where([data-style="gloss"]) :is(.inp,.voice,.sbox,.cat .n,.seg){background:var(--sunk);box-shadow:var(--well);border-color:transparent}
+.app:where([data-style="gloss"]) .inp{border-radius:18px}
+.app:where([data-style="gloss"]) .sbox{border-radius:50%}
+.app:where([data-style="gloss"]) .sbox.on{background:radial-gradient(120% 90% at 50% -30%, rgba(255,255,255,.75), transparent 58%), linear-gradient(180deg,#ee8a72,#c2513a);color:#1a0806;box-shadow:inset 0 1px 0 rgba(255,255,255,.7), 0 4px 10px -3px rgba(224,112,90,.7)}
+.app:where([data-style="gloss"]) .seg button[aria-pressed="true"]{background:var(--btn-bg);box-shadow:var(--gl-edge);color:var(--ink)}
+.app:where([data-style="gloss"]) .lad .rung .sks button{background:var(--btn-bg);box-shadow:var(--gl-edge);font-weight:800}
+.app:where([data-style="gloss"]) .coin{background:radial-gradient(circle at 34% 26%, #fffbe8 0 12%, #f3dc9c 30%, #d6b25e 62%, #9a7a30);box-shadow:inset 0 -2px 3px rgba(110,74,8,.6), inset 0 1px 1px #fff, 0 3px 8px -2px rgba(226,192,120,.7)}
+/* aspect cards: pearl pills */
+.app:where([data-style="gloss"]) .icard{font-family:var(--f-desc);font-style:normal;font-weight:800;font-size:14.5px;color:#141416;border-radius:16px;padding-left:14px;padding-right:14px;
+  background:radial-gradient(130% 90% at 50% -30%, #fff, rgba(255,255,255,0) 60%), linear-gradient(180deg,#f7f7f5,#dfe0e3 55%,#eceded);
+  box-shadow:inset 0 1px 0 #fff, inset 0 -6px 10px -6px rgba(90,90,110,.35), 0 0 0 1px rgba(255,255,255,.5), 0 10px 20px -10px rgba(0,0,0,.7)}
+.app:where([data-style="gloss"]) .icard::before{display:none}
+.app:where([data-style="gloss"]) .icard>span{color:#141416}
+.app:where([data-style="gloss"]) .icard .k{color:#7a5a12}
+.app:where([data-style="gloss"]) .scene .icard,.app:where([data-style="gloss"]) .board .sasp .icard{border-radius:999px}
+
+/* ---- scene banner: a picture inside a glass lozenge ---- */
+.app:where([data-style="gloss"]) .scene{border-radius:28px;box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 0 0 1px rgba(255,255,255,.14), 0 18px 34px -16px rgba(0,0,0,.8);margin-top:6px}
+.app:where([data-style="gloss"]) .scene::before{background:linear-gradient(90deg, rgba(10,10,12,.82) 0%, rgba(10,10,12,.5) 55%, rgba(10,10,12,.06) 100%)}
+.app:where([data-style="gloss"])[data-theme="day"] .scene::before{background:linear-gradient(90deg, rgba(255,255,255,.92) 0%, rgba(255,255,255,.66) 55%, rgba(255,255,255,.08) 100%)}
+.app:where([data-style="gloss"]) .scene::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;background:radial-gradient(130% 60% at 50% -22%, rgba(255,255,255,.3), transparent 60%);box-shadow:inset 0 -12px 18px -12px rgba(255,255,255,.22)}
+.app:where([data-style="gloss"]) .scene h2{font-family:var(--f-display);font-weight:500;font-size:22px;letter-spacing:-.01em}
+.app:where([data-style="gloss"]) .board{border-radius:28px;box-shadow:inset 0 1px 0 rgba(255,255,255,.5), inset 0 0 0 1px rgba(255,255,255,.14), 0 18px 34px -16px rgba(0,0,0,.8)}
+
+/* ---- chat: bubbles that look like bubbles ---- */
+.app:where([data-style="gloss"]) .m .bub{font-weight:600;border-radius:22px 22px 22px 8px}
+.app:where([data-style="gloss"]) .m.mine .bub{border-radius:22px 22px 8px 22px}
+.app:where([data-style="gloss"]) .m .bub :is(em,.rpd){font-family:var(--f-desc);font-style:italic;font-weight:600}
+.app:where([data-style="gloss"])[data-theme] .m.say:not(.mine) .bub{color:var(--ink);background:radial-gradient(140% 80% at 50% -25%, rgba(255,255,255,.3), rgba(255,255,255,0) 60%),
+  linear-gradient(180deg, color-mix(in srgb,var(--spk) var(--say-top),rgba(255,255,255,.1)), color-mix(in srgb,var(--spk) var(--say-bot),rgba(255,255,255,.04)));
+  backdrop-filter:blur(8px) saturate(160%);-webkit-backdrop-filter:blur(8px) saturate(160%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6), inset 0 0 0 1px color-mix(in srgb,var(--spk) 40%,rgba(255,255,255,.1)), inset 0 -10px 14px -10px color-mix(in srgb,var(--spk) 45%,transparent), 0 12px 24px -14px rgba(0,0,0,.8)}
+.app:where([data-style="gloss"])[data-theme] .m.mine:not(.ooc) .bub{color:var(--au-ink);background:var(--au-bg);box-shadow:var(--au-edge);text-shadow:0 1px 0 rgba(255,246,214,.5)}
+.app:where([data-style="gloss"])[data-theme] .m.mine:not(.ooc) .bub :is(em,.rpd){color:#33260a}
+.app:where([data-style="gloss"])[data-theme] .m.mine:not(.ooc) .bub .ed{color:rgba(26,20,8,.7)}
+.app:where([data-style="gloss"]) .narr p{font-family:var(--f-display);font-weight:300;font-size:18px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.app:where([data-style="gloss"])[data-theme="day"] .narr p{text-shadow:none;font-weight:400}
+.app:where([data-style="gloss"]) .narr::before{background:linear-gradient(180deg,#f6e4ac,#c9a352 60%,transparent);width:3px;border-radius:3px;box-shadow:0 0 10px rgba(226,192,120,.6)}
+.app:where([data-style="gloss"])[data-theme="day"] .narr::before{box-shadow:none}
+/* composer: one floating glass capsule */
+.app:where([data-style="gloss"]) .composer .box{background:var(--gl-bg);box-shadow:var(--gl-edge);backdrop-filter:var(--gl-blur);-webkit-backdrop-filter:var(--gl-blur);border-radius:999px}
+.app:where([data-style="gloss"]) .sendb,.app:where([data-style="gloss"]) .diceb{color:var(--au-ink);background:var(--au-bg);box-shadow:var(--au-edge)}
+
+/* ---- wiki rows ---- */
+.app:where([data-style="gloss"]) .cat{border-radius:999px}
+.app:where([data-style="gloss"]) .ent{border-radius:22px}
+.app:where([data-style="gloss"]) .cat b{letter-spacing:.14em;font-weight:800}
+.app:where([data-style="gloss"]) .cat .ci{color:var(--au-ink);background:var(--au-bg);box-shadow:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -4px 6px -3px rgba(130,88,10,.6), 0 4px 10px -4px rgba(226,192,120,.6)}
+
+/* ---- sheets: a thick slab of glass ---- */
+.app:where([data-style="gloss"]) .sheet{border-radius:34px 34px 0 0;background:radial-gradient(120% 30% at 50% -6%, rgba(255,255,255,.2), transparent 60%), linear-gradient(180deg, color-mix(in srgb,var(--page-solid) 72%,transparent), color-mix(in srgb,var(--page-solid) 88%,transparent));
+  backdrop-filter:blur(26px) saturate(170%);-webkit-backdrop-filter:blur(26px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.6), inset 0 0 0 1px rgba(255,255,255,.12), 0 -30px 60px -20px rgba(0,0,0,.7)}
+.app:where([data-style="gloss"]) .sheet::before{background:rgba(255,255,255,.45);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.app:where([data-style="gloss"])[data-theme="day"] .sheet::before{background:rgba(10,10,20,.25);box-shadow:none}
+/* fight */
+.app:where([data-style="gloss"]) .ffeed .ff-list{background:var(--gl-bg);box-shadow:var(--gl-edge);backdrop-filter:var(--gl-blur);-webkit-backdrop-filter:var(--gl-blur);border-radius:24px;padding:8px}
+.app:where([data-style="gloss"]) .ff.roll,.app:where([data-style="gloss"]) .ff.res{background:var(--btn-bg);box-shadow:inset 0 1px 0 rgba(255,255,255,.45), inset 0 0 0 1px rgba(255,255,255,.1);border-radius:999px}
+.app:where([data-style="gloss"]) .ff .ffb,.app:where([data-style="gloss"]) .gmban .go{color:var(--au-ink);background:var(--au-bg);box-shadow:var(--au-edge)}
+.app:where([data-style="gloss"]) .ff .ffb svg{color:var(--au-ink)}
+.app:where([data-style="gloss"]) .gmban .t small{color:var(--gold-tx)}
+.app:where([data-style="gloss"]) .fight-order .ot.now{background:var(--btn-bg);box-shadow:inset 0 0 0 2px var(--gold), inset 0 1px 0 rgba(255,255,255,.6), 0 8px 20px -6px rgba(226,192,120,.6)}
+.app:where([data-style="gloss"]) .modeseg .nb{color:var(--ember-ink)}
+.app:where([data-style="gloss"]) .tok .nm{background:rgba(10,10,12,.8);color:#f7f6f3}
+.app:where([data-style="gloss"])[data-theme="day"] .tok .nm{background:rgba(255,255,255,.92);color:#131316}
+.app:where([data-style="gloss"]) .zone .tok.now .nm{background:var(--au-bg);color:var(--au-ink)}
+.app:where([data-style="gloss"]) .stc[aria-pressed="true"]{box-shadow:var(--gl-edge), inset 0 0 0 2px var(--gold)}
+/* dice: glossy pearls, gold for plus, onyx for minus */
+.app:where([data-style="gloss"]) .die,.app:where([data-style="gloss"]) :is(.ff .ffd i,.rl .rld i,.roll .oppd .od span,.rfx .f){background:radial-gradient(120% 90% at 40% -20%, #fff, rgba(255,255,255,0) 60%), linear-gradient(160deg,#f7f7f5,#d2d3d7);color:#141416;box-shadow:inset 0 -2px 3px rgba(60,60,80,.35), inset 0 1px 0 #fff, 0 3px 6px -2px rgba(0,0,0,.6)}
+.app:where([data-style="gloss"]) :is(.die.p,.ff .ffd i.p,.rl .rld i.p,.oppd .od span.op,.rfx .f.p){background:var(--au-bg);color:var(--au-ink)}
+.app:where([data-style="gloss"]) :is(.die.m,.ff .ffd i.m,.rl .rld i.m,.oppd .od span.om,.rfx .f.m){background:radial-gradient(120% 90% at 40% -20%, rgba(255,255,255,.5), rgba(255,255,255,0) 60%), linear-gradient(160deg,#4a4a52,#141418);color:#f7f6f3}
+.app:where([data-style="gloss"]) .out.style{color:var(--au-ink);background:var(--au-bg)}
+.app:where([data-style="gloss"]) .av{box-shadow:0 0 0 2px color-mix(in srgb,var(--c) 75%,#fff), 0 0 0 3px rgba(255,255,255,.25), 0 6px 14px -4px rgba(0,0,0,.7)}
+.app:where([data-style="gloss"]) .badge.gold,.app:where([data-style="gloss"]) .pc-hero .badge{color:var(--au-ink)}
+.app:where([data-style="gloss"]) :is(.mark,.gmark) svg stop:first-child{stop-color:#fbf0cd}
+.app:where([data-style="gloss"]) :is(.mark,.gmark) svg stop:last-child{stop-color:#c9a352}
+
+
+/* ---------- colour scheme: Onyx & Platinum ---------- */
+.app:where([data-style="gloss"]):where([data-pal="platinum"]){--accent:#b3b6bc;--accent-2:#90949b;--accent-3:#676b73;--accent-ink:#111213;--accent-soft:rgba(179,182,188,.14);--accent-glow:rgba(179,182,188,.5);--gold:#c3c6cb;--gold-2:#9ea1a9;--gold-3:#656971;--gold-ink:#111213;--gold-soft:rgba(195,198,203,.14);--link:#c3c6cb;--gold-tx:#c3c6cb;--accent-tx:#babdc3;--engrave:#c3c6cb;--c-p1:#c3c6cb;--c-p5:#e5e6e8;--c-p6:#bdbfc1;--c-gm:#cbced3;--glass-mine:rgba(195,198,203,.36);--glass-mine-2:rgba(110,114,123,.16);--glass-mine-rim:rgba(228,230,233,.95);accent-color:#9ea1a9;--au-bg:radial-gradient(120% 95% at 50% -32%, rgba(255,255,255,.9), rgba(255,255,255,0) 58%), linear-gradient(180deg, #dbdde0, #a2a6ad 48%, #7d818a 52%, #9da1a8);--au-edge:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -8px 12px -6px rgba(68,72,81,.6), inset 0 0 0 1px rgba(228,230,233,.5), 0 10px 24px -8px rgba(179,182,188,.6), 0 2px 4px rgba(0,0,0,.4);--au-ink:#111213;--goldtext:linear-gradient(180deg, #f1f1f3 0%, #c3c6cb 50%, #90949b 100%);--sky-art:url("../art/ui/gloss/platinum-night.jpg") center/cover no-repeat}
+.app:where([data-style="gloss"]):where([data-pal="platinum"])[data-theme="day"]{--accent:#90949b;--accent-2:#757a83;--accent-3:#52565e;--accent-ink:#111213;--accent-soft:rgba(117,122,131,.15);--accent-glow:rgba(144,148,155,.55);--gold:#91959d;--gold-2:#757a83;--gold-3:#52565e;--gold-ink:#111213;--gold-soft:rgba(117,122,131,.16);--link:#454850;--gold-tx:#41444b;--accent-tx:#41444b;--engrave:#52565e;--c-p1:#464951;--c-p6:#4f5155;--c-gm:#3a3d44;--glass-mine:rgba(195,198,203,.62);--glass-mine-2:rgba(158,161,169,.36);--glass-mine-rim:rgba(89,93,102,.6);--goldtext:linear-gradient(180deg, #676b73 0%, #41444b 55%, #303339 100%);--sky-art:url("../art/ui/gloss/platinum-day.jpg") center/cover no-repeat}
+.app:where([data-style="gloss"]):where([data-pal="platinum"]) ::selection{background:rgba(179,182,188,.35)}
+.app:where([data-style="gloss"]):where([data-pal="platinum"]) :focus-visible{outline-color:#9ea1a9}
+.app:where([data-style="gloss"]):where([data-pal="platinum"])[data-theme] .btn:is(.primary,.gold){text-shadow:0 1px 0 rgba(232,234,237,.7)}
+.app:where([data-style="gloss"]):where([data-pal="platinum"]) .coin{background:radial-gradient(circle at 34% 26%, #f2f3f5 0 12%, #d0d2d7 30%, #9ea1a9 62%, #656971);box-shadow:inset 0 -2px 3px rgba(57,61,68,.6), inset 0 1px 1px #fff, 0 3px 8px -2px rgba(179,182,188,.7)}
+.app:where([data-style="gloss"]):where([data-pal="platinum"]) .icard .k{color:#454850}
+.app:where([data-style="gloss"]):where([data-pal="platinum"])[data-theme] .m.mine:not(.ooc) .bub{text-shadow:0 1px 0 rgba(232,234,237,.5)}
+.app:where([data-style="gloss"]):where([data-pal="platinum"])[data-theme] .m.mine:not(.ooc) .bub :is(em,.rpd){color:#1e2023}
+.app:where([data-style="gloss"]):where([data-pal="platinum"])[data-theme] .m.mine:not(.ooc) .bub .ed{color:rgba(17,18,19,.7)}
+.app:where([data-style="gloss"]):where([data-pal="platinum"]) .narr::before{background:linear-gradient(180deg,#dbdde0,#90949b 60%,transparent);box-shadow:0 0 10px rgba(179,182,188,.6)}
+.app:where([data-style="gloss"]):where([data-pal="platinum"]) .cat .ci{box-shadow:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -4px 6px -3px rgba(68,72,81,.6), 0 4px 10px -4px rgba(179,182,188,.6)}
+.app:where([data-style="gloss"]):where([data-pal="platinum"]) .fight-order .ot.now{box-shadow:inset 0 0 0 2px var(--gold), inset 0 1px 0 rgba(255,255,255,.6), 0 8px 20px -6px rgba(179,182,188,.6)}
+.app:where([data-style="gloss"]):where([data-pal="platinum"]) :is(.mark,.gmark) svg stop:first-child{stop-color:#f1f1f3}
+.app:where([data-style="gloss"]):where([data-pal="platinum"]) :is(.mark,.gmark) svg stop:last-child{stop-color:#90949b}
+
+/* ---------- colour scheme: Midnight & Champagne ---------- */
+.app:where([data-style="gloss"]):where([data-pal="midnight"]){--sky-0:#060a16;--page-solid:#111827;--accent:#dbcb91;--accent-2:#c0ad69;--accent-3:#9b873d;--accent-ink:#19160a;--accent-soft:rgba(219,203,145,.14);--accent-glow:rgba(219,203,145,.5);--gold:#e6d8a5;--gold-2:#cdba76;--gold-3:#95833f;--gold-ink:#19160a;--gold-soft:rgba(230,216,165,.14);--link:#e6d8a5;--gold-tx:#e6d8a5;--accent-tx:#e1d199;--engrave:#e6d8a5;--c-p1:#e6d8a5;--c-p5:#efebde;--c-p6:#cec7ad;--c-gm:#ecdfae;--glass-mine:rgba(230,216,165,.36);--glass-mine-2:rgba(165,143,66,.16);--glass-mine-rim:rgba(249,240,208,.95);accent-color:#cdba76;--au-bg:radial-gradient(120% 95% at 50% -32%, rgba(255,255,255,.9), rgba(255,255,255,0) 58%), linear-gradient(180deg, #f2e8c5, #d2bf79 48%, #b8a04d 52%, #cfbb73);--au-edge:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -8px 12px -6px rgba(123,101,24,.6), inset 0 0 0 1px rgba(249,240,208,.5), 0 10px 24px -8px rgba(219,203,145,.6), 0 2px 4px rgba(0,0,0,.4);--au-ink:#19160a;--goldtext:linear-gradient(180deg, #faf5e5 0%, #e6d8a5 50%, #c0ad69 100%);--sky-art:url("../art/ui/gloss/midnight-night.jpg") center/cover no-repeat}
+.app:where([data-style="gloss"]):where([data-pal="midnight"])[data-theme="day"]{--accent:#c0ad69;--accent-2:#ae9847;--accent-3:#84712a;--accent-ink:#19160a;--accent-soft:rgba(174,152,71,.15);--accent-glow:rgba(192,173,105,.55);--gold:#c5b067;--gold-2:#ae9847;--gold-3:#84712a;--gold-ink:#19160a;--gold-soft:rgba(174,152,71,.16);--link:#74621f;--gold-tx:#6f5d1c;--accent-tx:#6f5d1c;--engrave:#84712a;--c-p1:#746221;--c-p6:#695e39;--c-gm:#655518;--glass-mine:rgba(230,216,165,.62);--glass-mine-2:rgba(205,186,118,.36);--glass-mine-rim:rgba(144,122,45,.6);--goldtext:linear-gradient(180deg, #9b873d 0%, #6f5d1c 55%, #564712 100%);--sky-art:url("../art/ui/gloss/midnight-day.jpg") center/cover no-repeat}
+.app:where([data-style="gloss"]):where([data-pal="midnight"]) ::selection{background:rgba(219,203,145,.35)}
+.app:where([data-style="gloss"]):where([data-pal="midnight"]) :focus-visible{outline-color:#cdba76}
+.app:where([data-style="gloss"]):where([data-pal="midnight"])[data-theme] .btn:is(.primary,.gold){text-shadow:0 1px 0 rgba(250,244,219,.7)}
+.app:where([data-style="gloss"]):where([data-pal="midnight"]) .coin{background:radial-gradient(circle at 34% 26%, #fcf9eb 0 12%, #ede1b6 30%, #cdba76 62%, #95833f);box-shadow:inset 0 -2px 3px rgba(104,86,20,.6), inset 0 1px 1px #fff, 0 3px 8px -2px rgba(219,203,145,.7)}
+.app:where([data-style="gloss"]):where([data-pal="midnight"]) .icard .k{color:#74621f}
+.app:where([data-style="gloss"]):where([data-pal="midnight"])[data-theme] .m.mine:not(.ooc) .bub{text-shadow:0 1px 0 rgba(250,244,219,.5)}
+.app:where([data-style="gloss"]):where([data-pal="midnight"])[data-theme] .m.mine:not(.ooc) .bub :is(em,.rpd){color:#312a0f}
+.app:where([data-style="gloss"]):where([data-pal="midnight"])[data-theme] .m.mine:not(.ooc) .bub .ed{color:rgba(25,22,10,.7)}
+.app:where([data-style="gloss"]):where([data-pal="midnight"]) .narr::before{background:linear-gradient(180deg,#f2e8c5,#c0ad69 60%,transparent);box-shadow:0 0 10px rgba(219,203,145,.6)}
+.app:where([data-style="gloss"]):where([data-pal="midnight"]) .cat .ci{box-shadow:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -4px 6px -3px rgba(123,101,24,.6), 0 4px 10px -4px rgba(219,203,145,.6)}
+.app:where([data-style="gloss"]):where([data-pal="midnight"]) .fight-order .ot.now{box-shadow:inset 0 0 0 2px var(--gold), inset 0 1px 0 rgba(255,255,255,.6), 0 8px 20px -6px rgba(219,203,145,.6)}
+.app:where([data-style="gloss"]):where([data-pal="midnight"]) :is(.mark,.gmark) svg stop:first-child{stop-color:#faf5e5}
+.app:where([data-style="gloss"]):where([data-pal="midnight"]) :is(.mark,.gmark) svg stop:last-child{stop-color:#c0ad69}
+
+/* ---------- colour scheme: Evergreen & Gold ---------- */
+.app:where([data-style="gloss"]):where([data-pal="forest"]){--sky-0:#050c0a;--page-solid:#0f1c18;--sky-art:url("../art/ui/gloss/forest-night.jpg") center/cover no-repeat}
+.app:where([data-style="gloss"]):where([data-pal="forest"])[data-theme="day"]{--sky-art:url("../art/ui/gloss/forest-day.jpg") center/cover no-repeat}
+
+/* ---------- colour scheme: Garnet & Rose gold ---------- */
+.app:where([data-style="gloss"]):where([data-pal="garnet"]){--sky-0:#0f0608;--page-solid:#1f1114;--accent:#d2a696;--accent-2:#b68370;--accent-3:#905a46;--accent-ink:#170f0c;--accent-soft:rgba(210,166,150,.14);--accent-glow:rgba(210,166,150,.5);--gold:#deb7a9;--gold-2:#c3907d;--gold-3:#8b5947;--gold-ink:#170f0c;--gold-soft:rgba(222,183,169,.14);--link:#deb7a9;--gold-tx:#deb7a9;--accent-tx:#d8ae9e;--engrave:#deb7a9;--c-p1:#deb7a9;--c-p5:#ede3e0;--c-p6:#c9b5ae;--c-gm:#e5bfb2;--glass-mine:rgba(222,183,169,.36);--glass-mine-2:rgba(153,96,76,.16);--glass-mine-rim:rgba(244,218,208,.95);accent-color:#c3907d;--au-bg:radial-gradient(120% 95% at 50% -32%, rgba(255,255,255,.9), rgba(255,255,255,0) 58%), linear-gradient(180deg, #ecd1c7, #c89480 48%, #ac6d56 52%, #c58e7b);--au-edge:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -8px 12px -6px rgba(111,55,34,.6), inset 0 0 0 1px rgba(244,218,208,.5), 0 10px 24px -8px rgba(210,166,150,.6), 0 2px 4px rgba(0,0,0,.4);--au-ink:#170f0c;--goldtext:linear-gradient(180deg, #f7e9e4 0%, #deb7a9 50%, #b68370 100%);--sky-art:url("../art/ui/gloss/garnet-night.jpg") center/cover no-repeat}
+.app:where([data-style="gloss"]):where([data-pal="garnet"])[data-theme="day"]{--accent:#b68370;--accent-2:#a26751;--accent-3:#7a4633;--accent-ink:#170f0c;--accent-soft:rgba(162,103,81,.15);--accent-glow:rgba(182,131,112,.55);--gold:#ba826e;--gold-2:#a26751;--gold-3:#7a4633;--gold-ink:#170f0c;--gold-soft:rgba(162,103,81,.16);--link:#6a3927;--gold-tx:#663524;--accent-tx:#663524;--engrave:#7a4633;--c-p1:#6b3a29;--c-p6:#63473d;--c-gm:#5d301f;--glass-mine:rgba(222,183,169,.62);--glass-mine-2:rgba(195,144,125,.36);--glass-mine-rim:rgba(132,76,55,.6);--goldtext:linear-gradient(180deg, #905a46 0%, #663524 55%, #4e2719 100%);--sky-art:url("../art/ui/gloss/garnet-day.jpg") center/cover no-repeat}
+.app:where([data-style="gloss"]):where([data-pal="garnet"]) ::selection{background:rgba(210,166,150,.35)}
+.app:where([data-style="gloss"]):where([data-pal="garnet"]) :focus-visible{outline-color:#c3907d}
+.app:where([data-style="gloss"]):where([data-pal="garnet"])[data-theme] .btn:is(.primary,.gold){text-shadow:0 1px 0 rgba(247,229,222,.7)}
+.app:where([data-style="gloss"]):where([data-pal="garnet"]) .coin{background:radial-gradient(circle at 34% 26%, #fbf0ec 0 12%, #e7c5b8 30%, #c3907d 62%, #8b5947);box-shadow:inset 0 -2px 3px rgba(94,46,28,.6), inset 0 1px 1px #fff, 0 3px 8px -2px rgba(210,166,150,.7)}
+.app:where([data-style="gloss"]):where([data-pal="garnet"]) .icard .k{color:#6a3927}
+.app:where([data-style="gloss"]):where([data-pal="garnet"])[data-theme] .m.mine:not(.ooc) .bub{text-shadow:0 1px 0 rgba(247,229,222,.5)}
+.app:where([data-style="gloss"]):where([data-pal="garnet"])[data-theme] .m.mine:not(.ooc) .bub :is(em,.rpd){color:#2d1a13}
+.app:where([data-style="gloss"]):where([data-pal="garnet"])[data-theme] .m.mine:not(.ooc) .bub .ed{color:rgba(23,15,12,.7)}
+.app:where([data-style="gloss"]):where([data-pal="garnet"]) .narr::before{background:linear-gradient(180deg,#ecd1c7,#b68370 60%,transparent);box-shadow:0 0 10px rgba(210,166,150,.6)}
+.app:where([data-style="gloss"]):where([data-pal="garnet"]) .cat .ci{box-shadow:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -4px 6px -3px rgba(111,55,34,.6), 0 4px 10px -4px rgba(210,166,150,.6)}
+.app:where([data-style="gloss"]):where([data-pal="garnet"]) .fight-order .ot.now{box-shadow:inset 0 0 0 2px var(--gold), inset 0 1px 0 rgba(255,255,255,.6), 0 8px 20px -6px rgba(210,166,150,.6)}
+.app:where([data-style="gloss"]):where([data-pal="garnet"]) :is(.mark,.gmark) svg stop:first-child{stop-color:#f7e9e4}
+.app:where([data-style="gloss"]):where([data-pal="garnet"]) :is(.mark,.gmark) svg stop:last-child{stop-color:#b68370}
+
+/* ---------- colour scheme: Graphite & Ice ---------- */
+.app:where([data-style="gloss"]):where([data-pal="ice"]){--sky-0:#090b0d;--page-solid:#14181b;--accent:#a0bdc8;--accent-2:#7b9eab;--accent-3:#527784;--accent-ink:#0e1416;--accent-soft:rgba(160,189,200,.14);--accent-glow:rgba(160,189,200,.5);--gold:#b2ccd5;--gold-2:#88abb8;--gold-3:#527480;--gold-ink:#0e1416;--gold-soft:rgba(178,204,213,.14);--link:#b2ccd5;--gold-tx:#b2ccd5;--accent-tx:#a7c4cf;--engrave:#b2ccd5;--c-p1:#b2ccd5;--c-p5:#e2e9eb;--c-p6:#b2c0c5;--c-gm:#bad3dd;--glass-mine:rgba(178,204,213,.36);--glass-mine-2:rgba(88,127,141,.16);--glass-mine-rim:rgba(214,232,238,.95);accent-color:#88abb8;--au-bg:radial-gradient(120% 95% at 50% -32%, rgba(255,255,255,.9), rgba(255,255,255,0) 58%), linear-gradient(180deg, #cddfe6, #8cb0bd 48%, #648f9e 52%, #87abb9);--au-edge:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -8px 12px -6px rgba(47,85,99,.6), inset 0 0 0 1px rgba(214,232,238,.5), 0 10px 24px -8px rgba(160,189,200,.6), 0 2px 4px rgba(0,0,0,.4);--au-ink:#0e1416;--goldtext:linear-gradient(180deg, #e7f0f4 0%, #b2ccd5 50%, #7b9eab 100%);--sky-art:url("../art/ui/gloss/ice-night.jpg") center/cover no-repeat}
+.app:where([data-style="gloss"]):where([data-pal="ice"])[data-theme="day"]{--accent:#7b9eab;--accent-2:#5e8795;--accent-3:#3e626e;--accent-ink:#0e1416;--accent-soft:rgba(94,135,149,.15);--accent-glow:rgba(123,158,171,.55);--gold:#7aa0ae;--gold-2:#5e8795;--gold-3:#3e626e;--gold-ink:#0e1416;--gold-soft:rgba(94,135,149,.16);--link:#325360;--gold-tx:#2e4f5b;--accent-tx:#2e4f5b;--engrave:#3e626e;--c-p1:#345460;--c-p6:#43565d;--c-gm:#294853;--glass-mine:rgba(178,204,213,.62);--glass-mine-2:rgba(136,171,184,.36);--glass-mine-rim:rgba(67,106,120,.6);--goldtext:linear-gradient(180deg, #527784 0%, #2e4f5b 55%, #213c46 100%);--sky-art:url("../art/ui/gloss/ice-day.jpg") center/cover no-repeat}
+.app:where([data-style="gloss"]):where([data-pal="ice"]) ::selection{background:rgba(160,189,200,.35)}
+.app:where([data-style="gloss"]):where([data-pal="ice"]) :focus-visible{outline-color:#88abb8}
+.app:where([data-style="gloss"]):where([data-pal="ice"])[data-theme] .btn:is(.primary,.gold){text-shadow:0 1px 0 rgba(226,239,243,.7)}
+.app:where([data-style="gloss"]):where([data-pal="ice"]) .coin{background:radial-gradient(circle at 34% 26%, #eff6f8 0 12%, #c0d7df 30%, #88abb8 62%, #527480);box-shadow:inset 0 -2px 3px rgba(39,72,84,.6), inset 0 1px 1px #fff, 0 3px 8px -2px rgba(160,189,200,.7)}
+.app:where([data-style="gloss"]):where([data-pal="ice"]) .icard .k{color:#325360}
+.app:where([data-style="gloss"]):where([data-pal="ice"])[data-theme] .m.mine:not(.ooc) .bub{text-shadow:0 1px 0 rgba(226,239,243,.5)}
+.app:where([data-style="gloss"]):where([data-pal="ice"])[data-theme] .m.mine:not(.ooc) .bub :is(em,.rpd){color:#172429}
+.app:where([data-style="gloss"]):where([data-pal="ice"])[data-theme] .m.mine:not(.ooc) .bub .ed{color:rgba(14,20,22,.7)}
+.app:where([data-style="gloss"]):where([data-pal="ice"]) .narr::before{background:linear-gradient(180deg,#cddfe6,#7b9eab 60%,transparent);box-shadow:0 0 10px rgba(160,189,200,.6)}
+.app:where([data-style="gloss"]):where([data-pal="ice"]) .cat .ci{box-shadow:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -4px 6px -3px rgba(47,85,99,.6), 0 4px 10px -4px rgba(160,189,200,.6)}
+.app:where([data-style="gloss"]):where([data-pal="ice"]) .fight-order .ot.now{box-shadow:inset 0 0 0 2px var(--gold), inset 0 1px 0 rgba(255,255,255,.6), 0 8px 20px -6px rgba(160,189,200,.6)}
+.app:where([data-style="gloss"]):where([data-pal="ice"]) :is(.mark,.gmark) svg stop:first-child{stop-color:#e7f0f4}
+.app:where([data-style="gloss"]):where([data-pal="ice"]) :is(.mark,.gmark) svg stop:last-child{stop-color:#7b9eab}
