@@ -161,7 +161,7 @@ function send(list){
   const role = G().role, pushes = [], now = Date.now();
   for (const d of N.PUSH || []) {
     const who = N.MEMBERS.find(x => x.uid === d.uid);
-    if (d.role === role || !who || who.role !== d.role) continue;
+    if (d.role === role || !who || !N.seatsOf(who).includes(d.role)) continue;
     /* Norne is open on that device right now, so they'll see it there */
     if (d.seen && now - d.seen < SEEN_FOR) continue;
     const byCh = {};

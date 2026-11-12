@@ -885,7 +885,7 @@ function mySeats(v){
   const my = N.me(); if (!my || isGM(v)) return '';
   const ss = N.seatsOf(my); if (ss.length < 2) return '';
   const g = G();
-  return `<div><h4>Your characters<small>Each has its own chats, party and memory. Switching reloads Norne.</small></h4><div class="seatpick">${ss.map(s => {
+  return `<div><h4>Your characters<small>Each has its own chats, party and memory. Switching reloads this tab only, so another tab can play a different one.</small></h4><div class="seatpick">${ss.map(s => {
     const c = g.chars[g.P[s]?.char || 'pc' + s.slice(1)], cur = s === v.role;
     /* a character in a party this seat can't read: use what this device remembers from playing it */
     const k = c?.built ? {short:c.short, portrait:c.portrait} : N.seatCard(s);

@@ -20,10 +20,21 @@ service cloud.firestore {
       return signedIn() && exists(memberPath()) ? get(memberPath()).data.role : 'none';
     }
     function isPlayer() { return seat().matches('p[0-9]+'); }
-    function canReadMsg(d) { return isGM() || (isPlayer() && ('*' in d.aud || seat() in d.aud)); }
+    // Someone with several characters holds a seat for each (seats). Each browser tab plays one of them, so the
+    // rules let a player act as any seat they hold; role is only the one new tabs start on.
+    function mySeats() { return isPlayer() ? get(memberPath()).data.get('seats', []).concat([seat()]) : []; }
+    function mine(s) { return isPlayer() && s in mySeats(); }
+    function canReadMsg(d) { return isGM() || (isPlayer() && ('*' in d.aud || d.aud.hasAny(mySeats()))); }
     function groupPath(id) { return /databases/$(database)/documents/groups/$(id); }
-    // A player is in group chat id when the GM listed their seat in groups/<id>.
-    function inGroup(id) { return exists(groupPath(id)) && seat() in get(groupPath(id)).data.seats; }
+    // A player is in group chat id when the GM listed one of their seats in groups/<id>.
+    function inGroup(id) { return exists(groupPath(id)) && get(groupPath(id)).data.seats.hasAny(mySeats()); }
+    // The character card keys of those seats (p2 -> pc2). Rules can't map a list, so this spells out the first 8 seats.
+    function cardAt(l, i) { return l.size() > i ? [l[i].replace('p', 'pc')] : []; }
+    function myCards() {
+      let l = mySeats();
+      return cardAt(l, 0).concat(cardAt(l, 1)).concat(cardAt(l, 2)).concat(cardAt(l, 3))
+        .concat(cardAt(l, 4)).concat(cardAt(l, 5)).concat(cardAt(l, 6)).concat(cardAt(l, 7));
+    }
 
     // Accounts. A new account may only create itself as pending (or as GM, for the GM's own account).
     // Only the GM can give someone a seat or take it away.
@@ -55,7 +66,7 @@ service cloud.firestore {
     // A player may change only their own character sheet (fate points spent on invokes).
     match /game/chars {
       allow update: if isPlayer()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([seat().replace('p', 'pc')]);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(myCards());
     }
     // A player may update the live fight (free invokes used on scene aspects).
     match /game/combat {
@@ -67,15 +78,15 @@ service cloud.firestore {
     // fights/<group id> the fight in that group's chat: only those players (and the GM) can read it, and they may
     // update only the fight itself.
     match /fights/{s} {
-      allow read: if isGM() || (isPlayer() && (seat() == s || inGroup(s)));
+      allow read: if isGM() || (isPlayer() && (mine(s) || inGroup(s)));
       allow write: if isGM();
-      allow update: if isPlayer() && (seat() == s || inGroup(s))
+      allow update: if isPlayer() && (mine(s) || inGroup(s))
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['c']);
     }
 
     // Group chats the GM makes: a name and the seats in it (party: true for a party). Players read only the groups they are in.
     match /groups/{id} {
-      allow read: if isGM() || (isPlayer() && seat() in resource.data.seats);
+      allow read: if isGM() || (isPlayer() && resource.data.seats.hasAny(mySeats()));
       allow write: if isGM();
     }
     // The character cards of a party's players (parties/<group id>), kept out of game/chars so other parties never get them.
@@ -84,7 +95,7 @@ service cloud.firestore {
       allow read: if isGM() || (isPlayer() && inGroup(id));
       allow write: if isGM();
       allow update: if isPlayer() && inGroup(id)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([seat().replace('p', 'pc')]);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(myCards());
     }
 
     // Chat messages. aud says who may read one: '*' is everyone at the table,
@@ -95,16 +106,17 @@ service cloud.firestore {
       allow read: if canReadMsg(resource.data);
       allow create: if isGM()
         || (isPlayer()
-            && request.resource.data.by == seat()
+            && mine(request.resource.data.by)
             && ((request.resource.data.ch == 'table' && request.resource.data.aud == ['*'])
-                || (request.resource.data.ch == 'dm-' + seat() && request.resource.data.aud == [seat()])
+                || (request.resource.data.ch == 'dm-' + request.resource.data.by && request.resource.data.aud == [request.resource.data.by])
                 || (request.resource.data.ch.matches('grp-[a-z0-9]+')
-                    && inGroup(request.resource.data.ch.split('-')[1])
+                    && exists(groupPath(request.resource.data.ch.split('-')[1]))
+                    && request.resource.data.by in get(groupPath(request.resource.data.ch.split('-')[1])).data.seats
                     && request.resource.data.aud == get(groupPath(request.resource.data.ch.split('-')[1])).data.seats)));
       // Players may change a roll (invokes), the words of their own messages, the voice of their own typed
       // messages (their character or Meta), and their own reactions (rx.p1 is p1's list of emoji on this message).
       allow update: if isGM()
-        || (isPlayer() && resource.data.by == seat()
+        || (isPlayer() && mine(resource.data.by)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'ed', 'roll', 'kind', 'as'])
             && request.resource.data.text is string
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['kind', 'as'])
@@ -114,14 +126,14 @@ service cloud.firestore {
         || (canReadMsg(resource.data)
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rx'])
             && request.resource.data.rx is map
-            && request.resource.data.rx.diff(resource.data.get('rx', {})).affectedKeys().hasOnly([seat()]));
+            && request.resource.data.rx.diff(resource.data.get('rx', {})).affectedKeys().hasOnly(mySeats()));
       allow delete: if isGM();
     }
 
     // Things the GM shares with only some players (wiki entries, maps, news editions).
     // Each seat has one document, only/p1, only/p2, ..., that only that player (and the GM) can read.
     match /only/{s} {
-      allow read: if isGM() || (isPlayer() && seat() == s);
+      allow read: if isGM() || mine(s);
       allow write: if isGM();
     }
 
@@ -130,7 +142,7 @@ service cloud.firestore {
     match /push/{dev} {
       allow read: if isGM() || isPlayer();
       allow create, update: if (isGM() || isPlayer())
-        && request.resource.data.uid == request.auth.uid && request.resource.data.role == seat();
+        && request.resource.data.uid == request.auth.uid && (isGM() ? request.resource.data.role == 'gm' : mine(request.resource.data.role));
       allow delete: if isGM() || isPlayer();
     }
 
@@ -138,7 +150,7 @@ service cloud.firestore {
     // with everyone (vis) or with their seat (aud).
     match /mapimgs/{id} {
       allow read: if isGM()
-        || (isPlayer() && (resource.data.vis == true || seat() in resource.data.get('aud', [])));
+        || (isPlayer() && (resource.data.vis == true || resource.data.get('aud', []).hasAny(mySeats())));
       allow write: if isGM();
     }
   }
