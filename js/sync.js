@@ -652,7 +652,7 @@ function applyMembers(list){
   for (const m of list.filter(m => isSeat(m.role))) for (const s of N.seatsOf(m)) rows.push([s, m]);
   for (const [s, m] of rows.sort((a, b) => a[0].slice(1) - b[0].slice(1))) {
     const who = (m.name || 'Player').trim() || 'Player';
-    g.P[s] = {id:s, name:who, who, char:'pc' + s.slice(1), color:N.seatColor(s), uid:m.uid, dm:dmOpenOf(m).includes(s), ...(N.seatsOf(m).length > 1 ? {multi:true, on:m.role === s} : {})};
+    g.P[s] = {id:s, name:who, who, char:'pc' + s.slice(1), color:N.seatColor(s), uid:m.uid, dm:dmOpenOf(m).includes(s), ...(N.seatsOf(m).length > 1 ? {multi:true, on:m.uid === ME?.uid ? s === G().role : m.role === s} : {})};
   }
   nameSeats(); ensureChars();
 }
@@ -732,17 +732,29 @@ async function enter(u){
     const d = s.data();
     if (gm && d.role !== 'gm') { if (server && !made) { made = true; F.updateDoc(mref, {role:'gm'}).catch(fail); } return; }
     const j = JSON.stringify(d); if (j === last) return; last = j;
-    ME = {uid:u.uid, email, name:d.name, role:d.role, seats:d.seats || []};
-    if (started) { if (d.role !== G().role) location.reload(); else N.renderAll(); return; }
-    if (d.role === 'gm' || isSeat(d.role)) start(d.role).catch(fail);
+    /* each tab plays its own character: the one picked in this tab, else the one the account last picked (role) */
+    const play = playSeat(u.uid, d);
+    ME = {uid:u.uid, email, name:d.name, role:play, seats:d.seats?.length ? N.seatsOf(d) : []};
+    if (started) { if (play !== G().role) location.reload(); else N.renderAll(); return; }
+    if (d.role === 'gm' || isSeat(d.role)) start(play).catch(fail);
     else if (d.role === 'removed') gate(`<p>You don’t have a seat at this table any more. Ask the GM if that’s a mistake.</p>${outBtn}`);
     else gate(`<p>Hi ${esc(d.name)}, you’re signed in.</p><p class="fine">The GM still needs to let you in. Ask them to open <b>Players and sign-ins</b> in their menu. This page opens by itself once they do.</p>${outBtn}`);
   }, fail);
 }
+/* which character this browser tab plays. A tab keeps its pick (sessionStorage is per tab), so switching in one tab
+   leaves the others alone; a new tab starts on the account's last pick. A seat the GM took away falls back to role. */
+const TKEY = uid => 'norne-tab-seat-' + uid;
+function playSeat(uid, d){
+  if (!isSeat(d.role)) return d.role;
+  let t = null; try { t = sessionStorage.getItem(TKEY(uid)); } catch(e) {}
+  return t && N.seatsOf(d).includes(t) ? t : d.role;
+}
+const keepTabSeat = s => { try { sessionStorage.setItem(TKEY(ME.uid), s); } catch(e) {} };
 let MEMJ = false;
 async function start(role){
   started = true;
   const g = G(); g.role = role; V.role = role; V.ui = N.newUi(role); g.me = ME;
+  if (isSeat(role)) keepTabSeat(role);
   loadLocal();
   const docs = isGM()
     ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','gm/items','gm/shops','game/news','gm/news','game/maps','game/wiki','game/meta','game/emoji']
@@ -826,13 +838,14 @@ N.dropSeat = (id, seat) => {
   const m = N.MEMBERS.find(x => x.uid === id); if (!m || m.role === seat) return;
   track(F.updateDoc(dref('members/' + m.uid), {seats:N.seatsOf(m).filter(s => s !== seat)}));
 };
-/* a player switches character: the app reloads as that seat, with its own chats and memory */
+/* a player switches character: this tab reloads as that seat, with its own chats and memory. Other open tabs keep
+   the character they are playing. The account's role is set too, so tabs opened later start on this one. */
 N.switchSeat = seat => {
   if (!ME || !N.seatsOf(ME).includes(seat) || seat === ME.role) return;
   /* save this character's unsaved changes first, then switch; reload once the database has the new seat */
   syncNow();
-  SWITCHING = true;
-  F.updateDoc(dref('members/' + ME.uid), {role:seat}).then(() => location.reload(), err => { SWITCHING = false; track(Promise.reject(err)); });
+  SWITCHING = true; keepTabSeat(seat);
+  F.updateDoc(dref('members/' + ME.uid), {role:seat}).then(() => location.reload(), err => { SWITCHING = false; keepTabSeat(G().role); track(Promise.reject(err)); });
 };
 N.kick = id => { const m = N.MEMBERS.find(x => x.uid === id); if (m) track(F.updateDoc(dref('members/' + m.uid), {role:'removed'})); return m; };
 N.renameMember = (id, name) => { name = name.trim(); if (name) track(F.updateDoc(dref('members/' + id), {name})); };
