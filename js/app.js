@@ -60,10 +60,11 @@ const sys = N.sys = (text, ch='table') => push({ch, kind:'sys', by:G().role, tex
 const PURSE_MS = 120000;
 /* xf: a transfer between two cards (N.xferGo). Its line says who gave and who got ("Brann gave 5 gold to Isolde (140 → 135)"),
    names the other side when xf.other is set, and stands alone: it never folds into an earlier line, and later taps don't fold into it */
-N.purseNote = (c, k, before, xf) => {
+/* inCh: the chat where it happened (a store purchase), instead of the character's party chat */
+N.purseNote = (c, k, before, xf, inCh) => {
   if (!c || !c.player || !c.built) return null;
-  const pt = N.partyOf(c.player); if (!pt) return null;
-  const ch = 'grp-' + pt.id, now = k === 'fp' ? (c.fp || 0) : (parseInt(c.gold, 10) || 0), g = G();
+  const pt = N.partyOf(c.player); if (!pt && !inCh) return null;
+  const ch = inCh || 'grp-' + pt.id, now = k === 'fp' ? (c.fp || 0) : (parseInt(c.gold, 10) || 0), g = G();
   let last = null; for (let i = g.msgs.length - 1; i >= 0; i--) if (g.msgs[i].ch === ch) { last = g.msgs[i]; break; }
   const join = !xf && last && last.purse && !last.purse.xf && last.purse.c === c.id && last.purse.k === k && last.by === g.role && N.now() - last.t < PURSE_MS;
   const from = join ? last.purse.from : before;
@@ -2352,7 +2353,7 @@ function act(v, a, el, e){
     if (row) { row[1] += 1; if (note) row[2] = note; if (ic !== 'bag') row[3] = ic; } else { row = ic !== 'bag' ? [b.name, 1, note, ic] : note ? [b.name, 1, note] : [b.name, 1]; c.inv.push(row); }
     if (it && N.itemSlot(it)) N.invSetX(row, {w:1, ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})});
     b.st = 'ok'; m.text = `${b.who} bought ${b.name} for ${N.goldTxt(b.price)}.`;
-    N.purseNote(c, 'gold', before);
+    N.purseNote(c, 'gold', before, null, m.ch);
     toast(v, `${c.short} paid ${N.goldTxt(b.price)}. ${b.name} is in their inventory.`); renderAll(); return; }
   case 'buyNo': { const m = gm && g.msgs.find(x => x.id === val), b = m && (m.buy || m.haggle); if (!b || (m.buy ? b.st !== 'ask' : b.st === 'done')) break;
     if (m.buy) { b.st = 'no'; m.text = `${N.gmName()} turned down ${b.who}’s purchase of ${b.name}.`; } else b.st = 'done';
