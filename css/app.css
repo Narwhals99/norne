@@ -2854,3 +2854,5 @@
 
 /* phone side panels, a little smaller (Jack, 2026-11-12): everything in them is drawn at 86% so more fits; the map keeps its true size so its touches stay exact */
 .app .sp-top,.app .rail.sp .pane-h,.app .rail.sp .rail-a,.app .rail.sp .rcnt.rc-in,.app .rail.sp .pane-c:not(.pane-map){zoom:.86}
+/* an item's class under its name in inventories and fighter cards (Jake) */
+.app .inv .it .icl,.app .tokcard .tk-it .icl{display:block;margin:2px 0 1px;font:700 10.5px/1.3 var(--f-ui);letter-spacing:.05em;text-transform:uppercase;color:var(--gold-tx);overflow-wrap:anywhere}

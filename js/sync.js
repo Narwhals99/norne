@@ -380,6 +380,8 @@ function syncNow(){
   const g = G();
   if (isGM()) {
     /* characters of players in a party live in that party's document (parties/<id>), so other parties never receive them */
+    /* inventory copies of catalog items carry the item's class for players (N.invTagAll) */
+    if (LOADED.has('gm/items') && charsReady()) N.invTagAll();
     if (charsReady()) {
       const inParty = new Set(g.groups.filter(x => x.party).flatMap(x => x.seats));
       writeUnits('game/chars', Object.fromEntries(Object.entries(g.chars).filter(([, c]) => !inParty.has(c.player))));
