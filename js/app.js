@@ -2487,10 +2487,11 @@ function craftText(c){
 }
 function craftGive(m){
   const c = m.craft, o = N.craftOwner(c.by), it = N.itemById(c.it); if (!o) return;
-  const note = it ? N.itemNote(it) : '', ic = it ? it.ic || N.itemKind(it.kind)[2] : c.ic || 'bag';
+  const note = it ? N.invNote(it) : '', ic = it ? it.ic || N.itemKind(it.kind)[2] : c.ic || 'bag';
   if (!o.inv) o.inv = [];
-  let row = o.inv.find(x => x[0].toLowerCase() === c.name.toLowerCase());
+  let row = o.inv.find(x => it && N.invX(x).it === it.id) || o.inv.find(x => x[0].toLowerCase() === c.name.toLowerCase());
   if (row) { row[1] += c.q; if (note) row[2] = note; if (ic !== 'bag') row[3] = ic; } else { row = ic !== 'bag' ? [c.name, c.q, note, ic] : note ? [c.name, c.q, note] : [c.name, c.q]; o.inv.push(row); }
+  if (it) N.invSetX(row, {it:it.id, cl:N.itemClass(it)});
   if (it && N.itemSlot(it)) N.invSetX(row, {w:1, ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})});
   c.given = true;
 }
