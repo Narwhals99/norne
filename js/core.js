@@ -716,6 +716,20 @@ N.invNote = it => [N.itemGears(it).map(([k, l]) => `${l} +${+it[k]}`).join(', ')
 N.itemClass = it => it ? ([...new Set([it.cls, it.sub, it.disc].filter(Boolean))].join(' · ') || N.itemKind(it.kind)[1]) : '';
 /* the class shown on a row: live from the catalog on the GM's device, from the row on a player's */
 N.rowClass = row => { const it = N.rowItem(row); return it ? N.itemClass(it) : String(N.invX(row).cl || ''); };
+/* ---------- the Inventory tab's sorting (Jack, 2026-11-13): rows grouped by Jake's item kinds (N.ITEMK), equipped gear by slot ----------
+   Players' devices have no catalog, so the GM's device writes the kind (x.k) and slot (x.sl) on each catalog row too (N.invTagAll).
+   A row the GM typed by hand has neither: its picture or class line picks the kind, and weapons/armor fall back to the card's own ratings. */
+const KIND_IC = {sword:'weapon', target:'weapon', arrowR:'weapon', knuckles:'weapon', shieldU:'armor', helm:'armor', boots:'clothing', magic:'magic', sparkle:'magic',
+  potion:'potion', drink:'food', spellbook:'book', scroll:'book', coins:'trinket', skull:'trinket'};
+N.rowSlot = row => { const it = N.rowItem(row); if (it) return N.itemSlot(it); return N.invX(row).sl || null; };
+N.rowKind = row => {
+  const it = N.rowItem(row), x = N.invX(row); if (it) return N.itemKind(it.kind)[0];
+  if (x.k && N.ITEMK.some(k => k[0] === x.k)) return x.k;
+  const sl = x.sl; if (sl) return sl === 'armor' || sl === 'shield' ? 'armor' : 'weapon';
+  const cl = String(x.cl || '').toLowerCase(), byCl = cl && N.ITEMK.find(k => k[1].toLowerCase() === cl); if (byCl) return byCl[0];
+  if (/armou?r|shield|helm|mail/.test(cl)) return 'armor'; if (/weapon|sword|bow|axe|dagger|spear|mace|ammo|arrow|bolt/.test(cl)) return 'weapon';
+  return KIND_IC[row && row[3]] || (x.w ? 'weapon' : 'other');
+};
 N.invOwners = () => [...Object.values(N.G.chars || {}), ...(N.G.npcs || [])];
 /* GM device, before saving: tag rows that match a catalog item with its id and class (only writes when something differs) */
 N.invTagAll = () => {
@@ -724,7 +738,8 @@ N.invTagAll = () => {
   for (const o of N.invOwners()) for (const row of o.inv || []) {
     if (!Array.isArray(row)) continue;
     const x = N.invX(row), it = (x.it && byId.get(x.it)) || byName.get(N.pvKey(row[0])); if (!it) continue;
-    const cl = N.itemClass(it); if (x.it !== it.id || x.cl !== cl) N.invSetX(row, {it:it.id, cl});
+    const cl = N.itemClass(it), k = N.itemKind(it.kind)[0], sl = N.itemSlot(it) || null;
+    if (x.it !== it.id || x.cl !== cl || x.k !== k || (x.sl || null) !== sl) N.invSetX(row, {it:it.id, cl, k, sl});
   }
 };
 /* the GM saved catalog item it (oldName: its name before the edit): bring every inventory copy up to date. Returns how many
@@ -740,7 +755,7 @@ N.itemSync = (it, oldName) => {
       if (linked ? x.it !== it.id : !keys.has(N.pvKey(row[0]))) continue;
       hit = true; if (x.eq || x.eq2) eq = true;
       row[0] = it.name; while (row.length < 3) row.push(''); row[2] = N.invNote(it); row[3] = ic;
-      N.invSetX(row, {it:it.id, cl:N.itemClass(it), w:sl ? 1 : 0, ...(sl ? {} : {eq:0, eq2:0}), ...(it.ammo ? (x.am == null ? {am:N.AMMO_MAX} : {}) : {am:null})});
+      N.invSetX(row, {it:it.id, cl:N.itemClass(it), k:N.itemKind(it.kind)[0], sl:sl || null, w:sl ? 1 : 0, ...(sl ? {} : {eq:0, eq2:0}), ...(it.ammo ? (x.am == null ? {am:N.AMMO_MAX} : {}) : {am:null})});
     }
     if (hit) { n++; if (eq) N.applyGear(o); }
   }

@@ -1426,6 +1426,7 @@ function act(v, a, el, e){
     else if (val !== 'gm' && ui.gmBack) { if (ui.ch === ui.gmBack.to) ui.ch = ui.gmBack.from; ui.gmBack = null; }
     ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; ui.heroStats = null; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
   case 'heroInv': ui.heroInv = !!val; break;
+  case 'invCat': ui.invOpen = {...(ui.invOpen || {}), [val]:!(ui.invOpen || {})[val]}; break;
   /* the toy figure maker test (js/figures.js): one player account, and the GM for NPC cards and fighters (val npc:<id> / tok:<id>) */
   case 'figOpen': close(); if (N.figOk && N.figOk()) { ui.figs = true; N.figOpen(v, val); } break;
   /* a random look for a fighter in the fight being set up (js/figures.js) */
@@ -1967,7 +1968,7 @@ function act(v, a, el, e){
     const cat = N.itemByName(n), ic = cat ? (cat.ic || N.itemKind(cat.kind)[2]) : null, icx = ic && ic !== 'bag' ? ic : null; /* same default picture the catalog shows (its kind's) */
     if (cat && !note) note = N.invNote(cat);
     const ex = c.inv.find(x => x[0].toLowerCase() === n.toLowerCase()); if (ex) { ex[1] += q; if (note) ex[2] = note; if (icx) ex[3] = icx; } else c.inv.push(icx ? [cat.name, q, note, icx] : note ? [cat ? cat.name : n, q, note] : [cat ? cat.name : n, q]);
-    const nr = ex || c.inv[c.inv.length - 1]; if (cat) N.invSetX(nr, {it:cat.id, cl:N.itemClass(cat), ...(N.itemSlot(cat) ? {w:1} : {}), ...(cat.ammo && N.invX(nr).am == null ? {am:N.AMMO_MAX} : {})});
+    const nr = ex || c.inv[c.inv.length - 1]; if (cat) N.invSetX(nr, {it:cat.id, cl:N.itemClass(cat), k:N.itemKind(cat.kind)[0], sl:N.itemSlot(cat) || null, ...(N.itemSlot(cat) ? {w:1} : {}), ...(cat.ammo && N.invX(nr).am == null ? {am:N.AMMO_MAX} : {})});
     if (d.nd) { ui.invQ = 1; renderAll(); return; }
     if (!d.c) { ui.invQ = 1; toast(v, `Added to ${c.name}’s inventory.`); renderAll(); return; }
     sys(`${N.gmName()} added ${n} ×${q} to ${c.short}’s inventory.`, 'dm-' + c.player); ui.invQ = 1;
@@ -2006,7 +2007,10 @@ function act(v, a, el, e){
     if (!n) { toast(v, 'An item needs a name.'); break; }
     ui.invEdit = null;
     if (q === 0) { c.inv.splice(+d.i, 1); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
-    const was = it[0], x0 = it[4], x = x0 && was.toLowerCase() !== n.toLowerCase() ? (({it:_i, cl:_c, ...r}) => Object.keys(r).length ? r : null)(x0) : x0; c.inv[+d.i] = [n, q > 0 ? q : it[1], note, ...(ic && ic !== 'bag' || x ? [ic || 'bag'] : []), ...(x ? [x] : [])];
+    const was = it[0], x0 = it[4], x1 = x0 && was.toLowerCase() !== n.toLowerCase() ? (({it:_i, cl:_c, k:_k, sl:_s, ...r}) => Object.keys(r).length ? r : null)(x0) : x0;
+    /* a hand-made row (not from the catalog) can be filed under one of the catalog's kinds for the Inventory tab ('' = guess from its picture) */
+    const kSel = v.root.querySelector(`#iek-${key}-${v.id}`), x = kSel && !N.rowItem([n]) ? (({k:_k, ...r}) => kSel.value ? {...r, k:kSel.value} : Object.keys(r).length ? r : null)(x1 || {}) : x1;
+    c.inv[+d.i] = [n, q > 0 ? q : it[1], note, ...(ic && ic !== 'bag' || x ? [ic || 'bag'] : []), ...(x ? [x] : [])];
     if (d.c) sys(`${N.gmName()} changed ${was === n ? n : `${was} to ${n}`} in ${c.short}’s inventory.`, 'dm-' + c.player);
     renderAll(); return;
   }
