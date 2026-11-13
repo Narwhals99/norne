@@ -2870,3 +2870,65 @@
 .app .sp-top,.app .rail.sp .pane-h,.app .rail.sp .rail-a,.app .rail.sp .rcnt.rc-in,.app .rail.sp .pane-c:not(.pane-map){zoom:.86}
 /* an item's class under its name in inventories and fighter cards (Jake) */
 .app .inv .it .icl,.app .tokcard .tk-it .icl{display:block;margin:2px 0 1px;font:700 10.5px/1.3 var(--f-ui);letter-spacing:.05em;text-transform:uppercase;color:var(--gold-tx);overflow-wrap:anywhere}
+
+/* ---------- the Inventory tab (2026-11-13): figure, weapons and armor, items in bubbles by kind ---------- */
+.app .invv .sec>h3 svg{width:14px;height:14px;color:var(--gold-tx)}
+.app .inv-me{grid-template-columns:auto 1fr;align-items:center;gap:16px;padding:14px;border-radius:22px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .inv-fig{width:112px;height:140px;border-radius:18px;overflow:hidden;display:grid;place-items:center;
+  background:radial-gradient(70% 55% at 50% 40%,var(--gold-soft),transparent 75%),var(--sunk);box-shadow:inset 0 0 0 1px var(--line);position:relative}
+.app .inv-fig img{display:block;width:100%;height:100%;object-fit:contain;position:relative;z-index:1}
+.app .inv-fig i.wait{width:28px;height:28px;border-radius:50%;background:var(--line);animation:figwait .9s ease-in-out infinite alternate}
+.app .inv-fig .nofig svg{width:46px;height:46px;color:var(--ink-4);opacity:.7}
+@media (prefers-reduced-motion:reduce){.app .inv-fig i.wait{animation:none}}
+.app .inv-who{min-width:0;display:grid;gap:6px;justify-items:start}
+.app .inv-who h2{margin:0;font:700 24px/1.1 var(--f-display);color:var(--ink);overflow-wrap:anywhere}
+.app .inv-who .inv-count{margin:0;font:600 13px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .inv-who .goldf .eyebrow{display:none}
+.app .inv-who .btn{margin-top:2px}
+
+.app .inv-gear{align-content:start}
+.app .gslots{display:grid;gap:8px}
+.app .gslot{display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;padding:9px 12px 9px 9px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .gslot .gi{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--sunk);color:var(--ink-4)}
+.app .gslot .gi svg{width:20px;height:20px}
+.app .gslot.on{box-shadow:inset 0 0 0 1.5px var(--gold)}
+.app .gslot.on .gi,.app .gslot.bare .gi{background:var(--gold-soft);color:var(--gold-tx)}
+.app .gslot .gt{min-width:0;display:grid;gap:2px}
+.app .gslot .gt b{font:700 14px/1.25 var(--f-ui);color:var(--ink);overflow-wrap:anywhere}
+.app .gslot .gt b i{font-style:normal;color:var(--ink-3);font-weight:600}
+.app .gslot .gt b .none{color:var(--ink-3);font-weight:600}
+.app .gslot .gt small{font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .gslot .gr{min-width:38px;height:30px;padding:0 8px;border-radius:999px;display:grid;place-items:center;background:var(--gold);color:var(--gold-ink);font:800 15px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.app .gslot .gr.z{background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--line)}
+.app .gpips{display:flex;gap:4px;margin-top:3px}
+.app .gpips i{width:9px;height:9px;border-radius:50%;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .gpips i.on{background:var(--gold);box-shadow:none}
+.app .gmore{margin:0;display:flex;align-items:center;gap:7px;font:600 12.5px/1.35 var(--f-ui);color:var(--ink-2)}
+.app .gmore svg{width:14px;height:14px;flex:none;color:var(--gold-tx)}
+
+.app .inv-cats{display:grid;gap:12px;align-items:start}
+.app .inv-cats:not(.none) .icat{break-inside:avoid}
+.app .icat{min-width:0;border-radius:20px;padding:10px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line);display:grid;gap:8px}
+.app .icat-h{display:flex;align-items:center;gap:9px;padding:2px 4px 0 2px}
+.app .icat-h .ci{width:30px;height:30px;border-radius:10px;display:grid;place-items:center;background:var(--gold-soft);color:var(--gold-tx)}
+.app .icat-h .ci svg{width:16px;height:16px}
+.app .icat-h b{flex:1;min-width:0;font:800 13.5px/1.2 var(--f-ui);color:var(--ink)}
+.app .icat-h .cn{min-width:24px;height:22px;padding:0 7px;border-radius:999px;display:grid;place-items:center;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:800 12px/1 var(--f-ui);color:var(--ink-2)}
+.app .inv-cats.none{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.app .icat.off{padding:7px 8px;border-radius:16px;opacity:.5;filter:grayscale(1);box-shadow:inset 0 0 0 1px var(--line);background:transparent}
+.app .icat.off .icat-h{padding:0}
+.app .icat.off .icat-h .ci{width:24px;height:24px;border-radius:8px;background:var(--sunk);color:var(--ink-3)}
+.app .icat.off .icat-h .ci svg{width:13px;height:13px}
+.app .icat.off .icat-h b{font-size:12.5px;font-weight:700;color:var(--ink-3)}
+.app .icat.off .icat-h .cn{background:transparent;box-shadow:none;color:var(--ink-3)}
+.app .inv-sep{border:0;height:1px;background:var(--line);margin:6px 0}
+.app .ied-k{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center}
+@container dev (min-width: 760px){
+  .app .inv-me{grid-template-columns:auto 1fr;padding:18px;align-self:stretch}
+  .app .inv-fig{width:190px;height:100%;min-height:240px}
+  .app .inv-who h2{font-size:30px}
+  .app .inv-cats:not(.none){display:block;columns:3 280px;column-gap:12px}
+  .app .inv-cats:not(.none) .icat{margin-bottom:12px}
+  .app .inv-cats.gmv{columns:2 440px}
+  .app .inv-cats.none{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+}

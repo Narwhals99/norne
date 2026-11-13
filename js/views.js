@@ -1206,9 +1206,8 @@ N.heroBag = v => v.dev === 'phone' && !isGM(v) && v.ui.tab === 'hero';
 function heroInv(v, c, mine){
   const own = c === mine;
   return `<div class="scroll" data-sk="heroinv" style="min-height:0"><div class="top ph" style="display:flex"><button type="button" class="ibtn" data-a="heroInv" data-v="" aria-label="Back to the character sheet">${IC('left')}</button><h1>${own ? 'My inventory' : `${esc(c.built ? c.short : pn(c))}’s inventory`}</h1><button type="button" class="btn sm" data-a="heroInv" data-v="">${IC('x')}Close</button></div>
-    <div class="sheetv">${c.built
-      ? `<section class="sec"><h3>Items</h3>${invList(v, c, false)}</section>
-        ${c.invText ? `<section class="sec"><h3>Notes</h3>${noteBox(v, c, 'invText', false, '')}</section>` : ''}`
+    <div class="sheetv invv">${c.built
+      ? N.invTab(v, c, false)
       : `<section class="sec"><p class="muted">${own ? `${esc(N.gmName())} hasn’t made your character card yet.` : 'No card yet.'}</p></section>`}</div></div>`;
 }
 const asps = list => list.filter(x => x[1]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.6,.5,-.3][i%3]}deg"><span class="k">${k}</span><span>${N.emoText(N.linkText(a))}</span></span>`).join('');
@@ -1249,21 +1248,28 @@ const noteBox = (v, c, k, edit, ph) => edit ? `<textarea class="inp" id="cn-${k}
   : c[k] ? `<p style="margin:0;white-space:pre-line">${N.emoText(N.linkText(c[k]))}</p>` : '<p class="muted">Nothing yet.</p>';
 /* the items the GM hands out; only the GM changes them */
 function invList(v, c, gm, owner){
+  const {own, key, rowHtml} = invRows(v, c, gm, owner);
+  const rows = (c.inv || []).map((r, i) => [r, i]), wpn = rows.filter(([r]) => N.isWeaponRow(r)), rest = rows.filter(([r]) => !N.isWeaponRow(r));
+  const list = rs => rs.map(([r, i]) => rowHtml(r, i)).join('');
+  return `${wpn.length ? `<div class="inv-h">${IC('sword')}Weapons and armor</div><div class="inv">${list(wpn)}</div>${rest.length ? `<div class="inv-h">${IC('bag')}Other items</div>` : ''}` : ''}<div class="inv">${list(rest) || (wpn.length ? '' : `<p class="muted">${gm?'No items yet.':`No items yet. ${esc(N.gmName())} adds them here.`}</p>`)}</div>
+      ${invAddBox(v, c, gm, own, key)}`;
+}
+const invAddBox = (v, c, gm, own, key) => gm?`<div class="invadd"><input class="inp" id="inv-${key}-${v.id}" placeholder="Add an item, e.g. Silver dagger" aria-label="Item name"${G().items?.length ? ` list="itcat-${v.id}" autocomplete="off"` : ''}>${G().items?.length ? `<datalist id="itcat-${v.id}">${G().items.map(it => `<option value="${esc(it.name)}">${esc(N.itemKind(it.kind)[1])}</option>`).join('')}</datalist>` : ''}<input class="inp" id="invq-${key}-${v.id}" data-i="invQ" type="number" min="1" value="${v.ui.invQ||1}" aria-label="How many"><button type="button" class="btn sm" data-a="invAdd" ${own}>${IC('plus')}Add</button><input class="inp" id="invd-${key}-${v.id}" placeholder="What it does (optional), e.g. Melee 1" aria-label="Item note" style="grid-column:1/-1"></div>${c.player?`<p class="muted" style="margin:6px 0 0;font:600 12px/1.4 var(--f-ui)">Changes post a note in ${esc(pn(c))}’s private chat.</p>`:''}`:'';
+/* one inventory row, with the GM's buttons (equip, −/+, transfer, edit, remove) */
+function invRows(v, c, gm, owner, inCat){
   /* owner: an NPC being made or edited keeps its items on the draft (data-nd) until it is saved */
   const own = owner || (c.player ? `data-c="${c.id}"` : `data-n="${c.id}"`), key = owner ? 'nd' : c.id;
   const ed = v.ui.invEdit;
   /* Jake's rule: weapons and armor get their own list, each with an Equipped switch (GM) and, for ammo and thrown weapons, an ammo count */
   const rowHtml = ([n,q,d,ic],i) => { const row = c.inv[i], x = N.invX(row), canEq = gm && !owner && !!N.itemSlot(N.rowItem(row));
-    return gm && ed && ed.key === key && ed.i === i ? invEditRow(v, key, own, i, ed.n ?? n, ed.q ?? q, ed.d ?? d, ed.ic ?? ic) : `<div class="it${x.eq ? ' eq' : ''}"><span class="ii">${IC(ic||'bag')}</span><span><b>${N.emoText(N.marks(esc(n)))}</b>${(cl => cl ? `<span class="icl">${esc(cl)}</span>` : '')(N.rowClass(row))}${x.eq ? ' <span class="eqtag">Equipped</span>' : ''}${d?`<small>${N.emoText(N.marks(esc(d)))}</small>`:''}${N.invGm(v, row)}${x.am != null ? `<span class="ammo"><span class="eyebrow">Ammo</span>${gm ? `<button type="button" data-a="invAmmo" ${own} data-i="${i}" data-d="-1" aria-label="One less ammo" ${x.am <= 0 ? 'disabled' : ''}>−</button>` : ''}<b>${x.am}</b><small>of ${N.AMMO_MAX}</small>${gm ? `<button type="button" data-a="invAmmo" ${own} data-i="${i}" data-d="1" aria-label="One more ammo" ${x.am >= N.AMMO_MAX ? 'disabled' : ''}>+</button>` : ''}</span>` : ''}</span><span class="q">×${q}</span>${gm?`<span class="mini">${canEq ? `<button type="button" class="eqb" data-a="invEquip" ${own} data-i="${i}" aria-pressed="${!!x.eq}" aria-label="${x.eq ? 'Unequip' : 'Equip'} ${esc(n)}" title="${x.eq ? 'Unequip' : 'Equip'}">${IC(x.eq ? 'check' : 'hand')}</button>` : ''}<button type="button" data-a="invQty" ${own} data-i="${i}" data-d="-1" aria-label="One fewer ${esc(n)}">−</button><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="1" aria-label="One more ${esc(n)}">+</button>${!owner ? `<button type="button" data-a="invTransfer" ${own} data-i="${i}" aria-label="Transfer ${esc(n)}">${IC('right')}</button>` : ''}<button type="button" data-a="invEdit" ${own} data-i="${i}" aria-label="Edit ${esc(n)}">${IC('pen')}</button><button type="button" data-a="invDel" ${own} data-i="${i}" aria-label="Remove ${esc(n)}">${IC('x')}</button></span>`:''}</div>`; };
-  const rows = (c.inv || []).map((r, i) => [r, i]), wpn = rows.filter(([r]) => N.isWeaponRow(r)), rest = rows.filter(([r]) => !N.isWeaponRow(r));
-  const list = rs => rs.map(([r, i]) => rowHtml(r, i)).join('');
-  return `${wpn.length ? `<div class="inv-h">${IC('sword')}Weapons and armor</div><div class="inv">${list(wpn)}</div>${rest.length ? `<div class="inv-h">${IC('bag')}Other items</div>` : ''}` : ''}<div class="inv">${list(rest) || (wpn.length ? '' : `<p class="muted">${gm?'No items yet.':`No items yet. ${esc(N.gmName())} adds them here.`}</p>`)}</div>
-      ${gm?`<div class="invadd"><input class="inp" id="inv-${key}-${v.id}" placeholder="Add an item, e.g. Silver dagger" aria-label="Item name"${G().items?.length ? ` list="itcat-${v.id}" autocomplete="off"` : ''}>${G().items?.length ? `<datalist id="itcat-${v.id}">${G().items.map(it => `<option value="${esc(it.name)}">${esc(N.itemKind(it.kind)[1])}</option>`).join('')}</datalist>` : ''}<input class="inp" id="invq-${key}-${v.id}" data-i="invQ" type="number" min="1" value="${v.ui.invQ||1}" aria-label="How many"><button type="button" class="btn sm" data-a="invAdd" ${own}>${IC('plus')}Add</button><input class="inp" id="invd-${key}-${v.id}" placeholder="What it does (optional), e.g. Melee 1" aria-label="Item note" style="grid-column:1/-1"></div>${c.player?`<p class="muted" style="margin:6px 0 0;font:600 12px/1.4 var(--f-ui)">Changes post a note in ${esc(pn(c))}’s private chat.</p>`:''}`:''}`;
+    return gm && ed && ed.key === key && ed.i === i ? invEditRow(v, key, own, i, ed.n ?? n, ed.q ?? q, ed.d ?? d, ed.ic ?? ic, N.rowItem(row) ? null : ed.k ?? (x.k || '')) : `<div class="it${x.eq ? ' eq' : ''}"><span class="ii">${IC(ic||'bag')}</span><span><b>${N.emoText(N.marks(esc(n)))}</b>${(cl => cl && !(inCat && cl === N.itemKind(N.rowKind(row))[1]) ? `<span class="icl">${esc(cl)}</span>` : '')(N.rowClass(row))}${x.eq ? ' <span class="eqtag">Equipped</span>' : ''}${d?`<small>${N.emoText(N.marks(esc(d)))}</small>`:''}${N.invGm(v, row)}${x.am != null ? `<span class="ammo"><span class="eyebrow">Ammo</span>${gm ? `<button type="button" data-a="invAmmo" ${own} data-i="${i}" data-d="-1" aria-label="One less ammo" ${x.am <= 0 ? 'disabled' : ''}>−</button>` : ''}<b>${x.am}</b><small>of ${N.AMMO_MAX}</small>${gm ? `<button type="button" data-a="invAmmo" ${own} data-i="${i}" data-d="1" aria-label="One more ammo" ${x.am >= N.AMMO_MAX ? 'disabled' : ''}>+</button>` : ''}</span>` : ''}</span><span class="q">×${q}</span>${gm?`<span class="mini">${canEq ? `<button type="button" class="eqb" data-a="invEquip" ${own} data-i="${i}" aria-pressed="${!!x.eq}" aria-label="${x.eq ? 'Unequip' : 'Equip'} ${esc(n)}" title="${x.eq ? 'Unequip' : 'Equip'}">${IC(x.eq ? 'check' : 'hand')}</button>` : ''}<button type="button" data-a="invQty" ${own} data-i="${i}" data-d="-1" aria-label="One fewer ${esc(n)}">−</button><button type="button" data-a="invQty" ${own} data-i="${i}" data-d="1" aria-label="One more ${esc(n)}">+</button>${!owner ? `<button type="button" data-a="invTransfer" ${own} data-i="${i}" aria-label="Transfer ${esc(n)}">${IC('right')}</button>` : ''}<button type="button" data-a="invEdit" ${own} data-i="${i}" aria-label="Edit ${esc(n)}">${IC('pen')}</button><button type="button" data-a="invDel" ${own} data-i="${i}" aria-label="Remove ${esc(n)}">${IC('x')}</button></span>`:''}</div>`; };
+  return {own, key, rowHtml};
 }
 /* the GM changes an item in place: name, how many, what it does and its picture */
 const INV_IC = ['bag','sword','helm','potion','coins','scroll','drink','boots','knuckles','skull'];
-const invEditRow = (v, key, own, i, n, q, d, ic) => `<div class="it ied">
+const invEditRow = (v, key, own, i, n, q, d, ic, k) => `<div class="it ied">
   <div class="ied-ics" role="group" aria-label="Picture">${INV_IC.map(x => `<button type="button" data-a="invIc" data-v="${x}" aria-pressed="${(ic || 'bag') === x}" aria-label="${x}">${IC(x)}</button>`).join('')}</div>
+  ${k != null ? `<label class="ied-k"><span class="eyebrow">Kind</span><select class="inp" id="iek-${key}-${v.id}" data-i="ie" data-k="k" aria-label="Kind"><option value="">From its picture</option>${N.ITEMK.map(([kk, l]) => `<option value="${kk}"${k === kk ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>` : ''}
   <div class="invadd" style="margin:0"><input class="inp" id="ien-${key}-${v.id}" data-i="ie" data-k="n" value="${esc(n)}" placeholder="Item name" aria-label="Item name"><input class="inp" id="ieq-${key}-${v.id}" data-i="ie" data-k="q" type="number" min="0" value="${q}" aria-label="How many"><span></span>
   <input class="inp" id="ied-${key}-${v.id}" data-i="ie" data-k="d" value="${esc(d || '')}" placeholder="What it does (optional)" aria-label="Item note" style="grid-column:1/-1"></div>
   <div class="ied-act"><button type="button" class="btn sm ghost" data-a="invEditCancel">Cancel</button><button type="button" class="btn sm primary" data-a="invSave" ${own} data-i="${i}">${IC('check')}Save</button></div></div>`;
@@ -1279,15 +1285,54 @@ N.invPv = (v, name) => {
   if (isGM(v)) { const it = N.itemByName(name); return it ? N.itemPvOk(it).map(p => { const ss = (p.see || []).filter(s => G().P[s]); return box(ss.length ? `Only ${N.namesList(ss)} ${ss.length > 1 ? 'see' : 'sees'} this` : 'Nobody picked yet · only you see it', p.text.trim()); }).join('') : ''; }
   return ((G().ivMine || {})[N.pvKey(name)] || []).map(t => box('Only you see this', t)).join('');
 };
+/* ---------- the Inventory tab (Jack, 2026-11-13): the character's figure, what they have equipped, then every item in
+   bubbles by Jake's item kinds (N.ITEMK). Kinds with nothing in them are greyed out at the end. The rows and the GM's
+   buttons are the same as on the sheet (invRows). ---------- */
+const INV_SLOTS = [['melee','Melee weapon','sword','gearAtk','Fighting · shifts added to a hit'],['ranged','Ranged weapon','target','gearRng','Shooting · added to the roll'],
+  ['ammo','Ranged ammo','arrowR','gearAmmo','Shooting · shifts added to a hit'],['armor','Armor','shieldU','gearDef','shifts taken off a hit'],['shield','Shield','shieldU','shield','+1 when defending']];
+function invFig(v, c){
+  const mine = c.player === v.role && !isGM(v), src = c.fig && N.figPic ? N.figPic(c.fig, 'big') : null;
+  const pic = src ? `<img src="${src}" alt="${esc(c.short || c.name)}’s figure">` : c.fig ? '<i class="wait" aria-hidden="true"></i>' : `<span class="nofig" aria-hidden="true">${IC('hero')}</span>`;
+  const btn = mine && N.figOk && N.figOk() ? `<button type="button" class="btn sm" data-a="figOpen">${IC(c.fig ? 'pen' : 'plus')}${c.fig ? 'Change figure' : 'Make my figure'}</button>` : '';
+  const n = (c.inv || []).length, eq = (c.inv || []).filter(r => N.invX(r).eq || N.invX(r).eq2).length;
+  return `<section class="sec inv-me"><div class="inv-fig">${pic}</div><div class="inv-who"><span class="eyebrow">${mine ? 'Carrying' : esc(pn(c))}</span><h2>${esc(c.short || c.name)}</h2>
+    <p class="inv-count">${n ? `${n} item${n === 1 ? '' : 's'}` : 'No items'}${eq ? ` · ${eq} equipped` : ''}</p>${goldHtml(c, 'c', false)}${btn}</div></section>`;
+}
+function invGear(v, c){
+  const eqRows = (c.inv || []).filter(r => N.invX(r).eq || N.invX(r).eq2), used = new Set();
+  const tiles = INV_SLOTS.map(([sl, l, ic, rk, how]) => {
+    const rs = eqRows.filter(r => N.rowSlot(r) === sl); rs.forEach(r => used.add(r));
+    const rate = +c[rk] || 0, am = rs.map(r => N.invX(r).am).find(a => a != null);
+    if (sl === 'shield' && !rs.length && !rate) return '';
+    return `<div class="gslot${rs.length ? ' on' : rate ? ' bare' : ''}"><span class="gi">${IC(ic)}</span><span class="gt"><span class="eyebrow">${l}</span>
+      <b>${rs.length ? rs.map(r => N.emoText(N.marks(esc(r[0])))).join(' <i>&amp;</i> ') : rate ? 'Set on the card' : '<span class="none">Nothing equipped</span>'}</b>
+      <small>${how}${sl === 'melee' && +c.gearAtk2 ? ` · second weapon ${sgn(+c.gearAtk2)}` : ''}</small>${am != null ? `<span class="gpips" aria-label="${am} of ${N.AMMO_MAX} ammo">${Array.from({length:N.AMMO_MAX}, (_, i) => `<i class="${i < am ? 'on' : ''}"></i>`).join('')}</span>` : ''}</span>
+      <span class="gr${rate ? '' : ' z'}">${sgn(rate)}</span></div>`; }).join('');
+  const other = eqRows.filter(r => !used.has(r));
+  return `<section class="sec inv-gear"><h3>${IC('swords')}Weapons and armor</h3><div class="gslots">${tiles}</div>
+    ${other.length ? `<p class="gmore">${IC('check')}Also equipped: ${other.map(r => `<b>${N.emoText(N.marks(esc(r[0])))}</b>`).join(', ')}</p>` : ''}
+    ${c.silverAtk || c.silverAmmo ? `<p class="gmore">${IC('sparkle')}Silver ${c.silverAtk && c.silverAmmo ? 'weapon and ammo' : c.silverAtk ? 'weapon' : 'ammo'}: bites vampires and werewolves</p>` : ''}</section>`;
+}
+function invCats(v, c, gm){
+  const {own, key, rowHtml} = invRows(v, c, gm, null, true);
+  const by = {}; (c.inv || []).forEach((r, i) => { const k = N.rowKind(r); (by[k] = by[k] || []).push([r, i]); });
+  const full = N.ITEMK.filter(([k]) => by[k]), empty = N.ITEMK.filter(([k]) => !by[k]);
+  const n = k => by[k].length;
+  return `<section class="sec full inv-cats-sec"><h3>${IC('bag')}Items</h3>
+    ${full.length ? `<div class="inv-cats${gm ? ' gmv' : ''}">${full.map(([k, l, ic]) => `<div class="icat" data-k="${k}"><div class="icat-h"><span class="ci">${IC(ic)}</span><b>${esc(l)}</b><span class="cn">${n(k)}</span></div><div class="inv">${by[k].map(([r, i]) => rowHtml(r, i)).join('')}</div></div>`).join('')}</div>`
+      : `<p class="muted">${gm ? 'No items yet.' : `No items yet. ${esc(N.gmName())} adds them here.`}</p>`}
+    ${empty.length ? `<div class="inv-cats none" aria-label="Kinds with nothing in them">${empty.map(([k, l, ic]) => `<div class="icat off" data-k="${k}"><div class="icat-h"><span class="ci">${IC(ic)}</span><b>${esc(l)}</b><span class="cn">0</span></div></div>`).join('')}</div>` : ''}
+    ${invAddBox(v, c, gm, own, key)}</section>`;
+}
+N.invTab = (v, c, gm) => `${invFig(v, c)}${invGear(v, c)}${invCats(v, c, gm)}${gm || c.invText ? `<section class="sec full"><h3>Notes</h3>${noteBox(v, c, 'invText', gm, 'What they carry. The player can read this.')}</section>` : ''}`;
 function invBody(v){
   const gm = isGM(v);
   const list = gm ? N.pcs() : [N.charOf(v.role)].filter(Boolean);
   const body = list.length ? list.map(c => !c.built
       ? `<section class="sec"><h3>${esc(pn(c))}</h3><p class="muted">${gm?'No card yet. Make it in Cast first.':`${esc(N.gmName())} hasn’t made your character card yet.`}</p></section>`
-      : `<section class="sec"><h3>${gm?esc(c.short):'Items'}</h3>${gm?`<div style="display:flex;gap:10px;align-items:center">${N.av(c,36)}<span class="muted" style="font:600 13px/1.3 var(--f-ui)">Played by ${esc(pn(c))}</span></div>`:''}${invList(v, c, gm)}</section>
-        ${gm || c.invText ? `<section class="sec"><h3>${gm?`${esc(c.short)}’s notes`:'Notes'}</h3>${noteBox(v, c, 'invText', gm, 'What they carry. The player can read this.')}</section>` : ''}`).join('')
+      : N.invTab(v, c, gm)).join(gm ? '<hr class="inv-sep full">' : '')
     : `<div class="quiet full"><div class="art"></div><p>${gm?'No one has a seat yet.':'Nothing here yet.'}</p></div>`;
-  return `<div class="sheetv">${body}</div>`;
+  return `<div class="sheetv invv">${body}</div>`;
 }
 function invPage(v){
   const ph = v.dev === 'phone';

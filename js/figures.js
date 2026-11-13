@@ -190,20 +190,22 @@ N.figMakerOpen = () => !!box;
    one at a time, and lets go of its 3D context when it has had nothing to do for a while (phones have few). */
 const PICS = new Map(), PEND = new Set();
 let shotQ = Promise.resolve(), shotR = null, shotIdle = 0;
-N.figPic = spec => {
+N.figPic = (spec, big) => {
   if (!spec || !spec.race) return null;
-  const key = JSON.stringify(spec);
+  const key = (big ? 'big:' : '') + JSON.stringify(spec);
   if (PICS.has(key)) return PICS.get(key);
   if (!PEND.has(key)) { PEND.add(key);
-    shotQ = shotQ.then(() => shoot(spec)).then(src => { PICS.set(key, src); if (PICS.size > 80) PICS.delete(PICS.keys().next().value); })
+    shotQ = shotQ.then(() => shoot(spec, big)).then(src => { PICS.set(key, src); if (PICS.size > 80) PICS.delete(PICS.keys().next().value); })
       .catch(() => { PICS.set(key, null); }).then(() => { PEND.delete(key); if (N.renderAll) N.renderAll(); }); }
   return null;
 };
-function shoot(spec){
+function shoot(spec, big){
   return kitLoad().then(({THREE, K}) => K.loadHair(K.hairId(spec.hair || 'bald')).catch(() => {}).then(() => {
-    const W = 96, H = 120;
+    /* big: the Inventory tab's figure */
+    const W = big ? 192 : 96, H = big ? 240 : 120;
     if (!shotR) { shotR = new THREE.WebGLRenderer({antialias:true, alpha:true, preserveDrawingBuffer:true, powerPreference:'low-power'});
-      shotR.setPixelRatio(2); shotR.setSize(W, H, false); shotR.outputColorSpace = THREE.SRGBColorSpace; }
+      shotR.setPixelRatio(2); shotR.outputColorSpace = THREE.SRGBColorSpace; }
+    shotR.setSize(W, H, false);
     const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight(0xfff0dc, 0x40386a, 1.9));
     const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(-300, 700, 600); sc.add(sun);
     const s = K.faceFix(JSON.parse(JSON.stringify(spec))); s.hair = K.hairId(s.hair || 'bald');
