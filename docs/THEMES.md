@@ -215,6 +215,15 @@ he wanted "slick, smooth, glossy, bubbly, like Apple's UI". What it learned:
   Change the source and run it again.
 - Not done yet: a contrast audit per scheme, an iPhone check of the many `backdrop-filter` panes, and designed transitions.
 
+### 2.12 Day edges (every style)
+
+On 2026-11-13 Jack found Day hard to read in almost every style: panels, cards, rows, chips and bubbles had no visible edge.
+The cause was the Day hairline tokens (`--line*` at 9-17% ink). `css/edges.css`, loaded after every style sheet, re-sets them in
+Day only from one `--edge-rgb` per style (the style's own line hue) at 36/54/74%, gives Meta glass a thin dark outline (its white
+rims vanish on a pale page), makes the Depth contact shadow crisper by day and draws a line above the phone tab bar (not Oak or
+Liquid, which have their own). Night is untouched. **A new style must add its `--edge-rgb` line there**, and should not set Day
+`--line*` lighter than this.
+
 ## 3. The token contract
 
 `app.css` draws everything from custom properties on `.app`. A style mostly redefines these for Night (on

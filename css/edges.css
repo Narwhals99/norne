@@ -1,0 +1,21 @@
+/* Day edges: in Day every style's hairlines (--line*) were 9-17% ink, so panels, cards, rows, chips and bubbles had edges
+   nobody could see (Jack, 2026-11-13). Day only: the line tokens are re-set darker per style (same hue as the style's own
+   lines), and Meta glass, which is drawn with white rims, gets a thin dark outline. Night is untouched.
+   Loaded after every style sheet, so equal specificity wins. Outlines follow border-radius and never change a box's size. */
+.app[data-theme="day"]{--edge-rgb:86,84,40}
+.app[data-style="parchment"][data-theme="day"]{--edge-rgb:78,48,20}
+.app[data-style="oak"][data-theme="day"]{--edge-rgb:109,75,39}
+.app[data-style="sketch"][data-theme="day"]{--edge-rgb:0,0,0}
+.app[data-style="gerleez"][data-theme="day"]{--edge-rgb:57,47,90}
+.app[data-style="lux"][data-theme="day"]{--edge-rgb:20,20,24}
+.app[data-style="gloss"][data-theme="day"]{--edge-rgb:20,22,34}
+.app[data-theme="day"]{
+  --line:rgba(var(--edge-rgb),.36); --line-2:rgba(var(--edge-rgb),.54); --line-3:rgba(var(--edge-rgb),.74);
+  --edge:rgba(var(--edge-rgb),.42)}
+/* a crisp contact line under raised things (Depth switch), stronger than before by day */
+.app[data-theme="day"][data-depth="soft"]{--dp-c:.42;--dp-a:.24}
+.app[data-theme="day"][data-depth="strong"]{--dp-c:.5;--dp-a:.38}
+/* Meta glass: white rims vanish on a pale page */
+.app[data-theme="day"] :is(.m.ooc .bub){outline:1px solid var(--edge);outline-offset:-1px}
+/* phone tab bar: a clear line where the page ends (Oak has its wooden rail, Liquid its floating capsule) */
+.app[data-theme="day"]:not([data-style="oak"]):not([data-style="gloss"]) .tabbar{border-top:1px solid var(--line-2);padding-top:5px}
