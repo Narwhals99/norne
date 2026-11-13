@@ -467,6 +467,7 @@ function syncNow(){
       const iv = {}; for (const it of g.items || []) { const l = N.itemPvFor(it, st); if (l.length) iv[N.pvKey(it.name)] = l; }
       if (Object.keys(iv).length) only[st].iv = iv; }
     writeUnits('gm/shops', {...(g.shops || {})});
+    writeUnits('gm/crafts', {...(g.crafts || {})});
     writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, wl:g.wlinks || {}, hlocs:g.hlocs || {}, npcdirs:g.npcDirs || []});
     /* parts of a card the GM revealed to single players: each gets only their own parts (N.revealed) */
     for (const [id, by] of Object.entries(g.rev || {})) {
@@ -759,7 +760,7 @@ async function start(role){
   if (isSeat(role)) keepTabSeat(role);
   loadLocal();
   const docs = isGM()
-    ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','gm/items','gm/shops','game/news','gm/news','game/maps','game/wiki','game/meta','game/emoji']
+    ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','gm/items','gm/shops','gm/crafts','game/news','gm/news','game/maps','game/wiki','game/meta','game/emoji']
     : ['game/chars','game/combat','game/maps','game/wiki','game/news','game/meta','game/emoji'];
   const APPLY = {
     'game/chars': u => { CH.base = u; mergeChars(); ensureChars(); },
@@ -769,6 +770,7 @@ async function start(role){
     'gm/maps': setMaps,
     'gm/wiki': u => { g.wiki = vals(u).sort(byO); },
     'gm/npcs': u => { g.npcs = vals(u).map(normNpc).sort((a,b) => a.name.localeCompare(b.name)); },
+    'gm/crafts': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.crafts = o; },
     'gm/shops': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.shops = o; },
     'gm/items': u => { g.items = vals(u).map(({o, ...x}) => x).sort((a,b) => a.name.localeCompare(b.name)); },
     'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.wlinks = u.wl ? JSON.parse(u.wl) : {}; g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; },

@@ -338,7 +338,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, shops:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, shops:{}, crafts:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -768,6 +768,19 @@ N.shopOut = s => ({id:s.id, ch:s.ch, state:s.state, name:s.name || '', t:s.t || 
   npcs:(s.npcs || []).map(n => ({name:n.name, portrait:n.portrait || null})), items:(s.items || []).map(x => { const {it, ...o} = x; return o; })});
 /* the people of a store as {name, portrait, color}: on the GM's device from the cards, on a player's from the copy */
 N.shopPcs = s => (s.pcs || []).map(x => typeof x === 'string' ? (c => c && c.built ? {id:x, name:c.short || c.name, portrait:c.portrait, color:c.color} : null)(N.G.chars[x]) : x).filter(Boolean);
+/* ---------- crafting sessions (Jake): the GM sets up one crafting roll in a chat, like a store ----------
+   G.crafts = {<chat>: {id, ch, pcs:[char ids], npcs:[npc card ids], by:'pc:<id>'|'npc:<id>' (the crafter), use:{'<owner>|<row name>': qty},
+   make:<catalog item id>, q:how many, diff, mod:-6..+6, t}}. <owner> is 'c:<char id>' or 'n:<npc id>'.
+   GM only, kept in gm/crafts: players see nothing until the GM rolls. The roll is an ordinary roll card (roll.craft = session id),
+   followed by a crafting card (sys message, m.craft) that says what was used up and what was made. */
+N.craftOf = ch => (N.G.crafts || {})[ch] || null;
+N.craftOk = ch => N.shopOk(ch);
+N.craftOwner = k => { const [t, id] = String(k || '').split(/:(.*)/s); return t === 'c' || t === 'pc' ? N.G.chars[id] || null : t === 'n' || t === 'npc' ? N.G.npcs.find(n => n.id === id) || null : null; };
+N.craftOwners = cr => [...(cr.pcs || []).map(id => ['c:' + id, N.G.chars[id]]).filter(([, c]) => c && c.built), ...(cr.npcs || []).map(id => ['n:' + id, N.G.npcs.find(n => n.id === id)]).filter(([, n]) => n)]
+  .map(([k, o]) => ({k, o, name:o.short || o.name, roller:(k[0] === 'c' ? 'pc:' : 'npc:') + o.id}));
+/* the pooled inventory: every row of everyone involved, with how many of it the GM put in */
+N.craftPool = cr => N.craftOwners(cr).flatMap(w => (w.o.inv || []).map((row, i) => ({w, row, i, key:w.k + '|' + row[0], use:Math.min(+(cr.use || {})[w.k + '|' + row[0]] || 0, +row[1] || 0)})));
+N.craftUsed = cr => N.craftPool(cr).filter(x => x.use > 0);
 N.goldTxt = n => `${Math.max(0, parseInt(n, 10) || 0).toLocaleString('en-US')} gold`;
 N.GOLD_MAX = 9999999; /* Gold on a card: whole numbers 0 to this, 7 digits like the box allows */
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };

@@ -780,6 +780,7 @@ function input(v, el){
     case 'invTransferQty': if (v.ui.invTransfer) v.ui.invTransfer.qty = val; return;
     case 'itQ': v.ui.itQ = val; render(v); return;
     case 'shopQ': v.ui.shopQ = val; render(v); return;
+    case 'craftQs': v.ui.craftQs = val; render(v); return;
     case 'shopName': { const s = isGM(v) && N.shopOf(el.dataset.c); if (s) s.name = val; return; }
     case 'shopPrice': { const s = isGM(v) && N.shopOf(el.dataset.c), x = s && s.items.find(y => y.k === k); if (!x) return;
       const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; x.price = Math.min(N.GOLD_MAX, parseInt(t, 10) || 0); return; }
@@ -2415,6 +2416,61 @@ function act(v, a, el, e){
   case 'haggleRoll': { const m = gm && g.msgs.find(x => x.id === val), b = m && m.haggle; if (!b) break;
     if (b.st === 'ask') b.st = 'roll';
     openRoll(v, {who:'pc:' + b.c, action:'overcome', skill:'Rapport'}); return; }
+  /* ---------- crafting sessions (Jake) ---------- */
+  case 'craftBegin': { const ch = ui.ch; if (!gm) break;
+    if (!N.craftOk(ch)) { toast(v, 'Crafting happens in a private chat, a group chat or a party that isn’t Meta only, or in GM notes. Open one of those first.'); break; }
+    if (!g.crafts[ch]) { const f = N.sceneFolk(ch), pcs = N.chPcs(ch).map(c => c.id);
+      g.crafts[ch] = {id:uid('craft'), ch, pcs, npcs:f.npcs.map(n => n.id), by:pcs.length === 1 ? 'pc:' + pcs[0] : '', use:{}, make:'', q:1, diff:2, mod:0, t:N.now()}; }
+    openSheet(v, 'craft', {c:ch}); renderAll(); return; }
+  case 'craftWho': { const cr = gm && N.craftOf(d.c); if (!cr) break; const [k, id] = String(val).split(/:(.*)/s), l = k === 'pc' ? 'pcs' : 'npcs';
+    cr[l] = cr[l].includes(id) ? cr[l].filter(x => x !== id) : [...cr[l], id];
+    if (!cr[l].includes(id)) { if (cr.by === val) cr.by = ''; const o = (k === 'pc' ? 'c:' : 'n:') + id + '|'; for (const u of Object.keys(cr.use)) if (u.startsWith(o)) delete cr.use[u]; }
+    renderAll(); return; }
+  case 'craftBy': { const cr = gm && N.craftOf(d.c); if (!cr) break; cr.by = val; renderAll(); return; }
+  case 'craftUse': { const cr = gm && N.craftOf(d.c), x = cr && N.craftPool(cr).find(y => y.key === val); if (!x) break;
+    const n = clamp(x.use + (+d.d || 0), 0, +x.row[1] || 0); if (n) cr.use[x.key] = n; else delete cr.use[x.key]; renderAll(); return; }
+  case 'craftAll': { const cr = gm && N.craftOf(d.c), x = cr && N.craftPool(cr).find(y => y.key === val); if (!x) break;
+    if (x.use >= (+x.row[1] || 0)) delete cr.use[x.key]; else cr.use[x.key] = +x.row[1] || 0; renderAll(); return; }
+  case 'craftMake': { const cr = gm && N.craftOf(d.c); if (!cr || !N.itemById(val)) break; cr.make = val; openSheet(v, 'craft', {c:cr.ch}); renderAll(); return; }
+  case 'craftKind': ui.craftK = val || ''; break;
+  case 'craftQ': { const cr = gm && N.craftOf(d.c); if (!cr) break; cr.q = clamp((+cr.q || 1) + (+d.d || 0), 1, 999); renderAll(); return; }
+  case 'craftDiff': { const cr = gm && N.craftOf(d.c); if (!cr) break; cr.diff = clamp(+val || 0, -1, 12); renderAll(); return; }
+  case 'craftMod': { const cr = gm && N.craftOf(d.c); if (!cr) break; cr.mod = clamp(+val || 0, -6, 6); renderAll(); return; }
+  case 'craftEnd': { const ch = d.c, cr = gm && N.craftOf(ch); if (!cr) break; delete g.crafts[ch]; ui.sheet = null;
+    toast(v, 'Crafting setup deleted.', () => { g.crafts[ch] = cr; renderAll(); }); renderAll(); return; }
+  /* Roll Crafting: the roll goes in the chat, the ingredients are used up whatever it shows, and a success puts the product
+     straight into the crafter's inventory. A tie waits for the GM's pick; with style the GM settles the extra by hand */
+  case 'craftGo': { const cr = gm && N.craftOf(d.c); if (!cr) break;
+    const who = N.craftOwners(cr).find(w => w.roller === cr.by), it = N.itemById(cr.make);
+    if (!who) { toast(v, 'Pick who does the crafting first.'); break; }
+    if (!it) { toast(v, 'Pick what they are making from the item catalog first.'); break; }
+    const sk = +(who.o.skills || {}).Crafting || 0, mod = clamp(+cr.mod || 0, -6, 6), q = clamp(+cr.q || 1, 1, 999);
+    const roll = {who:who.name, whoKey:who.roller, skill:'Crafting', bonus:sk + mod, action:'Overcome', target:null, opp:clamp(+cr.diff || 0, -1, 12), dice:N.rollDice(), invokes:[], craft:cr.id};
+    if (mod) roll.mod = mod;
+    const ch = cr.ch === 'gm' ? 'gm' : cr.ch, rm = push({ch, kind:'roll', by:v.role, roll});
+    if (who.o.portrait) rm.pt = who.o.portrait;
+    /* the ingredients go whatever the roll shows */
+    const used = [];
+    for (const x of N.craftUsed(cr)) { const row = x.row; row[1] -= x.use; used.push([row[0], x.use, x.w.name]);
+      if (row[1] <= 0) { const at = x.w.o.inv.indexOf(row); if (at >= 0) x.w.o.inv.splice(at, 1); if (N.invX(row).eq) N.applyGear(x.w.o); } }
+    const o = N.outcome(roll), st = o.k === 'fail' ? 'fail' : o.k === 'tie' ? 'tie' : 'ok';
+    const card = {id:cr.id, roll:rm.id, who:who.name, by:who.k, it:it.id, name:it.name, ic:it.ic || N.itemKind(it.kind)[2], q, used, st, style:o.k === 'style', given:false};
+    const m = push({ch, kind:'sys', by:'gm', craft:card, text:''});
+    if (st === 'ok') craftGive(m);
+    m.text = craftText(card);
+    delete g.crafts[cr.ch]; ui.sheet = null; v.ui.fresh = rm.id; v.ui.stick = true;
+    toast(v, st === 'ok' ? `${who.name} made ${it.name} ×${q}. It’s in their inventory.${card.style ? ' With style: grant more, or give some ingredients back.' : ''}` : st === 'tie' ? 'A tie. Pick how it ends on the crafting card.' : `${who.name} failed. The ingredients are used up.`);
+    renderAll(); return; }
+  case 'craftTie': { const m = gm && g.msgs.find(x => x.id === d.m), c = m && m.craft; if (!c) break;
+    if (val === 'ok' && !c.given) craftGive(m); if (val !== 'ok' && c.given) craftTake(m);
+    c.st = val === 'ok' ? 'ok' : val === 'hand' ? 'hand' : 'fail'; c.pick = true; m.text = craftText(c);
+    if (val === 'hand') toast(v, `Settle it by hand: give ${c.who} what they made from the Item catalog or their inventory.`);
+    renderAll(); return; }
+  /* an invoke or shifts after the roll changed its result: the GM brings the crafting card in line with it */
+  case 'craftRe': { const m = gm && g.msgs.find(x => x.id === d.m), c = m && m.craft, r = c && g.msgs.find(x => x.id === c.roll); if (!c || !r || c.pick) break;
+    const o = N.outcome(r.roll); if (!o) break; const st = o.k === 'fail' ? 'fail' : o.k === 'tie' ? 'tie' : 'ok';
+    if (st === 'ok' && !c.given) craftGive(m); if (st !== 'ok' && c.given) craftTake(m);
+    c.st = st; c.style = o.k === 'style'; m.text = craftText(c); renderAll(); return; }
   /* End shopping takes the store down for the players (Undo puts it back); a store still being set up is just deleted */
   case 'shopEnd': { const ch = d.c, s = gm && N.shopOf(ch); if (!s) break; delete g.shops[ch]; ui.sheet = null;
     const note = s.state === 'open' ? push({ch, kind:'sys', by:'gm', text:`Shopping at ${s.name} is over.`, shop:'end', shopName:s.name, shopId:s.id}) : null;
@@ -2423,6 +2479,27 @@ function act(v, a, el, e){
   render(v);
 }
 
+/* crafting: the line a crafting card leaves in exports and notifications, and putting the product in (or back out of) the crafter's inventory */
+function craftText(c){
+  const what = `${c.name} ×${c.q}`;
+  return c.st === 'ok' ? `${c.who} crafted ${what}${c.style ? ' with style' : ''}.` : c.st === 'tie' ? `${c.who}’s crafting of ${what} is a tie. The GM decides.`
+    : c.st === 'hand' ? `${c.who}’s crafting of ${what}: the GM settles it by hand.` : `${c.who} failed to craft ${what}. The ingredients are used up.`;
+}
+function craftGive(m){
+  const c = m.craft, o = N.craftOwner(c.by), it = N.itemById(c.it); if (!o) return;
+  const note = it ? N.invNote(it) : '', ic = it ? it.ic || N.itemKind(it.kind)[2] : c.ic || 'bag';
+  if (!o.inv) o.inv = [];
+  let row = o.inv.find(x => it && N.invX(x).it === it.id) || o.inv.find(x => x[0].toLowerCase() === c.name.toLowerCase());
+  if (row) { row[1] += c.q; if (note) row[2] = note; if (ic !== 'bag') row[3] = ic; } else { row = ic !== 'bag' ? [c.name, c.q, note, ic] : note ? [c.name, c.q, note] : [c.name, c.q]; o.inv.push(row); }
+  if (it) N.invSetX(row, {it:it.id, cl:N.itemClass(it)});
+  if (it && N.itemSlot(it)) N.invSetX(row, {w:1, ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})});
+  c.given = true;
+}
+function craftTake(m){
+  const c = m.craft, o = N.craftOwner(c.by), at = o && (o.inv || []).findIndex(x => x[0].toLowerCase() === c.name.toLowerCase());
+  if (o && at >= 0) { const row = o.inv[at]; row[1] -= c.q; if (row[1] <= 0) { o.inv.splice(at, 1); if (N.invX(row).eq) N.applyGear(o); } }
+  c.given = false;
+}
 function openSheet(v, s, d={}){
   const g = G(), ui = v.ui;
   ui.sheet = s; ui.sheetArg = d.c || d.v || null;
