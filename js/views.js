@@ -1319,7 +1319,10 @@ function invCats(v, c, gm){
   const full = N.ITEMK.filter(([k]) => by[k]), empty = N.ITEMK.filter(([k]) => !by[k]);
   const n = k => by[k].length;
   return `<section class="sec full inv-cats-sec"><h3>${IC('bag')}Items</h3>
-    ${full.length ? `<div class="inv-cats${gm ? ' gmv' : ''}">${full.map(([k, l, ic]) => `<div class="icat" data-k="${k}"><div class="icat-h"><span class="ci">${IC(ic)}</span><b>${esc(l)}</b><span class="cn">${n(k)}</span></div><div class="inv">${by[k].map(([r, i]) => rowHtml(r, i)).join('')}</div></div>`).join('')}</div>`
+    ${full.length ? `<div class="inv-cats${gm ? ' gmv' : ''}">${full.map(([k, l, ic]) => { const id = c.id + ':' + k, open = !!(v.ui.invOpen || {})[id], rs = by[k];
+      /* collapsed (the default): the first few names as a preview, so 30 potions stay one line until opened */
+      const peek = rs.slice(0, 3).map(([r]) => esc(r[0])).join(', ') + (rs.length > 3 ? ` +${rs.length - 3} more` : '');
+      return `<div class="icat${open ? ' open' : ''}" data-k="${k}"><button type="button" class="icat-h" data-a="invCat" data-v="${esc(id)}" aria-expanded="${open}"><span class="ci">${IC(ic)}</span><span class="ct"><b>${esc(l)}</b>${open ? '' : `<small>${peek}</small>`}</span><span class="cn">${n(k)}</span><span class="cv">${IC('caret')}</span></button>${open ? `<div class="inv">${rs.map(([r, i]) => rowHtml(r, i)).join('')}</div>` : ''}</div>`; }).join('')}</div>`
       : `<p class="muted">${gm ? 'No items yet.' : `No items yet. ${esc(N.gmName())} adds them here.`}</p>`}
     ${empty.length ? `<div class="inv-cats none" aria-label="Kinds with nothing in them">${empty.map(([k, l, ic]) => `<div class="icat off" data-k="${k}"><div class="icat-h"><span class="ci">${IC(ic)}</span><b>${esc(l)}</b><span class="cn">0</span></div></div>`).join('')}</div>` : ''}
     ${invAddBox(v, c, gm, own, key)}</section>`;
