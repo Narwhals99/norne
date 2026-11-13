@@ -617,6 +617,58 @@ N.sheetHtml = function(v){
       <div class="itc-list">${people.map(x => `<button type="button" class="itc-row" data-a="invTransferTo" data-v="${esc(x.id)}" aria-pressed="${t.to === x.id}"><span class="itc-t"><b>${esc(x.name)}</b><small>${x.type}</small></span></button>`).join('') || '<p class="muted">No matching characters.</p>'}</div>`;
     return sheet('Transfer item', body, `<button type="button" class="btn primary" data-a="invTransferGo" data-v="${esc(t.to || '')}" ${t.to ? '' : 'disabled'}>Transfer</button>`, {wide:true});
   }
+  /* ---------------- crafting sessions (Jake): who's involved, the crafter, the ingredients, the product, the roll ---------------- */
+  case 'craft': {
+    const cr = gm && N.craftOf(arg); if (!cr) return '';
+    const ch = cr.ch, c = esc(ch), folk = N.sceneFolk(ch), solo = ch === 'gm';
+    const pcs = [...new Set([...folk.pcs.map(p => p.id), ...cr.pcs, ...(solo ? N.pcs().filter(p => p.built).map(p => p.id) : [])])].map(id => g.chars[id]).filter(p => p && p.built);
+    const npcs = [...new Set([...folk.npcs.map(n => n.id), ...cr.npcs, ...(solo && !folk.npcs.length ? g.npcs.map(n => n.id) : [])])].map(id => g.npcs.find(n => n.id === id)).filter(Boolean);
+    const who = `<div class="forwho shop-who" role="group" aria-label="Who is involved">
+      ${pcs.map(p => `<button type="button" data-a="craftWho" data-c="${c}" data-v="pc:${esc(p.id)}" aria-pressed="${cr.pcs.includes(p.id)}">${N.av(p, 28)}${esc(p.short)}</button>`).join('')}
+      ${npcs.map(n => `<button type="button" data-a="craftWho" data-c="${c}" data-v="npc:${esc(n.id)}" aria-pressed="${cr.npcs.includes(n.id)}">${N.av({name:n.name, portrait:n.portrait, color:'var(--c-npc)'}, 28)}${esc(n.name)}<small>NPC</small></button>`).join('')}</div>
+      ${pcs.length || npcs.length ? '' : `<p class="muted shop-tip">No one is in this chat’s scene yet. Add characters or NPCs to the scene in the Scene changer and they show up here.</p>`}`;
+    const owners = N.craftOwners(cr), by = owners.find(w => w.roller === cr.by);
+    const skOf = w => +(w.o.skills || {}).Crafting || 0;
+    const crafter = owners.length ? `<div class="forwho shop-who craft-by" role="radiogroup" aria-label="Who rolls Crafting">${owners.map(w => `<button type="button" role="radio" data-a="craftBy" data-c="${c}" data-v="${esc(w.roller)}" aria-checked="${cr.by === w.roller}" aria-pressed="${cr.by === w.roller}">${N.av(w.k[0] === 'c' ? w.o : {name:w.o.name, portrait:w.o.portrait, color:'var(--c-npc)'}, 28)}${esc(w.name)}<small>Crafting ${sgn(skOf(w))}</small></button>`).join('')}</div>
+      ${by && N.discOf(by.o, 'Crafting').length ? `<p class="muted shop-tip">${esc(by.name)}’s Crafting disciplines: ${esc(N.discOf(by.o, 'Crafting').join(', '))}.</p>` : ''}` : `<p class="muted shop-tip">Pick who is involved first.</p>`;
+    const pool = N.craftPool(cr), used = pool.filter(x => x.use > 0);
+    const row = x => { const [n, q, note, ic] = x.row;
+      return `<div class="itc-row craft-row${x.use ? ' on' : ''}"><span class="itc-ic">${IC(ic || 'bag')}</span><span class="itc-t"><b>${N.emoText(N.marks(esc(n)))}</b><small>${esc(x.w.name)} has ${q}${note ? ' · ' + esc(note) : ''}</small></span>
+        <span class="itc-a craft-q"><span class="seg"><button type="button" data-a="craftUse" data-c="${c}" data-v="${esc(x.key)}" data-d="-1" aria-label="Use one less ${esc(n)}" ${x.use ? '' : 'disabled'}>${IC('minus')}</button><b aria-live="polite">${x.use}</b><button type="button" data-a="craftUse" data-c="${c}" data-v="${esc(x.key)}" data-d="1" aria-label="Use one more ${esc(n)}" ${x.use >= q ? 'disabled' : ''}>${IC('plus')}</button></span>${q > 1 ? `<button type="button" class="btn sm ghost" data-a="craftAll" data-c="${c}" data-v="${esc(x.key)}">${x.use >= q ? 'None' : 'All'}</button>` : ''}</span></div>`; };
+    const groups = owners.map(w => { const rows = pool.filter(x => x.w.k === w.k); return `<div class="craft-own"><h5>${esc(w.name)}</h5>${rows.length ? `<div class="itc-list">${rows.map(row).join('')}</div>` : `<p class="muted shop-tip">Nothing in their inventory.</p>`}</div>`; }).join('');
+    const it = N.itemById(cr.make);
+    const make = it ? `<div class="itc-row craft-make"><span class="itc-ic">${IC(it.ic || N.itemKind(it.kind)[2])}</span><span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemPath(it) || N.itemKind(it.kind)[1])}</small></span>
+        <span class="itc-a craft-q"><span class="seg"><button type="button" data-a="craftQ" data-c="${c}" data-d="-1" aria-label="Make one less" ${cr.q > 1 ? '' : 'disabled'}>${IC('minus')}</button><b aria-live="polite">×${cr.q}</b><button type="button" data-a="craftQ" data-c="${c}" data-d="1" aria-label="Make one more">${IC('plus')}</button></span><button type="button" class="btn sm" data-a="sheet" data-v="craftMake" data-c="${c}">Change</button></span></div>`
+      : `<button type="button" class="btn sm primary" data-a="sheet" data-v="craftMake" data-c="${c}">${IC('plus')}Pick from the item catalog</button>`;
+    const diff = N.clamp(+cr.diff || 0, -1, 12), mod = N.clamp(+cr.mod || 0, -6, 6);
+    const diffs = `<div class="ladder-chips">${[-1,0,1,2,3,4,5,6,7,8,9].map(x => `<button type="button" class="lchip" data-a="craftDiff" data-c="${c}" data-v="${x}" aria-pressed="${diff === x}"><b>${sgn(x)}</b>${ladderWord(x)}</button>`).join('')}</div>`;
+    const mods = `<div class="ladder-chips modchips">${[-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6].map(x => `<button type="button" class="lchip${x < 0 ? ' deb' : x > 0 ? ' buf' : ''}" data-a="craftMod" data-c="${c}" data-v="${x}" aria-pressed="${mod === x}"><b>${x ? sgn(x) : '0'}</b>${x < 0 ? 'Debuff' : x > 0 ? 'Buff' : 'None'}</button>`).join('')}</div>`;
+    const tot = by ? skOf(by) + mod : null;
+    const body = `<section class="shop-sec"><h4>Who’s involved <small>${solo ? 'any character' : 'from the scene'}</small></h4>${who}<p class="muted shop-tip">Their inventories are pooled, so they can put in items together.</p></section>
+      <section class="shop-sec"><h4>Who crafts <small>rolls Crafting</small></h4>${crafter}</section>
+      <section class="shop-sec"><h4>Ingredients <small>${used.length ? `${used.reduce((a, x) => a + x.use, 0)} used` : 'none picked'}</small></h4>${owners.length ? groups : ''}<p class="muted shop-tip">Everything picked here is used up, whatever the roll shows.</p></section>
+      <section class="shop-sec"><h4>What they make</h4>${make}<p class="muted shop-tip">On a success it goes straight into ${by ? esc(by.name) + '’s' : 'the crafter’s'} inventory.</p></section>
+      <section class="shop-sec"><h4>Difficulty</h4>${diffs}</section>
+      <section class="shop-sec modbox"><h4>Buff or debuff</h4>${mods}</section>
+      ${by ? `<p class="rollsum">4 Fate dice + Crafting ${sgn(skOf(by))}${mod ? ` ${mod > 0 ? '+' : '−'} ${Math.abs(mod)} ${mod > 0 ? 'buff' : 'debuff'}` : ''} against ${sgn(diff)} ${ladderWord(diff)}. A tie lets you pick Success, Failure or Settle by hand.</p>` : ''}`;
+    const ok = by && it;
+    const foot = `<button type="button" class="btn ghost" data-a="craftEnd" data-c="${c}" style="flex:0 0 auto">${IC('trash')}Delete</button><button type="button" class="btn gold lg" data-a="craftGo" data-c="${c}" ${ok ? '' : 'disabled'}>${N.fateDie}Roll Crafting${tot != null ? ' ' + sgn(tot) : ''}</button>`;
+    return sheet('Crafting', body, foot, {wide:true, lead:`<span class="shop-lead">${IC('gear')}</span>`});
+  }
+  case 'craftMake': {
+    const cr = gm && N.craftOf(arg); if (!cr) return '';
+    const c = esc(cr.ch), all = g.items || [], q = (v.ui.craftQs || '').trim().toLowerCase(), k = v.ui.craftK || '';
+    const hit = it => !q || [it.name, it.d, N.itemKind(it.kind)[1], N.itemPath(it)].some(x => String(x || '').toLowerCase().includes(q));
+    const list = all.filter(it => (!k || N.itemKind(it.kind)[0] === k) && hit(it));
+    const count = kk => all.filter(it => N.itemKind(it.kind)[0] === kk && hit(it)).length;
+    const row = it => { const on = cr.make === it.id;
+      return `<div class="itc-row"><span class="itc-ic">${IC(it.ic || N.itemKind(it.kind)[2])}</span><span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemPath(it) || N.itemKind(it.kind)[1])}</small></span>
+        <span class="itc-a"><button type="button" class="btn sm${on ? ' gold' : ''}" data-a="craftMake" data-c="${c}" data-v="${esc(it.id)}" aria-pressed="${on}">${on ? `${IC('check')}Picked` : 'Pick'}</button></span></div>`; };
+    const body = `<div class="itc-bar"><label class="itc-q">${IC('search')}<input class="inp" id="cmq-${v.id}" data-i="craftQs" value="${esc(v.ui.craftQs || '')}" placeholder="Search the catalog" autocomplete="off" aria-label="Search the item catalog"></label></div>
+      ${all.length ? `<div class="chips itc-chips" role="group" aria-label="Show"><button type="button" class="cchip" data-a="craftKind" data-v="" aria-current="${!k}">All <small>${all.filter(hit).length}</small></button>${N.ITEMK.filter(([kk]) => count(kk) || kk === k).map(([kk, l, ic]) => `<button type="button" class="cchip" data-a="craftKind" data-v="${kk}" aria-current="${k === kk}">${IC(ic)}${l} <small>${count(kk)}</small></button>`).join('')}</div>` : ''}
+      ${list.length ? `<div class="itc-list">${list.map(row).join('')}</div>` : `<div class="note">${IC('info')}${all.length ? 'No items match.' : 'The item catalog is empty. Add items in GM tools > Item catalog first.'}</div>`}`;
+    return sheet('What are they making?', body, `<button type="button" class="btn" data-a="sheet" data-v="craft" data-c="${c}">${IC('left')}Back to crafting</button>`, {wide:true});
+  }
   /* ---------------- storefronts (Jake): the GM's setup, the catalog picker, and the store players browse ---------------- */
   case 'shop': {
     const sh = gm && N.shopOf(arg); if (!sh) return '';

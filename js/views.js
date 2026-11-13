@@ -272,6 +272,8 @@ function chatView(v, side){
     ? `<div class="fightbar owed">${IC('attack','sw')}<div class="t">${esc(N.tokName(N.tokById(pend.att)))} attacks ${gm ? esc(N.tokName(owed)) : 'you'}!<span>${esc(pend.skill)} for ${sgn(pend.total)} ${ladderWord(pend.total)}. Roll the defense.</span></div>${N.defBtn(owed)}</div>`
     : `<div class="fightbar owed">${IC('warn','sw')}<div class="t">${gm ? esc(N.tokName(owed)) + ' takes' : 'You take'} ${pend.shifts} shift${pend.shifts>1?'s':''}<span>Pick a stress box or a consequence on the board.</span></div><button type="button" class="btn sm gold" data-a="openFight">Soak the hit</button></div>`) : '';
   /* an open store in this chat: players browse it; the GM also sees one being set up */
+  const craft = !side && gm && N.craftOf(ch), craftIt = craft && N.itemById(craft.make);
+  const craftBar = craft ? `<div class="fightbar shopbar craftbar">${IC('gear','sw')}<div class="t">Crafting setup${craftIt ? ': ' + esc(craftIt.name) : ''}<span>Only you see it until you roll.</span></div><button type="button" class="btn sm gold" data-a="sheet" data-v="craft" data-c="${esc(ch)}">Continue</button></div>` : '';
   const shop = N.shopOf(ch), shopOn = shop && shop.state === 'open';
   const shopBar = !side && shop && (gm || shopOn) ? (() => {
     const keep = (shop.npcs || []).map(n => n.name), n = (shop.items || []).length;
@@ -284,7 +286,7 @@ function chatView(v, side){
     <div class="msgs scroll" id="msgs-${v.id}" data-sk="msgs" data-bottom="1">${fightbar && side ? '' : ''}${renderMsgs(v, side)}</div>
     ${fightbar && !side ? '' : ''}
     ${composer(v)}
-  </section>`.replace('<div class="msgs', (!side ? (owedBar || fightbar) + shopBar : '') + '<div class="msgs');
+  </section>`.replace('<div class="msgs', (!side ? (owedBar || fightbar) + shopBar + craftBar : '') + '<div class="msgs');
 }
 function fightSeg(v){
   const n = N.unread(v.role, N.fightCh());
@@ -333,7 +335,7 @@ function sceneBanner(v, sc, ch, past){
 }
 /* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */
 function isAction(m){
-  return m.kind === 'sys' && !m.sceneEnd && !m.shop && !m.buy && !m.haggle && !m.purse || m.kind === 'fight' || m.kind === 'combat' || m.kind === 'roll';
+  return m.kind === 'sys' && !m.sceneEnd && !m.shop && !m.buy && !m.haggle && !m.purse && !m.craft || m.kind === 'fight' || m.kind === 'combat' || m.kind === 'roll';
 }
 /* the part of the actions that belongs to a fight: fight rolls, results, and the fight's own notices */
 function isFightAct(m){
@@ -439,6 +441,19 @@ function rMsg(v, m, prev, firstNarr){
     const btns = !gm ? '' : buy ? (ask ? `<span class="askb"><button type="button" class="btn sm gold" data-a="buyOk" data-v="${m.id}">${IC('check')}Confirm</button><button type="button" class="btn sm" data-a="buyNo" data-v="${m.id}">Decline</button></span>` : '')
       : b.st !== 'done' ? `<span class="askb"><button type="button" class="btn sm gold" data-a="haggleRoll" data-v="${m.id}">${IC('dice')}Roll</button>${N.shopOpen(m.ch) ? `<button type="button" class="btn sm" data-a="sheet" data-v="shop" data-c="${esc(m.ch)}">${IC('coins')}Prices</button>` : ''}<button type="button" class="btn sm ghost" data-a="buyNo" data-v="${m.id}">Done</button></span>` : '';
     return `<div class="scenem shopm askm ${buy ? 'buy' : 'haggle'} st-${esc(b.st)}"><span class="th">${IC(buy ? (b.st === 'ok' ? 'check' : b.st === 'no' ? 'x' : 'coins') : 'hand')}</span><span class="tx"><span>${lab}</span><b>${esc(b.who)} · ${N.emoText(N.marks(esc(b.name)))}</b><small>${buy && b.st === 'ok' ? 'Paid ' : buy ? '' : 'Price now '}${b.price ? N.goldTxt(b.price) : 'Free'}${buy ? '' : ' · wants to talk it down with a roll'}</small></span>${btns}</div>`; }
+  /* a crafting card (Jake): what was used up and what came of it. The GM picks a tie's end here, and is told when an invoke
+     or shifts after the roll changed its result */
+  if (m.kind === 'sys' && m.craft) { const c = m.craft, gm = isGM(v), r = g.msgs.find(x => x.id === c.roll);
+    const lo = r && N.outcome(r.roll), live = lo ? (lo.k === 'fail' ? 'fail' : lo.k === 'tie' ? 'tie' : 'ok') : c.st;
+    const lab = {ok:c.style ? 'Crafted with style' : 'Crafted', fail:'Crafting failed', tie:'Crafting · tie', hand:'Crafting · settled by hand'}[c.st] || 'Crafting';
+    const used = (c.used || []).map(([n, q, w]) => `${n} ×${q}${w && w !== c.who ? ` (${w})` : ''}`).join(', ');
+    const sub = `${c.st === 'ok' ? 'Now in their inventory' : c.st === 'fail' ? 'Nothing made' : c.st === 'tie' ? 'Waiting for the GM' : 'The GM gives what they made'}${used ? ` · Used up: ${esc(used)}` : ' · No ingredients'}`;
+    let btns = '';
+    if (gm && c.st === 'tie') btns = `<span class="askb"><button type="button" class="btn sm gold" data-a="craftTie" data-m="${m.id}" data-v="ok">${IC('check')}Success</button><button type="button" class="btn sm" data-a="craftTie" data-m="${m.id}" data-v="fail">Failure</button><button type="button" class="btn sm" data-a="craftTie" data-m="${m.id}" data-v="hand">${IC('hand')}Settle by hand</button></span>`;
+    else if (gm && !c.pick && live !== c.st) btns = `<span class="askb"><span class="craft-gm">The roll is now ${{ok:'a success', fail:'a failure', tie:'a tie'}[live]}.</span><button type="button" class="btn sm gold" data-a="craftRe" data-m="${m.id}">${IC('swap')}Update</button></span>`;
+    const note = gm && c.st === 'ok' && c.style ? `<span class="craft-gm">${IC('lock')}Either grant additional products, or return some consumed ingredients.</span>`
+      : gm && c.st === 'hand' ? `<span class="craft-gm">${IC('lock')}Give ${esc(c.who)} what they made from the Item catalog or their inventory.<button type="button" class="btn sm" data-a="sheet" data-v="items">${IC('items')}Item catalog</button></span>` : '';
+    return `<div class="scenem shopm askm craftm st-${esc(c.st === 'ok' ? 'ok' : c.st === 'fail' ? 'no' : c.st)}"><span class="th">${IC(c.st === 'ok' ? 'check' : c.st === 'fail' ? 'x' : 'gear')}</span><span class="tx"><span>${lab}</span><b>${esc(c.who)} · ${N.emoText(N.marks(esc(c.name)))} ×${c.q}</b><small>${sub}</small></span>${btns}${note}</div>`; }
   if (m.kind === 'sys' && m.purse) return `<div class="sysm purse">${IC(m.purse.k === 'fp' ? 'star' : 'coins')}<span>${esc(m.text)}</span></div>`;
   if (m.kind === 'sys' && m.sceneEnd) return `<div class="scenem end"><span class="th">${IC('stop')}</span><span><span>Scene ended</span><b>${esc(m.sceneTitle || (m.text || '').replace(/^Scene ended:? ?|\.$/g, '') || 'The scene')}</b></span></div>`;
   if (m.kind === 'sys') return m.res ? resCard(m.res, v) : m.fightEnd ? `<button type="button" class="sysm fend" data-a="sheet" data-v="fightRec" data-c="${m.fightEnd}">${IC('swords')}<span>${esc(m.text)}</span><b>See what happened</b></button>` : `<div class="sysm">${IC('sparkle')}<span>${esc(m.text)}</span></div>`;
@@ -644,6 +659,9 @@ function gmScreen(v){
   /* storefronts: one per chat, like fights */
   const shopBtns = Object.entries(g.shops || {}).map(([c, s]) => `<button type="button" class="bigcta shopcta" data-a="sheet" data-v="shop" data-c="${esc(c)}"><span class="ic">${IC('coins')}</span><span><b>${s.state === 'setup' ? 'Store setup' + (s.name ? ': ' + esc(s.name) : '') : 'Shopping at ' + esc(s.name || 'the store')}</b><small>In ${where(c)} · ${s.state === 'setup' ? 'Not open yet. Players can’t see it.' : `${s.items.length} item${s.items.length === 1 ? '' : 's'} for sale`}</small></span></button>`).join('')
     + ((g.shops || {})[here] || !N.shopOk(here) ? '' : `<button type="button" class="bigcta shopcta" data-a="shopBegin"><span class="ic">${IC('coins')}</span><span><b>Open a storefront</b><small>In ${where(here)}. Pick who is there and what is for sale. Players see nothing until you open it.</small></span></button>`);
+  /* crafting sessions (Jake): one being set up per chat; the GM only, until the roll */
+  const craftBtns = Object.entries(g.crafts || {}).map(([c, cr]) => { const it = N.itemById(cr.make); return `<button type="button" class="bigcta shopcta craftcta" data-a="sheet" data-v="craft" data-c="${esc(c)}"><span class="ic">${IC('gear')}</span><span><b>Crafting setup${it ? ': ' + esc(it.name) : ''}</b><small>In ${where(c)} · Not rolled yet. Players can’t see it.</small></span></button>`; }).join('')
+    + ((g.crafts || {})[here] || !N.craftOk(here) ? '' : `<button type="button" class="bigcta shopcta craftcta" data-a="craftBegin"><span class="ic">${IC('gear')}</span><span><b>Begin crafting</b><small>In ${where(here)}. Pick who’s involved, the ingredients and what they make, then roll Crafting.</small></span></button>`);
   const pcs = N.pcs(), npc1 = g.npcs[0], waiting = N.MEMBERS.filter(m => m.role === 'pending').length;
   const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
     ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
@@ -651,7 +669,7 @@ function gmScreen(v){
     ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export the log', 'data-v="export"'], ['sheet', 'smile', 'Emoji and GIFs', 'data-v="emoji"'], ['sheet', 'upload', 'Import lore', 'data-v="import"'], ['sheet', 'trash', 'Wipe a chat', 'data-v="wipe"']];
   const scenes = N.channelsFor('gm').filter(c => c !== 'gm' && g.scenes[c]).length;
   return `<div class="gs">
-    ${fight}${shopBtns}
+    ${fight}${shopBtns}${craftBtns}
     <button type="button" class="bigcta scn" data-a="sheet" data-v="scene"><span class="ic">${IC('image')}</span><span><b>Scene changer</b><small>Pick who it’s for, Everyone or one player, then set the picture, name and aspects.${scenes ? ` ${scenes} chat${scenes > 1 ? 's have' : ' has'} a scene now.` : ''}</small></span></button>
     <section class="gs-sec gs-tools"><div class="gs-h"><h3>GM tools</h3></div>
       <div class="tools">${tiles.map(([a, ic, l, x]) => `<button type="button" data-a="${a}" ${x}>${IC(ic)}${l}</button>`).join('')}</div>
