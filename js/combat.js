@@ -346,7 +346,7 @@ N.tokKit = (v, t) => {
   const st = (c.stunts || []).filter(x => x && (x[0] || '').trim()), inv = c.inv || [], note = (c.invText || '').trim();
   const fmt = x => N.emoText(N.marks(esc(x)));
   const stHtml = st.length ? st.map(([n, d]) => `<div class="tk-st"><b>${fmt(n)}</b>${d ? `<p>${fmt(d)}</p>` : ''}</div>`).join('') : '<p class="muted tk-none">No stunts.</p>';
-  const invHtml = inv.length || note ? `${inv.map(row => { const [n, q, d, ic] = row; return `<div class="tk-it"><span class="ii">${IC(ic || 'bag')}</span><span><b>${fmt(n)}</b>${d ? `<small>${fmt(d)}</small>` : ''}${N.invGm(v, row)}</span><span class="q">×${q}</span></div>`; }).join('')}${note ? `<p class="tk-note">${fmt(note)}</p>` : ''}` : '<p class="muted tk-none">Nothing carried.</p>';
+  const invHtml = inv.length || note ? `${inv.map(row => { const [n, q, d, ic] = row; return `<div class="tk-it"><span class="ii">${IC(ic || 'bag')}</span><span><b>${fmt(n)}</b>${(cl => cl ? `<span class="icl">${esc(cl)}</span>` : '')(N.rowClass(row))}${d ? `<small>${fmt(d)}</small>` : ''}${N.invGm(v, row)}</span><span class="q">×${q}</span></div>`; }).join('')}${note ? `<p class="tk-note">${fmt(note)}</p>` : ''}` : '<p class="muted tk-none">Nothing carried.</p>';
   return `<div class="tok-kit"><section><h4>Stunts${st.length ? ` <span class="tag">${st.length}</span>` : ''}</h4>${stHtml}</section><section><h4>Inventory${inv.length ? ` <span class="tag">${inv.length}</span>` : ''}</h4>${invHtml}</section></div>`;
 };
 /* token detail: side panel on desktop, sheet on phone */

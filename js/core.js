@@ -628,7 +628,7 @@ N.itemSlot = it => { if (!it) return null;
   const k = N.ITEM_RATE.map(([k]) => k).find(k => k in it); return k ? SLOT_OF[k] : null; };
 N.itemRating = it => { const sl = N.itemSlot(it); return sl ? (+it[N.SLOTS[sl][0]] || +it.r || 0) : 0; };
 /* the catalog item behind an inventory row (GM device only) */
-N.rowItem = row => N.itemByName(row && row[0]);
+N.rowItem = row => { const id = N.invX(row).it; return (id && N.itemById(id)) || N.itemByName(row && row[0]); };
 N.isWeaponRow = row => !!(N.invX(row).w || N.itemSlot(N.rowItem(row)));
 /* recompute the card from what is equipped */
 /* o's equipped catalog items in one slot, best rating first (GM device only) */
@@ -699,12 +699,53 @@ N.importItems = list => {
     const name = String(raw?.name || '').trim(); if (!name) continue;
     const it = {...raw, name, kind:N.itemKind(raw.kind)[0]}; delete it.o;
     const at = g.items.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
-    if (at >= 0) { it.id = g.items[at].id; g.items[at] = it; rep++; } else { it.id = N.uid('it'); g.items.push(it); add++; }
+    if (at >= 0) { const was = g.items[at].name; it.id = g.items[at].id; g.items[at] = it; rep++; N.itemSync(it, was); } else { it.id = N.uid('it'); g.items.push(it); add++; }
   }
   g.items.sort((a, b) => a.name.localeCompare(b.name)); return {add, rep};
 };
 /* the line an inventory gets: its ratings, then what it does */
 N.itemNote = it => [N.itemGears(it).map(([k, l]) => `${l} +${+it[k]}`).join(', '), (it.d || '').trim()].filter(Boolean).join(' · ');
+/* ---------- inventory copies of catalog items (Jake, 2026-11-12) ----------
+   A row given from the catalog keeps the catalog id (x.it) and the item's class line (x.cl) on itself, since players' devices
+   have no catalog: the player reads the class from the row. When the GM edits a catalog item, every copy in a character's or
+   NPC's inventory takes the new name, note, picture, class and weapon/ammo flags (N.itemSync); equipped copies re-rate the card. */
+/* the note an inventory row gets: like the catalog list and stores, items from Jake's lists show their class instead of the
+   description (which repeats the class) */
+N.invNote = it => [N.itemGears(it).map(([k, l]) => `${l} +${+it[k]}`).join(', '), it.cls ? '' : (it.d || '').trim()].filter(Boolean).join(' · ');
+/* an item's class: Jake's class, sub-type and discipline, or else its kind (Potions, Books...) */
+N.itemClass = it => it ? ([...new Set([it.cls, it.sub, it.disc].filter(Boolean))].join(' · ') || N.itemKind(it.kind)[1]) : '';
+/* the class shown on a row: live from the catalog on the GM's device, from the row on a player's */
+N.rowClass = row => { const it = N.rowItem(row); return it ? N.itemClass(it) : String(N.invX(row).cl || ''); };
+N.invOwners = () => [...Object.values(N.G.chars || {}), ...(N.G.npcs || [])];
+/* GM device, before saving: tag rows that match a catalog item with its id and class (only writes when something differs) */
+N.invTagAll = () => {
+  const items = N.G.items || []; if (!items.length) return;
+  const byId = new Map(items.map(x => [x.id, x])), byName = new Map(items.map(x => [N.pvKey(x.name), x]));
+  for (const o of N.invOwners()) for (const row of o.inv || []) {
+    if (!Array.isArray(row)) continue;
+    const x = N.invX(row), it = (x.it && byId.get(x.it)) || byName.get(N.pvKey(row[0])); if (!it) continue;
+    const cl = N.itemClass(it); if (x.it !== it.id || x.cl !== cl) N.invSetX(row, {it:it.id, cl});
+  }
+};
+/* the GM saved catalog item it (oldName: its name before the edit): bring every inventory copy up to date. Returns how many
+   characters and NPCs had it */
+N.itemSync = (it, oldName) => {
+  const keys = new Set([it.name, oldName].filter(Boolean).map(N.pvKey)), sl = N.itemSlot(it), ic = it.ic || N.itemKind(it.kind)[2];
+  let n = 0;
+  for (const o of N.invOwners()) {
+    let hit = false, eq = false;
+    for (const row of o.inv || []) {
+      if (!Array.isArray(row)) continue;
+      const x = N.invX(row), linked = x.it && N.itemById(x.it);
+      if (linked ? x.it !== it.id : !keys.has(N.pvKey(row[0]))) continue;
+      hit = true; if (x.eq || x.eq2) eq = true;
+      row[0] = it.name; while (row.length < 3) row.push(''); row[2] = N.invNote(it); row[3] = ic;
+      N.invSetX(row, {it:it.id, cl:N.itemClass(it), w:sl ? 1 : 0, ...(sl ? {} : {eq:0, eq2:0}), ...(it.ammo ? (x.am == null ? {am:N.AMMO_MAX} : {}) : {am:null})});
+    }
+    if (hit) { n++; if (eq) N.applyGear(o); }
+  }
+  return n;
+};
 /* ---------- storefronts (Jake): a store the GM sets up in a chat, like a fight ----------
    G.shops = {<chat>: {id, ch, state:'setup'|'open', name, pcs:[char ids], npcs:[{name, portrait}], items:[shop item], t}}
    One store per chat, only in a player's private chat, a group chat / party that isn't Meta only, or GM notes (Jake: a store only the GM sees).
@@ -778,7 +819,7 @@ N.revealed = (c, pc, keys0) => {
   const st = (c.stunts || []).filter(([n, d]) => has('st:' + (n || d))); if (st.length) r.stunts = st;
   const cn = consSlots(c.skills || {}).filter(sl => has('cn:' + sl.k)).map(sl => [sl.l, sl.lo + '–' + sl.hi, (c.cons || {})[sl.k] || '', N.conSt(c, sl.k)]); if (cn.length) r.cons = cn;
   const gr = N.GEARK.filter(([k]) => has('g:' + k)).map(([k]) => [k, +c[k] || 0]); if (gr.length) r.gear = gr;
-  const it = (c.inv || []).filter(([n]) => has('it:' + n)).map(([n, q, d, ic]) => [n, q, d || '', ic || 'bag']); if (it.length) r.inv = it;
+  const it = (c.inv || []).filter(([n]) => has('it:' + n)).map(row => { const [n, q, d, ic] = row, cl = N.rowClass(row); return [n, q, d || '', ic || 'bag', ...(cl ? [cl] : [])]; }); if (it.length) r.inv = it;
   if (has('bio') && c.bio) r.bio = c.bio;
   if (pc && has('people') && c.people) r.people = c.people;
   const mt = N.metOf(keys); if (mt) r.met = mt;

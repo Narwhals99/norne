@@ -1965,9 +1965,9 @@ function act(v, a, el, e){
     if (!c.inv) c.inv = [];
     /* a name from the GM's item catalog brings its description and picture along */
     const cat = N.itemByName(n), ic = cat ? (cat.ic || N.itemKind(cat.kind)[2]) : null, icx = ic && ic !== 'bag' ? ic : null; /* same default picture the catalog shows (its kind's) */
-    if (cat && !note) note = N.itemNote(cat);
+    if (cat && !note) note = N.invNote(cat);
     const ex = c.inv.find(x => x[0].toLowerCase() === n.toLowerCase()); if (ex) { ex[1] += q; if (note) ex[2] = note; if (icx) ex[3] = icx; } else c.inv.push(icx ? [cat.name, q, note, icx] : note ? [cat ? cat.name : n, q, note] : [cat ? cat.name : n, q]);
-    const nr = ex || c.inv[c.inv.length - 1]; if (cat && N.itemSlot(cat)) N.invSetX(nr, {w:1, ...(cat.ammo && N.invX(nr).am == null ? {am:N.AMMO_MAX} : {})});
+    const nr = ex || c.inv[c.inv.length - 1]; if (cat) N.invSetX(nr, {it:cat.id, cl:N.itemClass(cat), ...(N.itemSlot(cat) ? {w:1} : {}), ...(cat.ammo && N.invX(nr).am == null ? {am:N.AMMO_MAX} : {})});
     if (d.nd) { ui.invQ = 1; renderAll(); return; }
     if (!d.c) { ui.invQ = 1; toast(v, `Added to ${c.name}’s inventory.`); renderAll(); return; }
     sys(`${N.gmName()} added ${n} ×${q} to ${c.short}’s inventory.`, 'dm-' + c.player); ui.invQ = 1;
@@ -2006,7 +2006,7 @@ function act(v, a, el, e){
     if (!n) { toast(v, 'An item needs a name.'); break; }
     ui.invEdit = null;
     if (q === 0) { c.inv.splice(+d.i, 1); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
-    const was = it[0], x = it[4]; c.inv[+d.i] = [n, q > 0 ? q : it[1], note, ...(ic && ic !== 'bag' || x ? [ic || 'bag'] : []), ...(x ? [x] : [])];
+    const was = it[0], x0 = it[4], x = x0 && was.toLowerCase() !== n.toLowerCase() ? (({it:_i, cl:_c, ...r}) => Object.keys(r).length ? r : null)(x0) : x0; c.inv[+d.i] = [n, q > 0 ? q : it[1], note, ...(ic && ic !== 'bag' || x ? [ic || 'bag'] : []), ...(x ? [x] : [])];
     if (d.c) sys(`${N.gmName()} changed ${was === n ? n : `${was} to ${n}`} in ${c.short}’s inventory.`, 'dm-' + c.player);
     renderAll(); return;
   }
@@ -2048,10 +2048,12 @@ function act(v, a, el, e){
     for (const k of ['cls', 'disc', 'silver']) if (!it[k]) delete it[k];
     it.pv = (d.pv || []).map(p => ({id:p.id || uid('pv'), text:String(p.text || '').trim(), see:[...(p.see || [])]})).filter(p => p.text); if (!it.pv.length) delete it.pv;
     for (const [k] of N.ITEM_RATE) if (+d[k] > 0) it[k] = +d[k]; else delete it[k];
-    const at = g.items.findIndex(x => x.id === it.id); if (at >= 0) g.items[at] = it; else g.items.push(it);
+    const at = g.items.findIndex(x => x.id === it.id), was = at >= 0 ? g.items[at].name : null; if (at >= 0) g.items[at] = it; else g.items.push(it);
     g.items.sort((a, b) => a.name.localeCompare(b.name));
+    /* Jake: the copies already in inventories follow the edit */
+    const synced = at >= 0 ? N.itemSync(it, was) : 0;
     ui.itd = null; ui.sheet = 'items'; if (ui.itK && ui.itK !== it.kind) ui.itK = it.kind;
-    toast(v, at >= 0 ? `Saved ${name}.` : `Added ${name} to the catalog.`); renderAll(); return;
+    toast(v, at >= 0 ? `Saved ${name}.${synced ? ` Updated it in ${synced} inventor${synced === 1 ? 'y' : 'ies'}.` : ''}` : `Added ${name} to the catalog.`); renderAll(); return;
   }
   case 'itDel': {
     const at = (g.items || []).findIndex(x => x.id === val); if (at < 0) break;
@@ -2064,13 +2066,13 @@ function act(v, a, el, e){
   case 'itgGear': if (ui.itg) ui.itg.gear = !ui.itg.gear; break;
   case 'itGiveGo': {
     const t = ui.itg, it = t && N.itemById(t.id), who = t && N.itemTo(t.to); if (!it || !who) break;
-    const o = who.o, q = Math.max(1, t.q || 1), note = N.itemNote(it), ic = it.ic || N.itemKind(it.kind)[2];
+    const o = who.o, q = Math.max(1, t.q || 1), note = N.invNote(it), ic = it.ic || N.itemKind(it.kind)[2];
     if (!o.inv) o.inv = [];
     const ex = o.inv.find(x => x[0].toLowerCase() === it.name.toLowerCase());
     let row = ex;
     if (ex) { ex[1] += q; if (note) ex[2] = note; if (ic !== 'bag') ex[3] = ic; } else { row = ic !== 'bag' ? [it.name, q, note, ic] : [it.name, q, note]; o.inv.push(row); }
     /* weapons and armor go on the weapons list; ammo and thrown weapons start full */
-    if (N.itemSlot(it)) N.invSetX(row, {w:1, ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})});
+    N.invSetX(row, {it:it.id, cl:N.itemClass(it), ...(N.itemSlot(it) ? {w:1} : {}), ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})});
     const gs = t.gear ? N.itemCardGears(it) : [];
     for (const [k] of gs) o[k] = +it[k];
     if (who.pc) sys(`${N.gmName()} gave ${o.short} ${it.name} ×${q}.${gs.length ? ` ${gs.map(([k, l]) => `${l} rating is now +${+it[k]}`).join(', ').replace(/^./, c => c.toUpperCase())}.` : ''}`, 'dm-' + o.player);
@@ -2400,11 +2402,11 @@ function act(v, a, el, e){
     const before = parseInt(c.gold, 10) || 0;
     if (before < b.price) { toast(v, `${c.short} has only ${N.goldTxt(before)} now. Decline it, or give them gold first.`); break; }
     c.gold = before - b.price;
-    const it = N.itemById(b.it) || N.itemByName(b.name), note = it ? N.itemNote(it) : '', ic = it ? it.ic || N.itemKind(it.kind)[2] : 'bag';
+    const it = N.itemById(b.it) || N.itemByName(b.name), note = it ? N.invNote(it) : '', ic = it ? it.ic || N.itemKind(it.kind)[2] : 'bag';
     if (!c.inv) c.inv = [];
     let row = c.inv.find(x => x[0].toLowerCase() === b.name.toLowerCase());
     if (row) { row[1] += 1; if (note) row[2] = note; if (ic !== 'bag') row[3] = ic; } else { row = ic !== 'bag' ? [b.name, 1, note, ic] : note ? [b.name, 1, note] : [b.name, 1]; c.inv.push(row); }
-    if (it && N.itemSlot(it)) N.invSetX(row, {w:1, ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})});
+    if (it) N.invSetX(row, {it:it.id, cl:N.itemClass(it), ...(N.itemSlot(it) ? {w:1} : {}), ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})});
     b.st = 'ok'; m.text = `${b.who} bought ${b.name} for ${N.goldTxt(b.price)}.`;
     N.purseNote(c, 'gold', before);
     toast(v, `${c.short} paid ${N.goldTxt(b.price)}. ${b.name} is in their inventory.`); renderAll(); return; }
