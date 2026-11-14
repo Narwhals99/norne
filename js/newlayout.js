@@ -100,6 +100,11 @@ const TKEY = v => 'norne-nltour-' + (v.dev === 'phone' ? 'phone' : 'desktop');
 nl.tourDone = v => { try { return localStorage.getItem(TKEY(v)) === '1'; } catch(e) { return false; } };
 nl.tourEnd = v => { try { localStorage.setItem(TKEY(v), '1'); } catch(e) {} };
 nl.tourSteps = v => { const ph = v.dev === 'phone', gm = isGM(v);
+  /* the look alone (Jake): nothing moved, so the tour is two short steps */
+  if (!N.nlOn(v)) return [
+    ['image', 'Same layout, new look', 'Every button and panel is where it was. Only the look changed: black or white pages, plain shapes, and colour only where it means something.'],
+    ['gear', 'Colours and the way back', 'Blue means tap here, green means happening now, red means harm or delete. You can pick another colour pair in your Profile, and turn the look off there at any time.'],
+  ];
   return [
     ['chat', 'Four tabs', `Chat, Map, World and ${gm ? 'Cast' : 'Character'}. News now sits inside World${gm ? '' : ', and Inventory inside Character'}. A switch at the top of the page flips between them.`],
     ...(gm ? [['plus', 'One Actions menu', `The GM tab is gone. Every tool it had is in one list: tap the blue + ${ph ? 'left of the typing bar' : 'left of the typing bar, or press Ctrl K'}. Type a few letters to find anything. Begin and New open short lists of their own.`]] : []),

@@ -44,7 +44,15 @@
   --raise:#f2f2f7; --raise-2:#e5e5ea; --sunk:#f2f2f7;
   --line:rgba(60,60,67,.14); --line-2:rgba(60,60,67,.22); --line-3:rgba(60,60,67,.36);
   --ink:#000; --ink-2:#3a3a3c; --ink-3:#5b5b60; --ink-4:#6e6e73;
-  --accent-ink:#fff; --gold-ink:#fff; --ember-ink:#fff;
+  /* every colour token again: app.css sets them for Day more specifically than the block above does */
+  --accent:var(--nla); --accent-2:var(--nla); --accent-3:var(--nla); --accent-ink:#fff;
+  --accent-soft:color-mix(in srgb,var(--nla) 12%,transparent); --accent-glow:transparent;
+  --gold:var(--nlb); --gold-2:var(--nlb); --gold-3:var(--nlb); --gold-ink:#fff; --gold-soft:color-mix(in srgb,var(--nlb) 12%,transparent);
+  --ember:var(--nlred); --ember-soft:color-mix(in srgb,var(--nlred) 10%,transparent); --ember-ink:#fff;
+  --link:var(--nla); --gold-tx:var(--ink); --accent-tx:var(--nla);
+  --card-rule:var(--line-3); --card-line:transparent;
+  --shadow-1:none; --shadow-2:0 0 0 1px var(--line-2);
+  --engrave:transparent; --map-grade:none; --map-tint:none;
   --jade:#248a3d; --jade-soft:rgba(36,138,61,.12);
   --card-paper:#f2f2f7; --card-ink:#000;
   --scrim:rgba(0,0,0,.32);
@@ -302,3 +310,26 @@
 .app:where([data-style="plain"]) .nl-tour-dots{display:flex;gap:6px;margin-top:4px}
 .app:where([data-style="plain"]) .nl-tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--line-3)}
 .app:where([data-style="plain"]) .nl-tour-dots i.on{background:var(--nla)}
+
+/* ---------- the look on the old layout (Jake's GM screens keep their places) ---------- */
+/* the open scene banner: the picture dimmed flat, white words on it, in Day too */
+.app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) .art{filter:brightness(.55)}
+.app[data-style="plain"][data-nl] .scene:not(.min):not(.empty), .app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) h2, .app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) .where, .app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) .eyebrow, .app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) .eyebrow span{color:#fff}
+.app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) .ctl .btn{background:rgba(0,0,0,.45);color:#fff}
+.app[data-style="plain"][data-nl] .icard::before, .app[data-style="plain"][data-nl] .icard::after{display:none}
+.app[data-style="plain"][data-nl] .scene .icard{background:rgba(255,255,255,.92);color:#000}
+.app[data-style="plain"][data-nl] .scene.min{background:var(--page-solid);color:var(--ink)}
+/* GM screen: big buttons and tool tiles are plain grey tiles with one blue icon */
+.app[data-style="plain"][data-nl] .bigcta, .app[data-style="plain"][data-nl] .bigcta.scn, .app[data-style="plain"][data-nl] .bigcta.shopcta{background:var(--raise);box-shadow:none}
+.app[data-style="plain"][data-nl] .bigcta .ic, .app[data-style="plain"][data-nl] .bigcta.scn .ic{background:none;box-shadow:none;color:var(--nla)}
+.app[data-style="plain"][data-nl] .gs .tools button{background:var(--raise);box-shadow:none;color:var(--ink)}
+.app[data-style="plain"][data-nl] .gs .tools button svg{color:var(--nla)}
+.app[data-style="plain"][data-nl] .gs .tools button:has([data-v="wipe"]), .app[data-style="plain"][data-nl] .gs .tools button[data-v="wipe"] svg{color:var(--nlred)}
+.app[data-style="plain"][data-nl] .gm-nofight{background:none;box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-3)}
+.app[data-style="plain"][data-nl] .btn.gm-solo{color:var(--nla);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app[data-style="plain"][data-nl] .die{box-shadow:inset 0 0 0 1px rgba(60,60,67,.25)}
+/* side panels and the chat list: flat, a hairline between them */
+.app[data-style="plain"][data-nl] .rail .pane, .app[data-style="plain"][data-nl] .rcnt .rc-in, .app[data-style="plain"][data-nl] .rcnt{box-shadow:none}
+.app[data-style="plain"][data-nl] .shelf{background:var(--page-solid);box-shadow:none}
+.app[data-style="plain"][data-nl] .shelf [aria-current="true"]{background:var(--raise);box-shadow:none}
+.app[data-style="plain"][data-nl] .pane-h b, .app[data-style="plain"][data-nl] .shelf h3, .app[data-style="plain"][data-nl] .shelf .sh-t{color:var(--ink-3)}

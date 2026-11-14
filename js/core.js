@@ -130,7 +130,11 @@ N.NL_WHO = [N.JACK, 'theusualsuspect41995@gmail.com'];
 N.nlOk = () => { const m = N.me && N.me(); return !!m && N.NL_WHO.includes(m.email) && m.emailVerified === true; };
 /* the short tour of the new layout is Jake's alone (Jack, 2026-11-14): once on his phone, once on his computer */
 N.nlTourOk = () => { const m = N.me && N.me(); return !!N.TOUR_ALL || (!!m && m.email === N.NL_WHO[1] && m.emailVerified === true); };
-N.nlOn = v => !!v && !!v.nl && (N.nlOk() || !!N.NL_ALL);
+/* The look and the layout are two things (Jack, 2026-11-14). nlLook: the black-and-white look is on. nlOn: the new layout
+   is on as well. Jake prefers the layout he knows for his GM controls, so his switch gives him the look alone, on the old layout */
+N.nlLook = v => !!v && !!v.nl && (N.nlOk() || !!N.NL_ALL);
+N.nlLookOnly = () => { const m = N.me && N.me(); return !!N.NL_LOOK || (!!m && m.email === N.NL_WHO[1]); };
+N.nlOn = v => N.nlLook(v) && !N.nlLookOnly();
 /* its colour pairs: the first colour means "tap here", the second "happening now" */
 N.NLP = [['bg', 'Blue and green', '#007aff', '#34c759'], ['op', 'Purple and orange', '#8944e6', '#ff9500'], ['pt', 'Pink and teal', '#e6245c', '#1aa5b8']];
 N.nlpOk = id => N.NLP.some(p => p[0] === id) ? id : 'bg';

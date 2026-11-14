@@ -253,7 +253,7 @@ function render(v){
   const root = v.root;
   if (!root.isConnected) return;
   if (swBusy(v)) { v._later = true; return; }
-  const nl = N.nlOn(v);
+  const nl = N.nlLook(v);
   root.dataset.theme = v.theme; root.dataset.style = nl ? 'plain' : v.style; if (nl) { root.dataset.nl = '1'; root.dataset.nlp = N.nlpOk(v.nlp); } else { delete root.dataset.nl; delete root.dataset.nlp; }
   if (N.TEST) root.dataset.test = '1'; root.dataset.pal = N.palOk(v.style, v.pal); root.dataset.dev = v.dev; root.dataset.role = v.role || '';
   /* shading + depth: on by default, strong at night and soft by day (css/vignette.css, css/depth.css) */
@@ -1564,9 +1564,9 @@ function act(v, a, el, e){
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; ui.sceneBig = !ui.sceneBig; break;
   /* the new layout (Jack only for now) */
-  case 'nl': v.nl = val === 'on'; try { localStorage.setItem('norne-nl', v.nl ? '1' : '0'); } catch(e) {} if (v.nl && ui.tab === 'gm') ui.tab = 'chat';
+  case 'nl': v.nl = val === 'on'; try { localStorage.setItem('norne-nl', v.nl ? '1' : '0'); } catch(e) {} if (N.nlOn(v) && ui.tab === 'gm') ui.tab = 'chat';
     /* Jake's tour: the first time he turns the layout on, on a phone and on a computer each. Finishing or skipping it ends it for good there */
-    if (v.nl && N.nlOn(v) && N.nlTourOk() && !N.nl.tourDone(v)) { ui.tourStep = 0; openSheet(v, 'nlTour', {}); }
+    if (N.nlLook(v) && N.nlTourOk() && !N.nl.tourDone(v)) { ui.tourStep = 0; openSheet(v, 'nlTour', {}); }
     break;
   case 'nlTour': { const n = N.nl.tourSteps(v).length;
     if (val === 'end' || (val === 'next' && (ui.tourStep || 0) >= n - 1)) { N.nl.tourEnd(v); close(); break; }
