@@ -1,0 +1,100 @@
+/* =====================================================================
+   NORNE — the new layout (Profile > Layout > New; N.nlOn in core.js sets data-lay="new" on .app).
+   Only where things sit: the pieces js/newlayout.js draws (Wiki|News and Sheet|Inventory switches, the one-line
+   scene, the tabbed side panel, the Actions menu). No colours of its own: every colour is a theme token, so each
+   theme in the Theme picker dresses it. --nla means "tap here" and --nlb means "happening now"; a theme that does
+   not set them (only Black & White does, css/plain.css) gets its accent and its gold.
+   Loaded after every theme except plain.css, and every selector is as light as :where() allows.
+   ===================================================================== */
+.app:where([data-lay="new"]){--nla:var(--accent); --nlb:var(--gold); --nlred:var(--ember)}
+.app:where([data-lay="new"]) .nl-h{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
+.app:where([data-lay="new"]) .composer .nlplus{color:var(--nla)}
+.app:where([data-lay="new"]) .nl-segbar{display:flex;justify-content:center;padding:calc(8px + var(--safe-t,0px)) 12px 8px;border-bottom:1px solid var(--line)}
+.app:where([data-lay="new"]) .page.nlw{grid-template-rows:auto minmax(0,1fr)}
+.app:where([data-lay="new"]) .page.nlw:not(:has(.nl-segbar)){grid-template-rows:minmax(0,1fr)}
+.app:where([data-lay="new"]) .page.nlw .top.ph{padding-top:6px}
+.app:where([data-lay="new"]) .nl-seg{display:inline-flex;background:var(--raise);border-radius:9px;padding:2px;gap:0}
+.app:where([data-lay="new"]) .nl-seg button{height:30px;min-width:96px;padding:0 14px;border-radius:7px;font:600 13px/1 var(--f-ui);color:var(--ink-2);display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.app:where([data-lay="new"]) .nl-seg button[aria-pressed="true"]{background:var(--page-solid);color:var(--ink);box-shadow:0 0 0 1px var(--line-2)}
+.app:where([data-lay="new"]) .nl-n{font:700 11px/16px var(--f-ui);font-style:normal;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--nlb);color:var(--gold-ink)}
+
+/* the scene: one line */
+.app:where([data-lay="new"]) .nl-scene{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);min-width:0}
+.app:where([data-lay="new"]) .nl-sc-main{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;height:40px;border-radius:10px;padding:0 6px 0 0}
+.app:where([data-lay="new"]) .nl-sc-main:hover{background:var(--raise)}
+.app:where([data-lay="new"]) .nl-sc-pic{flex:none;width:56px;height:36px;border-radius:7px;overflow:hidden;background-size:cover;background-position:center;position:relative;background-color:var(--raise)}
+.app:where([data-lay="new"]) .nl-sc-pic>*{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.app:where([data-lay="new"]) .nl-sc-t{flex:1;min-width:0;display:grid}
+.app:where([data-lay="new"]) .nl-sc-t b{font:600 14px/1.25 var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app:where([data-lay="new"]) .nl-sc-t small{font:400 12px/1.25 var(--f-ui);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app:where([data-lay="new"]) .nl-chip{flex:none;font:600 11.5px/1 var(--f-ui);padding:5px 8px;border-radius:999px;color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--line-2);white-space:nowrap}
+.app:where([data-lay="new"]) .nl-chip.b{color:var(--nlb);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nlb) 50%,transparent)}
+.app:where([data-lay="new"]) .nl-sc-btn{flex:none;height:32px;padding:0 10px;border-radius:8px;font:600 13px/1 var(--f-ui);color:var(--nla)}
+.app:where([data-lay="new"]) .nl-sc-btn:hover{background:var(--raise)}
+
+/* the side panel */
+.app:where([data-lay="new"]) .page.nl-solo{grid-template-columns:minmax(0,1fr)}
+.app:where([data-lay="new"]) .rail.nlr{display:flex;flex-direction:column;min-height:0;min-width:0;position:relative;overflow:hidden;grid-template-rows:none}
+.app:where([data-lay="new"]) .rail.nlr .nl-pane{flex:1;min-height:0;display:flex;flex-direction:column;border:0;background:none}
+.app:where([data-lay="new"]) .rail.sp.nlr{flex:1}
+.app:where([data-lay="new"]) .nl-tabs{flex:none;display:flex;gap:2px;padding:8px 10px 0;border-bottom:1px solid var(--line)}
+.app:where([data-lay="new"]) .nl-tabs button{height:36px;padding:0 10px;font:600 13.5px/1 var(--f-ui);color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.app:where([data-lay="new"]) .nl-tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--nla)}
+.app:where([data-lay="new"]) .nl-tabs .nl-morebtn{margin-left:auto}
+.app:where([data-lay="new"]) .nl-tabs .nl-morebtn svg{width:12px;height:12px}
+.app:where([data-lay="new"]) .nl-more{flex:none;display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.app:where([data-lay="new"]) .nl-more button, .app:where([data-lay="new"]) .nl-chipbtn{height:30px;padding:0 10px;border-radius:999px;font:600 12.5px/1 var(--f-ui);color:var(--ink-2);background:var(--raise);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.app:where([data-lay="new"]) .nl-more button svg, .app:where([data-lay="new"]) .nl-chipbtn svg{width:14px;height:14px;color:var(--ink-3)}
+.app:where([data-lay="new"]) .nl-more button[aria-pressed="true"]{color:var(--nla)}
+.app:where([data-lay="new"]) .nl-sb, .app:where([data-lay="new"]) .rail.nlr .pane-c{flex:1;min-height:0}
+.app:where([data-lay="new"]) .nl-sb.scroll{overflow-y:auto}
+.app:where([data-lay="new"]) .nl-pad{padding:12px;display:grid;gap:10px}
+.app:where([data-lay="new"]) .nl-h{margin:8px 2px 0}
+.app:where([data-lay="new"]) .nl-card{display:grid;gap:10px}
+.app:where([data-lay="new"]) .nl-card-pic{height:120px;border-radius:12px;overflow:hidden;position:relative;background-size:cover;background-position:center;background-color:var(--raise)}
+.app:where([data-lay="new"]) .nl-card-pic>*{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.app:where([data-lay="new"]) .nl-card-b{display:grid;gap:2px}
+.app:where([data-lay="new"]) .nl-card-b b{font:700 16px/1.25 var(--f-display)}
+.app:where([data-lay="new"]) .nl-card-b small{font:400 13px/1.3 var(--f-ui);color:var(--ink-3)}
+.app:where([data-lay="new"]) .nl-asp{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.app:where([data-lay="new"]) .nl-asp span{font:500 12.5px/1.3 var(--f-ui);padding:5px 9px;border-radius:8px;background:var(--raise)}
+.app:where([data-lay="new"]) .nl-asp i{font-style:normal;color:var(--ink-3)}
+.app:where([data-lay="new"]) .nl-asp em{font-style:normal;font-weight:700;color:var(--nlb)}
+.app:where([data-lay="new"]) .nl-btn{height:38px;padding:0 14px;border-radius:10px;font:600 14px/1 var(--f-ui);background:var(--raise);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.app:where([data-lay="new"]) .nl-btn.a{background:var(--nla);color:var(--accent-ink)}
+.app:where([data-lay="new"]) .nl-empty{display:grid;gap:10px;justify-items:start;color:var(--ink-3);font:400 14px/1.4 var(--f-ui)}
+.app:where([data-lay="new"]) .nl-empty p{margin:0}
+.app:where([data-lay="new"]) .nl-party{display:grid}
+
+/* rows: the Actions menu, and anything running now */
+.app:where([data-lay="new"]) .nl-list{display:grid;border-radius:12px;background:var(--raise);overflow:hidden}
+.app:where([data-lay="new"]) .nl-row{display:flex;align-items:center;gap:12px;min-height:46px;padding:6px 12px;text-align:left;width:100%;position:relative}
+.app:where([data-lay="new"]) .nl-row+.nl-row::before{content:"";position:absolute;left:46px;right:0;top:0;border-top:1px solid var(--line)}
+.app:where([data-lay="new"]) .nl-row:hover{background:var(--raise-2)}
+.app:where([data-lay="new"]) .nl-ic{flex:none;width:22px;height:22px;display:grid;place-items:center;color:var(--nla)}
+.app:where([data-lay="new"]) .nl-ic svg{width:20px;height:20px}
+.app:where([data-lay="new"]) .nl-l{flex:1;min-width:0;display:grid;gap:1px}
+.app:where([data-lay="new"]) .nl-l b{font:500 15px/1.25 var(--f-ui)}
+.app:where([data-lay="new"]) .nl-l small{font:400 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.app:where([data-lay="new"]) .nl-go{flex:none;color:var(--ink-4)}
+.app:where([data-lay="new"]) .nl-go svg{width:14px;height:14px}
+.app:where([data-lay="new"]) .nl-row.red .nl-ic, .app:where([data-lay="new"]) .nl-row.red .nl-l b{color:var(--nlred)}
+.app:where([data-lay="new"]) .nl-row.live .nl-ic{color:var(--nlb)}
+.app:where([data-lay="new"]) .nl-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--nlb)}
+.app:where([data-lay="new"]) .nl-acts{display:grid;gap:8px}
+.app:where([data-lay="new"]) .nl-acts .nl-h{margin:8px 4px 0}
+.app:where([data-lay="new"]) .nl-search{display:flex;align-items:center;gap:8px;height:38px;padding:0 10px;border-radius:10px;background:var(--raise);color:var(--ink-3)}
+.app:where([data-lay="new"]) .nl-search svg{width:16px;height:16px;flex:none}
+.app:where([data-lay="new"]) .nl-search input{flex:1;min-width:0;height:100%;background:none!important;border:0;outline:0;font:400 16px/1 var(--f-ui);color:var(--ink);padding:0}
+.app:where([data-lay="new"]) .nl-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
+.app:where([data-lay="new"]) .nl-back{display:inline-flex;align-items:center;gap:4px;height:36px;font:600 15px/1 var(--f-ui);color:var(--nla);justify-self:start}
+.app:where([data-lay="new"]) .nl-back svg{width:16px;height:16px}
+.app:where([data-lay="new"]) .nl-none{margin:0;padding:14px;color:var(--ink-3);font:400 14px/1.4 var(--f-ui)}
+.app:where([data-lay="new"]) .ibtn.nlside svg{width:22px;height:22px}
+.app:where([data-lay="new"]) .ibtn.nlside[aria-pressed="true"]{color:var(--nla)}
+.app:where([data-lay="new"]) .nl-sc-pic .pic, .app:where([data-lay="new"]) .nl-card-pic .pic{display:block;background-size:cover;background-position:center;background-repeat:no-repeat}
+.app:where([data-lay="new"]) .nl-sb{display:block}
+.app:where([data-lay="new"]) .nl-sb .gs-pics{padding:12px}
+.app:where([data-lay="new"]) .rail.nlr .nl-pane>.nl-tabs, .app:where([data-lay="new"]) .rail.nlr .nl-pane>.nl-more{flex:none}
+.app:where([data-lay="new"]) .rail.nlr .nl-pane>.nl-sb, .app:where([data-lay="new"]) .rail.nlr .nl-pane>.pane-c{flex:1 1 0}
+.app:where([data-lay="new"]) .nl-sc-pic, .app:where([data-lay="new"]) .nl-card-pic{isolation:isolate}

@@ -1,11 +1,11 @@
 /* =====================================================================
-   NORNE — the look of the new layout (2026-11-14, Jack): black or white pages, colour only in spots.
-   Not in the Style picker. app.js sets data-style="plain" while the new layout is on (N.nlOn, core.js),
-   so every rule here only applies then, and :where() keeps each selector as specific as the app.css rule it reskins.
-   Two spot colours, picked as a pair under Profile (data-nlp): --nla means "tap here", --nlb means "happening now".
+   NORNE — the Black & White theme (2026-11-14, Jack): black or white pages, colour only in spots.
+   Style id "plain" in N.STYLES (gated, N.nlAny in core.js). app.js also sets data-nl and data-nlp (the colour pair)
+   while it is on. :where() keeps each selector as specific as the app.css rule it reskins.
+   Two spot colours, picked as a pair under Profile > Theme: --nla means "tap here", --nlb means "happening now".
    Red is only for harm and deleting. Everything else is ink on the page: no coloured panels, no gradients,
    no blur, no drop shadows (cheap to draw on a phone), and the system font.
-   The structure that goes with it is js/newlayout.js. The few rules at the very end are not scoped to the look:
+   It works with either layout; the new layout's pieces are in css/layout.css. The few rules at the very end are not scoped to the look:
    Jack's Profile switches and the GM test mode bar show in every style.
    ===================================================================== */
 
@@ -44,7 +44,15 @@
   --raise:#f2f2f7; --raise-2:#e5e5ea; --sunk:#f2f2f7;
   --line:rgba(60,60,67,.14); --line-2:rgba(60,60,67,.22); --line-3:rgba(60,60,67,.36);
   --ink:#000; --ink-2:#3a3a3c; --ink-3:#5b5b60; --ink-4:#6e6e73;
-  --accent-ink:#fff; --gold-ink:#fff; --ember-ink:#fff;
+  /* every colour token again: app.css sets them for Day more specifically than the block above does */
+  --accent:var(--nla); --accent-2:var(--nla); --accent-3:var(--nla); --accent-ink:#fff;
+  --accent-soft:color-mix(in srgb,var(--nla) 12%,transparent); --accent-glow:transparent;
+  --gold:var(--nlb); --gold-2:var(--nlb); --gold-3:var(--nlb); --gold-ink:#fff; --gold-soft:color-mix(in srgb,var(--nlb) 12%,transparent);
+  --ember:var(--nlred); --ember-soft:color-mix(in srgb,var(--nlred) 10%,transparent); --ember-ink:#fff;
+  --link:var(--nla); --gold-tx:var(--ink); --accent-tx:var(--nla);
+  --card-rule:var(--line-3); --card-line:transparent;
+  --shadow-1:none; --shadow-2:0 0 0 1px var(--line-2);
+  --engrave:transparent; --map-grade:none; --map-tint:none;
   --jade:#248a3d; --jade-soft:rgba(36,138,61,.12);
   --card-paper:#f2f2f7; --card-ink:#000;
   --scrim:rgba(0,0,0,.32);
@@ -155,93 +163,8 @@
 .app:where([data-style="plain"]) .thumb{box-shadow:none;border-radius:10px}
 .app:where([data-style="plain"]) .thumb.on{outline:2px solid var(--nla);outline-offset:1px}
 
-/* =====================================================================
-   the new pieces (js/newlayout.js)
-   ===================================================================== */
-.app:where([data-style="plain"]) .nl-segbar{display:flex;justify-content:center;padding:calc(8px + var(--safe-t,0px)) 12px 8px;border-bottom:1px solid var(--line)}
-.app:where([data-style="plain"]) .page.nlw{grid-template-rows:auto minmax(0,1fr)}
-.app:where([data-style="plain"]) .page.nlw:not(:has(.nl-segbar)){grid-template-rows:minmax(0,1fr)}
-.app:where([data-style="plain"]) .page.nlw .top.ph{padding-top:6px}
-.app:where([data-style="plain"]) .nl-seg{display:inline-flex;background:var(--raise);border-radius:9px;padding:2px;gap:0}
-.app:where([data-style="plain"]) .nl-seg button{height:30px;min-width:96px;padding:0 14px;border-radius:7px;font:600 13px/1 var(--f-ui);color:var(--ink-2);display:inline-flex;align-items:center;justify-content:center;gap:6px}
-.app:where([data-style="plain"]) .nl-seg button[aria-pressed="true"]{background:var(--page-solid);color:var(--ink);box-shadow:0 0 0 1px var(--line-2)}
+/* the new layout's own pieces are in css/layout.css; Black & White only adds this to them */
 .app:where([data-style="plain"]):not([data-theme="day"]) .nl-seg button[aria-pressed="true"]{background:#636366;box-shadow:none}
-.app:where([data-style="plain"]) .nl-n{font:700 11px/16px var(--f-ui);font-style:normal;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--nlb);color:var(--gold-ink)}
-
-/* the scene: one line */
-.app:where([data-style="plain"]) .nl-scene{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);min-width:0}
-.app:where([data-style="plain"]) .nl-sc-main{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;height:40px;border-radius:10px;padding:0 6px 0 0}
-.app:where([data-style="plain"]) .nl-sc-main:hover{background:var(--raise)}
-.app:where([data-style="plain"]) .nl-sc-pic{flex:none;width:56px;height:36px;border-radius:7px;overflow:hidden;background-size:cover;background-position:center;position:relative;background-color:var(--raise)}
-.app:where([data-style="plain"]) .nl-sc-pic>*{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.app:where([data-style="plain"]) .nl-sc-t{flex:1;min-width:0;display:grid}
-.app:where([data-style="plain"]) .nl-sc-t b{font:600 14px/1.25 var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.app:where([data-style="plain"]) .nl-sc-t small{font:400 12px/1.25 var(--f-ui);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.app:where([data-style="plain"]) .nl-chip{flex:none;font:600 11.5px/1 var(--f-ui);padding:5px 8px;border-radius:999px;color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--line-2);white-space:nowrap}
-.app:where([data-style="plain"]) .nl-chip.b{color:var(--nlb);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nlb) 50%,transparent)}
-.app:where([data-style="plain"]) .nl-sc-btn{flex:none;height:32px;padding:0 10px;border-radius:8px;font:600 13px/1 var(--f-ui);color:var(--nla)}
-.app:where([data-style="plain"]) .nl-sc-btn:hover{background:var(--raise)}
-
-/* the side panel */
-.app:where([data-style="plain"]) .page.nl-solo{grid-template-columns:minmax(0,1fr)}
-.app:where([data-style="plain"]) .rail.nlr{display:flex;flex-direction:column;min-height:0;min-width:0;position:relative;overflow:hidden;grid-template-rows:none}
-.app:where([data-style="plain"]) .rail.nlr .nl-pane{flex:1;min-height:0;display:flex;flex-direction:column;border:0;background:none}
-.app:where([data-style="plain"]) .rail.sp.nlr{flex:1}
-.app:where([data-style="plain"]) .nl-tabs{flex:none;display:flex;gap:2px;padding:8px 10px 0;border-bottom:1px solid var(--line)}
-.app:where([data-style="plain"]) .nl-tabs button{height:36px;padding:0 10px;font:600 13.5px/1 var(--f-ui);color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
-.app:where([data-style="plain"]) .nl-tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--nla)}
-.app:where([data-style="plain"]) .nl-tabs .nl-morebtn{margin-left:auto}
-.app:where([data-style="plain"]) .nl-tabs .nl-morebtn svg{width:12px;height:12px}
-.app:where([data-style="plain"]) .nl-more{flex:none;display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line)}
-.app:where([data-style="plain"]) .nl-more button, .app:where([data-style="plain"]) .nl-chipbtn{height:30px;padding:0 10px;border-radius:999px;font:600 12.5px/1 var(--f-ui);color:var(--ink-2);background:var(--raise);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
-.app:where([data-style="plain"]) .nl-more button svg, .app:where([data-style="plain"]) .nl-chipbtn svg{width:14px;height:14px;color:var(--ink-3)}
-.app:where([data-style="plain"]) .nl-more button[aria-pressed="true"]{color:var(--nla)}
-.app:where([data-style="plain"]) .nl-sb, .app:where([data-style="plain"]) .rail.nlr .pane-c{flex:1;min-height:0}
-.app:where([data-style="plain"]) .nl-sb.scroll{overflow-y:auto}
-.app:where([data-style="plain"]) .nl-pad{padding:12px;display:grid;gap:10px}
-.app:where([data-style="plain"]) .nl-h{margin:8px 2px 0}
-.app:where([data-style="plain"]) .nl-card{display:grid;gap:10px}
-.app:where([data-style="plain"]) .nl-card-pic{height:120px;border-radius:12px;overflow:hidden;position:relative;background-size:cover;background-position:center;background-color:var(--raise)}
-.app:where([data-style="plain"]) .nl-card-pic>*{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.app:where([data-style="plain"]) .nl-card-b{display:grid;gap:2px}
-.app:where([data-style="plain"]) .nl-card-b b{font:700 16px/1.25 var(--f-display)}
-.app:where([data-style="plain"]) .nl-card-b small{font:400 13px/1.3 var(--f-ui);color:var(--ink-3)}
-.app:where([data-style="plain"]) .nl-asp{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.app:where([data-style="plain"]) .nl-asp span{font:500 12.5px/1.3 var(--f-ui);padding:5px 9px;border-radius:8px;background:var(--raise)}
-.app:where([data-style="plain"]) .nl-asp i{font-style:normal;color:var(--ink-3)}
-.app:where([data-style="plain"]) .nl-asp em{font-style:normal;font-weight:700;color:var(--nlb)}
-.app:where([data-style="plain"]) .nl-btn{height:38px;padding:0 14px;border-radius:10px;font:600 14px/1 var(--f-ui);background:var(--raise);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:6px}
-.app:where([data-style="plain"]) .nl-btn.a{background:var(--nla);color:#fff}
-.app:where([data-style="plain"]) .nl-empty{display:grid;gap:10px;justify-items:start;color:var(--ink-3);font:400 14px/1.4 var(--f-ui)}
-.app:where([data-style="plain"]) .nl-empty p{margin:0}
-.app:where([data-style="plain"]) .nl-party{display:grid}
-
-/* rows: the Actions menu, and anything running now */
-.app:where([data-style="plain"]) .nl-list{display:grid;border-radius:12px;background:var(--raise);overflow:hidden}
-.app:where([data-style="plain"]) .nl-row{display:flex;align-items:center;gap:12px;min-height:46px;padding:6px 12px;text-align:left;width:100%;position:relative}
-.app:where([data-style="plain"]) .nl-row+.nl-row::before{content:"";position:absolute;left:46px;right:0;top:0;border-top:1px solid var(--line)}
-.app:where([data-style="plain"]) .nl-row:hover{background:var(--raise-2)}
-.app:where([data-style="plain"]) .nl-ic{flex:none;width:22px;height:22px;display:grid;place-items:center;color:var(--nla)}
-.app:where([data-style="plain"]) .nl-ic svg{width:20px;height:20px}
-.app:where([data-style="plain"]) .nl-l{flex:1;min-width:0;display:grid;gap:1px}
-.app:where([data-style="plain"]) .nl-l b{font:500 15px/1.25 var(--f-ui)}
-.app:where([data-style="plain"]) .nl-l small{font:400 12px/1.3 var(--f-ui);color:var(--ink-3)}
-.app:where([data-style="plain"]) .nl-go{flex:none;color:var(--ink-4)}
-.app:where([data-style="plain"]) .nl-go svg{width:14px;height:14px}
-.app:where([data-style="plain"]) .nl-row.red .nl-ic, .app:where([data-style="plain"]) .nl-row.red .nl-l b{color:var(--nlred)}
-.app:where([data-style="plain"]) .nl-row.live .nl-ic{color:var(--nlb)}
-.app:where([data-style="plain"]) .nl-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--nlb)}
-.app:where([data-style="plain"]) .nl-acts{display:grid;gap:8px}
-.app:where([data-style="plain"]) .nl-acts .nl-h{margin:8px 4px 0}
-.app:where([data-style="plain"]) .nl-search{display:flex;align-items:center;gap:8px;height:38px;padding:0 10px;border-radius:10px;background:var(--raise);color:var(--ink-3)}
-.app:where([data-style="plain"]) .nl-search svg{width:16px;height:16px;flex:none}
-.app:where([data-style="plain"]) .nl-search input{flex:1;min-width:0;height:100%;background:none!important;border:0;outline:0;font:400 16px/1 var(--f-ui);color:var(--ink);padding:0}
-.app:where([data-style="plain"]) .nl-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
-.app:where([data-style="plain"]) .nl-back{display:inline-flex;align-items:center;gap:4px;height:36px;font:600 15px/1 var(--f-ui);color:var(--nla);justify-self:start}
-.app:where([data-style="plain"]) .nl-back svg{width:16px;height:16px}
-.app:where([data-style="plain"]) .nl-none{margin:0;padding:14px;color:var(--ink-3);font:400 14px/1.4 var(--f-ui)}
-.app:where([data-style="plain"]) .ibtn.nlside svg{width:22px;height:22px}
-.app:where([data-style="plain"]) .ibtn.nlside[aria-pressed="true"]{color:var(--nla)}
 
 /* =====================================================================
    in every style: Jack's Profile switches and the GM test mode bar
@@ -258,9 +181,6 @@
 .app .testbar button{flex:none;height:22px;padding:0 10px;border-radius:999px;background:#000;color:#fff;font:700 12px/1 system-ui,-apple-system,sans-serif}
 
 /* ---------- second pass ---------- */
-.app:where([data-style="plain"]) .nl-sc-pic .pic, .app:where([data-style="plain"]) .nl-card-pic .pic{display:block;background-size:cover;background-position:center;background-repeat:no-repeat}
-.app:where([data-style="plain"]) .nl-sb{display:block}
-.app:where([data-style="plain"]) .nl-sb .gs-pics{padding:12px}
 .app:where([data-style="plain"]) .mark, .app:where([data-style="plain"]) .mark b{color:var(--ink)}
 .app:where([data-style="plain"]) .mark svg{filter:none;width:22px;height:22px;color:var(--nla)}
 .app:where([data-style="plain"]) .m .who{color:var(--ink-3)}
@@ -274,12 +194,9 @@
   .app[data-style="plain"] :is(.rail.sp>.pane.pb,.rcnt){border-top:0}
 }
 
-.app:where([data-style="plain"]) .rail.nlr .nl-pane>.nl-tabs, .app:where([data-style="plain"]) .rail.nlr .nl-pane>.nl-more{flex:none}
-.app:where([data-style="plain"]) .rail.nlr .nl-pane>.nl-sb, .app:where([data-style="plain"]) .rail.nlr .nl-pane>.pane-c{flex:1 1 0}
 @container dev (min-width: 760px){
   .app[data-style="plain"]:not([data-style="oak"]) .page{outline:0}
 }
-.app:where([data-style="plain"]) .nl-sc-pic, .app:where([data-style="plain"]) .nl-card-pic{isolation:isolate}
 
 /* ---------- third pass: no gradients anywhere. Pictures set their image inline, so they are left alone ---------- */
 .app:where([data-style="plain"]) *:not([style*="background"]):not(.pic), .app:where([data-style="plain"]) *::before, .app:where([data-style="plain"]) *::after{background-image:none!important}
@@ -302,3 +219,31 @@
 .app:where([data-style="plain"]) .nl-tour-dots{display:flex;gap:6px;margin-top:4px}
 .app:where([data-style="plain"]) .nl-tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--line-3)}
 .app:where([data-style="plain"]) .nl-tour-dots i.on{background:var(--nla)}
+
+/* ---------- the look on the old layout (Jake's GM screens keep their places) ---------- */
+/* the open scene banner: the picture dimmed flat, white words on it, in Day too */
+.app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) .art{filter:brightness(.55)}
+.app[data-style="plain"][data-nl] .scene:not(.min):not(.empty), .app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) h2, .app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) .where, .app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) .eyebrow, .app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) .eyebrow span{color:#fff}
+.app[data-style="plain"][data-nl] .scene:not(.min):not(.empty) .ctl .btn{background:rgba(0,0,0,.45);color:#fff}
+.app[data-style="plain"][data-nl] .icard::before, .app[data-style="plain"][data-nl] .icard::after{display:none}
+.app[data-style="plain"][data-nl] .scene .icard{background:rgba(255,255,255,.92);color:#000}
+.app[data-style="plain"][data-nl] .scene.min{background:var(--page-solid);color:var(--ink)}
+/* GM screen: big buttons and tool tiles are plain grey tiles with one blue icon */
+.app[data-style="plain"][data-nl] .bigcta, .app[data-style="plain"][data-nl] .bigcta.scn, .app[data-style="plain"][data-nl] .bigcta.shopcta{background:var(--raise);box-shadow:none}
+.app[data-style="plain"][data-nl] .bigcta .ic, .app[data-style="plain"][data-nl] .bigcta.scn .ic{background:none;box-shadow:none;color:var(--nla)}
+.app[data-style="plain"][data-nl] .gs .tools button{background:var(--raise);box-shadow:none;color:var(--ink)}
+.app[data-style="plain"][data-nl] .gs .tools button svg{color:var(--nla)}
+.app[data-style="plain"][data-nl] .gs .tools button:has([data-v="wipe"]), .app[data-style="plain"][data-nl] .gs .tools button[data-v="wipe"] svg{color:var(--nlred)}
+.app[data-style="plain"][data-nl] .gm-nofight{background:none;box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-3)}
+.app[data-style="plain"][data-nl] .btn.gm-solo{color:var(--nla);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app[data-style="plain"][data-nl] .die{box-shadow:inset 0 0 0 1px rgba(60,60,67,.25)}
+/* side panels and the chat list: flat, a hairline between them */
+.app[data-style="plain"][data-nl] .rail .pane, .app[data-style="plain"][data-nl] .rcnt .rc-in, .app[data-style="plain"][data-nl] .rcnt{box-shadow:none}
+.app[data-style="plain"][data-nl] .shelf{background:var(--page-solid);box-shadow:none}
+.app[data-style="plain"][data-nl] .shelf [aria-current="true"]{background:var(--raise);box-shadow:none}
+.app[data-style="plain"][data-nl] .pane-h b, .app[data-style="plain"][data-nl] .shelf h3, .app[data-style="plain"][data-nl] .shelf .sh-t{color:var(--ink-3)}
+/* NPC speech takes the second spot colour (Jack, 2026-11-14), so it never reads as Meta or as a player:
+   players in character are grey (yours blue), NPCs are tinted with the pair's other colour, Meta is an outline */
+.app[data-style="plain"][data-nl] .m.say.npc .bub, .app[data-style="plain"][data-nl] .m.say.npc.mine .bub{background:color-mix(in srgb,var(--nlb) 30%,var(--page-solid));color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nlb) 55%,transparent)}
+.app[data-style="plain"][data-nl] .m.say.npc.mine .bub em, .app[data-style="plain"][data-nl] .m.say.npc.mine .bub a{color:inherit}
+.app[data-style="plain"][data-nl] .m.say.npc .who .tag{color:var(--nlb);box-shadow:inset 0 0 0 1px currentColor;background:none}
