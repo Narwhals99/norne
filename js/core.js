@@ -389,7 +389,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, shops:{}, crafts:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, rnotes:{}, rnMine:{}, shops:{}, crafts:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -487,6 +487,33 @@ N.locBuild = sel => {
   const out = {};
   for (const k of N.LOCK) { const o = N.locOpts(k, sel).find(x => N.locKey(x) === sel[k]); if (!o) break; out[k] = o; }
   return out.c ? out : null;
+};
+/* a place by name (the GM's {{Little Eundir, Prince City}} in a narrator line): every pin with that name that sits in a
+   country > city > neighborhood chain, narrowed by the place after the comma (the city or country it is in) */
+N.placeFind = (name, inside) => {
+  const g = N.G, low = x => (x || '').trim().toLowerCase(), want = low(name), up = low(inside);
+  const parent = mid => { for (const m of g.maps) for (const p of m.pins || []) if (p.type !== 'party' && N.pinTo(m, p) === mid) return {m, p}; return null; };
+  const seen = new Map();
+  for (const m of g.maps) for (const p of m.pins || []) {
+    if (p.type === 'party' || low(p.label) !== want) continue;
+    const chain = [{m, p}];
+    while (chain[0].p.type !== 'nation' && chain.length < 4) { const a = parent(chain[0].m.id); if (!a || chain.some(x => x.p === a.p)) break; chain.unshift(a); }
+    if (chain[0].p.type !== 'nation' || chain.length > 3) continue;
+    const sel = {c:'', t:'', n:''}; chain.forEach((x, i) => { sel[N.LOCK[i]] = x.m.id + '|' + x.p.id; });
+    const loc = N.locBuild(sel); if (!loc || !loc[N.LOCK[chain.length - 1]]) continue;
+    if (up && !N.LOCK.some(k => loc[k] && k !== N.LOCK[chain.length - 1] && low(loc[k].l) === up)) continue;
+    seen.set(N.LOCK.map(k => N.locKey(loc[k])).join('/'), loc);
+  }
+  return [...seen.values()];
+};
+/* the character card behind a roleplay line, if this player may open it on the Character tab: their own, or one whose name the GM revealed */
+N.msgCard = (m, role) => {
+  const g = N.G; if (!m || m.kind !== 'rp' || role === 'gm') return null;
+  if (m.by === 'gm') { if (!m.as || m.as === 'Narrator') return null; const n = m.as.trim().toLowerCase();
+    const k = Object.values(g.known || {}).find(x => x.name && (x.name.trim().toLowerCase() === n || (x.short || '').trim().toLowerCase() === n)); return k ? k.id : null; }
+  const c = N.charOf(m.by); if (!c) return null;
+  if (m.by === role || N.charOf(role)?.id === c.id) return c.built ? c.id : null;
+  return g.known?.[c.id]?.name ? c.id : null;
 };
 N.locKeys = loc => ({c:N.locKey(loc?.c), t:N.locKey(loc?.t), n:N.locKey(loc?.n)});
 N.locText = loc => loc ? N.LOCK.map(k => loc[k]?.l).filter(Boolean).reverse().join(', ') : '';

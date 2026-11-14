@@ -432,24 +432,34 @@ function bind(v){
     const el = document.createElement('div'); el.className = 'avpeek'; el.setAttribute('data-keep', ''); el.setAttribute('aria-hidden', 'true');
     const big = a.cloneNode(true); big.classList.add('big'); big.style.setProperty('--s', S + 'px'); el.appendChild(big);
     if (name) { const b = document.createElement('b'); b.textContent = name; el.appendChild(b); }
+    /* Jake: a link to that character's sheet on the Character tab, when some of it is revealed to this player */
+    const mid = a.closest('[data-mid]')?.dataset.mid, card = mid && N.msgCard(G().msgs.find(x => x.id === mid), v.role);
+    if (card) { const l = document.createElement('button'); l.type = 'button'; l.className = 'avsheet'; l.dataset.a = 'avSheet'; l.dataset.v = card;
+      l.innerHTML = IC('scroll') + '<span>Character sheet</span>' + IC('right'); el.appendChild(l); el.classList.add('link'); el.removeAttribute('aria-hidden'); }
     /* phone: above the finger (the finger covers the little one), centred; computer: beside it, kept on the screen */
     let x, y;
-    if (TOUCH.matches) { x = Math.max(16, Math.min(W - S - 16, r.left + r.width / 2 - S / 2)); y = r.top - S - 44; if (y < 12) y = Math.min(H - S - 40, r.bottom + 16); }
-    else { x = Math.min(W - S - 16, r.right + 12); y = Math.max(12, Math.min(H - S - 40, r.top - S / 2)); }
+    const ex = card ? 46 : 0;
+    if (TOUCH.matches) { x = Math.max(16, Math.min(W - S - 16, r.left + r.width / 2 - S / 2)); y = r.top - S - 44 - ex; if (y < 12) y = Math.min(H - S - 40 - ex, r.bottom + 16); }
+    else { x = Math.min(W - S - 16, r.right + 12); y = Math.max(12, Math.min(H - S - 40 - ex, r.top - S / 2)); }
     el.style.left = Math.round(x) + 'px'; el.style.top = Math.round(y) + 'px';
     v.root.appendChild(el); pk.el = el; pk.av = a;
   };
+  N.peekHide = () => peekHide();
   root.addEventListener('touchstart', e => {
+    if (pk?.stay && e.target.closest?.('.avpeek')) return;
     peekHide(); pkTouch = Date.now();
     const a = e.touches.length === 1 && peekAv(e.target); if (!a) return;
     const t = e.touches[0]; pk = {x:t.clientX, y:t.clientY, tm:setTimeout(() => { if (!pk) return; peekShow(a); try { navigator.vibrate?.(8); } catch(err) {} document.addEventListener('touchmove', pkHold, {passive:false}); }, 170)};
   }, {passive:true});
   root.addEventListener('touchmove', e => { if (!pk || pk.el) return; const t = e.touches[0]; if (Math.hypot(t.clientX - pk.x, t.clientY - pk.y) > 8) peekHide(); }, {passive:true});
-  root.addEventListener('touchend', () => { pkTouch = Date.now(); peekHide(); });
+  /* a big picture with a sheet link stays up after the finger lifts, so the link can be tapped; the next tap elsewhere closes it */
+  root.addEventListener('touchend', e => { if (pk?.stay && e.target.closest?.('.avpeek')) return; pkTouch = Date.now();
+    if (pk?.el?.classList.contains('link') && !pk.stay) { pk.stay = true; clearTimeout(pk.tm); document.removeEventListener('touchmove', pkHold, {passive:false}); return; }
+    peekHide(); });
   root.addEventListener('touchcancel', peekHide);
   root.addEventListener('click', e => { if (Date.now() - pkTouch < 700) return; const a = peekAv(e.target); if (!a) return;
     const same = pk?.av === a; peekHide(); if (!same) { pk = {}; peekShow(a); } }, true);
-  document.addEventListener('pointerdown', e => { if (pk?.el && !TOUCH.matches && !peekAv(e.target)) peekHide(); }, true);
+  document.addEventListener('pointerdown', e => { if (pk?.el && !TOUCH.matches && !peekAv(e.target) && !e.target.closest?.('.avpeek')) peekHide(); }, true);
   root.addEventListener('scroll', e => { if (pk?.el && e.target.matches?.('.msgs')) peekHide(); }, true);
   addEventListener('keydown', e => { if (e.key === 'Escape') peekHide(); });
   addEventListener('resize', peekHide);
@@ -835,6 +845,8 @@ function input(v, el){
     case 'zone': { const z = g.combat.zones.find(x => x.id === el.dataset.z); if (!z) return; z[k] = val; if (k === 'name') { const l = v.root.querySelector(`[data-zl="${z.id}"]`); if (l && l.firstChild) l.firstChild.textContent = val; } return; }
     case 'rollAsp': v.ui.roll.aspect = val; return;
     case 'rollEv': v.ui.roll.evText = val; return;
+    case 'rollNote': v.ui.roll.gmNote = val; return;
+    case 'rnText': if (v.ui.rn) v.ui.rn.t = val; return;
     case 'invName': v.ui.invName = val; return;
     case 'rollOther': v.ui.roll.otherName = val; return;
     /* picking a country clears the city under it, and so on down */
@@ -928,7 +940,20 @@ function send(v){
   else if (gm) { const n = N.npcByName(v.ui.voice); m = {kind:'rp', as:v.ui.voice}; if (n?.portrait) m.pt = n.portrait; }
   else m = {kind:'rp', as:c && c.built ? c.short : g.P[v.role].name};
   if (!devCommand && v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
+  /* the GM's narrator can move the scene: {{Little Eundir, Prince City}} reads "Little Eundir" and the scene's map location goes there */
+  let move = null;
+  if (gm && m.kind === 'rp' && m.as === 'Narrator' && /\{\{[^{}]+\}\}/.test(text)) {
+    const wants = [...text.matchAll(/\{\{([^{}]+)\}\}/g)].map(x => x[1]), last = wants[wants.length - 1];
+    const [name, ...rest] = last.split(','), inside = rest.join(',').trim(), hits = N.placeFind(name, inside);
+    if (!g.scenes[ch]) { toast(v, 'Set a scene in this chat first: {{ }} moves the scene to a place.'); render(v); return; }
+    if (!hits.length) { toast(v, `No place called “${last.trim()}” on the maps. Check the spelling.`); render(v); return; }
+    if (hits.length > 1) { const ins = [...new Set(hits.map(h => (h.n ? h.t : h.t ? h.c : null)?.l).filter(Boolean))];
+      toast(v, `More than one “${name.trim()}”. Add a comma and where it is: ${ins.map(x => `{{${name.trim()}, ${x}}}`).join(' or ')}`); render(v); return; }
+    move = hits[0];
+    text = text.replace(/\{\{([^{}]+)\}\}/g, (x, w) => w.split(',')[0].trim());
+  }
   push(Object.assign(m, {ch, by:v.role, text}));
+  if (move) sceneMove(v, ch, move);
   v.ui.draft = ''; v.ui.stick = true; v.ui.reply = null;
   if (devCommand && v.ui.ch !== 'table') { v.ui.ch = 'table'; toast(v, 'Dev Note sent to Everyone.'); }
   renderAll();
@@ -1040,6 +1065,8 @@ function doRoll(v){
   const ch = secret ? 'gm' : fight ? N.fightCh() : v.ui.ch === 'gm' ? 'table' : v.ui.ch;
   const m = push({ch, kind:'roll', by:v.role, roll});
   if (isGM(v) && who.portrait) m.pt = who.portrait;
+  /* the GM's note stays in the GM's own data (gm/misc rnotes); players picked for it get only the words, in their only/<seat> */
+  if (isGM(v) && (r.gmNote || '').trim()) { g.rnotes = g.rnotes || {}; g.rnotes[m.id] = {t:r.gmNote.trim(), see:[...(r.noteSee || [])]}; }
   if (v.dev === 'phone' && !fight) { v._rfx = {id:m.id, at:Date.now(), own:true}; setTimeout(() => render(v), N.RFX_MS + 60); }
   v.ui.fresh = m.id; v.ui.sheet = null; v.ui.targeting = null; v.ui.stick = true;
   if (fight) { if (secret) g.combat.acted = true; else afterFightRoll(v, r, m); }
@@ -1939,6 +1966,8 @@ function act(v, a, el, e){
     ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
   }
   /* character + cast */
+  case 'avSheet': N.peekHide?.(); close(); if (ui.gmBack) { if (ui.ch === ui.gmBack.to) ui.ch = ui.gmBack.from; ui.gmBack = null; }
+    ui.tab = 'hero'; ui.charSel = val === N.charOf(v.role)?.id ? null : val; ui.heroInv = false; ui.heroStats = null; break;
   case 'charSel': ui.charSel = val; ui.heroStats = null; ui.pop = null; ui.heroInv = false; v.root.querySelector('[data-sk="hero"]')?.scrollTo?.(0, 0); break;
   /* sheet reveals (GM) */
   case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; ui.askRev = {id:val, base:JSON.parse(JSON.stringify((g.rev || {})[val] || {}))}; break;
@@ -2204,6 +2233,13 @@ function act(v, a, el, e){
   case 'rollVsNpc': { const r = ui.roll; r.vsNpc = val || null; const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
   case 'rollPassive': ui.roll.passive = ui.roll.passive === false; break;
   case 'rollSecret': ui.roll.secret = !ui.roll.secret; break;
+  case 'rollNoteSee': { const l = ui.roll.noteSee || (ui.roll.noteSee = []), i = l.indexOf(val); if (i < 0) l.push(val); else l.splice(i, 1); break; }
+  case 'rnOpen': { if (!gm) break; const n = (g.rnotes || {})[val]; ui.pop = null; ui.rn = {id:val, t:n?.t || '', see:[...(n?.see || [])]}; ui.sheet = 'rnote'; break; }
+  case 'rnSee': { const l = ui.rn?.see; if (!l) break; const i = l.indexOf(val); if (i < 0) l.push(val); else l.splice(i, 1); break; }
+  case 'rnSave': { const d = ui.rn; if (!gm || !d) break; g.rnotes = g.rnotes || {};
+    if (d.t.trim()) g.rnotes[d.id] = {t:d.t.trim(), see:[...d.see]}; else delete g.rnotes[d.id];
+    ui.sheet = null; ui.rn = null; toast(v, d.t.trim() ? (d.see.length ? 'Note saved. The players you picked see it.' : 'Note saved. Only you see it.') : 'Note removed.'); renderAll(); return; }
+  case 'rnDel': if (gm && ui.rn) { delete (g.rnotes || {})[ui.rn.id]; ui.sheet = null; ui.rn = null; toast(v, 'Note removed.'); renderAll(); return; } break;
   case 'rollBonus': ui.roll.otherBonus = clamp((+ui.roll.otherBonus || 0) + (+d.d), -4, 10); break;
   case 'doRoll': doRoll(v); return;
   /* scene sheet */
@@ -2248,6 +2284,13 @@ function act(v, a, el, e){
     (ui.sd.dirOpen = ui.sd.dirOpen || {})[val] = true; break;
   }
   case 'sdPost': ui.sd.post = !ui.sd.post; break;
+  case 'sdCopyOpen': ui.sd.copy = !ui.sd.copy; break;
+  case 'sdCopy': { const s = ui.sd, to = val, g = G(); if (!s.title.trim() || !(s.art || s.place) || !to || to === s.ch) break;
+    if (s.cast.length) g.casts[to] = [...s.cast]; else delete g.casts[to];
+    if (s.extras.length) g.extras[to] = s.extras.map(x => ({id:x.id, name:x.name, skills:{...x.skills}})); else delete g.extras[to];
+    setScene(v, to, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})})), loc:s.loc, share:s.share}, true);
+    toast(v, `Scene copied to ${N.chName(to, 'gm')}: ${s.title.trim()}`);
+    ui.sheet = null; renderAll(); return; }
   case 'sdShare': ui.sd.share = !ui.sd.share; break;
   case 'sdLocClear': ui.sd.loc = {c:'', t:'', n:''}; break;
   /* the beacon: tap it to open the next map down */
@@ -2603,6 +2646,16 @@ function editScene(v, s){
   N.invalidateScenes(); sceneRecent(m.scene);
   toast(v, `Scene updated: ${m.scene.title}`);
   return true;
+}
+/* a narrator line moved the scene: same scene message, new place (kept from the players if the scene's place was) */
+function sceneMove(v, ch, loc){
+  const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene) return;
+  const old = m.scene.loc || g.hlocs[m.id] || null, hidden = !m.scene.loc && !!g.hlocs[m.id];
+  const sc = {...m.scene}; delete sc.loc;
+  if (!sc.where || (old && sc.where === N.locText(old))) sc.where = N.locText(loc);
+  if (hidden) g.hlocs[m.id] = loc; else { delete g.hlocs[m.id]; sc.loc = loc; }
+  m.scene = sc; N.invalidateScenes();
+  toast(v, `Scene moved to ${N.locText(loc).split(', ').slice(0, 2).join(', ')}${hidden ? ' (not shown to players)' : ''}.`);
 }
 function setScene(v, ch, s, post){
   const g = G();

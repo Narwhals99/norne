@@ -103,13 +103,22 @@ function syncMsgs(){
   for (const m of G().msgs) {
     const j = JSON.stringify(m); if (MKNOWN.get(m.id) === j) continue;
     if (!isGM() && (m.ch === 'gm' || (m.by !== G().role && MKNOWN.has(m.id) && !m.roll))) continue;
-    const fresh = !MKNOWN.has(m.id);
+    const fresh = !MKNOWN.has(m.id), was = MKNOWN.get(m.id);
     /* reactions are written on their own (saveRx), so a message saved again never overwrites someone else's */
     MKNOWN.set(m.id, j); const {roll, rx, ...rest} = m;
     /* a message already saved keeps who may read it: a member added later without the chat's history never gets it
        back because someone invoked on an old roll or the GM fixed a typo */
     const aud = !fresh && MDOCS.get(m.id)?.aud || audOf(m.ch);
-    track(F.setDoc(dref('msgs/' + m.id), {...rest, ...(fresh && rx ? {rx} : {}), aud, roll:roll ? JSON.stringify(roll) : null}, {merge:true})
+    const body = {...rest, aud, roll:roll ? JSON.stringify(roll) : null};
+    /* the GM fixing a saved message replaces each field whole: a merge would keep parts the GM took out
+       (an edited scene kept its old neighborhood, or a location the GM stopped sharing, on the players' maps) */
+    if (!fresh && isGM()) {
+      let old = {}; try { old = JSON.parse(was) || {}; } catch(e) {}
+      for (const k of Object.keys(old)) if (!(k in body) && k !== 'rx') body[k] = F.deleteField();
+      track(F.updateDoc(dref('msgs/' + m.id), body));
+      continue;
+    }
+    track(F.setDoc(dref('msgs/' + m.id), {...body, ...(fresh && rx ? {rx} : {})}, {merge:true})
       .then(() => { if (fresh && N.pushOut) try { N.pushOut(m); } catch(e) { console.warn('push', e); } }));
   }
 }
@@ -468,7 +477,11 @@ function syncNow(){
       if (Object.keys(iv).length) only[st].iv = iv; }
     writeUnits('gm/shops', {...(g.shops || {})});
     writeUnits('gm/crafts', {...(g.crafts || {})});
-    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, wl:g.wlinks || {}, hlocs:g.hlocs || {}, npcdirs:g.npcDirs || []});
+    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, wl:g.wlinks || {}, hlocs:g.hlocs || {}, rnotes:g.rnotes || {}, npcdirs:g.npcDirs || []});
+    /* a roll's GM note goes to the players the GM picked for it: just the words, keyed by the roll's message */
+    for (const st of N.seats()) { if (!only[st]) continue; const rn = {};
+      for (const [id, n] of Object.entries(g.rnotes || {})) if (n && n.t && (n.see || []).includes(st)) rn[id] = n.t;
+      if (Object.keys(rn).length) only[st].rn = rn; }
     /* parts of a card the GM revealed to single players: each gets only their own parts (N.revealed) */
     for (const [id, by] of Object.entries(g.rev || {})) {
       const c = g.chars[id], n = !c && g.npcs.find(x => x.id === id), card = c && c.built ? c : n; if (!card) continue;
@@ -619,6 +632,7 @@ function setMine(u){
   for (const [key, j] of Object.entries(u)) if (key.startsWith('p:')) MINEP[key.slice(2)] = j; else if (key.startsWith('q:')) MINEQ[key.slice(2)] = j;
   G().known = {}; for (const [key, j] of Object.entries(u)) if (key.startsWith('r:')) { try { G().known[key.slice(2)] = JSON.parse(j); } catch(e) {} }
   try { G().ivMine = u.iv ? JSON.parse(u.iv) : {}; } catch(e) { G().ivMine = {}; }
+  try { G().rnMine = u.rn ? JSON.parse(u.rn) : {}; } catch(e) { G().rnMine = {}; }
   G().wlinks = {}; for (const [key, j] of Object.entries(u)) if (key.startsWith('l:')) { try { G().wlinks[key.slice(2)] = JSON.parse(j); } catch(e) {} }
   for (const [key, j] of Object.entries(u)) { const k = KIND[key[0]]; if (k && key[1] === ':') MINE[k][key.slice(2)] = j; }
   mergeView();
@@ -773,7 +787,7 @@ async function start(role){
     'gm/crafts': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.crafts = o; },
     'gm/shops': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.shops = o; },
     'gm/items': u => { g.items = vals(u).map(({o, ...x}) => x).sort((a,b) => a.name.localeCompare(b.name)); },
-    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.wlinks = u.wl ? JSON.parse(u.wl) : {}; g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; },
+    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.wlinks = u.wl ? JSON.parse(u.wl) : {}; g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.rnotes = u.rnotes ? JSON.parse(u.rnotes) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; },
     'game/news': u => { PUB.news = u; mergeView(); },
     'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
     'game/maps': u => { PUB.maps = u; mergeView(); },
