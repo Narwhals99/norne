@@ -2132,6 +2132,23 @@
 .app .roll .oppd{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:0 14px 8px;font:600 12px/1.35 var(--f-ui);color:var(--ink-2)}
 .app .roll .evt{display:flex;align-items:flex-start;gap:7px;padding:2px 14px 8px;font:600 13px/1.4 var(--f-ui);color:var(--ink-2)}
 .app .roll .evt svg{flex:none;width:16px;height:16px;margin-top:1px;color:var(--accent-tx)}
+/* Jake: the GM's note on a roll (the GM taps theirs to change it; picked players read it) */
+.app .rlwrap{display:grid;grid-template-columns:minmax(0,1fr);width:100%;min-width:0}
+.app .rlnote{padding:0 4px}
+.app .rlnote .rnote{width:100%;margin:4px 0 2px}
+.app .rnote{display:flex;align-items:flex-start;gap:8px;width:calc(100% - 20px);margin:0 10px 8px;padding:7px 10px;border-radius:10px;text-align:left;
+  background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line);font:600 13px/1.4 var(--f-ui);color:var(--ink)}
+.app .rnote > svg{flex:none;width:15px;height:15px;margin-top:2px;color:var(--accent-tx)}
+.app .rnote > span{flex:1;min-width:0;overflow-wrap:anywhere}
+.app .rnote small{display:block;font:800 10.5px/1.3 var(--f-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin-bottom:1px}
+.app .rnote.gm{cursor:pointer;border:0}
+.app .rnote.gm > svg:last-child{color:var(--ink-3);margin-left:auto}
+@media (hover:hover){.app .rnote.gm:hover{box-shadow:inset 0 0 0 1.5px var(--accent)}}
+.app .rnbox{display:grid;gap:8px}
+.app .rnbox .field > span{display:inline-flex;align-items:center;gap:6px}
+.app .rnbox .field > span svg{width:14px;height:14px}
+.app .rnbox h4{margin:2px 0 0}
+.app .sdcopy{display:grid;justify-items:start}
 .app .roll .rh .evtag{flex:none;margin-right:2px}
 .app .roll .oppd b{color:var(--ink)}
 .app .oppd .od{display:inline-flex;gap:3px}
@@ -2755,6 +2772,11 @@
 .app .avpeek .av.big img{border-radius:22px}
 .app .avpeek b{max-width:100%;padding:5px 12px;border-radius:999px;background:var(--raise);color:var(--ink);font:800 13px/1.2 var(--f-ui);
   box-shadow:0 0 0 1px var(--line-2),0 8px 18px -10px rgba(0,0,0,.7);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Jake: the big picture links to the character's sheet (it stays up after the finger lifts so the link can be tapped) */
+.app .avpeek .avsheet{pointer-events:auto;display:inline-flex;align-items:center;gap:6px;min-height:38px;padding:0 14px;border-radius:999px;cursor:pointer;
+  background:var(--accent,var(--gold));color:var(--accent-ink,#fff);border:0;font:800 13px/1 var(--f-ui);box-shadow:0 8px 18px -10px rgba(0,0,0,.7)}
+.app .avpeek .avsheet svg{width:16px;height:16px}
+@media (hover:hover){.app .avpeek .avsheet:hover{filter:brightness(1.08)}}
 @keyframes avpeek{from{opacity:0;transform:scale(.6)}}
 @media (prefers-reduced-motion:reduce){.app .avpeek{animation:none}}
 /* Group chats in the chat list: roleplay ones and Meta-only ones under their own small labels */

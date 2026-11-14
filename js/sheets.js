@@ -3,6 +3,23 @@
 const N = window.N, {esc, IC, sgn, ladderWord} = N;
 const G = () => N.G;
 const isGM = v => v.role === 'gm';
+/* Jake: the GM's note on a roll, to remember what it was for. Only the GM sees it, unless they pick players to show it to */
+function rnoteFields(v, t, see, ch, ti, sa){
+  const seats = N.chSeats(ch === 'gm' ? 'table' : ch) || N.seats(), all = seats.length ? seats : N.seats();
+  return `<div class="rnbox"><label class="field"><span>${IC('lock')}GM note (optional)</span><textarea class="inp" id="${ti}-${v.id}" data-i="${ti}" rows="2" placeholder="e.g. Checking if the guard spots the forged seal">${esc(t)}</textarea></label>
+    ${all.length ? `<h4>Show the note to</h4><div class="forwho rnsee">${all.map(st => `<button type="button" data-a="${sa}" data-v="${st}" aria-pressed="${see.includes(st)}">${N.av(N.personObj(st), 28)}${esc(N.personObj(st).name)}</button>`).join('')}</div>
+    <p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${see.length ? 'Only the players you picked see it, under the roll.' : 'No one picked: only you see it.'}</p>` : ''}</div>`;
+}
+N.rnoteFields = rnoteFields;
+/* editing a scene can copy it, as it stands in the window, to another roleplay chat (Jake): a party, group or solo chat */
+function sdCopyHtml(d, forwho){
+  const to = forwho.filter(c => c !== d.ch && !N.metaOnly(c));
+  if (!to.length) return '';
+  const name = c => c.startsWith('grp-') ? `<span class="cic">${IC('whisper')}</span>${esc(N.chName(c, 'gm'))}` : N.av(N.personObj(c.slice(3)), 28) + esc(N.chName(c, 'gm'));
+  return `<div class="sdcopy"><button type="button" class="btn" data-a="sdCopyOpen" aria-expanded="${!!d.copy}">${IC('plus')}Copy to other roleplay chat</button>
+    ${d.copy ? `<p class="muted" style="margin:8px 0;font:600 12.5px/1.4 var(--f-ui)">Starts this same scene (picture, place, aspects, NPCs and one-offs, as set here) in the chat you pick. This chat's scene stays as it is.</p>
+    <div class="forwho">${to.map(c => `<button type="button" data-a="sdCopy" data-v="${c}">${name(c)}</button>`).join('')}</div>` : ''}</div>`;
+}
 const sheet = (title, body, foot, o={}) => `<div class="sheet${o.wide?' wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
   <div class="sh-h">${o.lead||''}<h2 class="ttl">${title}</h2><button type="button" class="ibtn" data-a="closeSheet" aria-label="Close">${IC('x')}</button></div>
   <div class="sh-b scroll" data-sk="sheet">${body}</div>${foot ? `<div class="sh-f">${foot}</div>` : ''}</div>`;
@@ -145,10 +162,17 @@ N.sheetHtml = function(v){
       ${fightAtk && !other ? N.atkNotes(v, tokOfWho, r.skill) : ''}
       ${distHtml}
       ${modHtml}
+      ${gm ? rnoteFields(v, r.gmNote || '', r.noteSee || [], v.ui.ch, 'rollNote', 'rollNoteSee') : ''}
       ${gm ? `<button type="button" class="toggle" data-a="rollSecret" aria-pressed="${!!r.secret}">${IC('eyeoff')}<span>Secret roll<small>${ev ? 'Only you see it, in your fight log. Players don’t.' : 'Only you see it, in GM notes.'}</small></span><span class="sw"></span></button>` : ''}
       <p class="rollsum">4 Fate dice + ${other ? 'bonus' : esc(r.skill)} ${sgn(bonus)}.${fg.roll ? ` Ranged weapon +${fg.roll} goes on the roll.` : ''}${fg.hit ? ` A hit gets +${fg.hit} shifts from the ${fg.hitL}.` : ''}${dist ? ` Distance −${dist} comes off the roll.` : ''}${mod ? ` ${mod > 0 ? `Buff +${mod} goes on` : `Debuff −${-mod} comes off`} the roll.` : ''} After you see the roll you can invoke aspects for +2 or a reroll.</p>`;
     const dis = r.action === 'attack' && inFight && !r.target;
     return sheet(ev ? 'Custom event' : 'Roll the dice', body, `<button type="button" class="btn gold lg" data-a="doRoll" ${dis?'disabled':''}>${N.fateDie}Roll ${other ? '' : esc(r.skill) + ' '}${sgn(bonus + fg.roll - dist + mod)}</button>`, {lead:other ? '' : N.av(who,36)});
+  }
+  /* the GM's note on a roll already in the chat: add, change or take it off */
+  case 'rnote': {
+    const d = v.ui.rn, m = d && g.msgs.find(x => x.id === d.id); if (!m || !isGM(v)) return '';
+    return sheet('GM note on the roll', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${esc(m.roll.who)} · ${esc(m.roll.skill)} · ${esc(m.roll.action)}</p>${rnoteFields(v, d.t, d.see, m.ch, 'rnText', 'rnSee')}`,
+      `${g.rnotes?.[m.id] ? `<button type="button" class="btn danger" data-a="rnDel" style="flex:0 0 auto">${IC('trash')}Remove</button>` : ''}<button type="button" class="btn primary lg" data-a="rnSave">${IC('check')}Save note</button>`);
   }
   /* ---------------- invoke ---------------- */
   case 'invoke': {
@@ -275,6 +299,7 @@ N.sheetHtml = function(v){
           <select class="inp" id="sdor-${v.id}" data-i="sd" data-k="oneRate" aria-label="Rating">${[-1,0,1,2,3,4,5,6,7,8].map(n => `<option value="${n}" ${(+d.oneRate || 0) === n ? 'selected' : ''}>${sgn(n)} ${ladderWord(n)}</option>`).join('')}</select>
           <button type="button" class="btn sm" data-a="sdOneAdd">${IC('plus')}Add</button></div>
         <p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">They show in Speak as and can roll or be rolled against in this chat. No NPC card is made, and they’re gone when the scene ends. Add the same name again to give them another skill.</p></div>
+      ${edit ? sdCopyHtml(d, forwho) : ''}
       ${edit ? '' : `<button type="button" class="toggle" data-a="sdPost" aria-pressed="${d.post}">${IC('scroll')}<span>Mark it in the chat<small>Adds a small “New scene” line so the log reads like chapters.</small></span><span class="sw"></span></button>`}`;
     const ok = d.title.trim() && (d.art || d.place), forName = d.ch === 'table' ? 'everyone' : esc(N.chName(d.ch, 'gm'));
     return sheet(edit ? 'Edit the scene' : has ? 'Start a new scene' : 'Set the scene', body,

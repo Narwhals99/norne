@@ -488,7 +488,7 @@ function rMsg(v, m, prev, firstNarr){
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
   if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);
   if (m.kind === 'news') return `<div class="fightcard" style="box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 18px 40px -18px rgba(0,0,0,.9)"><div class="in" style="padding-top:18px;grid-template-columns:auto 1fr;align-items:center"><div class="herald" style="all:unset;display:contents"><span class="np" style="width:54px;height:66px;border-radius:4px;background:#efe6cc;rotate:-4deg;display:grid;place-items:center;font:400 12px/1 var(--f-mast);color:#2a2418;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)">News</span></div><div style="display:grid;gap:6px"><span class="eyebrow" style="color:var(--gold-tx)">${IC('newsL')}New edition</span><h3 style="font-size:18px">${esc(m.text)}</h3><div class="row"><button type="button" class="btn sm gold" data-a="readNews" data-id="${esc(m.nid||'')}">Read it</button></div></div></div></div>`;
-  if (m.kind === 'roll' && v.dev === 'phone') return rollLine(v, m);
+  if (m.kind === 'roll' && v.dev === 'phone') { const rn = rnoteRow(v, m); return rn ? `<div class="rlwrap">${rollLine(v, m)}<div class="rlnote">${rn}</div></div>` : rollLine(v, m); }
   if (m.kind === 'roll') {
     const pc = (m.roll.whoKey || '').startsWith('pc:') && g.chars[m.roll.whoKey.slice(3)];
     const s = pc ? {name:pc.short, portrait:pc.built ? pc.portrait : null, color:pc.color} : m.by === 'gm' ? {name:m.roll.who, color:'var(--c-npc)', portrait:m.pt || N.npcByName(m.roll.who.replace(/ \d+$/,''))?.portrait} : N.speakerObj({by:m.by, as:''});
@@ -580,6 +580,15 @@ function skSeen(v, skill, key, name){
 }
 N.skSeen = skSeen;
 const skHid = '<span class="skh" title="Not revealed to you">?</span>';
+/* Jake: the GM's note on a roll. The GM sees it (and who it's shown to) and can change it; a picked player sees just the words */
+function rnoteRow(v, m){
+  const g = G();
+  if (isGM(v)) { const n = (g.rnotes || {})[m.id]; if (!n || !n.t) return '';
+    const who = (n.see || []).map(st => N.personObj(st).name).join(', ');
+    return `<button type="button" class="rnote gm" data-a="rnOpen" data-v="${m.id}">${IC('lock')}<span><small>GM note · ${who ? 'shown to ' + esc(who) : 'only you'}</small>${N.emoText(N.marks(esc(n.t)))}</span>${IC('pen')}</button>`; }
+  const t = (g.rnMine || {})[m.id]; if (!t) return '';
+  return `<div class="rnote">${IC('scroll')}<span><small>Note from ${esc(N.gmName())}</small>${N.emoText(N.marks(esc(t)))}</span></div>`;
+}
 function rRoll(v, m){
   const r = m.roll, tot = rollTotal(r), o = outcome(r), fold = v.ui.folded.has(m.id) ? v.ui.folded.get(m.id) : m.id !== v._lastRoll;
   const dice = r.dice.map(d => `<span class="die ${d>0?'p':d<0?'m':'z'}">${d>0?'+':d<0?'−':'·'}</span>`).join('');
@@ -592,6 +601,7 @@ function rRoll(v, m){
   return `<div class="roll${fold?' folded':''}${secret?' secret':''}">
     <div class="rh"><span class="grow"><b>${esc(r.skill)} ${seen ? sgn(N.skillPart(r)) : skHid}</b>${r.gear?` + ${r.gearL || 'gear'} ${sgn(r.gear)}`:''}${r.dist?` − distance ${r.dist}`:''}${r.mod?` ${r.mod > 0 ? '+ buff' : '− debuff'} ${Math.abs(r.mod)}`:''} · ${esc(r.action)}${r.target?` ${r.action==='Defend'?'against':'on'} <b>${esc(r.target)}</b>`:''}${vsLabel(r)}</span>${r.event ? '<span class="tag gold evtag">Event</span>' : ''}${fold?`<span class="mini-tot">${sgn(tot)}${r.opp!=null?` <small>vs</small> ${sgn(r.opp)}`:''}</span>`:''}<button type="button" class="ibtn sm" data-a="fold" data-id="${m.id}" data-f="${fold?1:''}" aria-label="${fold?'Expand':'Collapse'} roll">${IC('caret').replace('<svg',`<svg style="rotate:${fold?0:180}deg"`)}</button></div>
     ${evText(r) ? `<div class="evt">${IC('magic')}<span>${esc(evText(r))}</span></div>` : ''}
+    ${rnoteRow(v, m)}
     <div class="rb">${seen ? `<div class="dice${v.ui.fresh===m.id?' fresh':''}">${dice}</div>` : ''}${r.opp!=null ? `<div class="tot vs"><span class="n"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></span><i>vs</i><span class="n opp"><b>${sgn(r.opp)}</b><span>${ladderWord(r.opp)}</span></span></div>` : `<div class="tot"><b>${sgn(tot)}</b><span>${ladderWord(tot)}</span></div>`}</div>
     ${r.oppDice && seen && oppSeen ? `<div class="oppd">${esc(r.vs?.name || 'The other side')} rolled <span class="od">${r.oppDice.map(d => `<span class="${d>0?'op':d<0?'om':'oz'}">${d>0?'+':d<0?'−':''}</span>`).join('')}</span> ${sgn(diceSum({dice:r.oppDice}))} on ${r.vs?.skill ? esc(r.vs.skill) + ' ' : ''}${oppSeen ? sgn(r.oppBase) : skHid}${r.invokes.some(i => i.opp) ? ` + ${2*r.invokes.filter(i => i.opp).length} invoked` : ''} = <b>${sgn(r.opp)}</b></div>` : ''}
     ${r.invokes.length ? `<div class="inv">${r.invokes.map(i => (i.opp ? `+2 to beat from “${esc(i.aspect)}”` : i.reroll ? `Rerolled with “${esc(i.aspect)}” (was ${sgn(i.was ? i.was.reduce((a,b)=>a+b,0) : 0)})` : `+2 from “${esc(i.aspect)}”`) + (i.by ? `, ${esc(i.by)}` : '')).join(' · ')}</div>` : ''}
@@ -793,7 +803,9 @@ function fmtGuide(chat){
     const look = t === ':name:' ? (e0 ? N.emj(':' + e0.n + ':') + `<small>:${esc(e0.n)}:</small>` : '<small>Your table’s own emoji</small>') : N.blocks(ex || t);
     return `<div class="fg-r"><code>${esc(t)}</code><span class="fg-l">${chat ? l.replace(', chat only', '') : l}</span><span class="fg-x">${look}</span></div>`;
   }).join('');
-  return `<div class="fguide"><p>Type the marks around your words. ${chat ? 'Works in every chat.' : 'Works in wiki entries, the news and character cards.'}</p>${rows}</div>`;
+  /* the GM's narrator can move the scene to a map place */
+  const move = chat && G().role === 'gm' ? `<div class="fg-r"><code>{{Little Eundir, Prince City}}</code><span class="fg-l">Narrator only: moves the scene's map location there. Add the city after a comma when two places share a name.</span><span class="fg-x">Little Eundir</span></div>` : '';
+  return `<div class="fguide"><p>Type the marks around your words. ${chat ? 'Works in every chat.' : 'Works in wiki entries, the news and character cards.'}</p>${rows}${move}</div>`;
 }
 function popHtml(v){
   const p = v.ui.pop, g = G();
@@ -826,7 +838,7 @@ function popHtml(v){
     const quick = social ? `<div class="emo-quick">${N.EMO_QUICK.map(e => `<button type="button" class="emo${mine.includes(e)?' me':''}" data-a="react" data-id="${m.id}" data-v="${e}" aria-label="React ${e}">${e}</button>`).join('')}<button type="button" class="emo more" data-a="emoMore" aria-label="More emoji" aria-expanded="${!!p.all}">${IC(p.all ? 'minus' : 'plus')}</button></div>${p.all ? emoGrid(v, e => `data-a="react" data-id="${m.id}" data-v="${esc(e)}"`, mine) : ''}` : '';
     const by = {}; for (const [who, l] of Object.entries(m.rx || {})) for (const e of l || []) (by[e] = by[e] || []).push(N.metaOnly(m.ch) ? N.metaName(who) : N.personObj(who).name);
     const whoRx = Object.keys(by).length ? `<div class="rxwho">${Object.entries(by).map(([e, w]) => `<span>${N.emj(e)} ${esc(w.join(', '))}</span>`).join('')}</div>` : '';
-    return `<div class="pop msgpop${p.all?' wide':''}" style="${pos}" role="menu" aria-label="Message">${quick}${whoRx}${social ? `<button type="button" class="opt" role="menuitem" data-a="reply" data-v="${m.id}">${IC('reply')}<span>Reply</span></button>` : ''}${N.msgCopyText(m) ? `<button type="button" class="opt" role="menuitem" data-a="copyMsg" data-v="${m.id}">${IC('copy')}<span>${m.kind === 'gif' ? 'Copy GIF link' : 'Copy text'}</span></button>` : ''}${isGM(v) || N.canEdit(v, m) ? `${social ? '<div class="sep"></div>' : ''}${N.canEdit(v, m) ? `<button type="button" class="opt" role="menuitem" data-a="msgEdit" data-v="${m.id}">${IC('pen')}<span>Edit message</span></button>` : ''}${isGM(v) ? `<button type="button" class="opt danger" role="menuitem" data-a="sheet" data-v="msgDel" data-c="${m.id}">${IC('trash')}<span>Delete message</span></button>` : ''}` : ''}</div>`;
+    return `<div class="pop msgpop${p.all?' wide':''}" style="${pos}" role="menu" aria-label="Message">${quick}${whoRx}${social ? `<button type="button" class="opt" role="menuitem" data-a="reply" data-v="${m.id}">${IC('reply')}<span>Reply</span></button>` : ''}${N.msgCopyText(m) ? `<button type="button" class="opt" role="menuitem" data-a="copyMsg" data-v="${m.id}">${IC('copy')}<span>${m.kind === 'gif' ? 'Copy GIF link' : 'Copy text'}</span></button>` : ''}${isGM(v) || N.canEdit(v, m) ? `${social ? '<div class="sep"></div>' : ''}${N.canEdit(v, m) ? `<button type="button" class="opt" role="menuitem" data-a="msgEdit" data-v="${m.id}">${IC('pen')}<span>Edit message</span></button>` : ''}${isGM(v) && m.kind === 'roll' ? `<button type="button" class="opt" role="menuitem" data-a="rnOpen" data-v="${m.id}">${IC('lock')}<span>${(g.rnotes || {})[m.id] ? 'Edit GM note' : 'Add GM note'}</span></button>` : ''}${isGM(v) ? `<button type="button" class="opt danger" role="menuitem" data-a="sheet" data-v="msgDel" data-c="${m.id}">${IC('trash')}<span>Delete message</span></button>` : ''}` : ''}</div>`;
   }
   /* the composer's emoji button: puts the emoji into what you're typing */
   if (p.type === 'emo') {
