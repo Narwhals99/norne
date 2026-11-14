@@ -1564,7 +1564,13 @@ function act(v, a, el, e){
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; ui.sceneBig = !ui.sceneBig; break;
   /* the new layout (Jack only for now) */
-  case 'nl': v.nl = val === 'on'; try { localStorage.setItem('norne-nl', v.nl ? '1' : '0'); } catch(e) {} if (v.nl && ui.tab === 'gm') ui.tab = 'chat'; break;
+  case 'nl': v.nl = val === 'on'; try { localStorage.setItem('norne-nl', v.nl ? '1' : '0'); } catch(e) {} if (v.nl && ui.tab === 'gm') ui.tab = 'chat';
+    /* Jake's tour: the first time he turns the layout on, on a phone and on a computer each. Finishing or skipping it ends it for good there */
+    if (v.nl && N.nlOn(v) && N.nlTourOk() && !N.nl.tourDone(v)) { ui.tourStep = 0; openSheet(v, 'nlTour', {}); }
+    break;
+  case 'nlTour': { const n = N.nl.tourSteps(v).length;
+    if (val === 'end' || (val === 'next' && (ui.tourStep || 0) >= n - 1)) { N.nl.tourEnd(v); close(); break; }
+    ui.tourStep = clamp((ui.tourStep || 0) + (val === 'back' ? -1 : 1), 0, n - 1); break; }
   case 'nlp': v.nlp = N.nlpOk(val); try { localStorage.setItem('norne-nlp', v.nlp); } catch(e) {} break;
   case 'nlSide': ui.nlSide = val; ui.pop = null; try { localStorage.setItem('norne-nlside', val); } catch(e) {} break;
   case 'nlSideOff': ui.nlSideOff = !ui.nlSideOff; try { localStorage.setItem('norne-nlsideoff', ui.nlSideOff ? '1' : '0'); } catch(e) {} break;

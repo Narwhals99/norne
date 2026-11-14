@@ -105,6 +105,7 @@ N.sheetHtml = function(v){
   switch (s) {
   /* the GM's Actions menu in the new layout (js/newlayout.js) */
   case 'actions': return sheet('Actions', N.nl.actions(v));
+  case 'nlTour': { const t = N.nl.tour(v); return sheet('The new layout', t.body, t.foot); }
   /* ---------------- roll ---------------- */
   case 'roll': {
     const r = v.ui.roll, who = N.rollerOf(v, r.who);
