@@ -97,6 +97,8 @@ N.nextDayPrev = d => `<div class="ndl n">${IC('sun')}<span><small>Narrator</smal
 N.sheetHtml = function(v){
   const g = G(), gm = isGM(v), s = v.ui.sheet, arg = v.ui.sheetArg;
   switch (s) {
+  /* the GM's Actions menu in the new layout (js/newlayout.js) */
+  case 'actions': return sheet('Actions', N.nl.actions(v));
   /* ---------------- roll ---------------- */
   case 'roll': {
     const r = v.ui.roll, who = N.rollerOf(v, r.who);
@@ -331,10 +333,13 @@ N.sheetHtml = function(v){
     const body = `<div class="prof"><button type="button" class="facebtn" data-a="metaUp" aria-label="Change my Meta picture">${N.av(me,56)}<span class="badge">${IC('image')}</span></button><span><b>${esc(my?.name || me.name)}</b><small>${gm?'Game master':'Player'} · ${esc(my?.email || 'signed in with Google')}</small></span></div>
       ${meta}
       ${mySeats(v)}
+      ${N.isJack() ? `<div class="nl-only"><h4>New layout<small>Only you see this switch. Black or white pages, colour in spots, one Actions menu. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="nl" data-v="on" aria-pressed="${!!v.nl}">On</button><button type="button" style="flex:1;justify-content:center" data-a="nl" data-v="off" aria-pressed="${!(!!v.nl)}">Off</button></div></div>
+      ${v.nl ? `<div class="nl-only"><h4>Colour pair<small>The first colour means tap here, the second means happening now</small></h4><div class="nl-pairs">${N.NLP.map(p => `<button type="button" data-a="nlp" data-v="${p[0]}" aria-pressed="${v.nlp === p[0]}"><i style="background:${p[2]}"></i><i style="background:${p[3]}"></i><span>${p[1]}</span></button>`).join('')}</div></div>` : ''}
+      <div class="nl-only"><h4>GM test mode<small>Only you see this switch. You become the GM of a pretend table. Nothing you do there is saved, sent or shown to anyone</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="gmTest" data-v="on" aria-pressed="${!!N.TEST}">On</button><button type="button" style="flex:1;justify-content:center" data-a="gmTest" data-v="off" aria-pressed="${!(!!N.TEST)}">Off</button></div></div>` : ''}
       <div><h4>Appearance</h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="night" aria-pressed="${v.theme==='night'}">${IC('moon')}Night</button><button type="button" style="flex:1;justify-content:center" data-a="theme" data-v="day" aria-pressed="${v.theme==='day'}">${IC('sun')}Day</button></div></div>
-      <div><h4>Style</h4>${stylePick(v)}</div>
+      ${N.nlOn(v) ? '' : `<div><h4>Style</h4>${stylePick(v)}</div>
       <div><h4>Edge shading<small>Darkened section edges. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="vg" data-v="on" aria-pressed="${v.vg!==false}">On</button><button type="button" style="flex:1;justify-content:center" data-a="vg" data-v="off" aria-pressed="${v.vg===false}">Off</button></div></div>
-      <div><h4>Depth<small>Raised panels, buttons and icons. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="dp" data-v="on" aria-pressed="${v.dp!==false}">On</button><button type="button" style="flex:1;justify-content:center" data-a="dp" data-v="off" aria-pressed="${v.dp===false}">Off</button></div></div>
+      <div><h4>Depth<small>Raised panels, buttons and icons. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="dp" data-v="on" aria-pressed="${v.dp!==false}">On</button><button type="button" style="flex:1;justify-content:center" data-a="dp" data-v="off" aria-pressed="${v.dp===false}">Off</button></div></div>`}
       <div><h4>Smooth mode<small>Turns off shadows, blur and the moving stars so the app runs lighter. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="lite" data-v="on" aria-pressed="${v.lite}">On</button><button type="button" style="flex:1;justify-content:center" data-a="lite" data-v="off" aria-pressed="${!v.lite}">Off</button></div></div>
       <div><h4>Frame counter<small>Shows how smoothly the screen is drawing, in the top corner. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="fps" data-v="on" aria-pressed="${v.fps}">On</button><button type="button" style="flex:1;justify-content:center" data-a="fps" data-v="off" aria-pressed="${!v.fps}">Off</button></div></div>
       <div><h4>Text size<small>On this device only</small></h4>${fzPick(v)}</div>

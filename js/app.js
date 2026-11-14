@@ -97,7 +97,9 @@ const fsys = text => Object.assign(sys(text, N.fightCh()), {fight:true});
 /* tell the players who can see something: in Everyone when it's for all, otherwise in each one's chat with the GM */
 const tell = (x, kind, text, only) => { const a = N.audOf(x, kind); if (a === 'gm') return; if (a === '*' && !only) { sys(text); return; } for (const s of only || a) if (G().P[s]) sys(text, 'dm-' + s); };
 
-const newUi = N.newUi = role => ({tab:'chat', ch:'table', sheet:null, sheetArg:null, pop:null, toast:null, mode:'ooc', voice:'Narrator', draft:'', sceneMin:false, folded:new Map(), fresh:null,
+/* the new layout's side panel: which tab it shows and whether it is folded, per device */
+const nlUi = () => { try { return {nlSide:localStorage.getItem('norne-nlside') || '', nlSideOff:localStorage.getItem('norne-nlsideoff') === '1'}; } catch(e) { return {}; } };
+const newUi = N.newUi = role => ({...nlUi(), tab:'chat', ch:'table', sheet:null, sheetArg:null, pop:null, toast:null, mode:'ooc', voice:'Narrator', draft:'', sceneMin:false, folded:new Map(), fresh:null,
   fightPane:'fight', fightOpen:true, watching:false, cbTool:'move', tokSel:null, targeting:null, placing:null, zoneSel:null,
   mapId:null, mapType:'all', mapQ:'', pinSel:null, mapEdit:false, addPin:false, mapT:null,
   wikiQ:'', wikiCat:null, wikiSel:null, paper:null, newsEdit:null, newsSel:null, charSel:null, castSeg:'players', castSel:null, npcQ:'', npcDir:null,
@@ -111,6 +113,7 @@ N.mount = function(root, o){
   /* Smooth mode (shadows, blur and moving stars all off) and the frame counter: per device, off unless switched on in Profile */
   try { v.lite = localStorage.getItem('norne-lite') === '1'; v.fps = localStorage.getItem('norne-fps') === '1'; } catch(e) { v.lite = v.fps = false; }
   fpsMeter(v.fps);
+  try { v.nl = localStorage.getItem('norne-nl') === '1'; v.nlp = N.nlpOk(localStorage.getItem('norne-nlp')); } catch(e) { v.nl = false; v.nlp = 'bg'; }
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
   try { for (const k of ['railW','railWc','rcH','rcHc','shelfW']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1';
     for (const k of ['paneA','paneB','paneAc','paneBc']) { const p = localStorage.getItem('norne-' + k.toLowerCase()); if (p) v.ui[k] = p; } } catch(e) {}
@@ -250,9 +253,11 @@ function render(v){
   const root = v.root;
   if (!root.isConnected) return;
   if (swBusy(v)) { v._later = true; return; }
-  root.dataset.theme = v.theme; root.dataset.style = v.style; root.dataset.pal = N.palOk(v.style, v.pal); root.dataset.dev = v.dev; root.dataset.role = v.role || '';
+  const nl = N.nlOn(v);
+  root.dataset.theme = v.theme; root.dataset.style = nl ? 'plain' : v.style; if (nl) { root.dataset.nl = '1'; root.dataset.nlp = N.nlpOk(v.nlp); } else { delete root.dataset.nl; delete root.dataset.nlp; }
+  if (N.TEST) root.dataset.test = '1'; root.dataset.pal = N.palOk(v.style, v.pal); root.dataset.dev = v.dev; root.dataset.role = v.role || '';
   /* shading + depth: on by default, strong at night and soft by day (css/vignette.css, css/depth.css) */
-  { const k = v.theme === 'day' ? 'soft' : 'strong'; if (v.vg === false || v.lite) delete root.dataset.vg; else root.dataset.vg = k; if (v.dp === false || v.lite) delete root.dataset.depth; else root.dataset.depth = k;
+  { const k = v.theme === 'day' ? 'soft' : 'strong'; if (v.vg === false || v.lite || nl) delete root.dataset.vg; else root.dataset.vg = k; if (v.dp === false || v.lite || nl) delete root.dataset.depth; else root.dataset.depth = k;
     if (v.lite) root.dataset.lite = '1'; else delete root.dataset.lite; }
   fzSet(v);
   if (N.gated || !v.role) { root.innerHTML = N.gateHtml(N.gated || '<p>Opening the campaign…</p>'); fzInline(v); return; }
@@ -533,6 +538,9 @@ function bind(v){
   root.addEventListener('input', e => { const el = e.target; if (el.dataset.i) input(v, el); });
   root.addEventListener('focusin', e => { const el = e.target; if (el.id && el.matches('textarea, input.inp:not([type]), input.inp[type=text]') && el.dataset.i !== 'draft' && !el.closest('.pop')) v._fld = el.id; });
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && N.nlOn(v) && isGM(v)) { e.preventDefault(); v.ui.pop = null; v.ui.actSub = null; v.ui.actQ = ''; openSheet(v, 'actions', {}); render(v); const f = v.root.querySelector(`#actq-${v.id}`); if (f) f.focus({preventScroll:true}); return; }
+  });
   root.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
     if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'fcDraft') { e.preventDefault(); fcSend(v); }
@@ -841,6 +849,7 @@ function input(v, el){
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
+    case 'actQ': v.ui.actQ = val; render(v); return;
     case 'charQ': v.ui.charQ = val; render(v); return;
     case 'linkQ': v.ui.linkQ = val; render(v); return;
     case 'castQ': v.ui.sd.castQ = val; render(v); return;
@@ -1545,7 +1554,24 @@ function act(v, a, el, e){
   case 'pal': v.pal = val; try { localStorage.setItem('norne-pal', val); } catch(e) {} break;
   case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {} break;
   /* chat */
-  case 'sceneMin': ui.sceneMin = !ui.sceneMin; break;
+  case 'sceneMin': ui.sceneMin = !ui.sceneMin; ui.sceneBig = !ui.sceneBig; break;
+  /* the new layout (Jack only for now) */
+  case 'nl': v.nl = val === 'on'; try { localStorage.setItem('norne-nl', v.nl ? '1' : '0'); } catch(e) {} if (v.nl && ui.tab === 'gm') ui.tab = 'chat'; break;
+  case 'nlp': v.nlp = N.nlpOk(val); try { localStorage.setItem('norne-nlp', v.nlp); } catch(e) {} break;
+  case 'nlSide': ui.nlSide = val; ui.pop = null; try { localStorage.setItem('norne-nlside', val); } catch(e) {} break;
+  case 'nlSideOff': ui.nlSideOff = !ui.nlSideOff; try { localStorage.setItem('norne-nlsideoff', ui.nlSideOff ? '1' : '0'); } catch(e) {} break;
+  case 'nlSub': ui.actSub = val || null; ui.actQ = ''; break;
+  case 'nlParty': ui.nlParty = ui.nlParty === val ? null : val; break;
+  case 'nlMore': ui.nlMore = !ui.nlMore; break;
+  /* a row of the Actions menu: close the menu, then do what the old button did */
+  case 'nlDo': { close(); ui.actSub = null; ui.actQ = ''; N.nl.used(d.id);
+    if (d.go === 'party') { ui.nlSide = 'party'; ui.tab = 'chat'; if (v.dev === 'phone') ui.sidePane = true; else ui.nlSideOff = false; break; }
+    const fake = document.createElement('button'); for (const [k, x] of Object.entries(d)) if (k !== 'a' && k !== 'go' && k !== 'id' && k !== 'act') fake.dataset[k] = x;
+    if (d.go) fake.dataset.v = d.go; else delete fake.dataset.v;
+    if (d.tabto) ui.tab = d.tabto;
+    return act(v, d.act, fake, e); }
+  /* Jack's GM test mode: a pretend table where nothing is saved. The page reloads into it and out of it */
+  case 'gmTest': if (!N.isJack()) break; try { if (val === 'on') localStorage.setItem('norne-gmtest', '1'); else localStorage.removeItem('norne-gmtest'); } catch(e) {} location.reload(); return;
   case 'sceneLive': { v._jump = null; const ml = v.root.querySelector('.chat > .msgs[data-sk="msgs"]'); if (ml) ml.scrollTo({top:ml.scrollHeight, behavior:'smooth'}); return; }
   case 'fold': ui.folded.set(d.id, !d.f); break;
   case 'send': send(v); return;

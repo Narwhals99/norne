@@ -49,37 +49,42 @@ N.appHtml = function(v){
   v._panes = null; /* deskPage fills in what the desktop side panels show this time */
   /* phone players open their inventory from the character sheet, so no Inventory tab there */
   if (ph && !gm && v.ui.tab === 'inv') { v.ui.tab = 'hero'; v.ui.charSel = null; v.ui.heroInv = true; }
-  const tabs = [['chat','Chat','chat'],['map','Map','map'],['world','World','world'],['news','News','newsL'], ...(gm ? [['cast','Cast','cast'], ['gm','GM','crown']] : [['hero','Character','hero'], ...(ph ? [] : [['inv','Inventory','bag']])])];
+  /* the new layout: four tabs. News sits inside World, Inventory inside Character, and the GM tab became the Actions menu */
+  const nl = N.nlOn(v);
+  if (nl && v.ui.tab === 'gm') v.ui.tab = 'chat';
+  const tabs = nl ? [['chat','Chat','chat'],['map','Map','map'],['world','World','world'], gm ? ['cast','Cast','cast'] : ['hero','Character','hero']]
+    : [['chat','Chat','chat'],['map','Map','map'],['world','World','world'],['news','News','newsL'], ...(gm ? [['cast','Cast','cast'], ['gm','GM','crown']] : [['hero','Character','hero'], ...(ph ? [] : [['inv','Inventory','bag']])])];
+  const cur = id => v.ui.tab === id || (nl && ((id === 'world' && v.ui.tab === 'news') || (id === 'hero' && v.ui.tab === 'inv')));
   const otherUnread = N.channelsFor(v.role).some(c => !(v.ui.tab === 'chat' && v.ui.ch === c) && N.unread(v.role, c));
   const fightLive = Object.values(N.allFights()).some(f => f.state === 'live');
   const newsNew = gm ? 0 : N.newsUnseen(v.role).length;
   const me = N.personObj(v.role);
 
-  const shelfOn = v.ui.tab === 'chat';
+  const shelfOn = v.ui.tab === 'chat' && !(nl && !ph);
   const nav = `<nav class="nav" aria-label="Sections">
     <div class="mark">${MARK}<b>N<small>ORNE</small></b></div>
     <div class="navl scroll">
       ${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? `<button type="button" class="ni shopen" data-a="shelfDt" title="Show the chat list" aria-label="Show the chat list">${IC('list')}<span>Chats</span></button>` : ''}
-      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&otherUnread?'<span class="dot"></span>':''}${id==='news'&&newsNew?`<span class="badge gold">${newsNew}</span>`:''}</span></button>
-        ${id==='chat' && !shelfOn && !gm ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
+      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${cur(id)?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&!nl&&otherUnread?'<span class="dot"></span>':''}${(id==='news'||(nl&&id==='world'))&&newsNew?`<span class="badge gold">${newsNew}</span>`:''}</span></button>
+        ${id==='chat' && !shelfOn && (!gm || nl) ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
     </div>
     <div class="art" aria-hidden="true"></div>
     <button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>
   </nav>`;
 
-  const tabbar = `<nav class="tabbar" aria-label="Sections">${tabs.map(([id,l,ic]) => `<button type="button" data-a="tab" data-v="${id}" ${v.ui.tab===id?'aria-current="page"':''}><span class="ti">${IC(ic)}</span>${l}${id==='chat'&&fightLive?`<span class="fightdot">${IC('swords')}</span>`:id==='chat'&&otherUnread?'<span class="dot"></span>':''}${id==='news'&&newsNew?'<span class="dot"></span>':''}</button>`).join('')}</nav>`;
+  const tabbar = `<nav class="tabbar" aria-label="Sections">${tabs.map(([id,l,ic]) => `<button type="button" data-a="tab" data-v="${id}" ${cur(id)?'aria-current="page"':''}><span class="ti">${IC(ic)}</span>${l}${id==='chat'&&fightLive?`<span class="fightdot">${IC('swords')}</span>`:id==='chat'&&otherUnread?'<span class="dot"></span>':''}${(id==='news'||(nl&&id==='world'))&&newsNew?'<span class="dot"></span>':''}</button>`).join('')}</nav>`;
 
   let page = '';
   if (v.ui.tab === 'chat') page = chatPage(v);
   else if (v.ui.tab === 'map') page = `<main class="page">${mapPage(v)}</main>`;
-  else if (v.ui.tab === 'world') page = `<main class="page">${worldPage(v)}</main>`;
-  else if (v.ui.tab === 'news') page = `<main class="page">${newsPage(v)}</main>`;
-  else if (v.ui.tab === 'hero') page = `<main class="page">${heroPage(v)}</main>`;
+  else if (v.ui.tab === 'world') page = `<main class="page${nl ? ' nlw' : ''}">${nl ? N.nl.worldSeg(v, newsNew) : ''}${worldPage(v)}</main>`;
+  else if (v.ui.tab === 'news') page = `<main class="page${nl ? ' nlw' : ''}">${nl ? N.nl.worldSeg(v, newsNew) : ''}${newsPage(v)}</main>`;
+  else if (v.ui.tab === 'hero') page = `<main class="page${nl ? ' nlw' : ''}">${nl ? N.nl.heroSeg(v) : ''}${heroPage(v)}</main>`;
   else if (v.ui.tab === 'cast') page = `<main class="page">${castPage(v)}</main>`;
-  else if (v.ui.tab === 'inv') page = `<main class="page">${invPage(v)}</main>`;
+  else if (v.ui.tab === 'inv') page = `<main class="page${nl ? ' nlw' : ''}">${nl ? N.nl.heroSeg(v) : ''}${invPage(v)}</main>`;
   else if (v.ui.tab === 'gm') page = `<main class="page">${gmPage(v)}</main>`;
 
-  return `<div class="stars" aria-hidden="true"></div>${glintsHtml()}
+  return `${nl ? '' : `<div class="stars" aria-hidden="true"></div>${glintsHtml()}`}${N.TEST ? `<div class="testbar" role="status"><b>GM test mode</b><span>A pretend table. Nothing here is saved or sent.</span><button type="button" data-a="gmTest" data-v="off">Leave</button></div>` : ''}
     <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? ' shelf-off' : ''}"${v.ui.shelfW ? ` style="--shelfw:${v.ui.shelfW}px"` : ''}>${nav}${shelfOn && v.dev === 'desktop' && !v.ui.shelfOff ? shelfHtml(v) : ''}${page}${tabbar}</div>
     ${shelfOn && v.dev === 'phone' && v.ui.shelf ? `<div class="scrim shelf-scrim" data-a="shelf"></div>${shelfHtml(v)}` : ''}
     ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
@@ -183,13 +188,14 @@ function chatPage(v){
   if (v.dev === 'phone') {
     const sl = v.ui.slide ? ` slide-${v.ui.slide}` : '';
     if (fa && v.ui.fightPane === 'fight') return `<main class="page${sl}">${N.fightView(v)}</main>`;
-    if (sideOpen(v)) return sidePage(v, sl);
+    if (sideOpen(v)) return N.nlOn(v) ? N.nl.sidePhone(v, sl) : sidePage(v, sl);
     return `<main class="page${sl}">${chatView(v)}${rollFx(v)}<button type="button" class="sidetab" data-a="sidePane" data-v="1" aria-label="Open the side panels" title="Side panels (or swipe in from the right edge)">${IC('left')}</button></main>`;
   }
   if (fa && v.ui.fightOpen && G().combat.state === 'live') return N.combatDesk(v);
   if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
   /* roleplay: the chat, the card (or GM screen) on the right, and the roleplay actions under it */
   v.ui.rpSeen = (G().msgs.findLast(m => m.ch === v.ui.ch) || {}).t || 0;
+  if (N.nlOn(v)) return N.nl.desk(v, chatView(v));
   return deskPage(v, chatView(v), `<div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>`, 'rp');
 }
 /* desktop: the big panel (C) on the left, and on the right the top panel (A) over the actions (B).
@@ -280,13 +286,14 @@ function chatView(v, side){
   const fa = fightAvail(v), grpBtn = gm && !!N.grpOf(ch);
   /* Jake: the GM ends the day in a party or group chat where people roleplay (not a Meta-only one) */
   const dayBtn = grpBtn && !N.metaOnly(ch);
-  const topPh = `<div class="top ph${dayBtn && !fa ? ' busy' : ''}">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${dayBtn && !fa ? `<button type="button" class="ibtn" data-a="sheet" data-v="nextDay" aria-label="Next day" title="Next day">${IC('sun')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn${N.chPaused(ch) ? ' on' : ''}" data-a="grpPause" data-v="${ch.slice(4)}" aria-label="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}" title="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}">${IC(N.chPaused(ch) ? 'play' : 'lock')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn" data-a="grpEdit" data-v="${ch.slice(4)}" aria-label="Edit this group chat" title="Edit this group chat">${IC('gear')}</button>` : ''}<button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>${sideBtn(v, 'chat')}</div>`;
+  const topPh = `<div class="top ph${dayBtn && !fa ? ' busy' : ''}">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${dayBtn && !fa ? `<button type="button" class="ibtn" data-a="sheet" data-v="nextDay" aria-label="Next day" title="Next day">${IC('sun')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn${N.chPaused(ch) ? ' on' : ''}" data-a="grpPause" data-v="${ch.slice(4)}" aria-label="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}" title="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}">${IC(N.chPaused(ch) ? 'play' : 'lock')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn" data-a="grpEdit" data-v="${ch.slice(4)}" aria-label="Edit this group chat" title="Edit this group chat">${IC('gear')}</button>` : ''}<button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>${N.nlOn(v) ? (fa && v.ui.fightPane === 'fight' ? '' : `<button type="button" class="ibtn nlside" data-a="sidePane" data-v="1" aria-label="Side panel" title="Side panel">${N.nl.PANEL}</button>`) : sideBtn(v, 'chat')}</div>`;
   const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
     ${dayBtn && !fa ? `<button type="button" class="btn sm" data-a="sheet" data-v="nextDay" style="--h:36px" title="End the day and start the next one">${IC('sun')}Next day</button>` : ''}
     ${grpBtn ? `<button type="button" class="btn sm${N.chPaused(ch) ? ' gold' : ''}" data-a="grpPause" data-v="${ch.slice(4)}" style="--h:36px" title="${N.chPaused(ch) ? 'Let the players talk again' : 'Stop the players from sending messages'}">${IC(N.chPaused(ch) ? 'play' : 'lock')}${N.chPaused(ch) ? 'Resume chat' : 'Pause chat'}</button>` : ''}
     ${grpBtn ? `<button type="button" class="btn sm" data-a="grpEdit" data-v="${ch.slice(4)}" style="--h:36px">${IC('gear')}Edit group</button>` : ''}
     <button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
+    ${N.nlOn(v) && !(fa && v.ui.fightOpen) ? `<button type="button" class="ibtn nlside" data-a="nlSideOff" aria-pressed="${!v.ui.nlSideOff}" aria-label="${v.ui.nlSideOff ? 'Show' : 'Hide'} the side panel" title="${v.ui.nlSideOff ? 'Show' : 'Hide'} the side panel">${N.nl.PANEL}</button>` : ''}
     ${fa ? (cb.state === 'setup' ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC(N.kw().ic)}Back to ${N.kw().w} setup</button>` : modeSeg(v)) : ''}</header>`;
   const fightbar = (cb.state === 'live' && ch === N.fightCh() && !N.owedTok(v) && !fa) ? (() => {
     const cur = N.curTok(), k = N.cbKind(), K = N.kw();
@@ -347,7 +354,8 @@ function sceneBanner(v, sc, ch, past){
     if (!gm || ch === 'gm') return '';
     return `<section class="scene empty"><div class="in" style="grid-template-columns:auto 1fr auto;display:grid;align-items:center;gap:12px"><span class="cic" style="width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--sunk);color:var(--gold-tx)">${IC('image')}</span><h2>No scene in this chat yet</h2><button type="button" class="btn sm primary" data-a="sheet" data-v="scene">Set the scene</button></div></section>`;
   }
-  const min = v.ui.sceneMin;
+  const nl = N.nlOn(v), min = nl ? !v.ui.sceneBig : v.ui.sceneMin;
+  if (nl && min) return N.nl.sceneLine(v, sc, ch, past);
   const onlyWho = !priv ? '' : ch.startsWith('grp-') ? `${esc(N.chName(ch, v.role))} scene` : gm ? `Only ${esc(G().P[ch.slice(3)]?.name || 'them')} sees this scene` : 'Your private scene';
   return `<section class="scene${min?' min':''}${past?' past':''}" aria-label="${past ? 'Scene at the time' : 'Scene'}" data-scn="${sc.msg || ''}">
     <div class="art${sc.place?' map':''}" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</div>
@@ -668,6 +676,7 @@ function composer(v){
   return `${paused ? `<div class="pausebar" role="status">${IC('lock')}<span><b>Chat paused</b><small>Players can read but not send.</small></span><button type="button" class="btn sm gold" data-a="grpPause" data-v="${esc(grp)}">${IC('play')}Resume</button></div>` : ''}<form class="composer${ooc?' ooc':''}" data-f="send" onsubmit="return false">
     ${re ? `<div class="replying">${IC('reply')}<span>Replying to <b>${esc(N.msgWho(re))}</b><small>${N.emoText(esc(N.plainText(N.msgSnip(re))))}</small></span><button type="button" class="ibtn sm" data-a="replyOff" aria-label="Stop replying">${IC('x')}</button></div>` : ''}
     <div class="box">
+      ${gm && N.nlOn(v) ? `<button type="button" class="emob nlplus" data-a="sheet" data-v="actions" aria-label="Actions" title="Actions (Ctrl K)">${IC('plus')}</button>` : ''}
       ${v.ui.ch === 'gm' || meta ? `<span class="voice"${meta ? ' title="This chat is Meta only: you show by your own name"' : ''}>${chip}</span>` : gm ? `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`
         : `<button type="button" class="voice flip" data-a="voice" data-v="__flip" aria-label="${ooc ? 'Speaking Meta (out of character). Tap to speak in character' : 'Speaking in character. Tap to switch to Meta'}" title="Tap to switch">${chip}${IC('swap','car')}</button>`}
       <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="${N.enterSends() ? 'send' : 'enter'}">${esc(v.ui.draft)}</textarea>
@@ -680,6 +689,16 @@ function composer(v){
   </form>`;
 }
 
+/* the party's fate points and stress, as the GM changes them (GM screen, and the Party tab of the new side panel) */
+function partyRows(v){
+  const pcs = N.pcs();
+  return pcs.map(c => c.built ? `<div class="pcrow">${N.av(c,40)}<span><b>${esc(c.short)}</b><small>${N.emoText(N.marks(esc(N.pcTag(c))))}</small></span>
+        <span class="coins">${coinsHtml(c, true)}</span>
+        <div class="tracks"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<button type="button" class="sbox${c.stress.phys[i]?' on':''}" data-a="stress" data-c="${c.id}" data-k="phys" data-i="${i}" aria-pressed="${c.stress.phys[i]}">${x}</button>`).join('')}</div>
+        <span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<button type="button" class="sbox${c.stress.ment[i]?' on':''}" data-a="stress" data-c="${c.id}" data-k="ment" data-i="${i}" aria-pressed="${c.stress.ment[i]}">${x}</button>`).join('')}</div></div></div>`
+        : `<div class="pcrow" style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)">${N.av({name:pn(c),color:c.color},40)}<span><b>${esc(pn(c))}</b><small>No card yet</small></span><button type="button" class="btn sm primary" data-a="pcEdit" data-v="${c.id}">Make card</button></div>`).join('');
+}
+N.partyRows = partyRows;
 /* ================= side panels ================= */
 function gmScreen(v){
   const g = G(), ch = v.ui.ch, here = ch, fights = N.allFights();
@@ -712,11 +731,7 @@ function gmScreen(v){
       <div class="tools">${tiles.map(([a, ic, l, x]) => `<button type="button" data-a="${a}" ${x}>${IC(ic)}${l}</button>`).join('')}</div>
     </section>
     <section class="gs-sec"><div class="gs-h"><h3>Party</h3><button type="button" class="btn sm" data-a="tab" data-v="cast">Cast</button></div>
-      ${pcs.map(c => c.built ? `<div class="pcrow">${N.av(c,40)}<span><b>${esc(c.short)}</b><small>${N.emoText(N.marks(esc(N.pcTag(c))))}</small></span>
-        <span class="coins">${coinsHtml(c, true)}</span>
-        <div class="tracks"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<button type="button" class="sbox${c.stress.phys[i]?' on':''}" data-a="stress" data-c="${c.id}" data-k="phys" data-i="${i}" aria-pressed="${c.stress.phys[i]}">${x}</button>`).join('')}</div>
-        <span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<button type="button" class="sbox${c.stress.ment[i]?' on':''}" data-a="stress" data-c="${c.id}" data-k="ment" data-i="${i}" aria-pressed="${c.stress.ment[i]}">${x}</button>`).join('')}</div></div></div>`
-        : `<div class="pcrow" style="background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)">${N.av({name:pn(c),color:c.color},40)}<span><b>${esc(pn(c))}</b><small>No card yet</small></span><button type="button" class="btn sm primary" data-a="pcEdit" data-v="${c.id}">Make card</button></div>`).join('')}
+      ${partyRows(v)}
     </section>
     <section class="gs-sec"><div class="gs-h"><h3>Speak as</h3><button type="button" class="btn sm" data-a="castNpcs">NPCs</button></div>
       ${(() => { const vf = N.voicesFor(v.ui.ch === 'gm' ? 'table' : v.ui.ch, v.ui.voice); return `<div class="voices">${['Narrator', ...vf.here].map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="voice" data-v="${esc(n)}" ${v.ui.voice===n&&v.ui.mode==='rp'?'style="background:var(--accent-soft)"':''}>${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text':esc(N.npcSub(npc))}</small></span>${v.ui.voice===n&&v.ui.mode==='rp'?`<span class="go" style="color:var(--gold-tx)">${IC('check')}</span>`:''}</button>`; }).join('')}</div>${vf.rest.length ? `<p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${vf.here.length ? 'Only this scene’s NPCs are listed.' : 'No NPCs picked for this scene.'} The other ${vf.rest.length} are in Speak as under Everyone else.</p>` : ''}`; })()}
@@ -1413,7 +1428,7 @@ function castPage(v){
       : dirs.length ? '' : `<div class="quiet"><div class="art"></div><p>${q ? 'No NPCs match.' : here ? 'This folder is empty. Press New NPC to write one here, or move an NPC in from Edit on its card.' : g.npcs.length ? 'Every NPC is in a folder.' : 'Your NPC cards live here, for your eyes only. Press New NPC to write the first one.'}</p></div>`}`}
   </div></div>`;
 }
-N.knownBody = knownBody;
+N.knownBody = knownBody; N.heroQuick = heroQuick; N.gmScreen = gmScreen; N.picShelf = picShelf; N.paneBody = paneBody; N.paneOpts = paneOpts; N.chatView = chatView; N.meBtn = meBtn; N.worldPage = worldPage;
 N.npcBody = (v, n) => npcBody(v, n);
 function npcBody(v, n){
   const rungs = [8,7,6,5,4,3,2,1,-1].map(x => [x, Object.entries(n.skills).filter(([,y]) => y === x).map(([k]) => k)]).filter(r => r[1].length);

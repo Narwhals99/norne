@@ -383,7 +383,7 @@ N.dropImg = src => {
 /* ---------- what each person writes ---------- */
 const pinOut = (m, p) => ({...p, x:Math.round((p.rx ?? 0) * m.w), y:Math.round((p.ry ?? 0) * m.h)});
 function syncNow(){
-  clearTimeout(_sq); if (!started) return;
+  clearTimeout(_sq); if (!started || N.TEST) return;
   saveLocal();
   if (STALE.size) { syncMsgs(); return; }
   const g = G();
@@ -735,6 +735,9 @@ N.boot = boot;
 async function enter(u){
   const email = (u.email || '').toLowerCase(), mref = dref('members/' + u.uid), gm = email === GM_EMAIL;
   gate('<p class="fine">Opening the campaign book…</p>');
+  /* Jack's GM test mode: a pretend table. The real campaign is never opened, read or written while it is on */
+  let test = false; try { test = localStorage.getItem('norne-gmtest') === '1'; } catch(e) {}
+  if (test && email === N.JACK && u.emailVerified === true) return startTest(u, email);
   try { WARM = CACHED && localStorage.getItem('norne-warm-' + u.uid) === '1'; } catch(e) {}
   /* the member document says which seat this person plays; the device's copy of it is enough to start */
   let made = false, last = '';
@@ -765,6 +768,21 @@ function playSeat(uid, d){
   if (!isSeat(d.role)) return d.role;
   let t = null; try { t = sessionStorage.getItem(TKEY(uid)); } catch(e) {}
   return t && N.seatsOf(d).includes(t) ? t : d.role;
+}
+/* GM test mode (Jack only): he is the GM of a made-up table (js/testtable.js). Every way of writing to the database
+   is swapped for one that does nothing, nothing is listened to, and no push is sent, so nothing that happens here is real.
+   Leaving (Profile, or the bar on top) reloads into the real table, untouched. */
+async function startTest(u, email){
+  started = true; N.TEST = true;
+  ME = {uid:u.uid, email, emailVerified:true, name:u.displayName || 'Jack', role:'gm', seats:[]};
+  const none = () => Promise.resolve(), gone = () => Promise.reject(new Error('test mode'));
+  F = {...F, setDoc:none, updateDoc:none, deleteDoc:none, writeBatch:() => ({set(){}, update(){}, delete(){}, commit:none}), onSnapshot:() => () => {}, getDoc:gone, getDocFromCache:gone};
+  N.fightBlocked = () => false;
+  await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/testtable.js'; s.onload = res; s.onerror = () => rej(new Error('test table')); document.head.appendChild(s); });
+  N.testTable(ME);
+  const g = G(); g.role = 'gm'; g.me = ME; V.role = 'gm'; V.ui = N.newUi('gm'); V.ui.ch = 'grp-road';
+  GROUPS_OK = GROUPS_DONE = true;
+  gate(null); N.renderAll();
 }
 const keepTabSeat = s => { try { sessionStorage.setItem(TKEY(ME.uid), s); } catch(e) {} };
 let MEMJ = false;
@@ -832,6 +850,7 @@ N.signIn = () => F.signInWithPopup(auth, new F.GoogleAuthProvider()).catch(e => 
 /* signing out also forgets this device's copy of the campaign */
 N.signOut = () => {
   syncNow(); OUT = true;
+  try { localStorage.removeItem('norne-gmtest'); } catch(e) {}
   try { localStorage.removeItem(WKEY()); } catch(e) {}
   F.signOut(auth).then(() => F.terminate(db)).then(() => F.clearIndexedDbPersistence(db)).catch(e => console.warn('clear copy', e)).then(() => location.reload());
 };

@@ -121,6 +121,14 @@ const STYLES = [
 ];
 N.STYLES = STYLES;
 N.styleOk = id => STYLES.some(s => s.id === id) ? id : 'storybook';
+/* The new layout (2026-11-14): black or white pages, colour only in spots, one Actions menu for the GM (js/newlayout.js, css/plain.css).
+   Until Jack approves it for everyone, only his own sign-in gets the switch in Profile. It is per device (localStorage norne-nl). */
+N.JACK = 'jackhelling10@gmail.com';
+N.isJack = () => { const m = N.me && N.me(); return !!m && m.email === N.JACK && m.emailVerified === true; };
+N.nlOn = v => !!v && !!v.nl && (N.isJack() || !!N.NL_ALL);
+/* its colour pairs: the first colour means "tap here", the second "happening now" */
+N.NLP = [['bg', 'Blue and green', '#007aff', '#34c759'], ['op', 'Purple and orange', '#8944e6', '#ff9500'], ['pt', 'Pink and teal', '#e6245c', '#1aa5b8']];
+N.nlpOk = id => N.NLP.some(p => p[0] === id) ? id : 'bg';
 /* the colour scheme in use for a style: the saved one if that style has it, else its first, '' for a style without schemes */
 N.palOk = (style, id) => { const p = (STYLES.find(s => s.id === style) || {}).pals; return !p ? '' : p.some(x => x.id === id) ? id : p[0].id; };
 /* text sizes under Profile > Text size, saved per device like the style; k multiplies every font size */
