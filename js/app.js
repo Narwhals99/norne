@@ -108,6 +108,9 @@ N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), fz:N.fzOk(o.fz), ui:newUi(o.role)};
   try { v.pal = localStorage.getItem('norne-pal') || ''; } catch(e) { v.pal = ''; }
   try { v.vg = localStorage.getItem('norne-vg') !== '0'; v.dp = localStorage.getItem('norne-dp') !== '0'; } catch(e) { v.vg = v.dp = true; }
+  /* Smooth mode (shadows, blur and moving stars all off) and the frame counter: per device, off unless switched on in Profile */
+  try { v.lite = localStorage.getItem('norne-lite') === '1'; v.fps = localStorage.getItem('norne-fps') === '1'; } catch(e) { v.lite = v.fps = false; }
+  fpsMeter(v.fps);
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
   try { for (const k of ['railW','railWc','rcH','rcHc','shelfW']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1';
     for (const k of ['paneA','paneB','paneAc','paneBc']) { const p = localStorage.getItem('norne-' + k.toLowerCase()); if (p) v.ui[k] = p; } } catch(e) {}
@@ -228,13 +231,29 @@ function hsArrows(root){
   });
 }
 const hsEl = t => { const r = t.closest?.(HS); return r && r.scrollWidth > r.clientWidth + 1 ? r : null; };
+/* Frame counter (Profile): how many times a second the screen is really being redrawn, shown in the top corner.
+   It sits outside the app's own markup, so redraws leave it alone. A phone at rest should read about 60;
+   a steady 30 with nothing moving means the phone itself is holding back (Low Power Mode does that). */
+let fpsEl = null, fpsRaf = 0;
+function fpsMeter(on){
+  if (!on) { if (fpsEl) { fpsEl.remove(); fpsEl = null; } cancelAnimationFrame(fpsRaf); fpsRaf = 0; return; }
+  if (fpsEl) return;
+  fpsEl = document.createElement('div'); fpsEl.className = 'fpsm'; fpsEl.setAttribute('aria-hidden', 'true'); fpsEl.textContent = '… fps';
+  document.body.appendChild(fpsEl);
+  let n = 0, t0 = performance.now(), last = t0, worst = 0;
+  const tick = t => { n++; const d = t - last; last = t; if (d > worst) worst = d;
+    if (t - t0 >= 500) { if (fpsEl) fpsEl.textContent = Math.round(n * 1000 / (t - t0)) + ' fps · ' + Math.round(worst) + ' ms'; n = 0; t0 = t; worst = 0; }
+    fpsRaf = requestAnimationFrame(tick); };
+  fpsRaf = requestAnimationFrame(tick);
+}
 function render(v){
   const root = v.root;
   if (!root.isConnected) return;
   if (swBusy(v)) { v._later = true; return; }
   root.dataset.theme = v.theme; root.dataset.style = v.style; root.dataset.pal = N.palOk(v.style, v.pal); root.dataset.dev = v.dev; root.dataset.role = v.role || '';
   /* shading + depth: on by default, strong at night and soft by day (css/vignette.css, css/depth.css) */
-  { const k = v.theme === 'day' ? 'soft' : 'strong'; if (v.vg === false) delete root.dataset.vg; else root.dataset.vg = k; if (v.dp === false) delete root.dataset.depth; else root.dataset.depth = k; }
+  { const k = v.theme === 'day' ? 'soft' : 'strong'; if (v.vg === false || v.lite) delete root.dataset.vg; else root.dataset.vg = k; if (v.dp === false || v.lite) delete root.dataset.depth; else root.dataset.depth = k;
+    if (v.lite) root.dataset.lite = '1'; else delete root.dataset.lite; }
   fzSet(v);
   if (N.gated || !v.role) { root.innerHTML = N.gateHtml(N.gated || '<p>Opening the campaign…</p>'); fzInline(v); return; }
   /* a chat this person can't see (a deleted group, Everyone for someone in a party) falls back to their first chat */
@@ -1520,6 +1539,8 @@ function act(v, a, el, e){
   case 'fz': v.fz = N.fzOk(val); try { localStorage.setItem('norne-fz', v.fz); } catch(e) {} break;
   case 'vg': v.vg = val === 'on'; try { localStorage.setItem('norne-vg', v.vg ? '1' : '0'); } catch(e) {} break;
   case 'dp': v.dp = val === 'on'; try { localStorage.setItem('norne-dp', v.dp ? '1' : '0'); } catch(e) {} break;
+  case 'lite': v.lite = val === 'on'; try { localStorage.setItem('norne-lite', v.lite ? '1' : '0'); } catch(e) {} break;
+  case 'fps': v.fps = val === 'on'; try { localStorage.setItem('norne-fps', v.fps ? '1' : '0'); } catch(e) {} fpsMeter(v.fps); break;
   case 'figsOn': if (N.figPref) N.figPref(val === 'on'); break;
   case 'pal': v.pal = val; try { localStorage.setItem('norne-pal', val); } catch(e) {} break;
   case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {} break;

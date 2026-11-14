@@ -1,0 +1,10 @@
+/* Smooth mode (Profile, per device): the costly drawing is switched off so a phone that struggles runs lighter, and so it
+   can be told whether the looks or something else is what slows it down. data-lite="1" on .app (js/app.js render()).
+   Off: every live blur, the Depth shadows and Edge shading (render() drops their attributes), the glass rim mask,
+   Storybook Night's glints and the phone's pencil drawing layer. Colours, tints and layout stay. Loaded last so it wins. */
+.app[data-lite],.app[data-lite] *,.app[data-lite] *::before,.app[data-lite] *::after{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.app[data-lite] .glints,.app[data-lite] .sketchsky{display:none!important}
+.app[data-lite] .m.ooc .bub::after{display:none}
+/* the frame counter */
+.fpsm{position:fixed;left:calc(env(safe-area-inset-left,0px) + 6px);top:calc(env(safe-area-inset-top,0px) + 4px);z-index:9999;pointer-events:none;
+  padding:3px 7px;border-radius:8px;background:rgba(0,0,0,.72);color:#7dff9a;font:700 12px/1.2 ui-monospace,Menlo,monospace;letter-spacing:.02em}
