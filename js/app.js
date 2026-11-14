@@ -349,16 +349,20 @@ const local = (v, cx, cy) => { const r = v.root.getBoundingClientRect(); return 
 /* ---------------- the scene at the time ----------------
    Scrolled back through a chat (or jumped to an old message), the banner shows the scene those messages were said in.
    The message on a line 40% down the list decides; back at the bottom the live scene returns. Only the banner is swapped,
-   so a phone's flick keeps gliding. */
+   so a phone's flick keeps gliding.
+   Jack (2026-11-14): scrolling past a scene's start or end stuttered and froze on his iPhone. A banner coming or going (or a
+   taller one replacing a shorter one) changed the list's height in the middle of the flick, which stops an iPhone's glide
+   dead and jolted every line on screen by a banner's height. So a swap from scrolling waits until the finger is up and the
+   list has come to rest (see bind), and the lines are then held where they were on screen while the banner changes above. */
 function pastCheck(v, el){
   const ui = v.ui, ch = ui.ch, g = G();
   let ref = null;
   if (v._jump && performance.now() - v._jump.t < 1400 && v._jump.ch === ch) ref = v._jump.id;
   else if (el.scrollHeight - el.scrollTop - el.clientHeight >= 60) {
-    const top = el.getBoundingClientRect().top;
-    /* the line is measured once per chat height while live, so a banner growing or shrinking can't flip it back and forth */
-    if (!ui.past || ui.past.ch !== ch || !v._line) v._line = Math.max(40, el.clientHeight * .4);
-    const at = top + v._line;
+    /* the line sits a set distance up from the list's bottom edge (the composer), measured while live. The banner changes
+       above the list, so the line stays on the same message when it does and can't flip it back and forth */
+    if (!ui.past || ui.past.ch !== ch || !v._line) v._line = Math.max(40, el.clientHeight * .6);
+    const at = el.getBoundingClientRect().bottom - v._line;
     /* this runs on every frame of a scroll: the lines are listed once per redraw and the one on the mark is found by
        halving (they are in order down the list), instead of measuring every message each frame */
     let c = v._pl;
@@ -374,13 +378,17 @@ function pastCheck(v, el){
   if (next && ui.past && ui.past.ch === ch) ui.past.ref = next.ref;
   if ((next ? next.key : null) === was) { if (!next && ui.past && ui.past.ch !== ch) ui.past = null; return; }
   ui.past = next;
-  /* swap only the banner */
-  const box = el.parentElement, old = box && box.querySelector(':scope > .scene'), html = N.sceneNow(v);
+  /* swap only the banner (the New layout's one-line banner is .nl-scene: it used to be missed here, so banners piled up) */
+  const box = el.parentElement, old = box && box.querySelector(':scope > .scene, :scope > .nl-scene'), html = N.sceneNow(v);
   const t = document.createElement('div'); t.innerHTML = html;
   const neu = t.firstElementChild;
   if (neu) neu.classList.add('swap');
+  /* the list's top edge moves by however much taller or shorter the new banner is; the scroll moves with it, so the lines
+     stay put on screen (not during a jump, which is gliding to its own message) */
+  const hold = !ref || ref !== v._jump?.id, y0 = hold ? el.getBoundingClientRect().top : 0;
   if (old && neu) old.replaceWith(neu); else if (old) old.remove();
   else if (neu && box) box.insertBefore(neu, box.querySelector(':scope > .fightbar') || el);
+  if (hold) { const d = el.getBoundingClientRect().top - y0; if (Math.abs(d) >= 1) el.scrollTop += d; }
 }
 N.pastCheck = pastCheck;
 
@@ -406,9 +414,14 @@ function bind(v){
   root.addEventListener('load', repin, true); root.addEventListener('error', repin, true);
   root.addEventListener('error', e => { const t = e.target; if (!t || t.tagName !== 'IMG' || !t.matches('.m.gifm:not(.picm) img.gif')) return;
     const u = t.getAttribute('src'); if (!u || N.gifBad.has(u)) return; N.gifBad.add(u); renderAll(); }, true);
-  { let raf = 0, tgt = null;
-    root.addEventListener('scroll', e => { const el = e.target; if (!el.matches || !el.matches('.chat > .msgs[data-sk="msgs"]')) return; tgt = el;
-      if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (tgt && tgt.isConnected) pastCheck(v, tgt); }); }, true);
+  /* the scene banner follows the scroll once the list is at rest: no finger on the screen and no scroll for a moment
+     (an iPhone keeps sending scroll events while a flick glides). Changing it mid-flick stuttered, see pastCheck */
+  { let tm = 0, tgt = null, down = 0;
+    const later = () => { clearTimeout(tm); tm = setTimeout(() => { tm = 0; if (!down && tgt && tgt.isConnected) pastCheck(v, tgt); }, 160); };
+    root.addEventListener('scroll', e => { const el = e.target; if (!el.matches || !el.matches('.chat > .msgs[data-sk="msgs"]')) return; tgt = el; later(); }, true);
+    root.addEventListener('touchstart', e => { down = e.touches.length; }, {passive:true, capture:true});
+    const up = e => { down = e.touches.length; if (!down && tgt) later(); };
+    root.addEventListener('touchend', up, {passive:true, capture:true}); root.addEventListener('touchcancel', up, {passive:true, capture:true});
     /* a finger or wheel on the chat takes over from a jump that is still gliding */
     const mine = e => { if (v._jump && e.target.closest && e.target.closest('.chat > .msgs')) v._jump = null; };
     root.addEventListener('wheel', mine, {passive:true}); root.addEventListener('touchstart', mine, {passive:true}); }
