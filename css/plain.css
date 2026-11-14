@@ -210,15 +210,6 @@
 .app[data-test="1"] .shell{top:calc(30px + var(--safe-t,0px))}
 .app[data-test="1"] .shell{--safe-t:0px}
 
-/* the first-time tour */
-.app:where([data-style="plain"]) .nl-tour{display:grid;justify-items:center;text-align:center;gap:10px;padding:18px 8px 6px}
-.app:where([data-style="plain"]) .nl-tour-ic{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;background:var(--raise);color:var(--nla)}
-.app:where([data-style="plain"]) .nl-tour-ic svg{width:28px;height:28px}
-.app:where([data-style="plain"]) .nl-tour h3{margin:6px 0 0;font:700 20px/1.2 var(--f-display)}
-.app:where([data-style="plain"]) .nl-tour p{margin:0;max-width:36ch;font:400 15px/1.45 var(--f-ui);color:var(--ink-2);min-height:6.6em}
-.app:where([data-style="plain"]) .nl-tour-dots{display:flex;gap:6px;margin-top:4px}
-.app:where([data-style="plain"]) .nl-tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--line-3)}
-.app:where([data-style="plain"]) .nl-tour-dots i.on{background:var(--nla)}
 
 /* ---------- the look on the old layout (Jake's GM screens keep their places) ---------- */
 /* the open scene banner: the picture dimmed flat, white words on it, in Day too */

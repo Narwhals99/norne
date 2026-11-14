@@ -98,3 +98,13 @@
 .app:where([data-lay="new"]) .rail.nlr .nl-pane>.nl-tabs, .app:where([data-lay="new"]) .rail.nlr .nl-pane>.nl-more{flex:none}
 .app:where([data-lay="new"]) .rail.nlr .nl-pane>.nl-sb, .app:where([data-lay="new"]) .rail.nlr .nl-pane>.pane-c{flex:1 1 0}
 .app:where([data-lay="new"]) .nl-sc-pic, .app:where([data-lay="new"]) .nl-card-pic{isolation:isolate}
+
+/* the first-time tours (js/newlayout.js). Not scoped to the layout: Jake's tour of the Black & White theme shows on the classic one */
+.app .nl-tour{display:grid;justify-items:center;text-align:center;gap:10px;padding:18px 8px 6px}
+.app .nl-tour-ic{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;background:var(--raise);color:var(--nla,var(--accent))}
+.app .nl-tour-ic svg{width:28px;height:28px}
+.app .nl-tour h3{margin:6px 0 0;font:700 20px/1.2 var(--f-display)}
+.app .nl-tour p{margin:0;max-width:36ch;font:400 15px/1.45 var(--f-ui);color:var(--ink-2);min-height:6.6em}
+.app .nl-tour-dots{display:flex;gap:6px;margin-top:4px}
+.app .nl-tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--line-3)}
+.app .nl-tour-dots i.on{background:var(--nla,var(--accent))}

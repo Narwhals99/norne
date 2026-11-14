@@ -94,25 +94,29 @@ nl.sidePhone = (v, sl) => { const cur = sidePick(v);
   return `<main class="page sidepg nl-sp${sl || ''}"><div class="sp-top"><button type="button" class="ibtn" data-a="sidePane" data-v="0" aria-label="Back to the chat">${IC('left')}</button><span><b>${esc(N.chName(v.ui.ch, v.role))}</b></span></div>
     <div class="rail sp nlr"><section class="pane pa nl-pane pane-is-${cur}">${sideHead(v)}${sideBody(v)}</section></div></main>`; };
 
-/* ---------- the first-time tour (Jake only, N.nlTourOk) ---------- */
-/* remembered on the device, one mark for phones and one for computers, so each shows it once */
-const TKEY = v => 'norne-nltour-' + (v.dev === 'phone' ? 'phone' : 'desktop');
-nl.tourDone = v => { try { return localStorage.getItem(TKEY(v)) === '1'; } catch(e) { return false; } };
-nl.tourEnd = v => { try { localStorage.setItem(TKEY(v), '1'); } catch(e) {} };
+/* ---------- the first-time tours ----------
+   Two short tours, each shown once on a phone and once on a computer (a mark on the device for each):
+   'lay'  the New layout, for everyone who picks it under Profile > Layout (Jack, 2026-11-14)
+   'look' the Black & White theme on the layout he knows, Jake only (N.nlTourOk) */
+const tkind = v => v.ui.tourKind === 'look' ? 'look' : 'lay';
+const TKEY = (v, k) => (k === 'look' ? 'norne-nltour-' : 'norne-laytour-') + (v.dev === 'phone' ? 'phone' : 'desktop');
+nl.tourDone = (v, k) => { try { return localStorage.getItem(TKEY(v, k)) === '1'; } catch(e) { return false; } };
+nl.tourEnd = v => { try { localStorage.setItem(TKEY(v, tkind(v)), '1'); } catch(e) {} };
+nl.tourTitle = v => tkind(v) === 'look' ? 'The new look' : 'The new layout';
 nl.tourSteps = v => { const ph = v.dev === 'phone', gm = isGM(v);
   /* the look alone (Jake): nothing moved, so the tour is two short steps */
-  if (!N.nlOn(v)) return [
+  if (tkind(v) === 'look') return [
     ['image', 'Same layout, new look', 'Every button and panel is where it was. Only the look changed: black or white pages, plain shapes, and colour only where it means something.'],
     ['gear', 'Colours and the way back', 'Blue means tap here, green means happening now, red means harm or delete. You can pick another colour pair under Theme in your Profile, or pick another theme there at any time.'],
   ];
   return [
-    ['chat', 'Four tabs', `Chat, Map, World and ${gm ? 'Cast' : 'Character'}. News now sits inside World${gm ? '' : ', and Inventory inside Character'}. A switch at the top of the page flips between them.`],
-    ...(gm ? [['plus', 'One Actions menu', `The GM tab is gone. Every tool it had is in one list: tap the blue + ${ph ? 'left of the typing bar' : 'left of the typing bar, or press Ctrl K'}. Type a few letters to find anything. Begin and New open short lists of their own.`]] : []),
+    ['chat', 'Four tabs', `Chat, Map, World and ${gm ? 'Cast' : 'Character'}. News now sits inside World${gm ? '' : ', and Inventory inside Character'}. A switch at the top of the page flips between them${ph ? ', and so does a swipe left or right' : ''}.`],
+    ...(gm ? [['plus', 'One Actions menu', `The GM tab is gone. Every tool it had is in one list: tap the + ${ph ? 'left of the typing bar' : 'left of the typing bar, or press Ctrl K'}. Type a few letters to find anything. Begin and New open short lists of their own.`]] : []),
     ['image', 'The scene is one line', `It sits above the chat. Tap it to see the full picture and aspects${gm ? ', or tap Change to edit it' : ''}.`],
     [null, 'One side panel', ph
       ? `Tap the panel button at the top right of a chat, or swipe in from the right edge. Swipe left and right to move between ${gm ? 'Scene, Party and Rolls' : 'Sheet, Rolls and Inventory'}. Swipe in from the far left edge to go back to the chat.`
       : `It sits to the right of the chat with tabs for ${gm ? 'Scene, Party and Rolls' : 'Sheet, Rolls and Inventory'}. More adds the map, wiki and other pages. The panel button at the top of the chat folds it away.`],
-    ['gear', 'Colours and the way back', `Blue means tap here, green means happening now, red means harm or delete. Every theme works with this layout. Theme and Layout are both in your Profile, and Classic brings the old layout back at any time.`],
+    ['gear', 'The way back', `Nothing was removed, only moved. Every theme works with this layout. Theme and Layout are both in your Profile, and picking Classic there brings the old layout back at any time.`],
   ]; };
 nl.tour = v => { const steps = nl.tourSteps(v), i = Math.min(v.ui.tourStep || 0, steps.length - 1), [ic, h, t] = steps[i], last = i === steps.length - 1;
   return {body:`<div class="nl-tour"><span class="nl-tour-ic">${ic ? IC(ic) : nl.PANEL}</span><h3>${esc(h)}</h3><p>${esc(t)}</p>
