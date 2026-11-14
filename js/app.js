@@ -588,6 +588,9 @@ function bind(v){
     if (t.clientX < SW_EDGE && !inFight && !e.target.closest(DRAGS)) { sw = Object.assign(s, {k:'back', edge:true}); return; }
     if (ui.sheet || ui.pop || e.target.closest(NOSWIPE)) return;
     /* with the side panels open a swipe to the right anywhere goes back a step (a page's own back arrow first) */
+    /* new layout (Jack, 2026-11-14): in the side panel a swipe left or right moves between its tabs (Sheet, Rolls, Inventory).
+       Only a swipe in from the far left edge (above), the arrow, or Android's back button returns to the chat */
+    if (side && N.nlOn(v)) { if (!hScroll(e.target, root)) sw = Object.assign(s, {k:'nltab'}); return; }
     if (!fa || side) { if (ui.tab !== 'map' && (side || pageBack(v)) && !hScroll(e.target, root)) sw = Object.assign(s, {k:'back'}); return; }
     /* the GM drawing zones drags on the board, so the board doesn't swipe then */
     if (inFight && isGM(v) && ui.cbTool === 'zone' && e.target.closest('[data-board]')) return;
@@ -640,6 +643,11 @@ function swStart(v, s, dx){
     if (dx > 0) return false;
     s.go = () => { ui.sidePane = true; render(v); };
     return swPage(v, s, fv => { fv.ui.sidePane = true; });
+  }
+  if (s.k === 'nltab') {
+    const to = N.nl.sideStep(v, dx < 0 ? 1 : -1); if (!to) return false;
+    s.go = () => { ui.nlSide = to; ui.nlMore = false; try { localStorage.setItem('norne-nlside', to); } catch(e) {} render(v); };
+    return swPage(v, s, fv => { fv.ui.nlSide = to; fv.ui.nlMore = false; });
   }
   if (s.k === 'pane') {
     const to = dx < 0 ? 'fight' : 'chat'; if (ui.fightPane === to) return false;
