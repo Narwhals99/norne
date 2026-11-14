@@ -596,6 +596,9 @@ function bind(v){
     /* new layout (Jack, 2026-11-14): in the side panel a swipe left or right moves between its tabs (Sheet, Rolls, Inventory).
        Only a swipe in from the far left edge (above), the arrow, or Android's back button returns to the chat */
     if (side && N.nlOn(v)) { if (!hScroll(e.target, root)) sw = Object.assign(s, {k:'nltab'}); return; }
+    /* new layout: the switch at the top of World (Wiki | News) and Character (Sheet | Inventory) also follows a swipe left or right.
+       Inside an entry or the inventory the page's own back arrow keeps the swipe, as everywhere else */
+    if (N.nlOn(v) && !side && !pageBack(v) && nlSegTo(v, 1, -1) && !hScroll(e.target, root)) { sw = Object.assign(s, {k:'nlseg'}); return; }
     if (!fa || side) { if (ui.tab !== 'map' && (side || pageBack(v)) && !hScroll(e.target, root)) sw = Object.assign(s, {k:'back'}); return; }
     /* the GM drawing zones drags on the board, so the board doesn't swipe then */
     if (inFight && isGM(v) && ui.cbTool === 'zone' && e.target.closest('[data-board]')) return;
@@ -636,6 +639,15 @@ const SW_EDGE = 32, SW_EDGE_R = 44; /* the right edge is a little wider: thumbs 
 const swBusy = v => !!v.swiping && performance.now() - v.swiping < 3000;
 /* a wide table or picture row that scrolls sideways keeps its own swipe */
 const hScroll = (el, root) => { for (let e = el; e && e !== root; e = e.parentElement) if (e.scrollWidth > e.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(e).overflowX)) return true; return false; };
+/* the page a swipe goes to from a new-layout top switch (d 1 = the one to the right, -1 = to the left), as a change to a ui; null when there is none */
+function nlSegTo(v, d, d2){
+  const ui = v.ui, one = d => {
+    if (ui.tab === 'world' && d > 0) return u => { u.tab = 'news'; };
+    if (ui.tab === 'news' && d < 0) return u => { u.tab = 'world'; u.wikiSel = null; u.wikiPrev = []; };
+    if (ui.tab === 'hero' && d > 0 && !isGM(v) && !ui.charSel && !ui.heroInv && !ui.heroStats && N.charOf(v.role)?.built) return u => { u.heroInv = true; };
+    return null; };
+  return one(d) || (d2 ? one(d2) : null);
+}
 const pageBack = v => v.root.querySelector('.page [data-a][aria-label^="Back"]');
 function swStart(v, s, dx){
   const ui = v.ui, root = v.root;
@@ -648,6 +660,11 @@ function swStart(v, s, dx){
     if (dx > 0) return false;
     s.go = () => { ui.sidePane = true; render(v); };
     return swPage(v, s, fv => { fv.ui.sidePane = true; });
+  }
+  if (s.k === 'nlseg') {
+    const to = nlSegTo(v, dx < 0 ? 1 : -1); if (!to) return false;
+    s.go = () => { to(ui); if (ui.tab === 'news') newsTab(v); render(v); };
+    return swPage(v, s, fv => to(fv.ui));
   }
   if (s.k === 'nltab') {
     const to = N.nl.sideStep(v, dx < 0 ? 1 : -1); if (!to) return false;
