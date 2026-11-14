@@ -1617,6 +1617,7 @@ function act(v, a, el, e){
   case 'lay': v.lay = val === 'new' ? 'new' : 'classic'; try { localStorage.setItem('norne-lay', v.lay); } catch(e) {} if (N.nlOn(v) && ui.tab === 'gm') ui.tab = 'chat';
     break;
   case 'nlTip': N.nl.tipDone(v, val); break;
+  case 'tipKeep': if (!N.nl.tipKeepOk()) break; try { if (val === 'on') localStorage.setItem('norne-tipkeep', '1'); else localStorage.removeItem('norne-tipkeep'); } catch(e) {} v.tips = null; break;
   case 'nlTour': { const n = N.nl.tourSteps(v).length;
     if (val === 'end' || (val === 'next' && (ui.tourStep || 0) >= n - 1)) { N.nl.tourEnd(v); close(); break; }
     ui.tourStep = clamp((ui.tourStep || 0) + (val === 'back' ? -1 : 1), 0, n - 1); break; }

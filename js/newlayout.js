@@ -103,8 +103,14 @@ nl.sidePhone = (v, sl) => { const cur = sidePick(v);
    one small card says so. It goes away for good when they do the thing it describes, or tap Got it.
    Remembered on the device, one list for phones and one for computers, so each shows every tip once. */
 const TIPKEY = v => 'norne-nltips-' + (v.dev === 'phone' ? 'phone' : 'desktop');
-const tipSeen = v => { if (!v.tips || v.tips.k !== TIPKEY(v)) { let a = []; try { a = JSON.parse(localStorage.getItem(TIPKEY(v)) || '[]'); } catch(e) {} v.tips = {k:TIPKEY(v), s:new Set(Array.isArray(a) ? a : [])}; } return v.tips.s; };
-nl.tipDone = (v, id) => { const s = tipSeen(v); if (s.has(id)) return; s.add(id); try { localStorage.setItem(TIPKEY(v), JSON.stringify([...s])); } catch(e) {} };
+/* Jack's own switch at the bottom of Profile (2026-11-14): while it is on, nothing is remembered past the screen he is on,
+   so every tip comes back each time he returns to its screen. For checking them, until he is satisfied */
+nl.tipKeepOk = () => N.isJack() || !!N.TIPKEEP;
+nl.tipKeep = () => { try { return nl.tipKeepOk() && localStorage.getItem('norne-tipkeep') === '1'; } catch(e) { return false; } };
+const tipSeen = v => { const keep = nl.tipKeep(), k = keep ? 'keep:' + v.ui.tab + (v.dev === 'phone' && N.sideOpen(v) ? ':side' : '') : TIPKEY(v);
+  if (!v.tips || v.tips.k !== k) { let a = []; if (!keep) try { a = JSON.parse(localStorage.getItem(k) || '[]'); } catch(e) {} v.tips = {k, keep, s:new Set(Array.isArray(a) ? a : [])}; }
+  return v.tips.s; };
+nl.tipDone = (v, id) => { const s = tipSeen(v); if (s.has(id)) return; s.add(id); if (!v.tips.keep) try { localStorage.setItem(TIPKEY(v), JSON.stringify([...s])); } catch(e) {} };
 /* [id, where it shows, what counts as having done it, icon, title, text] in the order they are offered on a screen */
 const TIPS = (v, page) => { const ui = v.ui, ph = v.dev === 'phone', gm = isGM(v), chat = ui.tab === 'chat', side = ph && N.sideOpen(v), more = side && nl.sideMoreOn(v);
   const tabs = gm ? 'Scene, Party and Rolls' : 'Sheet, Rolls and Inventory', open = chat && !side && !/class="cb-|data-board/.test(page);
