@@ -125,7 +125,10 @@ N.styleOk = id => STYLES.some(s => s.id === id) ? id : 'storybook';
    Until Jack approves it for everyone, only his own sign-in gets the switch in Profile. It is per device (localStorage norne-nl). */
 N.JACK = 'jackhelling10@gmail.com';
 N.isJack = () => { const m = N.me && N.me(); return !!m && m.email === N.JACK && m.emailVerified === true; };
-N.nlOn = v => !!v && !!v.nl && (N.isJack() || !!N.NL_ALL);
+/* who may try the new layout: Jack, and Jake the GM (Jack, 2026-11-14). GM test mode stays Jack's alone */
+N.NL_WHO = [N.JACK, 'theusualsuspect41995@gmail.com'];
+N.nlOk = () => { const m = N.me && N.me(); return !!m && N.NL_WHO.includes(m.email) && m.emailVerified === true; };
+N.nlOn = v => !!v && !!v.nl && (N.nlOk() || !!N.NL_ALL);
 /* its colour pairs: the first colour means "tap here", the second "happening now" */
 N.NLP = [['bg', 'Blue and green', '#007aff', '#34c759'], ['op', 'Purple and orange', '#8944e6', '#ff9500'], ['pt', 'Pink and teal', '#e6245c', '#1aa5b8']];
 N.nlpOk = id => N.NLP.some(p => p[0] === id) ? id : 'bg';
