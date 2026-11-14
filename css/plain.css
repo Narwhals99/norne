@@ -333,3 +333,8 @@
 .app[data-style="plain"][data-nl] .shelf{background:var(--page-solid);box-shadow:none}
 .app[data-style="plain"][data-nl] .shelf [aria-current="true"]{background:var(--raise);box-shadow:none}
 .app[data-style="plain"][data-nl] .pane-h b, .app[data-style="plain"][data-nl] .shelf h3, .app[data-style="plain"][data-nl] .shelf .sh-t{color:var(--ink-3)}
+/* NPC speech takes the second spot colour (Jack, 2026-11-14), so it never reads as Meta or as a player:
+   players in character are grey (yours blue), NPCs are tinted with the pair's other colour, Meta is an outline */
+.app[data-style="plain"][data-nl] .m.say.npc .bub, .app[data-style="plain"][data-nl] .m.say.npc.mine .bub{background:color-mix(in srgb,var(--nlb) 30%,var(--page-solid));color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nlb) 55%,transparent)}
+.app[data-style="plain"][data-nl] .m.say.npc.mine .bub em, .app[data-style="plain"][data-nl] .m.say.npc.mine .bub a{color:inherit}
+.app[data-style="plain"][data-nl] .m.say.npc .who .tag{color:var(--nlb);box-shadow:inset 0 0 0 1px currentColor;background:none}
