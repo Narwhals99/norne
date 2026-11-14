@@ -755,6 +755,15 @@ N.sheetHtml = function(v){
     const buyBtns = x => { if (!me || !me.built || !open) return '';
       const asked = N.shopAsk(sh.ch, me.id, x.k, 'buy'), haggled = N.shopAsk(sh.ch, me.id, x.k, 'haggle'), short = purse < (+x.price || 0);
       return `<span class="shop-buy"><button type="button" class="btn sm gold" data-a="shopBuy" data-c="${esc(sh.ch)}" data-v="${esc(x.k)}" ${asked || short ? 'disabled' : ''}>${IC(asked ? 'clock' : 'coins')}${asked ? 'Waiting for the GM' : 'Purchase'}</button>${short && !asked ? `<small>Not enough gold</small>` : ''}<button type="button" class="btn sm" data-a="shopHaggle" data-c="${esc(sh.ch)}" data-v="${esc(x.k)}" ${haggled ? 'disabled' : ''}>${IC('hand')}${haggled ? 'Bargain sent' : 'Bargain'}</button></span>`; };
+    /* Jake: sell to the shop. The player names a price for one of an item; the GM answers Buy or Bargain in the chat */
+    const sellBox = () => { if (!me || !me.built || !open) return '';
+      const rows = (me.inv || []).filter(r => Array.isArray(r) && r[0] && r[1] > 0);
+      const one = r => { const asked = N.shopAsk(sh.ch, me.id, r[0], 'sell'), pick = v.ui.sellRow === r[0] && !asked, x = N.invX(r);
+        return `<div class="sell-row${pick ? ' on' : ''}"><span class="itc-ic">${IC(r[3] || 'bag')}</span><span class="sell-t"><b>${N.emoText(N.marks(esc(r[0])))}</b><small>×${r[1]}${x.eq || x.eq2 ? ' · equipped' : ''}</small></span>
+          ${asked ? `<span class="sell-wait">${IC('clock')}Offered ${N.goldTxt(asked.sell.price)}</span>` : `<button type="button" class="btn sm${pick ? ' primary' : ''}" data-a="sellPick" data-v="${esc(r[0])}" aria-expanded="${pick}">${IC('coins')}${pick ? 'Selling' : 'Sell'}</button>`}
+          ${pick ? `<span class="sell-form"><label class="sell-p"><span class="coin"></span><input class="inp" id="sellp-${v.id}" data-i="sellPrice" inputmode="numeric" value="${esc(v.ui.sellPrice || '')}" placeholder="Your price" aria-label="Your price in gold" autocomplete="off"><small>gold for one</small></label><button type="button" class="btn sm gold" data-a="sellGo" data-c="${esc(sh.ch)}" data-v="${esc(r[0])}">${IC('check')}Offer</button></span>` : ''}</div>`; };
+      return `<section class="shop-sell"><h4>${IC('coins')}Sell to ${esc(sh.name || 'the store')}</h4><p class="muted">Pick an item and name your price. The GM buys it or bargains.</p>
+        ${rows.length ? `<div class="sell-list">${rows.map(one).join('')}</div>` : `<div class="note">${IC('info')}Nothing in your inventory to sell.</div>`}</section>`; };
     const card = x => `<article class="shop-it"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
       <div class="shop-it-t"><b>${N.emoText(N.marks(esc(x.name)))}</b><small>${esc(x.path || N.itemKind(x.kind)[1])}</small>
         ${(x.gears || []).length || x.silver ? `<span class="shop-rates">${(x.gears || []).map(([kk, r]) => { const gk = N.ITEM_RATE.find(y => y[0] === kk); return gk ? `<span class="itc-g">${IC(gk[2])}${gk[1]} +${r}</span>` : ''; }).join('')}${x.silver ? '<span class="itc-tag">Silver</span>' : ''}</span>` : ''}
@@ -764,7 +773,8 @@ N.sheetHtml = function(v){
     const body = `${gm ? `<div class="note">${IC('eye')}${sh.state === 'open' ? 'This is what the players see.' : 'This is what the players will see once you open the store.'}</div>` : ''}
       ${people}${me && me.built ? `<div class="shop-purse"><span class="coin"></span>${esc(me.short)} has <b>${N.goldTxt(me.gold)}</b></div>` : ''}
       ${kinds.length > 1 ? `<div class="chips itc-chips" role="group" aria-label="Show"><button type="button" class="cchip" data-a="storeKind" data-v="" aria-current="${!k}">All <small>${items.length}</small></button>${kinds.map(([kk, l, ic]) => `<button type="button" class="cchip" data-a="storeKind" data-v="${kk}" aria-current="${k === kk}">${IC(ic)}${l} <small>${items.filter(x => x.kind === kk).length}</small></button>`).join('')}</div>` : ''}
-      ${shown.length ? `<div class="shop-grid">${shown.map(card).join('')}</div>` : `<div class="note">${IC('info')}Nothing on the shelves right now.</div>`}`;
+      ${shown.length ? `<div class="shop-grid">${shown.map(card).join('')}</div>` : `<div class="note">${IC('info')}Nothing on the shelves right now.</div>`}
+      ${sellBox()}`;
     return sheet(esc(sh.name || 'The store'), body, gm ? `<button type="button" class="btn" data-a="sheet" data-v="shop" data-c="${esc(sh.ch)}">${IC('left')}Back to setup</button>` : `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true, lead:`<span class="shop-lead">${IC('coins')}</span>`});
   }
   case 'itemEd': {

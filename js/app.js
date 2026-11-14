@@ -889,6 +889,7 @@ function input(v, el){
     case 'invTransferQty': if (v.ui.invTransfer) v.ui.invTransfer.qty = val; return;
     case 'itQ': v.ui.itQ = val; render(v); return;
     case 'shopQ': v.ui.shopQ = val; render(v); return;
+    case 'sellPrice': { const t = val.replace(/[^0-9]/g, '').slice(0, 7); if (t !== val) el.value = t; v.ui.sellPrice = t; return; }
     case 'craftQs': v.ui.craftQs = val; render(v); return;
     case 'shopName': { const s = isGM(v) && N.shopOf(el.dataset.c); if (s) s.name = val; return; }
     case 'shopPrice': { const s = isGM(v) && N.shopOf(el.dataset.c), x = s && s.items.find(y => y.k === k); if (!x) return;
@@ -1558,7 +1559,11 @@ function act(v, a, el, e){
   case 'figOpen': close(); if (N.figOk && N.figOk()) { ui.figs = true; N.figOpen(v, val); } break;
   /* a random look for a fighter in the fight being set up (js/figures.js) */
   case 'figRand': if (gm && N.figRand) N.figRand(val); return;
-  case 'heroStats': ui.heroStats = val || null; v.root.querySelector('[data-sk=hero],[data-sk=herostats]')?.scrollTo?.(0, 0); break;
+  case 'statEd': if (gm) ui.statEd = !ui.statEd; break;
+  case 'sadj': { const c = g.chars[d.c]; if (!gm || !c) break; if (+d.d < 0 && +d.n <= 0) break;
+    const a2 = c.sadj = c.sadj || {}; a2[d.k] = (+a2[d.k] || 0) + (+d.d); if (!a2[d.k]) delete a2[d.k]; if (!Object.keys(a2).length) delete c.sadj; renderAll(); return; }
+  case 'sadjReset': { const c = g.chars[d.c]; if (!gm || !c || !c.sadj) break; const old = c.sadj; delete c.sadj; toast(v, 'Fixes undone.', () => { c.sadj = old; }); renderAll(); return; }
+  case 'heroStats': ui.heroStats = val || null; if (!val) ui.statEd = false; v.root.querySelector('[data-sk=hero],[data-sk=herostats]')?.scrollTo?.(0, 0); break;
   case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
   case 'mode': if (val === 'cb') { ui.fightOpen = true; ui.fightPane = 'fight'; } else { ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; ui.stick = true; } break;
@@ -2078,7 +2083,9 @@ function act(v, a, el, e){
     ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
   }
   /* character + cast */
-  case 'avSheet': N.peekHide?.(); close(); if (ui.gmBack) { if (ui.ch === ui.gmBack.to) ui.ch = ui.gmBack.from; ui.gmBack = null; }
+  case 'avSheet': N.peekHide?.(); close();
+    if (gm) { ui.tab = 'cast'; ui.castSeg = g.chars[val] ? 'players' : 'npcs'; ui.castSel = val; break; }
+    if (ui.gmBack) { if (ui.ch === ui.gmBack.to) ui.ch = ui.gmBack.from; ui.gmBack = null; }
     ui.tab = 'hero'; ui.charSel = val === N.charOf(v.role)?.id ? null : val; ui.heroInv = false; ui.heroStats = null; break;
   case 'charSel': ui.charSel = val; ui.heroStats = null; ui.pop = null; ui.heroInv = false; v.root.querySelector('[data-sk="hero"]')?.scrollTo?.(0, 0); break;
   /* sheet reveals (GM) */
@@ -2099,8 +2106,8 @@ function act(v, a, el, e){
     renderAll(); return;
   }
   case 'castSeg': ui.castSeg = val; ui.castSel = null; break;
-  case 'castSel': ui.castSel = val; break;
-  case 'castBack': ui.castSel = null; break;
+  case 'castSel': ui.castSel = val; ui.heroStats = null; ui.statEd = false; break;
+  case 'castBack': ui.castSel = null; ui.heroStats = null; ui.statEd = false; break;
   case 'pcEdit': openSheet(v, 'pcEdit', {v:val}); break;
   case 'pdPortrait': ui.pd.portrait = val; break;
   case 'pdUpload': uploadFace(v, src => { ui.pd.portrait = src; }); return;
@@ -2211,6 +2218,7 @@ function act(v, a, el, e){
     for (const k of ['cls', 'disc', 'silver']) if (!it[k]) delete it[k];
     it.pv = (d.pv || []).map(p => ({id:p.id || uid('pv'), text:String(p.text || '').trim(), see:[...(p.see || [])]})).filter(p => p.text); if (!it.pv.length) delete it.pv;
     for (const [k] of N.ITEM_RATE) if (+d[k] > 0) it[k] = +d[k]; else delete it[k];
+    N.ammoFix(it);
     const at = g.items.findIndex(x => x.id === it.id), was = at >= 0 ? g.items[at].name : null; if (at >= 0) g.items[at] = it; else g.items.push(it);
     g.items.sort((a, b) => a.name.localeCompare(b.name));
     /* Jake: the copies already in inventories follow the edit */
@@ -2575,6 +2583,33 @@ function act(v, a, el, e){
     if (N.shopAsk(s.ch, me.id, x.k, 'haggle')) { toast(v, 'Already asked. The GM still has to answer.'); break; }
     push({ch:s.ch, kind:'sys', by:v.role, haggle:{shop:s.id, k:x.k, name:x.name, price:+x.price || 0, c:me.id, who:me.short, st:'ask'}, text:`${me.short} wants to bargain for ${x.name} (${N.goldTxt(+x.price || 0)}).`});
     toast(v, 'The GM got your bargain. They’ll ask for a roll.'); renderAll(); return; }
+  /* Jake: a player offers an item from their inventory to the store at a price they name. Nothing changes hands until the
+     GM answers in the chat: Buy (gold in, item out) or Bargain (the shopkeeper doesn't like the price; offer again) */
+  case 'sellPick': if (gm) break; ui.sellRow = ui.sellRow === val ? null : val; ui.sellPrice = ''; break;
+  case 'sellGo': { const s = N.shopOpen(d.c), me = N.charOf(v.role); if (!s || gm || !me || !me.built || hushed(v, s.ch)) break;
+    const row = (me.inv || []).find(r => Array.isArray(r) && r[0] === val && r[1] > 0); if (!row) { toast(v, 'That item isn’t in your inventory anymore.'); break; }
+    const price = parseInt(v.root.querySelector(`#sellp-${v.id}`)?.value ?? ui.sellPrice, 10);
+    if (!Number.isSafeInteger(price) || price < 1) { toast(v, 'Name your price in gold first.'); break; }
+    if (N.shopAsk(s.ch, me.id, row[0], 'sell')) { toast(v, 'Already offered. The GM still has to answer.'); break; }
+    push({ch:s.ch, kind:'sys', by:v.role, sell:{shop:s.id, k:row[0], name:row[0], price, c:me.id, who:me.short, st:'ask'}, text:`${me.short} offers to sell ${row[0]} to ${s.name || 'the store'} for ${N.goldTxt(price)}.`});
+    ui.sellRow = null; ui.sellPrice = '';
+    toast(v, `Offer sent. You get ${N.goldTxt(price)} once the GM buys it.`); renderAll(); return; }
+  case 'sellOk': { const m = gm && g.msgs.find(x => x.id === val), b = m && m.sell, c = b && g.chars[b.c]; if (!b || b.st !== 'ask') break;
+    if (!c) { toast(v, 'That character card is gone.'); break; }
+    const i = (c.inv || []).findIndex(r => Array.isArray(r) && r[0].toLowerCase() === b.name.toLowerCase() && r[1] > 0);
+    if (i < 0) { toast(v, `${c.short} doesn’t have ${b.name} anymore. Press Bargain to turn the offer down.`); break; }
+    const row = c.inv[i], wasEq = N.invX(row).eq || N.invX(row).eq2;
+    row[1] -= 1; if (row[1] <= 0) { c.inv.splice(i, 1); if (wasEq) N.applyGear(c); }
+    const before = parseInt(c.gold, 10) || 0; c.gold = clamp(before + b.price, 0, N.GOLD_MAX);
+    b.st = 'ok'; m.text = `${b.who} sold ${b.name} for ${N.goldTxt(b.price)}.`;
+    N.purseNote(c, 'gold', before);
+    toast(v, `${c.short} got ${N.goldTxt(b.price)}. ${b.name} left their inventory.`); renderAll(); return; }
+  case 'sellNo': { const m = gm && g.msgs.find(x => x.id === val), b = m && m.sell; if (!b || b.st !== 'ask') break;
+    b.st = 'no'; m.text = `${N.shopOf(m.ch)?.name || 'The shopkeeper'} doesn’t like the price ${b.who} asked for ${b.name}: Bargain.`;
+    renderAll(); return; }
+  case 'sellAgain': { const m = g.msgs.find(x => x.id === val), b = m && m.sell, me = N.charOf(v.role); if (!b || gm || !me || me.id !== b.c) break;
+    if (!N.shopOpen(m.ch)) { toast(v, 'The store is closed now.'); break; }
+    openSheet(v, 'store', {c:m.ch}); ui.sellRow = b.name; ui.sellPrice = ''; renderAll(); return; }
   case 'buyOk': { const m = gm && g.msgs.find(x => x.id === val), b = m && m.buy, c = b && g.chars[b.c]; if (!b || b.st !== 'ask') break;
     if (!c) { toast(v, 'That character card is gone.'); break; }
     const before = parseInt(c.gold, 10) || 0;
