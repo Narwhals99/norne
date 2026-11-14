@@ -108,3 +108,5 @@
 .app .nl-tour-dots{display:flex;gap:6px;margin-top:4px}
 .app .nl-tour-dots i{width:7px;height:7px;border-radius:50%;background:var(--line-3)}
 .app .nl-tour-dots i.on{background:var(--nla,var(--accent))}
+/* the Rolls tab: the list inside does the scrolling, so its box has to stay a column that fills the panel */
+.app:where([data-lay="new"]) .nl-sb.rcnt{display:flex;flex-direction:column;border-top:0}

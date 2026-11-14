@@ -1791,6 +1791,8 @@ function act(v, a, el, e){
     if (!best) { toast(v, 'Nothing was said in this chat around then.'); break; }
     act(v, 'jumpMsg', {dataset:{v:best.id}}); return; }
   case 'jumpMsg': { let w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`);
+    /* phones: the side panel is a page of its own, so the chat is not drawn under it. Tapping a roll there goes back to the chat first */
+    if (!w && v.dev === 'phone' && ui.sidePane && ui.tab === 'chat') { ui.sidePane = false; render(v); w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`); }
     /* an answered message older than what is drawn: draw back to it first */
     if (!w && g.msgs.some(m => m.id === val && m.ch === ui.ch)) { const i = g.msgs.filter(m => m.ch === ui.ch).findIndex(m => m.id === val), n = g.msgs.filter(m => m.ch === ui.ch).length; (ui.more = ui.more || {})[ui.ch] = Math.max(N.msgWin(v), n - i + 20); render(v); w = v.root.querySelector(`.msgs [data-mid="${CSS.escape(val)}"]`); }
     if (!w) { toast(v, 'That message isn’t in this chat any more.'); break; }
