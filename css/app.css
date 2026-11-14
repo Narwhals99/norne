@@ -311,6 +311,9 @@
   background:radial-gradient(130% 85% at 22% -18%,var(--glass-sheen),transparent 62%),linear-gradient(180deg,transparent 70%,var(--glass-rim-2)),linear-gradient(135deg,var(--glass-tint),var(--glass-tint-2));
   box-shadow:inset 0 1px 0 var(--glass-rim),inset 0 -1px 2px var(--glass-rim-2),var(--glass-shadow);
   backdrop-filter:var(--glass-filter);-webkit-backdrop-filter:var(--glass-filter)}
+/* phones: no live blur behind the Meta glass (Jack, 2026-11-14). Every Meta line blurring what is behind it, up to 150 of
+   them in one chat, is heavy work for a phone on every frame of a scroll; the tint, sheen and rims carry the look */
+.app[data-dev="phone"] .m.ooc .bub{backdrop-filter:none;-webkit-backdrop-filter:none}
 .app .m.ooc .bub::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;pointer-events:none;
   background:linear-gradient(140deg,var(--glass-rim),var(--glass-rim-2) 38%,var(--glass-rim-2) 62%,var(--glass-rim-3));
   -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0)}

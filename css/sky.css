@@ -15,6 +15,8 @@
 .app .gl::before,.app .gl::after{content:"";position:absolute;left:50%;top:50%}
 .app .gl::before{width:var(--L);height:1.4px;margin:-.7px 0 0 calc(var(--L)/-2);background:linear-gradient(90deg,transparent,var(--c) 50%,transparent)}
 .app .gl::after{width:1.4px;height:var(--L);margin:calc(var(--L)/-2) 0 0 -.7px;background:linear-gradient(180deg,transparent,var(--c) 50%,transparent)}
+/* held still while the page is being touched or scrolled (js/app.js bind) */
+.sky-rest .app .gl{animation-play-state:paused}
 @keyframes sky-glint{
   0%{opacity:0;transform:scale(.3) rotate(0deg)}
   4%{opacity:1;transform:scale(1) rotate(12deg)}

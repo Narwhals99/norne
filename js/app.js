@@ -154,8 +154,9 @@ const fzInline = v => { if (fzSheets) v.root.querySelectorAll('[style*="px"]').f
    markup describes, attribute for attribute, as before. */
 const keyOf = n => n.nodeType === 1 ? (n.id || n.getAttribute('data-mid') || null) : null;
 function morphAttrs(a, b){
-  for (const at of [...a.attributes]) if (!b.hasAttribute(at.name)) a.removeAttribute(at.name);
-  for (const at of b.attributes) if (a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value);
+  const aa = a.attributes, ba = b.attributes;
+  for (let i = aa.length - 1; i >= 0; i--) { const nm = aa[i].name; if (!b.hasAttribute(nm)) a.removeAttribute(nm); }
+  for (let i = 0; i < ba.length; i++) { const at = ba[i]; if (a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value); }
 }
 function morphEl(a, b){
   morphAttrs(a, b);
@@ -194,7 +195,10 @@ function morphKids(p, np){
       if (m !== cur) p.insertBefore(m, cur);
       else cur = cur.nextSibling;
       used.add(m);
-      if (m.nodeType === 1) morphEl(m, n);
+      /* a chat message that is already exactly what the new markup says is left alone, without walking through it:
+         in a long chat that is nearly every element on the page (the browser's own compare is far quicker than ours).
+         Not one holding a form field, whose shown value isn't in its markup. */
+      if (m.nodeType === 1) { if (!(k && m.hasAttribute('data-mid') && m.isEqualNode(n) && !m.querySelector('input,textarea,select'))) morphEl(m, n); }
       else if (m.nodeValue !== n.nodeValue) m.nodeValue = n.nodeValue;
     } else {
       p.insertBefore(n, cur);
@@ -253,6 +257,7 @@ function render(v){
   if (!(pk && v._pop === pk)) root.querySelectorAll('.pop,.scrim[data-a="closePop"]').forEach(e => e.remove());
   if (!(v.ui.tokSel && v._tokSel === v.ui.tokSel)) root.querySelectorAll('.tokpanel').forEach(e => e.remove());
   morphHtml(v, N.appHtml(v));
+  v._rn = (v._rn || 0) + 1;
   if (still) root.querySelectorAll('.sheet,.scrim').forEach(e => e.classList.add('still'));
   v._sheet = v.ui.sheet ? v.ui.sheet + ':' + v.ui.sheetArg : null;
   /* so does the phone's chat list (and one pulled out by a swipe is already in place) */
@@ -325,10 +330,13 @@ function pastCheck(v, el){
     /* the line is measured once per chat height while live, so a banner growing or shrinking can't flip it back and forth */
     if (!ui.past || ui.past.ch !== ch || !v._line) v._line = Math.max(40, el.clientHeight * .4);
     const at = top + v._line;
-    for (const e of el.querySelectorAll(':scope > [data-mid], :scope > [data-scn], :scope > .mw > [data-scn]')) {
-      if (e.getBoundingClientRect().top > at) break;
-      ref = e.dataset.mid || e.dataset.scn;
-    }
+    /* this runs on every frame of a scroll: the lines are listed once per redraw and the one on the mark is found by
+       halving (they are in order down the list), instead of measuring every message each frame */
+    let c = v._pl;
+    if (!c || c.el !== el || c.n !== v._rn) c = v._pl = {el, n:v._rn, a:[...el.querySelectorAll(':scope > [data-mid], :scope > [data-scn], :scope > .mw > [data-scn]')]};
+    let lo = 0, hi = c.a.length - 1, hit = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (c.a[mid].getBoundingClientRect().top > at) hi = mid - 1; else { hit = mid; lo = mid + 1; } }
+    if (hit >= 0) ref = c.a[hit].dataset.mid || c.a[hit].dataset.scn;
   }
   const live = g.scenes[ch], key = s => s ? s.msg : '';
   let next = null;
@@ -353,8 +361,16 @@ function bind(v){
   /* bottom-pinned lists (chats): remember whether the person sits on the newest line. Only a real scroll changes that;
      a picture or GIF growing above moves the content without a scroll event, so the list is pinned back down then */
   const sb = v._sb || (v._sb = {});
-  root.addEventListener('scroll', e => { const el = e.target; if (!el.dataset?.bottom || !el.dataset.sk) return;
-    sb[el.dataset.sk] = el.scrollHeight - el.scrollTop - el.clientHeight < 60; }, true);
+  /* measured once per frame, not once per scroll event: asking a list for its height makes the browser work out the page's styles on the spot */
+  { const due = new Set(); let raf = 0;
+    root.addEventListener('scroll', e => { const el = e.target; if (!el.dataset?.bottom || !el.dataset.sk) return; due.add(el);
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; for (const l of due) if (l.isConnected) sb[l.dataset.sk] = l.scrollHeight - l.scrollTop - l.clientHeight < 60; due.clear(); }); }, true); }
+  /* Storybook Night's glinting stars hold still while a finger is down or a list is moving: a running animation makes the
+     browser work the page's styles out again on every frame of the scroll, right when it should be doing nothing but scrolling */
+  { let tm = 0; const de = document.documentElement;
+    const rest = () => { if (!tm) de.classList.add('sky-rest'); else clearTimeout(tm); tm = setTimeout(() => { tm = 0; de.classList.remove('sky-rest'); }, 350); };
+    root.addEventListener('touchstart', rest, {passive:true, capture:true}); root.addEventListener('touchmove', rest, {passive:true, capture:true});
+    root.addEventListener('wheel', rest, {passive:true, capture:true}); root.addEventListener('scroll', rest, true); }
   const repin = e => { const t = e.target; if (!t || t.tagName !== 'IMG') return;
     const l = t.closest('[data-sk][data-bottom]'); if (!l || !sb[l.dataset.sk] || (v._jump && performance.now() - v._jump.t < 1500)) return;
     if (l.scrollHeight - l.scrollTop - l.clientHeight > 1) l.scrollTop = l.scrollHeight; };

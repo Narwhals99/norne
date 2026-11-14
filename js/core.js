@@ -229,6 +229,39 @@ N.imgUrl = src => {
   if (!src.startsWith('fs:')) return src;
   return N.loadImg ? N.loadImg(src.slice(3)) : '';
 };
+/* A picture kept in the database (a portrait, a sent picture, an emoji) is a data: address: the whole file as text, tens
+   or hundreds of thousands of letters long. Written into the page as it is, a chat of 150 lines with a face on each put
+   megabytes of text through the browser on EVERY redraw, and each copy on screen could be decoded on its own.
+   N.show(address) gives the same picture, byte for byte, under a short blob: address made once and shared by every
+   place that shows it. Only for showing: anything saved or edited keeps using the real address.
+   A blob: address can die while the page lives on (an iPhone clearing memory in the background): one that fails to
+   load, or no longer reads back when the app returns to the front, is made again; a picture that keeps failing goes
+   back to being shown from its data: address. */
+const SHOWN = new Map(), SHOW_BAD = new Map();
+N.show = u => {
+  if (typeof u !== 'string' || u.length < 3000 || !u.startsWith('data:')) return u;
+  const have = SHOWN.get(u); if (have) { have.t = Date.now(); return have.b; }
+  if ((SHOW_BAD.get(u) || 0) >= 3 || !window.URL || !URL.createObjectURL || !window.Blob) return u;
+  try {
+    const c = u.indexOf(','), head = u.slice(5, c); if (c < 0 || !/;base64$/i.test(head)) return u;
+    const bin = atob(u.slice(c + 1)), n = bin.length, a = new Uint8Array(n);
+    for (let i = 0; i < n; i++) a[i] = bin.charCodeAt(i);
+    const b = URL.createObjectURL(new Blob([a], {type:head.slice(0, -7) || 'image/jpeg'}));
+    SHOWN.set(u, {b, t:Date.now()});
+    /* pictures nothing has shown for ten minutes are let go once there are a lot of them */
+    if (SHOWN.size > 400) { const old = Date.now() - 600000; for (const [k, e] of SHOWN) if (e.t < old) { SHOWN.delete(k); URL.revokeObjectURL(e.b); } }
+    return b;
+  } catch(e) { SHOW_BAD.set(u, 3); return u; }
+};
+let _showR = 0;
+const showDrop = b => { for (const [k, e] of SHOWN) if (e.b === b) { SHOWN.delete(k); SHOW_BAD.set(k, (SHOW_BAD.get(k) || 0) + 1); try { URL.revokeObjectURL(b); } catch(err) {}
+  clearTimeout(_showR); _showR = setTimeout(() => N.renderAll && N.renderAll(), 60); return true; } return false; };
+if (typeof document !== 'undefined') {
+  document.addEventListener('error', e => { const t = e.target, u = t && t.tagName === 'IMG' ? String(t.getAttribute('src') || '') : ''; if (u.startsWith('blob:')) showDrop(u); }, true);
+  const check = () => { if (document.hidden) return; for (const e of [...SHOWN.values()]) fetch(e.b).then(r => r.blob()).then(b => { if (!b || !b.size) throw 0; }).catch(() => showDrop(e.b)); };
+  document.addEventListener('visibilitychange', check);
+  addEventListener('pageshow', e => { if (e.persisted) check(); });
+}
 /* a picture's framing rides on its name: "<src>#f=x,y,zoom[,shape]". x and y (0-100) say which part stays in view
    (like background-position), zoom is 1 or more, shape is width/height for wiki pictures. Unframed pictures show as before. */
 N.picBase = src => String(src || '').split('#f=')[0];
@@ -238,12 +271,12 @@ const frameRule = f => f ? `;transform:scale(${f.z});transform-origin:${f.x}% ${
 /* style for an <img> that fills its box (object-fit:cover) */
 N.frameCss = src => { const f = N.picFrame(src); return f ? `object-position:${f.x}% ${f.y}%` + frameRule(f) : ''; };
 /* a background picture as its own layer, so it can be zoomed without zooming what sits on it */
-N.bgPic = src => { const u = N.imgUrl(src); if (!u) return ''; const f = N.picFrame(src);
+N.bgPic = src => { const u = N.show(N.imgUrl(src)); if (!u) return ''; const f = N.picFrame(src);
   return `<i class="pic" style="background-image:url(${esc(u)})${f ? `;background-position:${f.x}% ${f.y}%` + frameRule(f) : ''}"></i>`; };
 /* a wiki picture: shown whole, or through its frame in the shape picked for it */
 /* every picture in a news issue: the one over the lead, then one per story */
 N.newsPics = i => [i.limg, ...(i.stories || []).map(st => st.img)].filter(Boolean);
-N.wikiImg = (src, alt='') => { const u = esc(N.imgUrl(src)), f = N.picFrame(src);
+N.wikiImg = (src, alt='') => { const u = esc(N.show(N.imgUrl(src))), f = N.picFrame(src);
   return f && f.r ? `<span class="wfr" style="--r:${f.r}"><img src="${u}" alt="${esc(alt)}" loading="lazy" style="${N.frameCss(src)}"></span>` : `<img src="${u}" alt="${esc(alt)}" loading="lazy">`; };
 /* a portrait is a built-in key (art/pt/<key>-face.png), an "fs:" upload or nothing */
 N.faceUrl = p => !p ? null : /^(fs:|data:|https?:|art\/|img\/)/.test(p) ? (N.imgUrl(p) || null) : FACE(N.picBase(p));
@@ -366,7 +399,7 @@ N.emoById = n => (N.G.emoji || []).find(e => e.n === n);
 /* an emoji's picture: a still one is kept inline (d is a data URL), an animated one in the picture store (d is "fs:<id>") */
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEAAAAALAAAAAABAAEAAAIBAAA=';
 N.emoSrc = x => (x && N.imgUrl(x.d)) || BLANK;
-N.emj = (e, cls='cemo') => { const c = /^:([\w-]+):$/.exec(e || ''); if (!c) return esc(e); const x = N.emoById(c[1]); return x ? `<img class="${cls}" src="${esc(N.emoSrc(x))}" alt=":${esc(x.n)}:" title=":${esc(x.n)}:" draggable="false">` : esc(e); };
+N.emj = (e, cls='cemo') => { const c = /^:([\w-]+):$/.exec(e || ''); if (!c) return esc(e); const x = N.emoById(c[1]); return x ? `<img class="${cls}" src="${esc(N.show(N.emoSrc(x)))}" alt=":${esc(x.n)}:" title=":${esc(x.n)}:" draggable="false">` : esc(e); };
 /* a row over a long form (wiki entry, news edition, character card): the emoji go into whichever box was typed in last */
 /* link: the GM's Insert link button too, for a wiki entry, a character, an NPC or another entry */
 N.textTools = (v, link) => `<div class="ttools${link ? ' lk' : ''}"><span>Emoji${link ? ' and links' : ''} go where you were typing.</span><button type="button" class="btn sm ghost" data-a="pop" data-v="fmtg"><b class="aaw">Aa</b>Formatting</button><button type="button" class="btn sm" data-a="pop" data-v="emof">${IC('smile')}Emoji</button>${link && v.role === 'gm' ? `<button type="button" class="btn sm" data-a="pop" data-v="linkf">${IC('link')}Link</button>` : ''}</div>`;
@@ -568,7 +601,7 @@ N.av = (o, s, extra='') => {
   /* o: {name, portrait|face, color} */
   const face = o.face || N.faceUrl(o.portrait);
   const style = `${s ? `--s:${s}px;` : ''}--c:${o.color || 'var(--accent)'}`;
-  return `<span class="av ${extra}" style="${style}">${face ? `<img src="${esc(face)}" alt="" loading="lazy" draggable="false" style="${N.frameCss(o.portrait)}">` : esc(((o.short||o.name||'?').trim()[0]||'?'))}</span>`;
+  return `<span class="av ${extra}" style="${style}">${face ? `<img src="${esc(N.show(face))}" alt="" loading="lazy" draggable="false" style="${N.frameCss(o.portrait)}">` : esc(((o.short||o.name||'?').trim()[0]||'?'))}</span>`;
 };
 N.narrAv = s => `<span class="av narrav" style="--s:${s||32}px">${STAR}</span>`;
 N.npcByName = name => N.G.npcs.find(x => x.name === name);

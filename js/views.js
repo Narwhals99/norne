@@ -2,10 +2,15 @@
 (function(){
 const N = window.N, {esc, fmt, IC, STAR, MARK, sgn, ladderWord, rollTotal, diceSum, outcome} = N;
 const G = () => N.G;
-const hhmm = t => new Date(t).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'});
+/* Formatting a time through the browser's locale code is slow, and a redraw asks for every message's time and date again
+   (it was over a third of every redraw). The formatters are made once and each minute's text is kept. */
+const DTF = {}, dtf = (k, o) => DTF[k] || (DTF[k] = new Intl.DateTimeFormat([], o));
+const TXT = new Map(), txt = (k, t, o) => { const key = k + Math.floor(t / 60000); let r = TXT.get(key);
+  if (r === undefined) { if (TXT.size > 6000) TXT.clear(); r = dtf(k, o).format(new Date(t)); TXT.set(key, r); } return r; };
+const hhmm = t => txt('t', t, {hour:'numeric', minute:'2-digit'});
 /* Jake: the real-world day a message was sent. Chats get a divider line wherever the day changes, and every time shows its full date on hover */
 const dayKey = t => { const d = new Date(t); return d.getFullYear() * 400 + d.getMonth() * 32 + d.getDate(); };
-const fullDate = t => new Date(t).toLocaleDateString([], {weekday:'long', month:'long', day:'numeric', year:'numeric'});
+const fullDate = t => txt('d', t, {weekday:'long', month:'long', day:'numeric', year:'numeric'});
 const dayName = t => { const d = new Date(t), now = new Date(), y = new Date(now); y.setDate(now.getDate() - 1);
   if (dayKey(d) === dayKey(now)) return 'Today';
   if (dayKey(d) === dayKey(y)) return 'Yesterday';
@@ -14,9 +19,13 @@ const timeTag = t => `<time datetime="${new Date(t).toISOString()}" title="${esc
 const isGM = v => v.role === 'gm';
 /* Storybook Night: a few real stars of the star tile (same seeded maths as index.html) glint now and then.
    Made once; css/sky.css shows them only in Storybook Night with motion allowed. */
-let glintsCache = '';
+let glintsCache = '', glintsKey = '';
 const glintsHtml = () => {
-  if (glintsCache) return glintsCache;
+  /* only the stars this device's screen can show: every glint is an animation the browser keeps running, seen or not
+     (a phone ran 80 of them, about a dozen on screen) */
+  const sw = Math.max(screen.width || 0, innerWidth || 0) + 20, sh = Math.max(screen.height || 0, innerHeight || 0) + 20, key = sw + 'x' + sh;
+  if (glintsCache && glintsKey === key) return glintsCache;
+  glintsKey = key;
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647, st = [];
   for (let i = 0; i < 210; i++) { const r = rnd() * 1.05 + .25; rnd(); const a = rnd() * .6 + .2; st.push({x:rnd() * 520, y:rnd() * 520, ok:r > 1.05 && a > .6}); }
   for (let i = 0; i < 4; i++) { const x = rnd() * 500 + 10, y = rnd() * 500 + 10; rnd(); st.push({x, y, ok:true, gold:true}); }
@@ -25,7 +34,8 @@ const glintsHtml = () => {
   for (let ty = 0; ty < 1040; ty += 520) for (let tx = 0; tx < 2080; tx += 520) pick.forEach((o, i) => {
     if (!o.gold && (i + tx / 520 + ty / 260) % 4) return;
     const t = 9 + (k * 7.3) % 13, d = -((k * 4.1) % t);
-    out.push(`<i class="gl${o.gold ? ' g' : ''}" style="left:${(o.x + tx).toFixed(1)}px;top:${(o.y + ty).toFixed(1)}px;--t:${t.toFixed(1)}s;--d:${d.toFixed(1)}s"></i>`); k++;
+    if (o.x + tx < sw && o.y + ty < sh) out.push(`<i class="gl${o.gold ? ' g' : ''}" style="left:${(o.x + tx).toFixed(1)}px;top:${(o.y + ty).toFixed(1)}px;--t:${t.toFixed(1)}s;--d:${d.toFixed(1)}s"></i>`);
+    k++;
   });
   return (glintsCache = `<div class="sketchsky" aria-hidden="true"></div><div class="glints" aria-hidden="true">${out.join('')}</div>`);
 };
@@ -493,7 +503,7 @@ function rMsg(v, m, prev, firstNarr){
   if (m.kind === 'pic') {
     const p = metaObj(m), pc = m.pic || {};
     /* a picture someone sent: tap it to see it big */
-    return `<div class="m ooc gifm picm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><button type="button" class="gifbox" data-a="picView" data-v="${m.id}" aria-label="Open the picture"><img class="gif" src="${esc(pc.u)}" alt="${esc(m.text || 'Picture')}" loading="lazy" ${pc.w && pc.h ? `style="aspect-ratio:${+pc.w}/${+pc.h}"` : ''}></button>${m.text ? `<div class="bub">${N.emoText(fmt(m.text))}${m.ed ? ' <span class="ed">edited</span>' : ''}</div>` : ''}</div></div>`;
+    return `<div class="m ooc gifm picm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><button type="button" class="gifbox" data-a="picView" data-v="${m.id}" aria-label="Open the picture"><img class="gif" src="${esc(N.show(pc.u))}" alt="${esc(m.text || 'Picture')}" loading="lazy" ${pc.w && pc.h ? `style="aspect-ratio:${+pc.w}/${+pc.h}"` : ''}></button>${m.text ? `<div class="bub">${N.emoText(fmt(m.text))}${m.ed ? ' <span class="ed">edited</span>' : ''}</div>` : ''}</div></div>`;
   }
   if (m.kind === 'ooc' || m.kind === 'meta' || N.metaRp(m)) {
     const p = metaObj(m);
