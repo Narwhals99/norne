@@ -113,7 +113,11 @@ N.mount = function(root, o){
   /* Smooth mode (shadows, blur and moving stars all off) and the frame counter: per device, off unless switched on in Profile */
   try { v.lite = localStorage.getItem('norne-lite') === '1'; v.fps = localStorage.getItem('norne-fps') === '1'; } catch(e) { v.lite = v.fps = false; }
   fpsMeter(v.fps);
-  try { v.nl = localStorage.getItem('norne-nl') === '1'; v.nlp = N.nlpOk(localStorage.getItem('norne-nlp')); } catch(e) { v.nl = false; v.nlp = 'bg'; }
+  try { v.lay = localStorage.getItem('norne-lay') === 'new' ? 'new' : 'classic';
+    /* the first version was one switch for both: carry it over to the theme and the layout it stood for */
+    if (localStorage.getItem('norne-nl') === '1') { v.style = 'plain'; v.lay = 'new'; localStorage.setItem('norne-style', 'plain'); localStorage.setItem('norne-lay', 'new');
+      const p = localStorage.getItem('norne-nlp'); if (p) { v.pal = p; localStorage.setItem('norne-pal', p); } }
+    localStorage.removeItem('norne-nl'); localStorage.removeItem('norne-nlp'); } catch(e) { v.lay = v.lay || 'classic'; }
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
   try { for (const k of ['railW','railWc','rcH','rcHc','shelfW']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1';
     for (const k of ['paneA','paneB','paneAc','paneBc']) { const p = localStorage.getItem('norne-' + k.toLowerCase()); if (p) v.ui[k] = p; } } catch(e) {}
@@ -254,8 +258,9 @@ function render(v){
   if (!root.isConnected) return;
   if (swBusy(v)) { v._later = true; return; }
   const nl = N.nlLook(v);
-  root.dataset.theme = v.theme; root.dataset.style = nl ? 'plain' : v.style; if (nl) { root.dataset.nl = '1'; root.dataset.nlp = N.nlpOk(v.nlp); } else { delete root.dataset.nl; delete root.dataset.nlp; }
-  if (N.TEST) root.dataset.test = '1'; root.dataset.pal = N.palOk(v.style, v.pal); root.dataset.dev = v.dev; root.dataset.role = v.role || '';
+  root.dataset.theme = v.theme; const st = N.styleOf(v); root.dataset.style = st; if (nl) { root.dataset.nl = '1'; root.dataset.nlp = N.palOk('plain', v.pal); } else { delete root.dataset.nl; delete root.dataset.nlp; }
+  if (N.nlOn(v)) root.dataset.lay = 'new'; else delete root.dataset.lay;
+  if (N.TEST) root.dataset.test = '1'; root.dataset.pal = N.palOk(st, v.pal); root.dataset.dev = v.dev; root.dataset.role = v.role || '';
   /* shading + depth: on by default, strong at night and soft by day (css/vignette.css, css/depth.css) */
   { const k = v.theme === 'day' ? 'soft' : 'strong'; if (v.vg === false || v.lite || nl) delete root.dataset.vg; else root.dataset.vg = k; if (v.dp === false || v.lite || nl) delete root.dataset.depth; else root.dataset.depth = k;
     if (v.lite) root.dataset.lite = '1'; else delete root.dataset.lite; }
@@ -1560,18 +1565,18 @@ function act(v, a, el, e){
   case 'fps': v.fps = val === 'on'; try { localStorage.setItem('norne-fps', v.fps ? '1' : '0'); } catch(e) {} fpsMeter(v.fps); break;
   case 'figsOn': if (N.figPref) N.figPref(val === 'on'); break;
   case 'pal': v.pal = val; try { localStorage.setItem('norne-pal', val); } catch(e) {} break;
-  case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {} break;
+  case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {}
+    /* Jake's tour: the first time he picks Black & White, on a phone and on a computer each. Finishing or skipping it ends it for good there */
+    if (N.nlLook(v) && N.nlTourOk() && !N.nl.tourDone(v)) { ui.tourStep = 0; openSheet(v, 'nlTour', {}); }
+    break;
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; ui.sceneBig = !ui.sceneBig; break;
   /* the new layout (Jack only for now) */
-  case 'nl': v.nl = val === 'on'; try { localStorage.setItem('norne-nl', v.nl ? '1' : '0'); } catch(e) {} if (N.nlOn(v) && ui.tab === 'gm') ui.tab = 'chat';
-    /* Jake's tour: the first time he turns the layout on, on a phone and on a computer each. Finishing or skipping it ends it for good there */
-    if (N.nlLook(v) && N.nlTourOk() && !N.nl.tourDone(v)) { ui.tourStep = 0; openSheet(v, 'nlTour', {}); }
-    break;
+  /* the layout picker. The new layout has no GM tab */
+  case 'lay': v.lay = val === 'new' ? 'new' : 'classic'; try { localStorage.setItem('norne-lay', v.lay); } catch(e) {} if (N.nlOn(v) && ui.tab === 'gm') ui.tab = 'chat'; break;
   case 'nlTour': { const n = N.nl.tourSteps(v).length;
     if (val === 'end' || (val === 'next' && (ui.tourStep || 0) >= n - 1)) { N.nl.tourEnd(v); close(); break; }
     ui.tourStep = clamp((ui.tourStep || 0) + (val === 'back' ? -1 : 1), 0, n - 1); break; }
-  case 'nlp': v.nlp = N.nlpOk(val); try { localStorage.setItem('norne-nlp', v.nlp); } catch(e) {} break;
   case 'nlSide': ui.nlSide = val; ui.pop = null; try { localStorage.setItem('norne-nlside', val); } catch(e) {} break;
   case 'nlSideOff': ui.nlSideOff = !ui.nlSideOff; try { localStorage.setItem('norne-nlsideoff', ui.nlSideOff ? '1' : '0'); } catch(e) {} break;
   case 'nlSub': ui.actSub = val || null; ui.actQ = ''; break;

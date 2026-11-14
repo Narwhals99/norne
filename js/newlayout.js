@@ -1,6 +1,6 @@
 /* =====================================================================
-   NORNE — the new layout (2026-11-14). Only drawn while N.nlOn(v) is true (Profile > New layout, gated in core.js).
-   The look is css/plain.css. This file holds the parts that are new, not restyled:
+   NORNE — the new layout (2026-11-14). Only drawn while N.nlOn(v) is true (Profile > Layout > New, gated in core.js).
+   Its stylesheet is css/layout.css; every theme dresses it. This file holds the parts that are new, not restyled:
    - the GM's Actions menu: every GM tool in one searchable list (the + in the typing bar, or Ctrl K). It replaces the GM tab
    - one side panel with tabs instead of two stacked panels (GM: Scene, Party, Rolls. Player: Sheet, Rolls, Inventory)
    - the scene as one line above the chat, which opens the full banner
@@ -103,7 +103,7 @@ nl.tourSteps = v => { const ph = v.dev === 'phone', gm = isGM(v);
   /* the look alone (Jake): nothing moved, so the tour is two short steps */
   if (!N.nlOn(v)) return [
     ['image', 'Same layout, new look', 'Every button and panel is where it was. Only the look changed: black or white pages, plain shapes, and colour only where it means something.'],
-    ['gear', 'Colours and the way back', 'Blue means tap here, green means happening now, red means harm or delete. You can pick another colour pair in your Profile, and turn the look off there at any time.'],
+    ['gear', 'Colours and the way back', 'Blue means tap here, green means happening now, red means harm or delete. You can pick another colour pair under Theme in your Profile, or pick another theme there at any time.'],
   ];
   return [
     ['chat', 'Four tabs', `Chat, Map, World and ${gm ? 'Cast' : 'Character'}. News now sits inside World${gm ? '' : ', and Inventory inside Character'}. A switch at the top of the page flips between them.`],
@@ -112,7 +112,7 @@ nl.tourSteps = v => { const ph = v.dev === 'phone', gm = isGM(v);
     [null, 'One side panel', ph
       ? `Tap the panel button at the top right of a chat, or swipe in from the right edge. Swipe left and right to move between ${gm ? 'Scene, Party and Rolls' : 'Sheet, Rolls and Inventory'}. Swipe in from the far left edge to go back to the chat.`
       : `It sits to the right of the chat with tabs for ${gm ? 'Scene, Party and Rolls' : 'Sheet, Rolls and Inventory'}. More adds the map, wiki and other pages. The panel button at the top of the chat folds it away.`],
-    ['gear', 'Colours and the way back', `Blue means tap here, green means happening now, red means harm or delete. You can pick another colour pair in your Profile, and turn the new layout off there at any time.`],
+    ['gear', 'Colours and the way back', `Blue means tap here, green means happening now, red means harm or delete. Every theme works with this layout. Theme and Layout are both in your Profile, and Classic brings the old layout back at any time.`],
   ]; };
 nl.tour = v => { const steps = nl.tourSteps(v), i = Math.min(v.ui.tourStep || 0, steps.length - 1), [ic, h, t] = steps[i], last = i === steps.length - 1;
   return {body:`<div class="nl-tour"><span class="nl-tour-ic">${ic ? IC(ic) : nl.PANEL}</span><h3>${esc(h)}</h3><p>${esc(t)}</p>
