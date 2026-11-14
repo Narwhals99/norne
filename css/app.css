@@ -2556,13 +2556,26 @@
 .app .stiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 @media (min-width:900px){.app .stiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .app .stile{display:grid;justify-items:center;gap:3px;padding:14px 8px 12px;border:1px solid var(--line);border-radius:14px;background:var(--panel-2,rgba(255,255,255,.04));text-align:center}
-.app .stile svg{width:22px;height:22px;color:var(--ink-3)}
+.app .stile>svg{width:22px;height:22px;color:var(--ink-3)}
 .app .stile b{font:800 28px/1.05 var(--f-ui);color:var(--ink)}
-.app .stile span{font:700 11px/1.2 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.app .stile>span:not(.sfix){font:700 11px/1.2 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .app .stile.hot svg{color:var(--ember)} .app .stile.good svg{color:var(--jade)}
 .app .srow{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px dashed var(--line);font:600 14.5px/1.3 var(--f-ui);color:var(--ink-2)}
 .app .srow small{display:block;font:600 12px/1.35 var(--f-ui);color:var(--ink-3);margin-top:2px}
 .app .srow b{font:800 17px/1 var(--f-ui);color:var(--ink);white-space:nowrap}
+/* GM fixing a character's stats: − / + beside each count */
+.app .sfix{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.app .sfix .ibtn.sm{width:30px;height:30px;min-width:30px;padding:0}
+.app .sfix .ibtn svg{width:15px;height:15px}
+.app .sfix b{min-width:2ch;text-align:center}
+.app .stile .sfix b{font:800 24px/1.05 var(--f-ui)}
+.app .srow.ed{align-items:center}
+.app .stile.ed{position:relative;padding-bottom:22px}
+.app .stile .sgm{position:absolute;left:0;right:0;bottom:5px}
+.app .sgm{font:700 11px/1 var(--f-ui);color:var(--gold-tx);letter-spacing:.02em}
+.app .sgmbar{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;padding:10px 12px;border:1px dashed color-mix(in srgb,var(--gold) 50%,transparent);border-radius:12px;font:600 13px/1.4 var(--f-ui);color:var(--ink-2)}
+.app .sgmbar>svg{width:18px;height:18px;flex:0 0 auto;color:var(--gold-tx)}
+.app .sgmbar>span{flex:1 1 200px}
 .app .sbar{display:flex;height:12px;border-radius:999px;overflow:hidden;gap:2px;background:var(--line)}
 .app .sbar i,.app .skey i{display:block}
 .app .sbar .succ,.app .skey .succ{background:var(--jade)} .app .sbar .tie,.app .skey .tie{background:var(--ink-4)} .app .sbar .fail,.app .skey .fail{background:var(--ember)}
@@ -2600,6 +2613,24 @@
 .app .shop-it .shop-buy .btn{width:100%;justify-content:center}
 .app .shop-it .shop-buy .btn[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(1)}
 .app .shop-it .shop-buy small{font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3);text-align:center}
+.app .scenem.askm.sell.st-no .th{background:var(--gold-soft);color:var(--gold-tx)}
+/* Jake: selling to the store */
+.app .shop-sell{display:grid;gap:8px;margin-top:6px;padding-top:14px;border-top:1px solid var(--line)}
+.app .shop-sell h4{display:flex;align-items:center;gap:8px;margin:0;font:700 15px/1.2 var(--f-ui);color:var(--ink)}
+.app .shop-sell h4 svg{width:18px;height:18px;color:var(--gold-tx)}
+.app .shop-sell>p{margin:0;font:600 12.5px/1.4 var(--f-ui)}
+.app .sell-list{display:grid;gap:6px}
+.app .sell-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px 10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--panel-2,rgba(255,255,255,.03))}
+.app .sell-row.on{border-color:color-mix(in srgb,var(--gold) 60%,transparent)}
+.app .sell-t{min-width:0;display:grid}
+.app .sell-t b{font:700 14px/1.25 var(--f-ui);color:var(--ink);overflow-wrap:anywhere}
+.app .sell-t small{font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .sell-wait{display:inline-flex;align-items:center;gap:5px;font:700 12px/1.2 var(--f-ui);color:var(--ink-3);white-space:nowrap}
+.app .sell-wait svg{width:14px;height:14px}
+.app .sell-form{grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.app .sell-p{flex:1 1 160px;display:flex;align-items:center;gap:8px}
+.app .sell-p .inp{flex:1 1 auto;min-width:0;max-width:140px;height:38px;font-size:16px}
+.app .sell-p small{font:600 12px/1.2 var(--f-ui);color:var(--ink-3);white-space:nowrap}
 .app .shop-lead{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--gold-soft);color:var(--gold-tx);flex:none}
 .app .shop-lead svg{width:19px;height:19px}
 .app .shop-f{display:grid;gap:6px}

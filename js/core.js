@@ -535,7 +535,14 @@ N.placeFind = (name, inside) => {
 };
 /* the character card behind a roleplay line, if this player may open it on the Character tab: their own, or one whose name the GM revealed */
 N.msgCard = (m, role) => {
-  const g = N.G; if (!m || m.kind !== 'rp' || role === 'gm') return null;
+  const g = N.G; if (!m || m.kind !== 'rp') return null;
+  /* Jake: the GM opens any card behind a line on the Cast tab: the player's character, or the NPC (or PC) the GM spoke as */
+  if (role === 'gm') {
+    if (m.by !== 'gm') { const c = N.charOf(m.by); return c && c.built ? c.id : null; }
+    if (!m.as || m.as === 'Narrator') return null; const n = m.as.trim().toLowerCase(), same = x => x.name && (x.name.trim().toLowerCase() === n || (x.short || '').trim().toLowerCase() === n);
+    const npc = (g.npcs || []).find(same); if (npc) return npc.id;
+    const pc = Object.values(g.chars || {}).find(x => x.built && same(x)); return pc ? pc.id : null;
+  }
   if (m.by === 'gm') { if (!m.as || m.as === 'Narrator') return null; const n = m.as.trim().toLowerCase();
     const k = Object.values(g.known || {}).find(x => x.name && (x.name.trim().toLowerCase() === n || (x.short || '').trim().toLowerCase() === n)); return k ? k.id : null; }
   const c = N.charOf(m.by); if (!c) return null;
@@ -718,6 +725,9 @@ N.itemByName = n => { const k = String(n || '').trim().toLowerCase(); return k ?
    shield -> shield. Silver melee/ammo -> silverAtk/silverAmmo, a crossbow -> reload, two-handed weapon and shield ->
    extra stress boxes of (rating - 1) in gearBox. */
 N.AMMO_MAX = 4;
+/* Jake: an item the GM makes in an ammo class counts 0..4 like the imported ones (the items file sets ammo:4 on those) */
+N.AMMO_CLS = ['Standard ranged ammo', 'Thrown weapons'];
+N.ammoFix = it => { if (it && !it.ammo && N.AMMO_CLS.some(c => c.toLowerCase() === String(it.cls || '').trim().toLowerCase())) it.ammo = N.AMMO_MAX; return it; };
 N.invX = row => (row && row[4] && typeof row[4] === 'object') ? row[4] : {};
 N.invSetX = (row, patch) => { const x = {...N.invX(row), ...patch}; for (const k of Object.keys(x)) if (x[k] == null || x[k] === 0 && k !== 'am') delete x[k];
   while (row.length < 4) row.push(row.length === 2 ? '' : 'bag'); if (!row[3]) row[3] = 'bag'; if (Object.keys(x).length) row[4] = x; else row.length = 4; };
@@ -845,6 +855,8 @@ N.invTagAll = () => {
     const x = N.invX(row), it = (x.it && byId.get(x.it)) || byName.get(N.pvKey(row[0])); if (!it) continue;
     const cl = N.itemClass(it), k = N.itemKind(it.kind)[0], sl = N.itemSlot(it) || null;
     if (x.it !== it.id || x.cl !== cl || x.k !== k || (x.sl || null) !== sl) N.invSetX(row, {it:it.id, cl, k, sl});
+    /* an ammo item made before its 0..4 count existed (Jake): its copies start full */
+    if (it.ammo && N.invX(row).am == null) N.invSetX(row, {am:N.AMMO_MAX});
   }
 };
 /* the GM saved catalog item it (oldName: its name before the edit): bring every inventory copy up to date. Returns how many
