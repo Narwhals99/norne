@@ -1,0 +1,294 @@
+/* =====================================================================
+   NORNE — the look of the new layout (2026-11-14, Jack): black or white pages, colour only in spots.
+   Not in the Style picker. app.js sets data-style="plain" while the new layout is on (N.nlOn, core.js),
+   so every rule here only applies then, and :where() keeps each selector as specific as the app.css rule it reskins.
+   Two spot colours, picked as a pair under Profile (data-nlp): --nla means "tap here", --nlb means "happening now".
+   Red is only for harm and deleting. Everything else is ink on the page: no coloured panels, no gradients,
+   no blur, no drop shadows (cheap to draw on a phone), and the system font.
+   The structure that goes with it is js/newlayout.js. The few rules at the very end are not scoped to the look:
+   Jack's Profile switches and the GM test mode bar show in every style.
+   ===================================================================== */
+
+.app:where([data-style="plain"]){
+  --nla:#0a84ff; --nlb:#30d158; --nlred:#ff453a;
+  --sky-0:#000; --sky-1:#000; --sky-2:#000;
+  --page:#000; --page-solid:#000;
+  --raise:#1c1c1e; --raise-2:#2c2c2e; --sunk:#1c1c1e;
+  --line:rgba(255,255,255,.12); --line-2:rgba(255,255,255,.18); --line-3:rgba(255,255,255,.3);
+  --ink:#fff; --ink-2:#d6d6db; --ink-3:#a1a1a8; --ink-4:#8e8e93;
+  --accent:var(--nla); --accent-2:var(--nla); --accent-3:var(--nla); --accent-ink:#fff;
+  --accent-soft:color-mix(in srgb,var(--nla) 18%,transparent); --accent-glow:transparent;
+  --gold:var(--nlb); --gold-2:var(--nlb); --gold-3:var(--nlb); --gold-ink:#000; --gold-soft:color-mix(in srgb,var(--nlb) 16%,transparent);
+  --ember:var(--nlred); --ember-soft:color-mix(in srgb,var(--nlred) 16%,transparent); --jade:#30d158; --jade-soft:rgba(48,209,88,.16);
+  --link:var(--nla);
+  --gold-tx:var(--ink); --accent-tx:var(--nla); --ember-ink:#fff;
+  --card-paper:#1c1c1e; --card-ink:#fff; --card-rule:var(--line-3); --card-line:transparent;
+  --scrim:rgba(0,0,0,.6);
+  --shadow-1:none; --shadow-2:0 0 0 1px var(--line-2);
+  --sky-art:#000;
+  --engrave:transparent;
+  --map-grade:none; --map-tint:none;
+  --glass-tint:transparent; --glass-tint-2:transparent; --glass-mine:transparent; --glass-mine-2:transparent; --glass-mine-rim:var(--line-3);
+  --glass-sheen:transparent; --glass-rim:var(--line-3); --glass-rim-2:var(--line-3); --glass-rim-3:var(--line-3); --glass-shadow:none; --glass-filter:none;
+  --f-mark:-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, system-ui, sans-serif;
+  --f-display:-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, system-ui, sans-serif;
+  --f-ui:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, system-ui, sans-serif;
+  --f-hand:var(--f-ui);
+  --r-xs:8px; --r-sm:10px; --r-md:12px; --r-lg:14px; --r-xl:18px;
+  accent-color:var(--nla); color-scheme:dark;
+}
+.app:where([data-style="plain"])[data-theme="day"]{
+  --nla:#007aff; --nlb:#248a3d; --nlred:#d70015;
+  --sky-0:#fff; --sky-1:#fff; --sky-2:#fff;
+  --page:#fff; --page-solid:#fff;
+  --raise:#f2f2f7; --raise-2:#e5e5ea; --sunk:#f2f2f7;
+  --line:rgba(60,60,67,.14); --line-2:rgba(60,60,67,.22); --line-3:rgba(60,60,67,.36);
+  --ink:#000; --ink-2:#3a3a3c; --ink-3:#5b5b60; --ink-4:#6e6e73;
+  --accent-ink:#fff; --gold-ink:#fff; --ember-ink:#fff;
+  --jade:#248a3d; --jade-soft:rgba(36,138,61,.12);
+  --card-paper:#f2f2f7; --card-ink:#000;
+  --scrim:rgba(0,0,0,.32);
+  --sky-art:#fff;
+  color-scheme:light;
+}
+/* the colour pairs. Night uses the brighter version of each colour, Day the one that reads on white */
+.app:where([data-style="plain"])[data-nlp="op"]{--nla:#9a5cf5; --nlb:#ff9f0a}
+.app:where([data-style="plain"])[data-nlp="op"][data-theme="day"]{--nla:#8944e6; --nlb:#b25000}
+.app:where([data-style="plain"])[data-nlp="pt"]{--nla:#ff375f; --nlb:#40c8e0}
+.app:where([data-style="plain"])[data-nlp="pt"][data-theme="day"]{--nla:#d30f45; --nlb:#0e7a8c}
+
+/* ---------- nothing decorative ---------- */
+.app:where([data-style="plain"]), .app:where([data-style="plain"]) *, .app:where([data-style="plain"]) *::before, .app:where([data-style="plain"]) *::after{text-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.app:where([data-style="plain"]){background:var(--page-solid);font-synthesis-weight:none}
+.app:where([data-style="plain"]) .stars, .app:where([data-style="plain"]) .glints, .app:where([data-style="plain"]) .nav .art, .app:where([data-style="plain"]) .star4, .app:where([data-style="plain"]) .scene .eyebrow svg{display:none}
+.app:where([data-style="plain"]) h1, .app:where([data-style="plain"]) h2, .app:where([data-style="plain"]) h3, .app:where([data-style="plain"]) .ttl{font-family:var(--f-display);letter-spacing:-.01em;font-style:normal}
+.app:where([data-style="plain"]) .top h1{font-weight:700}
+
+/* ---------- shell: the page is the screen, lines instead of floating cards ---------- */
+.app:where([data-style="plain"]) .page{background:var(--page-solid);box-shadow:none;border-radius:0;margin:0}
+.app:where([data-style="plain"]) .tabbar{background:var(--page-solid);box-shadow:none;border-top:1px solid var(--line)}
+.app:where([data-style="plain"]) .tabbar button{color:var(--ink-4);background:none;box-shadow:none}
+.app:where([data-style="plain"]) .tabbar button .ti{background:none;box-shadow:none}
+.app:where([data-style="plain"]) .tabbar button[aria-current="page"]{color:var(--nla)}
+.app:where([data-style="plain"]) .tabbar button[aria-current="page"] .ti{background:none;color:var(--nla)}
+.app:where([data-style="plain"]) .dot, .app:where([data-style="plain"]) .tabbar .dot{background:var(--nlb);box-shadow:none}
+.app:where([data-style="plain"]) .badge{background:var(--nlb);color:var(--gold-ink);box-shadow:none}
+.app:where([data-style="plain"]) .fightdot{background:var(--nlb);color:var(--gold-ink)}
+@container dev (min-width: 760px){
+  .app:where([data-style="plain"]) .page{border-left:1px solid var(--line)}
+  .app:where([data-style="plain"]) .nav{width:232px;padding:14px 10px 10px;gap:10px}
+  .app:where([data-style="plain"]) .nav .mark b{font:700 17px/1 var(--f-display);letter-spacing:-.01em;text-transform:none}
+  .app:where([data-style="plain"]) .nav .ni{height:36px;border-radius:9px;font-weight:600;font-size:14px}
+  .app:where([data-style="plain"]) .nav .ni:hover{background:var(--raise)}
+  .app:where([data-style="plain"]) .nav .ni[aria-current="page"]{background:var(--raise);box-shadow:none;color:var(--ink)}
+  .app:where([data-style="plain"]) .nav .ni[aria-current="page"]>svg{color:var(--nla)}
+  .app:where([data-style="plain"]) .nav .sub{margin:2px 0 8px 0;padding-left:0;border-left:0}
+  .app:where([data-style="plain"]) .nav .sub button{height:34px;border-radius:9px}
+  .app:where([data-style="plain"]) .nav .sub button:hover{background:var(--raise)}
+  .app:where([data-style="plain"]) .nav .sub button[aria-current="true"]{background:var(--raise);color:var(--ink)}
+  .app:where([data-style="plain"]) .nav .who{background:none;box-shadow:none;border-radius:10px}
+  .app:where([data-style="plain"]) .nav .who:hover{background:var(--raise)}
+  .app:where([data-style="plain"]) .rail{background:var(--page-solid);border-left:1px solid var(--line)}
+}
+
+/* ---------- controls ---------- */
+.app:where([data-style="plain"]) .btn{border-radius:10px;background:var(--raise);box-shadow:none;color:var(--ink);font-weight:600;background-image:none}
+.app:where([data-style="plain"]) .btn.primary, .app:where([data-style="plain"]) .btn.gold{background:var(--nla);color:#fff;box-shadow:none;background-image:none}
+.app:where([data-style="plain"]) .btn.ghost{background:none;color:var(--nla)}
+.app:where([data-style="plain"]) .btn.danger{background:none;color:var(--nlred);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nlred) 45%,transparent)}
+.app:where([data-style="plain"]) .ibtn{background:none;box-shadow:none;color:var(--ink-2)}
+.app:where([data-style="plain"]) .ibtn:hover{background:var(--raise)}
+.app:where([data-style="plain"]) .seg{background:var(--raise);box-shadow:none;border-radius:10px;padding:2px}
+.app:where([data-style="plain"]) .seg button{border-radius:8px;background:none;box-shadow:none;color:var(--ink-2);font-weight:600}
+.app:where([data-style="plain"]) .seg button[aria-pressed="true"]{background:var(--page-solid);color:var(--ink);box-shadow:0 0 0 1px var(--line-2)}
+.app:where([data-style="plain"])[data-theme="night"] .seg button[aria-pressed="true"], .app:where([data-style="plain"]):not([data-theme="day"]) .seg button[aria-pressed="true"]{background:#636366;color:#fff;box-shadow:none}
+.app:where([data-style="plain"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), .app:where([data-style="plain"]) textarea, .app:where([data-style="plain"]) select{background-color:var(--raise);box-shadow:none;border-radius:10px;color:var(--ink)}
+.app:where([data-style="plain"]) .tag{background:var(--raise);color:var(--ink-3);box-shadow:none}
+.app:where([data-style="plain"]) .tag.ember{background:none;color:var(--nlb);box-shadow:inset 0 0 0 1px currentColor}
+.app:where([data-style="plain"]) .coin{background:var(--nlb);box-shadow:none;background-image:none}
+.app:where([data-style="plain"]) .coin.off{background:none;box-shadow:inset 0 0 0 1.5px var(--line-3)}
+.app:where([data-style="plain"]) .menu button{background:none;box-shadow:none;border-radius:0;border-bottom:1px solid var(--line)}
+.app:where([data-style="plain"]) .av{box-shadow:none}
+
+/* ---------- sheets and menus ---------- */
+.app:where([data-style="plain"]) .sheet, .app:where([data-style="plain"]) .pop{background:var(--page-solid);box-shadow:0 0 0 1px var(--line-2);background-image:none}
+.app:where([data-style="plain"]):not([data-theme="day"]) .sheet, .app:where([data-style="plain"]):not([data-theme="day"]) .pop{background:#1c1c1e}
+.app:where([data-style="plain"]):not([data-theme="day"]) .sheet{--raise:#2c2c2e; --sunk:#2c2c2e; --raise-2:#3a3a3c; --page-solid:#1c1c1e}
+.app:where([data-style="plain"]) .sheet::before, .app:where([data-style="plain"]) .sheet::after{display:none}
+.app:where([data-style="plain"]) .sh-h{border-bottom:1px solid var(--line);background:none}
+.app:where([data-style="plain"]) .sh-h .ttl{font:700 17px/1.2 var(--f-display)}
+.app:where([data-style="plain"]) .sheet h4{font:600 13px/1.3 var(--f-ui);letter-spacing:0;text-transform:none;color:var(--ink)}
+.app:where([data-style="plain"]) .sheet h4 small{color:var(--ink-3);font-weight:400}
+
+/* ---------- chat ---------- */
+.app:where([data-style="plain"]) .top{background:var(--page-solid);box-shadow:none;border-bottom:1px solid var(--line)}
+.app:where([data-style="plain"]) .m .bub{box-shadow:none;background-image:none}
+/* in character: a filled bubble. Yours takes the first spot colour */
+.app:where([data-style="plain"]) .m.say .bub{background:var(--raise);color:var(--ink);border:0}
+.app:where([data-style="plain"]) .m.say.mine .bub{background:var(--nla);color:#fff}
+.app:where([data-style="plain"]) .m.say.mine .bub em, .app:where([data-style="plain"]) .m.say.mine .bub a{color:#fff}
+.app:where([data-style="plain"]) .m.say .bub::before, .app:where([data-style="plain"]) .m.say .bub::after{display:none}
+/* Meta: an outline, never filled */
+.app:where([data-style="plain"]) .m.ooc .bub, .app:where([data-style="plain"]) .m.ooc.mine .bub{background:none;color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line-3)}
+.app:where([data-style="plain"]) .m.ooc .bub::after{display:none}
+.app:where([data-style="plain"]) .m.ooc .bub::before{color:var(--ink-4)}
+.app:where([data-style="plain"]) .m .who{font-weight:600}
+.app:where([data-style="plain"]) .narr{background:none;box-shadow:none;color:var(--ink);font-family:var(--f-ui);font-style:normal}
+.app:where([data-style="plain"]) .composer{background:var(--page-solid);box-shadow:none;border-top:1px solid var(--line)}
+.app:where([data-style="plain"]) .composer .box, .app:where([data-style="plain"]) .composer.ooc .box{background:var(--raise);box-shadow:none;border-radius:20px}
+.app:where([data-style="plain"]) .composer .send{background:var(--nla);color:#fff;box-shadow:none}
+.app:where([data-style="plain"]) .composer .nlplus{color:var(--nla)}
+.app:where([data-style="plain"]) .rollcard, .app:where([data-style="plain"]) .rc, .app:where([data-style="plain"]) .res, .app:where([data-style="plain"]) .card{box-shadow:none;background-image:none}
+
+/* ---------- the old scene banner when opened ---------- */
+.app:where([data-style="plain"]) .scene{border-radius:0;box-shadow:none;border-bottom:1px solid var(--line);margin:0}
+.app:where([data-style="plain"]) .scene h2{font:700 20px/1.2 var(--f-display)}
+.app:where([data-style="plain"]) .scene .icard{background:var(--raise);color:var(--ink);box-shadow:none;rotate:0deg;transform:none;font-family:var(--f-ui);border-radius:8px}
+.app:where([data-style="plain"]) .scene .icard .fi i{background:var(--nlb)}
+
+/* ---------- GM screen pieces reused in the side panel ---------- */
+.app:where([data-style="plain"]) .gs-sec{background:none;box-shadow:none;border-radius:0;border-top:1px solid var(--line)}
+.app:where([data-style="plain"]) .gs-h h3, .app:where([data-style="plain"]) .nl-h{font:600 12px/1.2 var(--f-ui);letter-spacing:.02em;text-transform:none;color:var(--ink-3)}
+.app:where([data-style="plain"]) .bigcta{background:var(--raise);box-shadow:none;border-radius:12px;background-image:none}
+.app:where([data-style="plain"]) .bigcta .ic{background:none;color:var(--nla);box-shadow:none}
+.app:where([data-style="plain"]) .pcrow{background:none;box-shadow:none;border-radius:0;border-bottom:1px solid var(--line)}
+.app:where([data-style="plain"]) .thumb{box-shadow:none;border-radius:10px}
+.app:where([data-style="plain"]) .thumb.on{outline:2px solid var(--nla);outline-offset:1px}
+
+/* =====================================================================
+   the new pieces (js/newlayout.js)
+   ===================================================================== */
+.app:where([data-style="plain"]) .nl-segbar{display:flex;justify-content:center;padding:calc(8px + var(--safe-t,0px)) 12px 8px;border-bottom:1px solid var(--line)}
+.app:where([data-style="plain"]) .page.nlw{grid-template-rows:auto minmax(0,1fr)}
+.app:where([data-style="plain"]) .page.nlw:not(:has(.nl-segbar)){grid-template-rows:minmax(0,1fr)}
+.app:where([data-style="plain"]) .page.nlw .top.ph{padding-top:6px}
+.app:where([data-style="plain"]) .nl-seg{display:inline-flex;background:var(--raise);border-radius:9px;padding:2px;gap:0}
+.app:where([data-style="plain"]) .nl-seg button{height:30px;min-width:96px;padding:0 14px;border-radius:7px;font:600 13px/1 var(--f-ui);color:var(--ink-2);display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.app:where([data-style="plain"]) .nl-seg button[aria-pressed="true"]{background:var(--page-solid);color:var(--ink);box-shadow:0 0 0 1px var(--line-2)}
+.app:where([data-style="plain"]):not([data-theme="day"]) .nl-seg button[aria-pressed="true"]{background:#636366;box-shadow:none}
+.app:where([data-style="plain"]) .nl-n{font:700 11px/16px var(--f-ui);font-style:normal;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--nlb);color:var(--gold-ink)}
+
+/* the scene: one line */
+.app:where([data-style="plain"]) .nl-scene{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);min-width:0}
+.app:where([data-style="plain"]) .nl-sc-main{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;height:40px;border-radius:10px;padding:0 6px 0 0}
+.app:where([data-style="plain"]) .nl-sc-main:hover{background:var(--raise)}
+.app:where([data-style="plain"]) .nl-sc-pic{flex:none;width:56px;height:36px;border-radius:7px;overflow:hidden;background-size:cover;background-position:center;position:relative;background-color:var(--raise)}
+.app:where([data-style="plain"]) .nl-sc-pic>*{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.app:where([data-style="plain"]) .nl-sc-t{flex:1;min-width:0;display:grid}
+.app:where([data-style="plain"]) .nl-sc-t b{font:600 14px/1.25 var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app:where([data-style="plain"]) .nl-sc-t small{font:400 12px/1.25 var(--f-ui);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app:where([data-style="plain"]) .nl-chip{flex:none;font:600 11.5px/1 var(--f-ui);padding:5px 8px;border-radius:999px;color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--line-2);white-space:nowrap}
+.app:where([data-style="plain"]) .nl-chip.b{color:var(--nlb);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nlb) 50%,transparent)}
+.app:where([data-style="plain"]) .nl-sc-btn{flex:none;height:32px;padding:0 10px;border-radius:8px;font:600 13px/1 var(--f-ui);color:var(--nla)}
+.app:where([data-style="plain"]) .nl-sc-btn:hover{background:var(--raise)}
+
+/* the side panel */
+.app:where([data-style="plain"]) .page.nl-solo{grid-template-columns:minmax(0,1fr)}
+.app:where([data-style="plain"]) .rail.nlr{display:flex;flex-direction:column;min-height:0;min-width:0;position:relative;overflow:hidden;grid-template-rows:none}
+.app:where([data-style="plain"]) .rail.nlr .nl-pane{flex:1;min-height:0;display:flex;flex-direction:column;border:0;background:none}
+.app:where([data-style="plain"]) .rail.sp.nlr{flex:1}
+.app:where([data-style="plain"]) .nl-tabs{flex:none;display:flex;gap:2px;padding:8px 10px 0;border-bottom:1px solid var(--line)}
+.app:where([data-style="plain"]) .nl-tabs button{height:36px;padding:0 10px;font:600 13.5px/1 var(--f-ui);color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.app:where([data-style="plain"]) .nl-tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--nla)}
+.app:where([data-style="plain"]) .nl-tabs .nl-morebtn{margin-left:auto}
+.app:where([data-style="plain"]) .nl-tabs .nl-morebtn svg{width:12px;height:12px}
+.app:where([data-style="plain"]) .nl-more{flex:none;display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.app:where([data-style="plain"]) .nl-more button, .app:where([data-style="plain"]) .nl-chipbtn{height:30px;padding:0 10px;border-radius:999px;font:600 12.5px/1 var(--f-ui);color:var(--ink-2);background:var(--raise);display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.app:where([data-style="plain"]) .nl-more button svg, .app:where([data-style="plain"]) .nl-chipbtn svg{width:14px;height:14px;color:var(--ink-3)}
+.app:where([data-style="plain"]) .nl-more button[aria-pressed="true"]{color:var(--nla)}
+.app:where([data-style="plain"]) .nl-sb, .app:where([data-style="plain"]) .rail.nlr .pane-c{flex:1;min-height:0}
+.app:where([data-style="plain"]) .nl-sb.scroll{overflow-y:auto}
+.app:where([data-style="plain"]) .nl-pad{padding:12px;display:grid;gap:10px}
+.app:where([data-style="plain"]) .nl-h{margin:8px 2px 0}
+.app:where([data-style="plain"]) .nl-card{display:grid;gap:10px}
+.app:where([data-style="plain"]) .nl-card-pic{height:120px;border-radius:12px;overflow:hidden;position:relative;background-size:cover;background-position:center;background-color:var(--raise)}
+.app:where([data-style="plain"]) .nl-card-pic>*{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.app:where([data-style="plain"]) .nl-card-b{display:grid;gap:2px}
+.app:where([data-style="plain"]) .nl-card-b b{font:700 16px/1.25 var(--f-display)}
+.app:where([data-style="plain"]) .nl-card-b small{font:400 13px/1.3 var(--f-ui);color:var(--ink-3)}
+.app:where([data-style="plain"]) .nl-asp{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.app:where([data-style="plain"]) .nl-asp span{font:500 12.5px/1.3 var(--f-ui);padding:5px 9px;border-radius:8px;background:var(--raise)}
+.app:where([data-style="plain"]) .nl-asp i{font-style:normal;color:var(--ink-3)}
+.app:where([data-style="plain"]) .nl-asp em{font-style:normal;font-weight:700;color:var(--nlb)}
+.app:where([data-style="plain"]) .nl-btn{height:38px;padding:0 14px;border-radius:10px;font:600 14px/1 var(--f-ui);background:var(--raise);color:var(--ink);display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.app:where([data-style="plain"]) .nl-btn.a{background:var(--nla);color:#fff}
+.app:where([data-style="plain"]) .nl-empty{display:grid;gap:10px;justify-items:start;color:var(--ink-3);font:400 14px/1.4 var(--f-ui)}
+.app:where([data-style="plain"]) .nl-empty p{margin:0}
+.app:where([data-style="plain"]) .nl-party{display:grid}
+
+/* rows: the Actions menu, and anything running now */
+.app:where([data-style="plain"]) .nl-list{display:grid;border-radius:12px;background:var(--raise);overflow:hidden}
+.app:where([data-style="plain"]) .nl-row{display:flex;align-items:center;gap:12px;min-height:46px;padding:6px 12px;text-align:left;width:100%;position:relative}
+.app:where([data-style="plain"]) .nl-row+.nl-row::before{content:"";position:absolute;left:46px;right:0;top:0;border-top:1px solid var(--line)}
+.app:where([data-style="plain"]) .nl-row:hover{background:var(--raise-2)}
+.app:where([data-style="plain"]) .nl-ic{flex:none;width:22px;height:22px;display:grid;place-items:center;color:var(--nla)}
+.app:where([data-style="plain"]) .nl-ic svg{width:20px;height:20px}
+.app:where([data-style="plain"]) .nl-l{flex:1;min-width:0;display:grid;gap:1px}
+.app:where([data-style="plain"]) .nl-l b{font:500 15px/1.25 var(--f-ui)}
+.app:where([data-style="plain"]) .nl-l small{font:400 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.app:where([data-style="plain"]) .nl-go{flex:none;color:var(--ink-4)}
+.app:where([data-style="plain"]) .nl-go svg{width:14px;height:14px}
+.app:where([data-style="plain"]) .nl-row.red .nl-ic, .app:where([data-style="plain"]) .nl-row.red .nl-l b{color:var(--nlred)}
+.app:where([data-style="plain"]) .nl-row.live .nl-ic{color:var(--nlb)}
+.app:where([data-style="plain"]) .nl-dot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--nlb)}
+.app:where([data-style="plain"]) .nl-acts{display:grid;gap:8px}
+.app:where([data-style="plain"]) .nl-acts .nl-h{margin:8px 4px 0}
+.app:where([data-style="plain"]) .nl-search{display:flex;align-items:center;gap:8px;height:38px;padding:0 10px;border-radius:10px;background:var(--raise);color:var(--ink-3)}
+.app:where([data-style="plain"]) .nl-search svg{width:16px;height:16px;flex:none}
+.app:where([data-style="plain"]) .nl-search input{flex:1;min-width:0;height:100%;background:none!important;border:0;outline:0;font:400 16px/1 var(--f-ui);color:var(--ink);padding:0}
+.app:where([data-style="plain"]) .nl-chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0}
+.app:where([data-style="plain"]) .nl-back{display:inline-flex;align-items:center;gap:4px;height:36px;font:600 15px/1 var(--f-ui);color:var(--nla);justify-self:start}
+.app:where([data-style="plain"]) .nl-back svg{width:16px;height:16px}
+.app:where([data-style="plain"]) .nl-none{margin:0;padding:14px;color:var(--ink-3);font:400 14px/1.4 var(--f-ui)}
+.app:where([data-style="plain"]) .ibtn.nlside svg{width:22px;height:22px}
+.app:where([data-style="plain"]) .ibtn.nlside[aria-pressed="true"]{color:var(--nla)}
+
+/* =====================================================================
+   in every style: Jack's Profile switches and the GM test mode bar
+   ===================================================================== */
+.app .nl-pairs{display:grid;gap:6px}
+.app .nl-pairs button{display:flex;align-items:center;gap:6px;height:40px;padding:0 12px;border-radius:10px;background:var(--raise);font:600 14px/1 var(--f-ui);color:var(--ink);text-align:left}
+.app .nl-pairs button i{width:16px;height:16px;border-radius:50%;flex:none}
+.app .nl-pairs button span{margin-left:4px}
+.app .nl-pairs button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--accent)}
+.app .testbar{position:absolute;z-index:60;top:0;left:0;right:0;height:calc(30px + var(--safe-t,0px));padding:var(--safe-t,0px) 10px 0;display:flex;align-items:center;justify-content:center;gap:8px;
+  background:#ff9f0a;color:#000;font:600 12.5px/1 system-ui,-apple-system,sans-serif;white-space:nowrap}
+.app .testbar b{font-weight:800}
+.app .testbar span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.app .testbar button{flex:none;height:22px;padding:0 10px;border-radius:999px;background:#000;color:#fff;font:700 12px/1 system-ui,-apple-system,sans-serif}
+
+/* ---------- second pass ---------- */
+.app:where([data-style="plain"]) .nl-sc-pic .pic, .app:where([data-style="plain"]) .nl-card-pic .pic{display:block;background-size:cover;background-position:center;background-repeat:no-repeat}
+.app:where([data-style="plain"]) .nl-sb{display:block}
+.app:where([data-style="plain"]) .nl-sb .gs-pics{padding:12px}
+.app:where([data-style="plain"]) .mark, .app:where([data-style="plain"]) .mark b{color:var(--ink)}
+.app:where([data-style="plain"]) .mark svg{filter:none;width:22px;height:22px;color:var(--nla)}
+.app:where([data-style="plain"]) .m .who{color:var(--ink-3)}
+.app:where([data-style="plain"]) .diceb{background:var(--raise);color:var(--ink);box-shadow:none;background-image:none}
+.app:where([data-style="plain"]) .sendb{background:var(--nla);color:#fff;box-shadow:none;background-image:none}
+.app:where([data-style="plain"]) .tabbar button[aria-current="page"] .ti, .app:where([data-style="plain"]) .tabbar button .ti{background:none;box-shadow:none;border:0}
+.app:where([data-style="plain"]) .tabbar button .ti::before, .app:where([data-style="plain"]) .tabbar button .ti::after{display:none}
+@container dev (min-width: 760px){
+  .app[data-style="plain"] .page{outline:0}
+  .app[data-style="plain"] .rail{border-left:1px solid var(--line)}
+  .app[data-style="plain"] :is(.rail.sp>.pane.pb,.rcnt){border-top:0}
+}
+
+.app:where([data-style="plain"]) .rail.nlr .nl-pane>.nl-tabs, .app:where([data-style="plain"]) .rail.nlr .nl-pane>.nl-more{flex:none}
+.app:where([data-style="plain"]) .rail.nlr .nl-pane>.nl-sb, .app:where([data-style="plain"]) .rail.nlr .nl-pane>.pane-c{flex:1 1 0}
+@container dev (min-width: 760px){
+  .app[data-style="plain"]:not([data-style="oak"]) .page{outline:0}
+}
+.app:where([data-style="plain"]) .nl-sc-pic, .app:where([data-style="plain"]) .nl-card-pic{isolation:isolate}
+
+/* ---------- third pass: no gradients anywhere. Pictures set their image inline, so they are left alone ---------- */
+.app:where([data-style="plain"]) *:not([style*="background"]):not(.pic), .app:where([data-style="plain"]) *::before, .app:where([data-style="plain"]) *::after{background-image:none!important}
+.app:where([data-style="plain"]) .fightdot, .app:where([data-style="plain"]) .tok.now .av{animation:none}
+.app[data-style="plain"][data-nl] .m.say .bub{background:var(--raise);color:var(--ink);border:0;box-shadow:none}
+.app[data-style="plain"][data-nl] .m.say.mine .bub{background:var(--nla);color:#fff}
+
+.app:where([data-style="plain"]) .av{background-color:color-mix(in srgb,var(--c) 55%,var(--raise-2));color:#fff}
+.app:where([data-style="plain"]) .die{background-color:#f2f2f7;color:#000;box-shadow:none}
+.app:where([data-style="plain"]) .die.p{color:#248a3d} .app:where([data-style="plain"]) .die.m{color:#d70015}
+.app[data-test="1"] .shell{top:calc(30px + var(--safe-t,0px))}
+.app[data-test="1"] .shell{--safe-t:0px}

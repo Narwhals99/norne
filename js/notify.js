@@ -170,7 +170,7 @@ function send(list){
     for (const m of list) { if (!N.channelsFor(d.role).includes(m.ch)) continue; const t = line(m); if (t) (byCh[m.ch] = byCh[m.ch] || []).push(t); }
     for (const [ch, ts] of Object.entries(byCh)) pushes.push({sub:d.sub, title:'Norne', body:pings(ts), ch});
   }
-  if (!pushes.length) return;
+  if (!pushes.length || N.TEST) return;
   fetch(PUSH_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pushes})})
     .then(r => r.json()).then(r => { if (r.gone?.length && N.pushDrop) N.pushDrop(r.gone); })
     .catch(e => console.warn('push', e));
