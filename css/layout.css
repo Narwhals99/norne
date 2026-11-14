@@ -113,13 +113,20 @@
 
 /* tips (js/newlayout.js): one small card on the screen it is about. Below sheets and menus, above the page */
 .app .nl-tip{position:absolute;z-index:30;left:12px;right:12px;bottom:calc(132px + var(--safe-b,0px));display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:14px;
-  background:var(--page-solid);color:var(--ink);box-shadow:0 0 0 1.5px var(--nla,var(--accent)),0 10px 30px rgba(0,0,0,.35);animation:nl-tip .25s ease both}
+  background:var(--page-solid);color:var(--ink);box-shadow:0 0 0 1.5px var(--nl-glow),0 10px 30px rgba(0,0,0,.35);animation:nl-tip .25s ease both;--nl-glow:#3b9dff}
 .app .nl-tip-ic{flex:none;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:var(--raise);color:var(--nla,var(--accent))}
 .app .nl-tip-ic svg{width:18px;height:18px}
 .app .nl-tip>div{flex:1;min-width:0;display:grid;gap:2px}
 .app .nl-tip b{font:700 14px/1.25 var(--f-ui)}
 .app .nl-tip p{margin:0;font:400 13px/1.4 var(--f-ui);color:var(--ink-2)}
 .app .nl-tip button{flex:none;align-self:center;height:32px;padding:0 12px;border-radius:999px;background:var(--nla,var(--accent));color:var(--accent-ink);font:700 12.5px/1 var(--f-ui);white-space:nowrap}
+/* a soft blue glow around the edge that breathes, like a voice chat listening (Jack, 2026-11-14). Blue in every theme.
+   Two halos on layers of their own, only their opacity moves, so it costs a phone next to nothing */
+.app .nl-tip::before, .app .nl-tip::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:-1}
+.app .nl-tip::before{box-shadow:0 0 14px 2px color-mix(in srgb,var(--nl-glow) 75%,transparent);animation:nl-glow 2.6s ease-in-out infinite}
+.app .nl-tip::after{box-shadow:0 0 34px 8px color-mix(in srgb,var(--nl-glow) 45%,transparent);animation:nl-glow 2.6s ease-in-out -1.3s infinite}
+.app .nl-tip{isolation:isolate}
+@keyframes nl-glow{0%,100%{opacity:.35}50%{opacity:1}}
 @keyframes nl-tip{from{opacity:0;translate:0 8px}}
 @container dev (min-width: 760px){ .app .nl-tip{left:auto;right:24px;bottom:96px;width:380px} }
-@media (prefers-reduced-motion: reduce){ .app .nl-tip{animation:none} }
+@media (prefers-reduced-motion: reduce){ .app .nl-tip, .app .nl-tip::before, .app .nl-tip::after{animation:none} }
