@@ -1,5 +1,5 @@
 /* =====================================================================
-   NORNE — the new layout (2026-11-14). Only drawn while N.nlOn(v) is true (Profile > Layout > New, gated in core.js).
+   NORNE — the new layout (2026-11-14). Only drawn while N.nlOn(v) is true (Profile > Layout > New, N.nlOn in core.js).
    Its stylesheet is css/layout.css; every theme dresses it. This file holds the parts that are new, not restyled:
    - the GM's Actions menu: every GM tool in one searchable list (the + in the typing bar, or Ctrl K). It replaces the GM tab
    - one side panel with tabs instead of two stacked panels (GM: Scene, Party, Rolls. Player: Sheet, Rolls, Inventory)
