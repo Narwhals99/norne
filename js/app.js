@@ -667,6 +667,8 @@ function swStart(v, s, dx){
     return swPage(v, s, fv => to(fv.ui));
   }
   if (s.k === 'nltab') {
+    /* on a page from More a swipe to the right backs up a step (below); there is nothing to its left or right */
+    if (N.nl.sideMoreOn(v)) { if (dx < 0) return false; s.go = () => { nlMoreBack(v)(); render(v); }; return swPage(v, s, fv => { const f = nlMoreBack(fv); fv.root = document.createElement('div'); f(); }); }
     const to = N.nl.sideStep(v, dx < 0 ? 1 : -1); if (!to) return false;
     s.go = () => { ui.nlSide = to; ui.nlMore = false; try { localStorage.setItem('norne-nlside', to); } catch(e) {} render(v); };
     return swPage(v, s, fv => { fv.ui.nlSide = to; fv.ui.nlMore = false; });
@@ -804,6 +806,13 @@ function askTell(v){
   ui.tellAsk = {items}; ui.sheet = 'tellAsk'; ui.sheetArg = null;
   return true;
 }
+/* new layout, phone side panel, a swipe to the right in the middle of a page picked under More (Wiki, Map...): it backs up
+   through that page first, then lands on the last main tab that was open (Sheet, Rolls or Inventory) (Jack, 2026-11-14) */
+function nlMoreBack(v){
+  const ui = v.ui, ib = v.root.querySelector('.nl-pane [data-a][aria-label^="Back"]');
+  if (ib) return () => act(v, ib.dataset.a, ib);
+  return () => { ui.nlSide = N.nl.sideHome(v); ui.nlMore = false; };
+}
 function backStep(v, home){
   const ui = v.ui;
   if (ui.figs) return () => { ui.figs = false; if (N.figClose) N.figClose(); };
@@ -814,6 +823,8 @@ function backStep(v, home){
   if (ui.sheet === 'card' && ui.cardBack?.length) return () => { ui.sheetArg = ui.cardBack.pop(); };
   if (ui.sheet) return () => { if (!askTell(v)) ui.sheet = null; };
   if (ui.tab === 'chat' && (ui.targeting || ui.placing)) return () => { ui.targeting = null; ui.placing = null; };
+  /* new layout, phone side panel: the far-left swipe, the arrow and Android's back button go straight back to the chat */
+  if (N.sideOpen(v) && N.nlOn(v)) return () => { ui.sidePane = false; ui.stick = true; };
   /* any page with its own back arrow (wiki, news, cast card, inventory) goes back the way that arrow does */
   const b = v.root.querySelector('.page [data-a][aria-label^="Back"]');
   if (b) return () => act(v, b.dataset.a, b);

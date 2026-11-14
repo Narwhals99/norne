@@ -45,6 +45,9 @@ const sideTabs = v => isGM(v)
 const sideMore = v => [['map', 'Map', 'map'], ['world', 'Wiki', 'world'], ['news', 'News', 'newsL'], ...(isGM(v) ? [['cast', 'Cast', 'cast'], ['inv', 'Inventory', 'bag']] : [['hero', 'Full sheet', 'scroll']])];
 const sidePick = v => { const ids = [...sideTabs(v), ...sideMore(v)].map(x => x[0]); return ids.includes(v.ui.nlSide) ? v.ui.nlSide : ids[0]; };
 /* the tab a swipe lands on: the next (1) or the one before (-1). None past either end, or from a page picked under More */
+/* a page picked under More is one step in: going back from it lands on the last of the main tabs that was open */
+nl.sideMoreOn = v => !sideTabs(v).some(x => x[0] === sidePick(v));
+nl.sideHome = v => { const ids = sideTabs(v).map(x => x[0]); return ids.includes(v.ui.nlSideLast) ? v.ui.nlSideLast : ids[0]; };
 nl.sideStep = (v, d) => { const ids = sideTabs(v).map(x => x[0]), i = ids.indexOf(sidePick(v)); return i < 0 ? null : ids[i + d] || null; };
 function sideHead(v){
   const cur = sidePick(v), more = sideMore(v), inMore = more.find(m => m[0] === cur);
@@ -74,6 +77,7 @@ function sceneTab(v){
 }
 function sideBody(v){
   const cur = sidePick(v);
+  if (!nl.sideMoreOn(v)) v.ui.nlSideLast = cur;
   if (cur === 'scene') return `<div class="nl-sb scroll" data-sk="nls-scene">${sceneTab(v)}</div>`;
   if (cur === 'party') return `<div class="nl-sb scroll" data-sk="nls-party"><div class="nl-pad"><div class="nl-party">${N.partyRows(v)}</div><button type="button" class="nl-btn" data-a="tab" data-v="cast">Open the cast</button></div></div>`;
   if (cur === 'sheet') return `<div class="nl-sb scroll rail-a" data-sk="rail">${N.heroQuick(v)}</div>`;
