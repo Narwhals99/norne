@@ -44,6 +44,8 @@ const sideTabs = v => isGM(v)
 /* other pages a side panel can show, the same ones the old panel pickers offered */
 const sideMore = v => [['map', 'Map', 'map'], ['world', 'Wiki', 'world'], ['news', 'News', 'newsL'], ...(isGM(v) ? [['cast', 'Cast', 'cast'], ['inv', 'Inventory', 'bag']] : [['hero', 'Full sheet', 'scroll']])];
 const sidePick = v => { const ids = [...sideTabs(v), ...sideMore(v)].map(x => x[0]); return ids.includes(v.ui.nlSide) ? v.ui.nlSide : ids[0]; };
+/* the tab a swipe lands on: the next (1) or the one before (-1). None past either end, or from a page picked under More */
+nl.sideStep = (v, d) => { const ids = sideTabs(v).map(x => x[0]), i = ids.indexOf(sidePick(v)); return i < 0 ? null : ids[i + d] || null; };
 function sideHead(v){
   const cur = sidePick(v), more = sideMore(v), inMore = more.find(m => m[0] === cur);
   return `<div class="nl-tabs" role="tablist" aria-label="Side panel">${sideTabs(v).map(([id, l]) => `<button type="button" role="tab" data-a="nlSide" data-v="${id}" aria-selected="${cur === id}">${l}</button>`).join('')}
