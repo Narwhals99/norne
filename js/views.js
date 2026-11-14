@@ -1171,7 +1171,7 @@ N.charStats = function(c){
   const st = {rolls:0, succ:0, style:0, tie:0, fail:0, open:0, best:null, skills:{}, invokes:0, fp:0,
     fights:0, attacks:0, hits:0, hitStyle:0, hitBy:0, defended:0, kills:0, killed:[], out:0, cons:0,
     scenes:0, ic:0, places:{c:new Map(), t:new Map(), n:new Map()}, wheres:new Set(), npcs:new Map(), met:0, heard:0, first:null};
-  const lastClash = {}, fightIds = new Set();
+  const lastClash = {}, fightIds = new Set(), prevLoc = {};
   const ms = g.msgs.filter(sees).sort((a, b) => a.t - b.t);
   for (const m of ms) {
     if (m.kind === 'roll' && m.roll && mineRoll(m.roll)) {
@@ -1204,7 +1204,10 @@ N.charStats = function(c){
     }
     if (m.kind === 'scene' && m.scene) {
       st.scenes++;
-      const L = m.scene.loc; if (L) for (const k of N.LOCK) if (L[k]?.l) st.places[k].set(L[k].l, (st.places[k].get(L[k].l) || 0) + 1);
+      /* a visit counts only on arriving: a new scene in the same city as the last one is not another visit to it (a player
+         caught this). Each level compares the whole path above it, so the same neighborhood name in another city still counts. */
+      const L = m.scene.loc;
+      if (L) { let path = ''; for (const k of N.LOCK) { path += '|' + (L[k]?.l || ''); if (L[k]?.l && path !== prevLoc[k]) st.places[k].set(L[k].l, (st.places[k].get(L[k].l) || 0) + 1); prevLoc[k] = path; } }
       if (m.scene.where) st.wheres.add(m.scene.where.trim());
     }
     if (m.kind === 'rp' && m.by === 'gm' && m.as && m.as !== 'Narrator') st.npcs.set(m.as, (st.npcs.get(m.as) || 0) + 1);
