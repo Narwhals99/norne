@@ -12,12 +12,18 @@ function rnoteFields(v, t, see, ch, ti, sa){
 }
 N.rnoteFields = rnoteFields;
 /* editing a scene can copy it, as it stands in the window, to another roleplay chat (Jake): a party, group or solo chat */
+/* what is set up in a chat that copying its scene brings along */
+const sdKit = ch => { const f = N.fightIn(ch), sh = N.shopOf(ch), out = [];
+  if (f && f.state !== 'off') out.push(`the ${N.kw(f).w}${f.title ? ` “${esc(f.title)}”` : ''} (ready to start)`);
+  if (sh) out.push(`the store${sh.name ? ` “${esc(sh.name)}”` : ''}${sh.state === 'open' ? ' (open)' : ''}`);
+  if (N.craftOf(ch)) out.push('the crafting setup');
+  return out; };
 function sdCopyHtml(d, forwho){
   const to = forwho.filter(c => c !== d.ch && !N.metaOnly(c));
   if (!to.length) return '';
   const name = c => c.startsWith('grp-') ? `<span class="cic">${IC('whisper')}</span>${esc(N.chName(c, 'gm'))}` : N.av(N.personObj(c.slice(3)), 28) + esc(N.chName(c, 'gm'));
   return `<div class="sdcopy"><button type="button" class="btn" data-a="sdCopyOpen" aria-expanded="${!!d.copy}">${IC('plus')}Copy to other roleplay chat</button>
-    ${d.copy ? `<p class="muted" style="margin:8px 0;font:600 12.5px/1.4 var(--f-ui)">Starts this same scene (picture, place, aspects, NPCs and one-offs, as set here) in the chat you pick. This chat's scene stays as it is.</p>
+    ${d.copy ? `<p class="muted" style="margin:8px 0;font:600 12.5px/1.4 var(--f-ui)">Starts this same scene (picture, place, aspects, NPCs and one-offs, as set here) in the chat you pick. This chat's scene stays as it is.${(k => k.length ? ` It also copies ${k.join(', ')}, with the players of the chat you pick.` : '')(sdKit(d.ch))}</p>
     <div class="forwho">${to.map(c => `<button type="button" data-a="sdCopy" data-v="${c}">${name(c)}</button>`).join('')}</div>` : ''}</div>`;
 }
 const sheet = (title, body, foot, o={}) => `<div class="sheet${o.wide?' wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">

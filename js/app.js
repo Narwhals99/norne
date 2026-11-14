@@ -2289,7 +2289,8 @@ function act(v, a, el, e){
     if (s.cast.length) g.casts[to] = [...s.cast]; else delete g.casts[to];
     if (s.extras.length) g.extras[to] = s.extras.map(x => ({id:x.id, name:x.name, skills:{...x.skills}})); else delete g.extras[to];
     setScene(v, to, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})})), loc:s.loc, share:s.share}, true);
-    toast(v, `Scene copied to ${N.chName(to, 'gm')}: ${s.title.trim()}`);
+    const kit = copyKit(s.ch, to), more = [kit.done.length ? 'Also copied: ' + kit.done.join(', ') + '.' : '', kit.kept.length ? `${N.chName(to, 'gm')} already had ${kit.kept.join(' and ')}, so that stays.` : ''].filter(Boolean).join(' ');
+    toast(v, `Scene copied to ${N.chName(to, 'gm')}: ${s.title.trim()}${more ? '. ' + more : ''}`);
     ui.sheet = null; renderAll(); return; }
   case 'sdShare': ui.sd.share = !ui.sd.share; break;
   case 'sdLocClear': ui.sd.loc = {c:'', t:'', n:''}; break;
@@ -2657,6 +2658,46 @@ function sceneMove(v, ch, loc){
   m.scene = sc; N.invalidateScenes();
   toast(v, `Scene moved to ${N.locText(loc).split(', ').slice(0, 2).join(', ')}${hidden ? ' (not shown to players)' : ''}.`);
 }
+/* copying a scene also copies what is set up in that chat (Jake): its fight, contest or challenge, its store and its crafting setup.
+   The players are the target chat's: a player who is in both keeps their place, the others join in the first zone.
+   A fight comes over ready to start (as it was set up, nobody hurt or taken out, no turn order rolled yet);
+   a store comes over open if it was open. Something the target chat already has is left alone. */
+function copyKit(from, to){
+  const g = G(), done = [], kept = [], clone = o => JSON.parse(JSON.stringify(o)), pcs = N.chPcs(to).map(c => c.id);
+  const f = N.fightIn(from);
+  if (f && f.state !== 'off') { const K = N.kw(f);
+    if (N.fightIn(to)) kept.push('a ' + N.kw(N.fightIn(to)).w);
+    else {
+      const cb = Object.assign(clone(f), {id:uid('f'), ch:to, state:'setup', phase:null, turn:0, exchange:1, joined:[], pending:null, last:null, acted:false, moved:false, lead:null, won:null});
+      cb.tokens = cb.tokens.filter(t => t.kind !== 'pc' || pcs.includes(t.ref));
+      for (const t of cb.tokens) { delete t.init; delete t.initDice; t.out = false; if (t.stress) t.stress = t.stress.map(() => false); }
+      for (const id of pcs) if (!cb.tokens.some(t => t.kind === 'pc' && t.ref === id)) cb.tokens.push(N.tokFromPc(g.chars[id]));
+      for (const t of cb.tokens) if (t.kind === 'pc' && !t.zone) t.zone = cb.zones[0]?.id || null;
+      const ids = new Set(cb.tokens.map(t => t.id));
+      cb.invited = [...pcs];
+      cb.aspects = (cb.aspects || []).filter(a => !a.boost && (!a.onTok || ids.has(a.onTok)));
+      if (Array.isArray(cb.ord)) cb.ord = cb.ord.filter(id => ids.has(id)).concat(cb.tokens.filter(t => !cb.ord.includes(t.id)).map(t => t.id));
+      if (cb.kind === 'contest') { cb.score = {}; cb.rnd = {rolls:{}}; }
+      if (to === g.fch) g.combat = cb; else g.fights[to] = cb;
+      done.push(`the ${K.w}${f.title ? ` “${f.title}”` : ''} (ready to start)`);
+    } }
+  const sh = N.shopOf(from);
+  if (sh) {
+    if (N.shopOf(to)) kept.push('a store');
+    else { const c = Object.assign(clone(sh), {id:uid('shop'), ch:to, pcs:[...pcs], t:N.now()});
+      g.shops[to] = c;
+      if (c.state === 'open') push({ch:to, kind:'sys', by:'gm', text:`${c.name} is open for shopping.`, shop:'open', shopName:c.name, shopId:c.id});
+      done.push(`the store${c.name ? ` “${c.name}”` : ''}${c.state === 'open' ? ' (open)' : ' (still being set up)'}`); } }
+  const cr = N.craftOf(from);
+  if (cr) {
+    if (N.craftOf(to)) kept.push('a crafting setup');
+    else { const c = Object.assign(clone(cr), {id:uid('craft'), ch:to, pcs:[...pcs], t:N.now()}), own = new Set([...pcs.map(id => 'c:' + id), ...(c.npcs || []).map(id => 'n:' + id)]);
+      if (c.by && c.by.startsWith('pc:') && !pcs.includes(c.by.slice(3))) c.by = pcs.length === 1 ? 'pc:' + pcs[0] : '';
+      c.use = Object.fromEntries(Object.entries(c.use || {}).filter(([k]) => own.has(k.split('|')[0])));
+      g.crafts[to] = c; done.push('the crafting setup'); } }
+  return {done, kept};
+}
+N.copyKit = copyKit;
 function setScene(v, ch, s, post){
   const g = G();
   /* a location the players aren't told stays in the GM's own data, so it never reaches their devices */
