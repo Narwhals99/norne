@@ -118,8 +118,8 @@ const STYLES = [
   {id:'gerleez', name:'4-the-gerleez', sub:'Blush, peach and rose with plum ink. Flowers, sparkles and hearts',
     night:{bg:'#292241', card:'#483b62', ink:'#fff0f0', acc:'#FF677D', hi:'#FFC3A0'},
     day:{bg:'#ffe6e0', card:'#fff6f1', ink:'#392F5A', acc:'#a64e6d', hi:'#FFABAB'}},
-  /* Black & White (css/plain.css): gate:true keeps it out of the picker until it opens to everyone (N.nlOk) */
-  {id:'plain', name:'Black & White', sub:'Plain black or white pages, colour only in spots. Pick a colour pair', gate:true,
+  /* Black & White (css/plain.css) */
+  {id:'plain', name:'Black & White', sub:'Plain black or white pages, colour only in spots. Pick a colour pair',
     night:{bg:'#000', card:'#1c1c1e', ink:'#fff', acc:'#0a84ff', hi:'#30d158'},
     day:{bg:'#fff', card:'#f2f2f7', ink:'#000', acc:'#007aff', hi:'#248a3d'},
     /* the first colour means tap here, the second means happening now */
@@ -128,8 +128,8 @@ const STYLES = [
 N.STYLES = STYLES;
 N.styleOk = id => STYLES.some(s => s.id === id) ? id : 'storybook';
 /* The new layout (2026-11-14): one Actions menu for the GM, a tabbed side panel (js/newlayout.js, css/layout.css),
-   and the Black & White theme that came with it (css/plain.css). Until Jack opens them to everyone, only the
-   sign-ins in NL_WHO see either. Both are per device (localStorage norne-lay, norne-style). */
+   and the Black & White theme that came with it (css/plain.css). Both are per device (localStorage norne-lay, norne-style).
+   NL_WHO is who tested them first; its second entry (Jake) still decides nlTourOk and nlLookOnly below. */
 N.JACK = 'jackhelling10@gmail.com';
 N.isJack = () => { const m = N.me && N.me(); return !!m && m.email === N.JACK && m.emailVerified === true; };
 /* who may try the new layout: Jack, and Jake the GM (Jack, 2026-11-14). GM test mode stays Jack's alone */
@@ -139,9 +139,10 @@ N.nlOk = () => { const m = N.me && N.me(); return !!m && N.NL_WHO.includes(m.ema
 N.nlTourOk = () => { const m = N.me && N.me(); return !!N.TOUR_ALL || (!!m && m.email === N.NL_WHO[1] && m.emailVerified === true); };
 /* A theme and a layout are two settings (Jack, 2026-11-14): any theme goes with either layout.
    The theme is v.style (Profile > Theme). The layout is v.lay: 'classic', or 'new' (js/newlayout.js, css/layout.css).
-   Both new things are still only for the people in NL_WHO. Jake prefers the layout he knows for his GM controls,
+   Both are open to every player. Jake prefers the layout he knows for his GM controls,
    so he gets the Black & White theme but no layout picker (nlLookOnly). */
-N.nlAny = () => N.nlOk() || !!N.NL_ALL;
+/* open to everyone since 2026-11-14 (Jack). nlAny stays as the one place to close it again; a style with gate:true would hide behind it */
+N.nlAny = () => true;
 N.styleOf = v => { const s = N.STYLES.find(x => x.id === v.style); return s && s.gate && !N.nlAny() ? 'storybook' : v.style; };
 N.stylesFor = () => N.STYLES.filter(s => !s.gate || N.nlAny());
 N.nlLook = v => !!v && N.styleOf(v) === 'plain';
