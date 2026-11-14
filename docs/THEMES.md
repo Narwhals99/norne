@@ -236,7 +236,7 @@ one, the Storybook value leaks into your look (a violet glow on parchment, for e
 
 | Group | Tokens | Notes |
 | --- | --- | --- |
-| Backdrop | `--sky-0` `--sky-1` `--sky-2` `--sky-art` | `--sky-art` is the whole-app background (gradients, texture, vignette). Storybook Night also shows the `.stars` layer; hide it if the style has its own backdrop (`.stars{display:none}`). |
+| Backdrop | `--sky-0` `--sky-1` `--sky-2` `--sky-art` | `--sky-art` is the whole-app background (gradients, texture, vignette). Storybook Night also shows the `.stars` layer; hide it if the style has its own backdrop (`.stars{display:none}`). Storybook Night alone also gets `css/sky.css`: faint pencil doodles (`.sketchsky`, plus the desktop `.page`/`.ff-list`) and stars that glint (`.glints`), both scoped to `[data-style="storybook"]` at night. |
 | Surfaces | `--page` `--page-solid` `--raise` `--raise-2` `--sunk` | Panels, cards, insets. `--page-solid` is also the ring colour around badges and avatars. Parchment adds `--page-bg` / `--paper-bg` texture stacks. |
 | Lines | `--line` `--line-2` `--line-3` | Hairlines from faint to strong. |
 | Ink | `--ink` `--ink-2` `--ink-3` `--ink-4` | Text from strongest to faintest. `--ink-3` and `--ink-4` are used for times, captions and labels; they are the first things to fail contrast (section 5). |
