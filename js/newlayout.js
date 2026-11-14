@@ -94,6 +94,26 @@ nl.sidePhone = (v, sl) => { const cur = sidePick(v);
   return `<main class="page sidepg nl-sp${sl || ''}"><div class="sp-top"><button type="button" class="ibtn" data-a="sidePane" data-v="0" aria-label="Back to the chat">${IC('left')}</button><span><b>${esc(N.chName(v.ui.ch, v.role))}</b></span></div>
     <div class="rail sp nlr"><section class="pane pa nl-pane pane-is-${cur}">${sideHead(v)}${sideBody(v)}</section></div></main>`; };
 
+/* ---------- the first-time tour (Jake only, N.nlTourOk) ---------- */
+/* remembered on the device, one mark for phones and one for computers, so each shows it once */
+const TKEY = v => 'norne-nltour-' + (v.dev === 'phone' ? 'phone' : 'desktop');
+nl.tourDone = v => { try { return localStorage.getItem(TKEY(v)) === '1'; } catch(e) { return false; } };
+nl.tourEnd = v => { try { localStorage.setItem(TKEY(v), '1'); } catch(e) {} };
+nl.tourSteps = v => { const ph = v.dev === 'phone', gm = isGM(v);
+  return [
+    ['chat', 'Four tabs', `Chat, Map, World and ${gm ? 'Cast' : 'Character'}. News now sits inside World${gm ? '' : ', and Inventory inside Character'}. A switch at the top of the page flips between them.`],
+    ...(gm ? [['plus', 'One Actions menu', `The GM tab is gone. Every tool it had is in one list: tap the blue + ${ph ? 'left of the typing bar' : 'left of the typing bar, or press Ctrl K'}. Type a few letters to find anything. Begin and New open short lists of their own.`]] : []),
+    ['image', 'The scene is one line', `It sits above the chat. Tap it to see the full picture and aspects${gm ? ', or tap Change to edit it' : ''}.`],
+    [null, 'One side panel', ph
+      ? `Tap the panel button at the top right of a chat, or swipe in from the right edge. Swipe left and right to move between ${gm ? 'Scene, Party and Rolls' : 'Sheet, Rolls and Inventory'}. Swipe in from the far left edge to go back to the chat.`
+      : `It sits to the right of the chat with tabs for ${gm ? 'Scene, Party and Rolls' : 'Sheet, Rolls and Inventory'}. More adds the map, wiki and other pages. The panel button at the top of the chat folds it away.`],
+    ['gear', 'Colours and the way back', `Blue means tap here, green means happening now, red means harm or delete. You can pick another colour pair in your Profile, and turn the new layout off there at any time.`],
+  ]; };
+nl.tour = v => { const steps = nl.tourSteps(v), i = Math.min(v.ui.tourStep || 0, steps.length - 1), [ic, h, t] = steps[i], last = i === steps.length - 1;
+  return {body:`<div class="nl-tour"><span class="nl-tour-ic">${ic ? IC(ic) : nl.PANEL}</span><h3>${esc(h)}</h3><p>${esc(t)}</p>
+      <div class="nl-tour-dots" aria-label="Step ${i + 1} of ${steps.length}">${steps.map((_, k) => `<i${k === i ? ' class="on"' : ''}></i>`).join('')}</div></div>`,
+    foot:`${i ? `<button type="button" class="btn ghost" data-a="nlTour" data-v="back">Back</button>` : `<button type="button" class="btn ghost" data-a="nlTour" data-v="end">Skip</button>`}<button type="button" class="btn primary" style="flex:1" data-a="nlTour" data-v="next">${last ? 'Done' : 'Next'}</button>`}; };
+
 /* ---------- the Actions menu ---------- */
 /* one action: [id, label, hint, icon, action, value, extra data attributes, tone]. Sub-menus hold more of the same */
 function actionList(v){

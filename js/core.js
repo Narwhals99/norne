@@ -128,6 +128,8 @@ N.isJack = () => { const m = N.me && N.me(); return !!m && m.email === N.JACK &&
 /* who may try the new layout: Jack, and Jake the GM (Jack, 2026-11-14). GM test mode stays Jack's alone */
 N.NL_WHO = [N.JACK, 'theusualsuspect41995@gmail.com'];
 N.nlOk = () => { const m = N.me && N.me(); return !!m && N.NL_WHO.includes(m.email) && m.emailVerified === true; };
+/* the short tour of the new layout is Jake's alone (Jack, 2026-11-14): once on his phone, once on his computer */
+N.nlTourOk = () => { const m = N.me && N.me(); return !!N.TOUR_ALL || (!!m && m.email === N.NL_WHO[1] && m.emailVerified === true); };
 N.nlOn = v => !!v && !!v.nl && (N.nlOk() || !!N.NL_ALL);
 /* its colour pairs: the first colour means "tap here", the second "happening now" */
 N.NLP = [['bg', 'Blue and green', '#007aff', '#34c759'], ['op', 'Purple and orange', '#8944e6', '#ff9500'], ['pt', 'Pink and teal', '#e6245c', '#1aa5b8']];
