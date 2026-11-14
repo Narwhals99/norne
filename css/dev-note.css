@@ -18,3 +18,15 @@
 }
 .dev-note-label time { color: #e6bd62; }
 .dev-note-body { line-height: 1.5; }
+/* "edited" sits after the words but reads as a small, separate marker, like on other messages */
+.app .dev-note-body .ed {
+  margin-left: 4px;
+  padding: 1px 6px;
+  border: 1px solid rgba(230, 189, 98, .35);
+  border-radius: 999px;
+  font: 600 11px/1.3 var(--f-ui);
+  letter-spacing: .02em;
+  color: rgba(255, 245, 223, .62);
+  white-space: nowrap;
+  vertical-align: 1px;
+}
