@@ -84,7 +84,8 @@ N.appHtml = function(v){
   else if (v.ui.tab === 'inv') page = `<main class="page${nl ? ' nlw' : ''}">${nl ? N.nl.heroSeg(v) : ''}${invPage(v)}</main>`;
   else if (v.ui.tab === 'gm') page = `<main class="page">${gmPage(v)}</main>`;
 
-  return `<div class="stars" aria-hidden="true"></div>${glintsHtml()}${N.TEST ? `<div class="testbar" role="status"><b>GM test mode</b><span>A pretend table. Nothing here is saved or sent.</span><button type="button" data-a="gmTest" data-v="off">Leave</button></div>` : ''}
+  const tip = nl ? N.nl.tipHtml(v, page) : '';
+  return `<div class="stars" aria-hidden="true"></div>${glintsHtml()}${tip}${N.TEST ? `<div class="testbar" role="status"><b>GM test mode</b><span>A pretend table. Nothing here is saved or sent.</span><button type="button" data-a="gmTest" data-v="off">Leave</button></div>` : ''}
     <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? ' shelf-off' : ''}"${v.ui.shelfW ? ` style="--shelfw:${v.ui.shelfW}px"` : ''}>${nav}${shelfOn && v.dev === 'desktop' && !v.ui.shelfOff ? shelfHtml(v) : ''}${page}${tabbar}</div>
     ${shelfOn && v.dev === 'phone' && v.ui.shelf ? `<div class="scrim shelf-scrim" data-a="shelf"></div>${shelfHtml(v)}` : ''}
     ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
