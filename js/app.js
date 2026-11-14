@@ -465,6 +465,8 @@ function bind(v){
     /* lifting the finger after a long-press must not also tap the menu that opened under it
        (the pressed message was redrawn, so its touchend never reaches us) */
     if (v.lpHold) { v.lpHold = false; e.preventDefault(); return; }
+    /* a web link typed in text opens in a new tab by itself, even inside something tappable */
+    if (e.target.closest('a.ul[href]')) { e.stopPropagation(); return; }
     const ha = e.target.closest('[data-hs]');
     if (ha) { const r = ha.parentElement.querySelector(HS); if (r) r.scrollBy({left:+ha.dataset.hs * Math.max(120, r.clientWidth * .7), behavior:'smooth'}); return; }
     const a = e.target.closest('[data-a]');

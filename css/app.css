@@ -891,6 +891,10 @@
 .app .article h3{margin:8px 0 0;font:700 13px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold-tx)}
 .app .article ul{margin:0;padding-left:20px;display:grid;gap:6px;font:400 15.5px/1.55 var(--f-display)}
 .app .article ul li::marker{color:var(--gold-tx)}
+.app a.ul{color:var(--link);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--link) 45%,transparent);text-underline-offset:3px;overflow-wrap:anywhere;word-break:break-word;cursor:pointer}
+.app a.ul:hover{text-decoration-color:currentColor}
+.app .spoil:not(:focus):not(:hover) a.ul{pointer-events:none}
+.app .icard a.ul{color:inherit;text-decoration-color:currentColor}
 .app a.wl{color:var(--link);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--link) 40%,transparent);text-underline-offset:3px;cursor:pointer}
 /* the GM's links to cards and entries (N.xl), and Wiki pages on a card */
 .app a.wl svg{width:15px;height:15px;display:inline;vertical-align:-2px;margin-right:5px;color:var(--gold-tx)}

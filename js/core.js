@@ -8,7 +8,25 @@ const N = window.N = {};
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 /* text marks, Discord style (see N.FMT_GUIDE): **bold**, *italics* or _italics_, __underline__, ~~strike~~, ||spoiler||.
    marks() works on text that is already escaped; inl() escapes, marks and keeps line breaks */
-const marks = h => h
+/* web links people type (a Spotify jam, a YouTube video): http(s):// or www., on already escaped text.
+   They open in a new tab. Marks never reach inside one (an _ in a link stays an _), and a link's last . , ) ! ? or
+   a closing mark (**, __, ~~, ||) stays outside it, so "**https://x.com**" is a bold link */
+const URL_RE = /\b(?:https?:\/\/|www\.)(?:[^\s<>"&\u0002\u0003]|&amp;)+/gi;
+const urlLink = u => {
+  let tail = '';
+  for (;;) {
+    const m = u.match(/(?:[.,;:!?'*_~|\]}]|&amp;)$/) || (u.endsWith(')') && (u.match(/\(/g) || []).length < (u.match(/\)/g) || []).length ? [')'] : null);
+    if (!m) break; tail = m[0] + tail; u = u.slice(0, -m[0].length);
+  }
+  if (!/^(?:https?:\/\/|www\.)[^/?#]*[a-z0-9]/i.test(u) || /^(?:https?:\/\/)$/i.test(u)) return null;
+  const href = /^www\./i.test(u) ? 'https://' + u : u;
+  return [`<a class="ul" href="${href}" target="_blank" rel="noopener noreferrer nofollow">${u}</a>`, tail];
+};
+const marks = h => { const ls = [];
+  h = String(h).replace(URL_RE, all => { const r = urlLink(all); if (!r) return all; ls.push(r[0]); return '\u0002' + (ls.length - 1) + '\u0003' + r[1]; });
+  h = marks0(h);
+  return ls.length ? h.replace(/\u0002(\d+)\u0003/g, (m, i) => ls[+i]) : h; };
+const marks0 = h => h
   .replace(/\|\|([^|\n]+)\|\|/g, '<span class="spoil" tabindex="0" title="Spoiler, tap to see">$1</span>')
   .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
   .replace(/__([^_\n]+)__/g, '<u>$1</u>')
