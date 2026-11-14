@@ -110,3 +110,16 @@
 .app .nl-tour-dots i.on{background:var(--nla,var(--accent))}
 /* the Rolls tab: the list inside does the scrolling, so its box has to stay a column that fills the panel */
 .app:where([data-lay="new"]) .nl-sb.rcnt{display:flex;flex-direction:column;border-top:0}
+
+/* tips (js/newlayout.js): one small card on the screen it is about. Below sheets and menus, above the page */
+.app .nl-tip{position:absolute;z-index:30;left:12px;right:12px;bottom:calc(132px + var(--safe-b,0px));display:flex;align-items:flex-start;gap:10px;padding:12px;border-radius:14px;
+  background:var(--page-solid);color:var(--ink);box-shadow:0 0 0 1.5px var(--nla,var(--accent)),0 10px 30px rgba(0,0,0,.35);animation:nl-tip .25s ease both}
+.app .nl-tip-ic{flex:none;width:32px;height:32px;border-radius:9px;display:grid;place-items:center;background:var(--raise);color:var(--nla,var(--accent))}
+.app .nl-tip-ic svg{width:18px;height:18px}
+.app .nl-tip>div{flex:1;min-width:0;display:grid;gap:2px}
+.app .nl-tip b{font:700 14px/1.25 var(--f-ui)}
+.app .nl-tip p{margin:0;font:400 13px/1.4 var(--f-ui);color:var(--ink-2)}
+.app .nl-tip button{flex:none;align-self:center;height:32px;padding:0 12px;border-radius:999px;background:var(--nla,var(--accent));color:var(--accent-ink);font:700 12.5px/1 var(--f-ui);white-space:nowrap}
+@keyframes nl-tip{from{opacity:0;translate:0 8px}}
+@container dev (min-width: 760px){ .app .nl-tip{left:auto;right:24px;bottom:96px;width:380px} }
+@media (prefers-reduced-motion: reduce){ .app .nl-tip{animation:none} }

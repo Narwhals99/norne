@@ -98,30 +98,57 @@ nl.sidePhone = (v, sl) => { const cur = sidePick(v);
   return `<main class="page sidepg nl-sp${sl || ''}"><div class="sp-top"><button type="button" class="ibtn" data-a="sidePane" data-v="0" aria-label="Back to the chat">${IC('left')}</button><span><b>${esc(N.chName(v.ui.ch, v.role))}</b></span></div>
     <div class="rail sp nlr"><section class="pane pa nl-pane pane-is-${cur}">${sideHead(v)}${sideBody(v)}</section></div></main>`; };
 
-/* ---------- the first-time tours ----------
-   Two short tours, each shown once on a phone and once on a computer (a mark on the device for each):
-   'lay'  the New layout, for everyone who picks it under Profile > Layout (Jack, 2026-11-14)
-   'look' the Black & White theme on the layout he knows, Jake only (N.nlTourOk) */
-const tkind = v => v.ui.tourKind === 'look' ? 'look' : 'lay';
-const TKEY = (v, k) => (k === 'look' ? 'norne-nltour-' : 'norne-laytour-') + (v.dev === 'phone' ? 'phone' : 'desktop');
-nl.tourDone = (v, k) => { try { return localStorage.getItem(TKEY(v, k)) === '1'; } catch(e) { return false; } };
-nl.tourEnd = v => { try { localStorage.setItem(TKEY(v, tkind(v)), '1'); } catch(e) {} };
-nl.tourTitle = v => tkind(v) === 'look' ? 'The new look' : 'The new layout';
-nl.tourSteps = v => { const ph = v.dev === 'phone', gm = isGM(v);
-  /* the look alone (Jake): nothing moved, so the tour is two short steps */
-  if (tkind(v) === 'look') return [
+/* ---------- tips: the New layout explains itself where you are (Jack, 2026-11-14) ----------
+   No tour up front. The first time someone on the New layout reaches a screen where something moved or a gesture exists,
+   one small card says so. It goes away for good when they do the thing it describes, or tap Got it.
+   Remembered on the device, one list for phones and one for computers, so each shows every tip once. */
+const TIPKEY = v => 'norne-nltips-' + (v.dev === 'phone' ? 'phone' : 'desktop');
+const tipSeen = v => { if (!v.tips || v.tips.k !== TIPKEY(v)) { let a = []; try { a = JSON.parse(localStorage.getItem(TIPKEY(v)) || '[]'); } catch(e) {} v.tips = {k:TIPKEY(v), s:new Set(Array.isArray(a) ? a : [])}; } return v.tips.s; };
+nl.tipDone = (v, id) => { const s = tipSeen(v); if (s.has(id)) return; s.add(id); try { localStorage.setItem(TIPKEY(v), JSON.stringify([...s])); } catch(e) {} };
+/* [id, where it shows, what counts as having done it, icon, title, text] in the order they are offered on a screen */
+const TIPS = (v, page) => { const ui = v.ui, ph = v.dev === 'phone', gm = isGM(v), chat = ui.tab === 'chat', side = ph && N.sideOpen(v), more = side && nl.sideMoreOn(v);
+  const tabs = gm ? 'Scene, Party and Rolls' : 'Sheet, Rolls and Inventory', open = chat && !side && !/class="cb-|data-board/.test(page);
+  return [
+    ['actions', gm && open && page.includes('nlplus'), ui.sheet === 'actions', 'plus', 'Your GM tools are here now', `The GM tab is gone. Tap the + left of the typing bar${ph ? '' : ', or press Ctrl K,'} for every tool it had. Try it.`],
+    ['scene', open && page.includes('nl-scene'), !!ui.sceneBig, 'image', 'The scene is one line', `Tap it to see the full picture and its aspects${gm ? ', or tap Change to edit it' : ''}.`],
+    ['panel', open && (ph || !ui.nlSideOff), ph ? false : ui.nlSide !== v._tipSide0, null, ph ? 'One side panel' : 'One side panel, with tabs', ph
+      ? `Swipe in from the right edge, or tap the panel button at the top right, for ${tabs}.`
+      : `${tabs} are tabs on the right. More adds the map, wiki and other pages, and the panel button at the top of the chat folds it away.`],
+    ['tabs', side && !more, ui.nlSide !== v._tipSide0, 'swap', 'Swipe between the tabs', `Swipe left and right to move between ${tabs}. Swipe in from the far left edge to go back to the chat.`],
+    ['more', more, false, 'left', 'Swipe right to step back', `A swipe to the right in the middle of the page backs up a step, and ends on the tab you came from. The far left edge still goes straight to the chat.`],
+    ['world', ui.tab === 'world' && page.includes('nl-seg'), false, 'newsL', 'News lives here now', `Tap News at the top${ph ? ', or swipe left,' : ''} to read the papers.`],
+    ['hero', !gm && ui.tab === 'hero' && page.includes('nl-seg') && !(ph && ui.heroInv), false, 'bag', 'Inventory lives here now', `Tap Inventory at the top${ph ? ', or swipe left,' : ''} to see what you carry.`],
+  ]; };
+/* doing the thing is as good as Got it: the tip for a place is done once you have been where it points */
+function tipAuto(v){
+  const ui = v.ui, ph = v.dev === 'phone', s = tipSeen(v), side = ph && N.sideOpen(v);
+  if (v._tipSide0 === undefined) v._tipSide0 = ui.nlSide;
+  if (ui.sheet === 'actions') nl.tipDone(v, 'actions');
+  if (ui.sceneBig) nl.tipDone(v, 'scene');
+  if (side) nl.tipDone(v, 'panel');
+  if (ui.nlSide !== v._tipSide0 && (side || !ph) && !nl.sideMoreOn(v)) { if (ph) nl.tipDone(v, 'tabs'); else nl.tipDone(v, 'panel'); }
+  if (side && nl.sideMoreOn(v)) v._tipMore = true; else if (v._tipMore) { v._tipMore = false; if (side) nl.tipDone(v, 'more'); }
+  if (ui.tab === 'news') nl.tipDone(v, 'world');
+  if (ui.tab === 'inv' || (ui.tab === 'hero' && ui.heroInv)) nl.tipDone(v, 'hero');
+  return s;
+}
+nl.tipHtml = (v, page) => {
+  const ui = v.ui; if (v.peek || !N.nlOn(v)) return '';
+  const s = tipAuto(v); if (ui.sheet || ui.pop || ui.shelf || ui.figs) return '';
+  const t = TIPS(v, page).find(x => x[1] && !s.has(x[0])); if (!t) return '';
+  return `<aside class="nl-tip" role="status" data-tip="${t[0]}"><span class="nl-tip-ic">${t[3] ? IC(t[3]) : nl.PANEL}</span><div><b>${esc(t[4])}</b><p>${esc(t[5])}</p></div><button type="button" data-a="nlTip" data-v="${t[0]}">Got it</button></aside>`;
+};
+
+/* ---------- Jake's first-time tour of the Black & White theme on the layout he knows (N.nlTourOk) ----------
+   remembered on the device, one mark for phones and one for computers, so each shows it once */
+const TKEY = v => 'norne-nltour-' + (v.dev === 'phone' ? 'phone' : 'desktop');
+nl.tourDone = v => { try { return localStorage.getItem(TKEY(v)) === '1'; } catch(e) { return false; } };
+nl.tourEnd = v => { try { localStorage.setItem(TKEY(v), '1'); } catch(e) {} };
+nl.tourTitle = () => 'The new look';
+nl.tourSteps = () => [
     ['image', 'Same layout, new look', 'Every button and panel is where it was. Only the look changed: black or white pages, plain shapes, and colour only where it means something.'],
     ['gear', 'Colours and the way back', 'Blue means tap here, green means happening now, red means harm or delete. You can pick another colour pair under Theme in your Profile, or pick another theme there at any time.'],
   ];
-  return [
-    ['chat', 'Four tabs', `Chat, Map, World and ${gm ? 'Cast' : 'Character'}. News now sits inside World${gm ? '' : ', and Inventory inside Character'}. A switch at the top of the page flips between them${ph ? ', and so does a swipe left or right' : ''}.`],
-    ...(gm ? [['plus', 'One Actions menu', `The GM tab is gone. Every tool it had is in one list: tap the + ${ph ? 'left of the typing bar' : 'left of the typing bar, or press Ctrl K'}. Type a few letters to find anything. Begin and New open short lists of their own.`]] : []),
-    ['image', 'The scene is one line', `It sits above the chat. Tap it to see the full picture and aspects${gm ? ', or tap Change to edit it' : ''}.`],
-    [null, 'One side panel', ph
-      ? `Tap the panel button at the top right of a chat, or swipe in from the right edge. Swipe left and right to move between ${gm ? 'Scene, Party and Rolls' : 'Sheet, Rolls and Inventory'}. Swipe in from the far left edge to go back to the chat.`
-      : `It sits to the right of the chat with tabs for ${gm ? 'Scene, Party and Rolls' : 'Sheet, Rolls and Inventory'}. More adds the map, wiki and other pages. The panel button at the top of the chat folds it away.`],
-    ['gear', 'The way back', `Nothing was removed, only moved. Every theme works with this layout. Theme and Layout are both in your Profile, and picking Classic there brings the old layout back at any time.`],
-  ]; };
 nl.tour = v => { const steps = nl.tourSteps(v), i = Math.min(v.ui.tourStep || 0, steps.length - 1), [ic, h, t] = steps[i], last = i === steps.length - 1;
   return {body:`<div class="nl-tour"><span class="nl-tour-ic">${ic ? IC(ic) : nl.PANEL}</span><h3>${esc(h)}</h3><p>${esc(t)}</p>
       <div class="nl-tour-dots" aria-label="Step ${i + 1} of ${steps.length}">${steps.map((_, k) => `<i${k === i ? ' class="on"' : ''}></i>`).join('')}</div></div>`,

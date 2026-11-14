@@ -715,7 +715,7 @@ function swPage(v, s, take){
   peek.style.cssText = `left:${pg.offsetLeft}px;top:${pg.offsetTop}px;width:${pg.offsetWidth}px;height:${pg.offsetHeight}px`;
   try {
     const fv = Object.assign({}, v, {ui:Object.assign({}, v.ui, {folded:new Map(v.ui.folded), wikiPrev:[...(v.ui.wikiPrev || [])], toast:null})});
-    take(fv);
+    fv.peek = true; take(fv);
     const tpl = document.createElement('template'); tpl.innerHTML = N.appHtml(fv);
     const np = tpl.content.querySelector('.shell > .page'); if (np) peek.appendChild(np);
   } catch(err) { console.warn('swipe preview', err); }
@@ -1608,16 +1608,15 @@ function act(v, a, el, e){
   case 'pal': v.pal = val; try { localStorage.setItem('norne-pal', val); } catch(e) {} break;
   case 'style': v.style = N.styleOk(val); try { localStorage.setItem('norne-style', v.style); } catch(e) {}
     /* Jake's tour: the first time he picks Black & White, on a phone and on a computer each. Finishing or skipping it ends it for good there */
-    if (N.nlLook(v) && !N.nlOn(v) && N.nlTourOk() && !N.nl.tourDone(v, 'look')) { ui.tourStep = 0; ui.tourKind = 'look'; openSheet(v, 'nlTour', {}); }
+    if (N.nlLook(v) && !N.nlOn(v) && N.nlTourOk() && !N.nl.tourDone(v)) { ui.tourStep = 0; openSheet(v, 'nlTour', {}); }
     break;
   /* chat */
   case 'sceneMin': ui.sceneMin = !ui.sceneMin; ui.sceneBig = !ui.sceneBig; break;
   /* the new layout (Jack only for now) */
   /* the layout picker. The new layout has no GM tab */
   case 'lay': v.lay = val === 'new' ? 'new' : 'classic'; try { localStorage.setItem('norne-lay', v.lay); } catch(e) {} if (N.nlOn(v) && ui.tab === 'gm') ui.tab = 'chat';
-    /* the tour of the New layout: the first time anyone picks it, on a phone and on a computer each. Finishing or skipping it ends it for good there */
-    if (N.nlOn(v) && !N.nl.tourDone(v, 'lay')) { ui.tourStep = 0; ui.tourKind = 'lay'; openSheet(v, 'nlTour', {}); }
     break;
+  case 'nlTip': N.nl.tipDone(v, val); break;
   case 'nlTour': { const n = N.nl.tourSteps(v).length;
     if (val === 'end' || (val === 'next' && (ui.tourStep || 0) >= n - 1)) { N.nl.tourEnd(v); close(); break; }
     ui.tourStep = clamp((ui.tourStep || 0) + (val === 'back' ? -1 : 1), 0, n - 1); break; }
