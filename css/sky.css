@@ -1,0 +1,25 @@
+/* Storybook Night sky extras: faint pencil doodles on the empty backgrounds and stars that glint now and then.
+   Doodles (img/sky-sketch-*.svg) are original, drawn in code for Norne; the glints sit on real stars of the star tile (js/views.js glintsHtml).
+   Only Storybook Night: hidden for other styles and by day. Glints only move with motion allowed; everything sits behind the UI (z-index:-1). */
+.app .sketchsky,.app .glints{position:absolute;inset:0;z-index:-1;pointer-events:none;overflow:hidden;display:none}
+.app[data-style="storybook"]:not([data-theme="day"]) .sketchsky{display:block;background:url(../img/sky-sketch-phone.svg) 0 0/390px auto repeat}
+.app[data-style="storybook"][data-dev="desktop"]:not([data-theme="day"]) .sketchsky{background:url(../img/sky-sketch-wide.svg) 0 0/1400px 1400px repeat}
+/* desktop: the page and the empty side lists get their own sheet over their colour */
+.app[data-style="storybook"][data-dev="desktop"]:not([data-theme="day"]) .page{background-image:url(../img/sky-sketch-wide.svg);background-position:30px -100px;background-size:1400px 1400px;background-repeat:repeat}
+.app[data-style="storybook"][data-dev="desktop"]:not([data-theme="day"]) .ff-list{background-image:url(../img/sky-sketch-wide.svg);background-position:-290px -700px;background-size:1400px 1400px}
+
+.app .gl{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;opacity:0;
+  --c:rgba(236,232,255,.95);--h:rgba(170,160,255,.55);--L:24px;
+  background:radial-gradient(circle,#fff 0 18%,var(--h) 40%,transparent 70%);animation:sky-glint var(--t,12s) linear var(--d,0s) infinite;will-change:opacity,transform}
+.app .gl.g{--c:rgba(255,224,160,.95);--h:rgba(255,200,120,.55);--L:30px}
+.app .gl::before,.app .gl::after{content:"";position:absolute;left:50%;top:50%}
+.app .gl::before{width:var(--L);height:1.4px;margin:-.7px 0 0 calc(var(--L)/-2);background:linear-gradient(90deg,transparent,var(--c) 50%,transparent)}
+.app .gl::after{width:1.4px;height:var(--L);margin:calc(var(--L)/-2) 0 0 -.7px;background:linear-gradient(180deg,transparent,var(--c) 50%,transparent)}
+@keyframes sky-glint{
+  0%{opacity:0;transform:scale(.3) rotate(0deg)}
+  4%{opacity:1;transform:scale(1) rotate(12deg)}
+  8.5%{opacity:0;transform:scale(.3) rotate(25deg)}
+  100%{opacity:0;transform:scale(.3) rotate(25deg)}}
+@media (prefers-reduced-motion:no-preference){
+  .app[data-style="storybook"]:not([data-theme="day"]) .glints{display:block}
+}

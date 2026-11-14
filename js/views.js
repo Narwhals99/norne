@@ -12,6 +12,23 @@ const dayName = t => { const d = new Date(t), now = new Date(), y = new Date(now
   return d.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric', ...(d.getFullYear() === now.getFullYear() ? {} : {year:'numeric'})}); };
 const timeTag = t => `<time datetime="${new Date(t).toISOString()}" title="${esc(fullDate(t))} · ${hhmm(t)}">${hhmm(t)}</time>`;
 const isGM = v => v.role === 'gm';
+/* Storybook Night: a few real stars of the star tile (same seeded maths as index.html) glint now and then.
+   Made once; css/sky.css shows them only in Storybook Night with motion allowed. */
+let glintsCache = '';
+const glintsHtml = () => {
+  if (glintsCache) return glintsCache;
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647, st = [];
+  for (let i = 0; i < 210; i++) { const r = rnd() * 1.05 + .25; rnd(); const a = rnd() * .6 + .2; st.push({x:rnd() * 520, y:rnd() * 520, ok:r > 1.05 && a > .6}); }
+  for (let i = 0; i < 4; i++) { const x = rnd() * 500 + 10, y = rnd() * 500 + 10; rnd(); st.push({x, y, ok:true, gold:true}); }
+  const pick = st.filter(o => o.ok), out = [];
+  let k = 0;
+  for (let ty = 0; ty < 1040; ty += 520) for (let tx = 0; tx < 2080; tx += 520) pick.forEach((o, i) => {
+    if (!o.gold && (i + tx / 520 + ty / 260) % 4) return;
+    const t = 9 + (k * 7.3) % 13, d = -((k * 4.1) % t);
+    out.push(`<i class="gl${o.gold ? ' g' : ''}" style="left:${(o.x + tx).toFixed(1)}px;top:${(o.y + ty).toFixed(1)}px;--t:${t.toFixed(1)}s;--d:${d.toFixed(1)}s"></i>`); k++;
+  });
+  return (glintsCache = `<div class="sketchsky" aria-hidden="true"></div><div class="glints" aria-hidden="true">${out.join('')}</div>`);
+};
 const pn = c => G().P[c.player]?.name || 'A former player';
 const fateDie = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><path d="M12 8.2v7.6M8.2 12h7.6"/></svg>';
 N.fateDie = fateDie;
@@ -52,7 +69,7 @@ N.appHtml = function(v){
   else if (v.ui.tab === 'inv') page = `<main class="page">${invPage(v)}</main>`;
   else if (v.ui.tab === 'gm') page = `<main class="page">${gmPage(v)}</main>`;
 
-  return `<div class="stars" aria-hidden="true"></div>
+  return `<div class="stars" aria-hidden="true"></div>${glintsHtml()}
     <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? ' shelf-off' : ''}"${v.ui.shelfW ? ` style="--shelfw:${v.ui.shelfW}px"` : ''}>${nav}${shelfOn && v.dev === 'desktop' && !v.ui.shelfOff ? shelfHtml(v) : ''}${page}${tabbar}</div>
     ${shelfOn && v.dev === 'phone' && v.ui.shelf ? `<div class="scrim shelf-scrim" data-a="shelf"></div>${shelfHtml(v)}` : ''}
     ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
