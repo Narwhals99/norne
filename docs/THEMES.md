@@ -224,6 +224,10 @@ rims vanish on a pale page), makes the Depth contact shadow crisper by day and d
 Liquid, which have their own). Night is untouched. **A new style must add its `--edge-rgb` line there**, and should not set Day
 `--line*` lighter than this.
 
+On 2026-11-14 Jack also asked for thicker panel borders: on desktop the chat page edge, the side panel's left edge and the line
+between the two side panels are 3px `--line-2` in every style, Night and Day (also in `css/edges.css`; Oak keeps its frame and
+gets a 4px rim on the side panel). The phone chat list drawer gets a 3px edge too.
+
 ## 3. The token contract
 
 `app.css` draws everything from custom properties on `.app`. A style mostly redefines these for Night (on

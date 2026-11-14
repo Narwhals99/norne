@@ -19,3 +19,13 @@
 .app[data-theme="day"] :is(.m.ooc .bub){outline:1px solid var(--edge);outline-offset:-1px}
 /* phone tab bar: a clear line where the page ends (Oak has its wooden rail, Liquid its floating capsule) */
 .app[data-theme="day"]:not([data-style="oak"]):not([data-style="gloss"]) .tabbar{border-top:1px solid var(--line-2);padding-top:5px}
+
+/* Thick panel borders (Jack, 2026-11-14): the lines between the chat list, the chat and the side panels are 3px in
+   every style, Night and Day. Oak keeps its wooden frame and gets a wider rim on the side panel. */
+@container dev (min-width: 760px){
+  .app[data-style]:not([data-style="oak"]) .page{outline:3px solid var(--line-2);outline-offset:0}
+  .app[data-style] .rail{border-left:3px solid var(--line-2)}
+  .app[data-style="oak"] .rail{border-left:0;box-shadow:inset 4px 0 0 var(--k-rim)}
+  .app[data-style] :is(.rail.sp>.pane.pb,.rcnt){border-top:3px solid var(--line-2)}
+}
+.app[data-style]:not([data-style="oak"]) .shelf.drawer{box-shadow:3px 0 0 var(--line-2),30px 0 60px -20px rgba(0,0,0,.8)}
