@@ -359,7 +359,8 @@ N.sheetHtml = function(v){
         ${!gm && N.figOk && N.figOk() ? `<button type="button" data-a="figOpen">${IC('hero')}<span>Toy figure maker<small>Your character’s figure in fights</small></span><span class="end">${IC('right')}</span></button>` : ''}
         <button type="button" data-a="sheet" data-v="credits">${IC('heart')}<span>Art credits<small>Free art used in this app</small></span><span class="end">${IC('right')}</span></button>
         <button type="button" data-a="signOut">${IC('signout')}<span>Sign out</span></button>
-      </div>`;
+      </div>
+      ${N.nl.tipKeepOk() ? `<div class="nl-only"><h4>Keep showing tips<small>Only you see this switch. While it is on, the New layout's tips come back every time you return to a screen, so you can keep checking them. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="tipKeep" data-v="on" aria-pressed="${N.nl.tipKeep()}">On</button><button type="button" style="flex:1;justify-content:center" data-a="tipKeep" data-v="off" aria-pressed="${!N.nl.tipKeep()}">Off</button></div></div>` : ''}`;
     return sheet('You', body);
   }
   case 'players': {
