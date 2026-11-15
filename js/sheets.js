@@ -198,7 +198,7 @@ N.sheetHtml = function(v){
       : `Now ${sgn(tot)} ${ladderWord(tot)}. +2 makes it ${sgn(tot + 2)} ${ladderWord(tot + 2)}. A reroll keeps ${esc(r.skill)} ${sgn(N.skillPart(r))}${r.mod ? `, the ${r.mod > 0 ? 'buff' : 'debuff'} ${sgn(r.mod)}` : ''}${N.plusInvokes(r)?` and the +${2*N.plusInvokes(r)} already invoked`:''} and rolls the dice again (they show ${sgn(N.diceSum(r))} now).`;
     const body = `${pick}<div class="note">${IC('cards')}Pick an aspect that helps, then take +2${x.against ? '' : ' or reroll all four dice'}. Free invokes cost nothing, ${cost}.</div>
       <p class="rollsum" style="margin:0">${sum}</p>
-      <div style="display:grid;gap:8px">${opts.map((o,i) => { const dis = (!o.free && (pay ? (pay.o.fp || 0) < 1 : !gm)) ? 'disabled' : ''; return `<div class="invopt${o.unnamed ? ' unnamed' : ''}">${o.unnamed ? `<label class="field unasp"><span>Unnamed aspect</span><input class="inp" id="invn-${v.id}" data-i="invName" value="${esc(v.ui.invName || '')}" placeholder="Not listed? Name it if you like"></label>` : `<span class="icard" style="--rot:${i%2?.6:-.6}deg"><span>${N.emoText(N.marks(esc(o.t)))}</span></span>`}<span class="cost">${o.free ? `<b style="color:var(--gold-tx)">Free</b><small>${o.free} left · ${esc(o.from)}</small>` : `<b>${pay || !gm ? '1 fate point' : 'No cost'}</b><small>${esc(o.from)}</small>`}</span><span class="how"><button type="button" class="btn sm gold" data-a="doInvoke" data-i="${i}" data-how="plus" ${dis}>+2</button>${x.against ? '' : `<button type="button" class="btn sm" data-a="doInvoke" data-i="${i}" data-how="reroll" ${dis}>${N.fateDie}Reroll</button>`}</span></div>`; }).join('') || '<p class="muted">No aspects to invoke here yet.</p>'}</div>`;
+      <div style="display:grid;gap:8px">${opts.map((o,i) => { const ufree = o.unnamed && gm && v.ui.invFree; const dis = (!o.free && !ufree && (pay ? (pay.o.fp || 0) < 1 : !gm)) ? 'disabled' : ''; return `<div class="invopt${o.unnamed ? ' unnamed' : ''}">${o.unnamed ? `<label class="field unasp"><span>Unnamed aspect</span><input class="inp" id="invn-${v.id}" data-i="invName" value="${esc(v.ui.invName || '')}" placeholder="Not listed? Name it if you like"></label>` : `<span class="icard" style="--rot:${i%2?.6:-.6}deg"><span>${N.emoText(N.marks(esc(o.t)))}</span></span>`}<span class="cost">${o.free ? `<b style="color:var(--gold-tx)">Free</b><small>${o.free} left · ${esc(o.from)}</small>` : ufree ? `<b style="color:var(--gold-tx)">Free</b><small>${esc(o.from)}</small>` : `<b>${pay || !gm ? '1 fate point' : 'No cost'}</b><small>${esc(o.from)}</small>`}${o.unnamed && gm && pay ? `<span class="seg unfree" role="group" aria-label="Unnamed aspect cost"><button type="button" data-a="invFree" data-v="0" aria-pressed="${!ufree}">Pay 1 FP</button><button type="button" data-a="invFree" data-v="1" aria-pressed="${!!ufree}">Free</button></span>` : ''}</span><span class="how"><button type="button" class="btn sm gold" data-a="doInvoke" data-i="${i}" data-how="plus" ${dis}>+2</button>${x.against ? '' : `<button type="button" class="btn sm" data-a="doInvoke" data-i="${i}" data-how="reroll" ${dis}>${N.fateDie}Reroll</button>`}</span></div>`; }).join('') || '<p class="muted">No aspects to invoke here yet.</p>'}</div>`;
     const addAsp = gm && g.combat.state === 'live' && m.ch === N.fightCh() ? `<button type="button" class="btn ghost" data-a="invAsp">${IC('plus')}Add situation aspect</button>` : '';
     /* the GM's buff or debuff on this roll, after the fact (defense and Notice rolls never pass the roll sheet) */
     const mr = m.roll, md = mr.mod || 0;
@@ -657,6 +657,61 @@ N.sheetHtml = function(v){
     return sheet('Transfer item', body, `<button type="button" class="btn primary" data-a="invTransferGo" data-v="${esc(t.to || '')}" ${t.to ? '' : 'disabled'}>Transfer</button>`, {wide:true});
   }
   /* ---------------- crafting sessions (Jake): who's involved, the crafter, the ingredients, the product, the roll ---------------- */
+  /* ---------------- Level Up (Jake, 2026-11-15) ---------------- */
+  case 'lvlGive': {
+    if (!gm) return '';
+    const lg = v.ui.lvg || (v.ui.lvg = {c:null, k:'major'}), pcs = N.pcs().filter(c => c.built), sel = lg.c && g.chars[lg.c];
+    const body = `<p class="muted lv-tip">Pick a character and the kind of level up. Their player spends the points on the Character tab and sends it to you to approve.</p>
+      <div class="forwho" role="group" aria-label="Character">${pcs.map(c => `<button type="button" data-a="lvgPc" data-v="${esc(c.id)}" aria-pressed="${lg.c === c.id}">${N.av(c, 28)}${esc(c.short || c.name)}</button>`).join('') || '<span class="muted">No character cards yet.</span>'}</div>
+      <div class="seg lv-kind" role="group" aria-label="Kind">${Object.entries(N.LVL).map(([k, [l, n]]) => `<button type="button" data-a="lvgK" data-v="${k}" aria-pressed="${lg.k === k}">${l.replace(' level up', '')} · ${n} points</button>`).join('')}</div>
+      ${sel && sel.lvl ? `<div class="note">${IC('info')}${esc(sel.short)} already has a level up${sel.lvl.st === 'sent' ? ' waiting for you to approve' : ''}. These points are added to it.</div>` : ''}`;
+    return sheet('Level up', body, `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn primary" data-a="lvgGo" ${sel ? '' : 'disabled'}>${IC('star')}Give ${sel ? esc(sel.short) + ' ' : ''}${N.LVL[lg.k][1]} points</button>`);
+  }
+  case 'lvlUp': case 'lvlRev': {
+    const c = g.chars[arg], lv = c && c.lvl; if (!lv) return '';
+    const rev = s === 'lvlRev' && gm, sent = lv.st === 'sent', left = lv.pts - N.lvlSpent(lv), res = N.lvlResult(c, lv.picks), f = v.ui.lv || {};
+    const used = N.lvlStuntUsed(lv), stunts = (c.stunts || []).map((x, i) => [x, i]).filter(([x, i]) => !used.has(i) && (x[0] || x[1]));
+    const can = {
+      up: Object.entries(res.skills).filter(([, x]) => x >= 1 && x < 8),
+      new: N.MUNDANE.filter(k => !(+res.skills[k])),
+      disc: N.LVL_DISC.filter(k => (+res.skills[k] || 0) >= 1),
+      magic: N.MAGIC.filter(k => (+res.skills[k] || 0) >= 1 && res.skills[k] <= 2 && (N.DISC[k] || []).length),
+      swap: stunts, drop: stunts, buy: res.refresh > 1 ? [1] : [], ref: [1]};
+    const pickRow = (p, i) => {
+      const o = N.lvlOpt(p.t), stunt = p.t === 'swap' || p.t === 'buy';
+      const ed = rev && stunt ? `<div class="lv-sted"><label class="field"><span>Stunt name</span><input class="inp" id="lvsn-${i}-${v.id}" data-i="lvSt" data-k="${i}" data-f="n" value="${esc(p.n || '')}"></label><label class="field"><span>What it does</span><textarea class="inp" id="lvsd-${i}-${v.id}" data-i="lvSt" data-k="${i}" data-f="d" rows="2">${esc(p.d || '')}</textarea></label></div>`
+        : stunt && p.d ? `<small class="lv-d">${N.emoText(N.marks(esc(p.d)))}</small>` : '';
+      return `<div class="lv-pick"><div class="lv-l"><b>${N.emoText(N.marks(esc(N.lvlLine(c, p))))}</b>${ed}</div><span class="lv-c">${o.c} pt${o.c > 1 ? 's' : ''}</span>${sent || rev ? '' : `<button type="button" class="btn sm ghost" data-a="lvDel" data-v="${i}" aria-label="Remove">${IC('x')}</button>`}</div>`;
+    };
+    const chip = (a, label, ds, on) => `<button type="button" class="cchip" data-a="${a}" ${ds} aria-current="${!!on}" style="padding:0 11px">${label}</button>`;
+    const stF = () => `<label class="field"><span>Stunt name</span><input class="inp" id="lvn-${v.id}" data-i="lv" data-k="n" value="${esc(f.n || '')}" placeholder="e.g. Shield wall"></label>
+      <label class="field"><span>What it does</span><textarea class="inp" id="lvd-${v.id}" data-i="lv" data-k="d" rows="3" placeholder="Because I…, I get +2 when I…">${esc(f.d || '')}</textarea></label>`;
+    const discF = () => { if (!f.k) return '';
+      const have = N.discOf({disc:res.disc}, f.k), opts = (N.DISC[f.k] || []).filter(x => !have.includes(x));
+      return `<h4>${f.t === 'magic' ? `New discipline for ${esc(f.k)}${have[0] ? ` (now ${esc(have[0])})` : ''}` : `New discipline for ${esc(f.k)}`}</h4>
+        <div class="chips lv-chips">${opts.map(x => chip('lvAdd', esc(x), `data-x="${esc(x)}"`)).join('')}</div>
+        <div class="lv-oth"><input class="inp" id="lvo-${v.id}" data-i="lv" data-k="oth" value="${esc(f.oth || '')}" placeholder="Other discipline"><button type="button" class="btn sm" data-a="lvAdd" data-oth="1">Add</button></div>`; };
+    const form = !f.t || sent || rev ? '' : `<div class="lv-form">${
+      f.t === 'up' ? `<h4>Which skill?</h4><div class="chips lv-chips">${can.up.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([k, x]) => chip('lvAdd', `${esc(k)} ${sgn(x)} → ${sgn(x + 1)}`, `data-k="${esc(k)}"`)).join('')}</div>`
+      : f.t === 'new' ? `<h4>Which skill?</h4><div class="chips lv-chips">${can.new.map(k => chip('lvAdd', esc(k), `data-k="${esc(k)}"`)).join('')}</div>`
+      : f.t === 'disc' || f.t === 'magic' ? `<h4>Which skill?</h4><div class="chips lv-chips">${can[f.t].map(k => chip('lvK', `${esc(k)} ${sgn(res.skills[k])}`, `data-k="${esc(k)}"`, f.k === k)).join('')}</div>${discF()}`
+      : f.t === 'drop' ? `<h4>Which stunt?</h4><div class="chips lv-chips">${stunts.map(([x, i]) => chip('lvAdd', esc(x[0] || 'Unnamed stunt'), `data-v="${i}"`)).join('')}</div>`
+      : f.t === 'swap' ? `<h4>Which stunt goes?</h4><div class="chips lv-chips">${stunts.map(([x, i]) => chip('lvI', esc(x[0] || 'Unnamed stunt'), `data-v="${i}"`, f.i === i)).join('')}</div>${f.i != null ? `<h4>The new stunt</h4>${stF()}<button type="button" class="btn primary" data-a="lvAdd">${IC('plus')}Add</button>` : ''}`
+      : f.t === 'buy' ? `<h4>The new stunt</h4>${stF()}<button type="button" class="btn primary" data-a="lvAdd">${IC('plus')}Add</button>` : ''}</div>`;
+    const opts = sent || rev ? '' : `<h4>Spend points${left ? '' : ' · all spent'}</h4><div class="lv-opts">${N.LVL_OPTS.map(o => {
+      const ok = o.c <= left && can[o.t].length;
+      return `<button type="button" class="lv-opt" data-a="lvOpt" data-v="${o.t}" aria-pressed="${f.t === o.t}" ${ok ? '' : 'disabled'}><b>${o.l}</b><small>${o.c} point${o.c > 1 ? 's' : ''}${o.s ? ' · ' + o.s : ''}</small></button>`; }).join('')}</div>${form}`;
+    const changes = [res.refresh !== +c.refresh ? `Refresh ${c.refresh} → ${res.refresh}` : ''].filter(Boolean);
+    const body = `<div class="lv-head"><span class="ic">${IC('star')}</span><span><b>${N.LVL[lv.k]?.[0] || 'Level up'} · ${lv.pts} points</b><small>${rev ? `${esc(c.short || c.name)} ${sent ? 'sent this to you.' : `is still spending (${left} left).`}` : sent ? `Sent to ${esc(N.gmName())}. You’ll get a note when it’s approved.` : left ? `${left} point${left > 1 ? 's' : ''} left to spend.` : 'All points spent. Send it to the GM.'}</small></span></div>
+      ${lv.back && !sent && !rev ? `<div class="note">${IC('info')}${esc(N.gmName())} sent it back: ${esc(lv.back)}</div>` : ''}
+      ${lv.picks.length ? `<div class="lv-picks">${lv.picks.map(pickRow).join('')}</div>${changes.length ? `<p class="muted lv-tip">${changes.join(' · ')}</p>` : ''}` : rev ? '<p class="muted lv-tip">Nothing picked yet.</p>' : ''}
+      ${opts}
+      ${rev ? `<label class="field"><span>Note if you send it back</span><input class="inp" id="lvb-${v.id}" data-i="lvBack" value="${esc(v.ui.lvBack || '')}" placeholder="e.g. That stunt is too strong, try +2 instead"></label>` : ''}`;
+    const foot = rev ? `<button type="button" class="btn ghost" data-a="lvCancel">Cancel</button>${sent ? `<button type="button" class="btn" data-a="lvBackGo">Send back</button><button type="button" class="btn primary" data-a="lvApprove">${IC('check')}Approve</button>` : `<button type="button" class="btn" data-a="closeSheet">Close</button>`}`
+      : sent ? `<button type="button" class="btn" data-a="closeSheet">Close</button>`
+      : `<button type="button" class="btn ghost" data-a="closeSheet">Later</button><button type="button" class="btn primary" data-a="lvSend" ${left || !lv.picks.length ? 'disabled' : ''}>${IC('send')}${left ? `Spend ${left} more to send` : 'Send to GM'}</button>`;
+    return sheet(rev ? `Level up · ${esc(c.short || c.name)}` : 'Level up', body, foot);
+  }
   case 'craft': {
     const cr = gm && N.craftOf(arg); if (!cr) return '';
     const ch = cr.ch, c = esc(ch), folk = N.sceneFolk(ch), solo = ch === 'gm';

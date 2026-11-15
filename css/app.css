@@ -3031,3 +3031,50 @@
 .app[data-dev="desktop"] .composer .typing{left:30px}
 @media (prefers-reduced-motion:reduce){.app .composer .tydots i{animation-name:tyFade}.app .composer .typing.on{animation:none}}
 @keyframes tyFade{0%,62%,100%{opacity:.4}28%{opacity:1}}
+/* GM: defend with another of the defender's skills */
+.app .defpick{display:flex;flex-wrap:wrap;gap:6px;flex-basis:100%;width:100%;padding-top:4px}
+.app .fightbar.owed{flex-wrap:wrap}
+/* GM: Unnamed aspect invoke paid or free */
+.app .invopt .cost .unfree{margin-top:6px}
+.app .invopt .cost .unfree button{height:26px;padding:0 10px;font-size:12px}
+/* GM popup over a sheet (Pyramid rule warning) */
+.app .alert-scrim{z-index:50}
+.app .alertbox{position:absolute;z-index:51;left:50%;top:50%;translate:-50% -50%;width:min(400px,calc(100% - 32px));padding:20px 18px 16px;border-radius:22px;background:var(--raise);
+  box-shadow:var(--shadow-2),0 0 0 1px var(--line-2);display:grid;gap:10px;text-align:center;justify-items:center;animation:popin .2s cubic-bezier(.2,.8,.2,1) both}
+.app .alertbox .ic{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:var(--ember);color:#fff}
+.app .alertbox .ic svg{width:24px;height:24px}
+.app .alertbox h3{margin:0;font:800 16px/1.25 var(--f-ui);color:var(--ink)}
+.app .alertbox p{margin:0;font:600 13.5px/1.45 var(--f-ui);color:var(--ink-2)}
+.app .alertbox .btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+/* Level Up */
+.app .lvcta.full{grid-column:1/-1}
+.app .lvcta .ic{background:var(--gold, #c9a14a)}
+.app .lvcta.sent .ic{background:var(--sunk);color:var(--ink-2)}
+.app .lvcta > svg:last-child{width:18px;height:18px;margin-left:auto;color:var(--ink-3)}
+.app .lv-tip{margin:0;font:600 13px/1.45 var(--f-ui)}
+.app .lv-kind{align-self:start}
+.app .lv-head{display:flex;gap:12px;align-items:center}
+.app .lv-head .ic{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:var(--gold, #c9a14a);color:#fff;flex:none}
+.app .lv-head .ic svg{width:22px;height:22px}
+.app .lv-head b{display:block;font:800 15px/1.2 var(--f-ui)}
+.app .lv-head small{font:600 12.5px/1.35 var(--f-ui);color:var(--ink-2)}
+.app .lv-picks{display:grid;gap:6px}
+.app .lv-pick{display:flex;gap:10px;align-items:flex-start;padding:9px 10px 9px 12px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .lv-pick .lv-l{flex:1;min-width:0;display:grid;gap:6px}
+.app .lv-pick b{font:700 13.5px/1.35 var(--f-ui);color:var(--ink);overflow-wrap:anywhere}
+.app .lv-pick .lv-d{font:600 12.5px/1.4 var(--f-ui);color:var(--ink-2)}
+.app .lv-pick .lv-c{flex:none;font:700 12px/1.6 var(--f-ui);color:var(--gold-tx)}
+.app .lv-sted{display:grid;gap:8px}
+.app .lv-opts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.app .lv-opt{display:grid;gap:3px;text-align:left;padding:10px 12px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app .lv-opt b{font:700 13px/1.25 var(--f-ui);color:var(--ink)}
+.app .lv-opt small{font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .lv-opt[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--gold-tx)}
+.app .lv-opt:disabled{opacity:.42}
+.app .lv-form{display:grid;gap:10px;padding:12px;border-radius:16px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .lv-form h4{margin:0}
+.app .lv-chips{flex-wrap:wrap;padding:0;gap:6px}
+.app .lv-chips .cchip[aria-current="true"]{box-shadow:inset 0 0 0 2px var(--gold-tx);color:var(--ink)}
+.app .lv-oth{display:flex;gap:8px}
+.app .lv-oth .inp{flex:1;min-width:0}
+@media (max-width:420px){.app .lv-opts{grid-template-columns:minmax(0,1fr)}}

@@ -907,6 +907,9 @@ function input(v, el, ev){
   switch (i) {
     case 'draft': v.ui.draft = val; grow(el); typed(v, ev); return;
     case 'fcDraft': v.ui.fcDraft = val; return;
+    case 'lv': if (v.ui.lv) v.ui.lv[k] = val; return;
+    case 'lvBack': v.ui.lvBack = val; return;
+    case 'lvSt': { const c = isGM(v) && g.chars[v.ui.sheetArg], p = c && c.lvl && c.lvl.picks[+k]; if (p) p[el.dataset.f] = val; return; }
     case 'ndayY': if (v.ui.nday) { v.ui.nday.y = val.slice(0, 24); const p = v.root.querySelector(`#ndp-${v.id}`); if (p) p.innerHTML = N.nextDayPrev(v.ui.nday); } return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
     case 'invTransferQ': if (v.ui.invTransfer) { v.ui.invTransfer.q = val; render(v); } return;
@@ -1236,11 +1239,13 @@ function afterFightRoll(v, r, m){
   if (r.action === 'overcome' && !r.event) { const opp = m.roll.opp ?? 2; m.roll.opp = opp; }
   cb.acted = true;
 }
-function cbDefend(v){
+function cbDefend(v, other){
   const g = G(), cb = g.combat, p = cb.pending; if (!p || p.stage !== 'defend') return;
+  if (other && !isGM(v)) other = null;
+  v.ui.defOther = null;
   const d = N.tokById(p.def), a = N.tokById(p.att); if (!d || !a) { cb.pending = null; renderAll(); return; }
   N.boostTick(d);
-  const [skill, x] = N.defSkill(d);
+  const [skill, x] = N.defSkill(d, other);
   const key = d.kind === 'pc' ? 'pc:' + d.ref : 'tok:' + d.id;
   const roll = {who:N.tokName(d), whoKey:key, skill, bonus:x, action:'Defend', target:N.tokName(a), opp:p.total, dice:N.rollDice(), invokes:[], fight:true};
   /* Jake's rule: any shield adds +1 to a Defend roll, whatever its rating */
@@ -1604,6 +1609,40 @@ function act(v, a, el, e){
   /* a random look for a fighter in the fight being set up (js/figures.js) */
   case 'figRand': if (gm && N.figRand) N.figRand(val); return;
   case 'statEd': if (gm) ui.statEd = !ui.statEd; break;
+  /* ---------------- Level Up (Jake, 2026-11-15) ---------------- */
+  case 'lvgPc': if (gm) (ui.lvg = ui.lvg || {k:'major'}).c = val; break;
+  case 'lvgK': if (gm) (ui.lvg = ui.lvg || {}).k = val; break;
+  case 'lvgGo': { const lg = ui.lvg, c = gm && lg && g.chars[lg.c]; if (!c) break;
+    const [lab, n] = N.LVL[lg.k] || N.LVL.major;
+    if (c.lvl) { c.lvl.pts += n; c.lvl.st = 'open'; } else c.lvl = {k:lg.k, pts:n, picks:[], st:'open'};
+    sys(`${N.gmName()} gave ${c.short || c.name} a ${lab}: ${n} points to spend. Open Character and tap Level up to spend them.`, 'dm-' + c.player);
+    ui.sheet = null; ui.lvg = null; toast(v, `${c.short || c.name} got a ${lab.toLowerCase()}.`); renderAll(); return; }
+  case 'lvOpt': if (val === 'ref') { ui.lv = {t:'ref'}; lvAdd(v, {}); return; } ui.lv = ui.lv?.t === val ? null : {t:val}; break;
+  case 'lvK': if (ui.lv) { ui.lv.k = d.k; ui.lv.oth = ''; } break;
+  case 'lvI': if (ui.lv) ui.lv.i = +d.v; break;
+  case 'lvAdd': lvAdd(v, d); return;
+  case 'lvDel': { const c = g.chars[ui.sheetArg], lv = c && c.lvl; if (!lv || lv.st === 'sent') break; lv.picks.splice(+val, 1); lvReplay(c); renderAll(); return; }
+  case 'lvSend': { const c = g.chars[ui.sheetArg], lv = c && c.lvl; if (!lv || lv.st === 'sent') break;
+    if (lv.pts - N.lvlSpent(lv) > 0) { toast(v, 'Spend all your points first.'); break; }
+    const bad = N.pyrCheck(c.skills, N.lvlResult(c, lv.picks).skills);
+    if (bad) { ui.alertBox = {title:'Your skills break the Pyramid rule', body:`With these picks you’d have ${bad.text} From +2 up, a level can’t have more skills than the level below it. Change your picks so it fits.`, btns:[['Fix my picks', 'alertClose', 'primary']]}; break; }
+    lv.st = 'sent'; delete lv.back; ui.lv = null; ui.sheet = null;
+    sys(`${c.short || c.name} sent their level up to ${N.gmName()}: ${lv.picks.map(p => N.lvlLine(c, p)).join(', ')}.`, 'dm-' + c.player);
+    toast(v, `Sent to ${N.gmName()}.`); renderAll(); return; }
+  case 'lvBackGo': { const c = gm && g.chars[ui.sheetArg], lv = c && c.lvl; if (!lv) break;
+    lv.st = 'open'; lv.back = (ui.lvBack || '').trim() || 'Have another look at your picks.'; ui.lvBack = ''; ui.sheet = null;
+    sys(`${N.gmName()} sent ${c.short || c.name}’s level up back: ${lv.back}`, 'dm-' + c.player); toast(v, 'Sent back.'); renderAll(); return; }
+  case 'lvCancel': { const c = gm && g.chars[ui.sheetArg]; if (!c || !c.lvl) break; delete c.lvl; ui.sheet = null; toast(v, `${c.short || c.name}’s level up was cancelled.`); renderAll(); return; }
+  case 'lvApprove': { const c = gm && g.chars[ui.sheetArg], lv = c && c.lvl; if (!lv) break;
+    const r = N.lvlResult(c, lv.picks), lines = lv.picks.map(p => N.lvlLine(c, p));
+    c.skills = r.skills; c.disc = r.disc; c.stunts = r.stunts; c.refresh = r.refresh;
+    const sv = N.stressVals, pv = [...sv(c.skills.Strength || 0), ...(c.gearBox || [])], mv = sv(c.skills.Will || 0);
+    c.stress = {phys:pv.map((x, i) => !!c.stress?.phys?.[i]), ment:mv.map((x, i) => !!c.stress?.ment?.[i])}; c.stressV = {phys:pv, ment:mv};
+    delete c.lvl; ui.sheet = null;
+    sys(`${N.gmName()} approved ${c.short || c.name}’s level up: ${lines.join(', ')}.`, 'dm-' + c.player);
+    toast(v, 'Level up approved and on the card.'); renderAll(); return; }
+  case 'alertClose': ui.alertBox = null; break;
+  case 'pyrOverride': if (gm) { ui.alertBox = null; ui.pyrOk = true; savePc(v); } return;
   case 'sadj': { const c = g.chars[d.c]; if (!gm || !c) break; if (+d.d < 0 && +d.n <= 0) break;
     const a2 = c.sadj = c.sadj || {}; a2[d.k] = (+a2[d.k] || 0) + (+d.d); if (!a2[d.k]) delete a2[d.k]; if (!Object.keys(a2).length) delete c.sadj; renderAll(); return; }
   /* places and NPCs by name: d.k pc|pt|pn|np, d.v the name, d.d how much (a remove passes minus the whole count) */
@@ -1712,7 +1751,8 @@ function act(v, a, el, e){
     break;
   }
   case 'newVoice': ui.pop = null; openSheet(v, 'npcNew', {from:'voice'}); break;
-  case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; ui.invBy = null; ui.invName = ''; break;
+  case 'invoke': ui.sheet = 'invoke'; ui.sheetArg = d.id; ui.invBy = null; ui.invName = ''; ui.invFree = false; break;
+  case 'invFree': if (gm) ui.invFree = d.v === '1'; break;
   case 'invMod': invMod(v, +d.d); return;
   case 'shifts': ui.pop = null; ui.sheet = 'shifts'; ui.sheetArg = d.id; ui.shDraft = null; break;
   case 'shAdj': { const was = shiftOf(v); ui.shDraft = clamp((ui.shDraft ?? was) + (+d.d), -6, 6); break; }
@@ -2543,7 +2583,8 @@ function act(v, a, el, e){
     openRoll(v, {who:key, action:val, ctx:'cb', opp:2, skill: val === 'advantage' ? pick(['Notice','Provoke','Athletics','Deception','Fighting']) : pick(['Athletics','Strength','Will','Notice'])});
     break;
   }
-  case 'cbDefend': cbDefend(v); return;
+  case 'cbDefend': cbDefend(v, d.k); return;
+  case 'defOther': if (gm) ui.defOther = ui.defOther === d.t ? null : d.t; break;
   case 'cbStyle': N.cbStyle(val); renderAll(); return;
   case 'cbBoostName': { const b = cb.aspects.find(x => x.boost && !x.t), t = (ui.boostName || '').trim(); if (!b) break; if (!t) { toast(v, 'Give the boost a short name first.'); break; } b.t = t; ui.boostName = ''; fsys(`${b.by}’s boost${b.on ? ` on ${b.on}` : ''}: “${t}”.`); renderAll(); return; }
   case 'cbDrop': if (cb.pending) { const t = N.tokById(cb.pending.def); cb.pending = null; fsys(`${N.gmName()} settles the hit on ${t ? N.tokName(t) : 'them'} by hand.`); } renderAll(); return;
@@ -2911,8 +2952,42 @@ function setScene(v, ch, s, post){
   const who = ch === 'table' ? 'everyone' : (g.P[ch.slice(3)]?.name || 'them');
   toast(v, `Scene set for ${who}: ${sc.title}`, () => N.delMsg(m.id));
 }
+/* Level Up: add the pick the player built in v.ui.lv (see the lvlUp sheet) */
+function lvAdd(v, d){
+  const g = G(), c = g.chars[v.ui.sheetArg], lv = c && c.lvl, f = v.ui.lv; if (!lv || lv.st === 'sent' || !f) return;
+  const o = N.lvlOpt(f.t), res = N.lvlResult(c, lv.picks); if (!o) return;
+  if (o.c > lv.pts - N.lvlSpent(lv)) { toast(v, 'Not enough points left.'); return; }
+  let p = null;
+  if (f.t === 'up' && d.k && (+res.skills[d.k] || 0) >= 1) p = {t:'up', k:d.k, from:+res.skills[d.k]};
+  if (f.t === 'new' && d.k && !(+res.skills[d.k])) p = {t:'new', k:d.k};
+  if ((f.t === 'disc' || f.t === 'magic') && f.k) { const x = (d.oth ? f.oth || '' : d.x || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (!x) { toast(v, 'Pick or type a discipline.'); return; }
+    if (N.discOf({disc:res.disc}, f.k).some(y => y.toLowerCase() === x.toLowerCase())) { toast(v, `${f.k} already has ${x}.`); return; }
+    p = f.t === 'disc' ? {t:'disc', k:f.k, x} : {t:'magic', k:f.k, x, was:N.discOf({disc:res.disc}, f.k)[0] || ''}; }
+  if (f.t === 'drop' && d.v != null) p = {t:'drop', i:+d.v};
+  if (f.t === 'swap' || f.t === 'buy') { const n = (f.n || '').trim(), ds = (f.d || '').trim();
+    if (!n) { toast(v, 'Give the stunt a name.'); return; }
+    if (f.t === 'swap' && f.i == null) { toast(v, 'Pick the stunt it replaces.'); return; }
+    p = f.t === 'swap' ? {t:'swap', i:f.i, n, d:ds} : {t:'buy', n, d:ds}; }
+  if (f.t === 'ref') p = {t:'ref'};
+  if (!p) return;
+  lv.picks.push(p); v.ui.lv = null; renderAll();
+}
+/* after a pick is removed: raises re-read their starting rating, and ones that no longer make sense go */
+function lvReplay(c){
+  const sk = {...(c.skills || {})}, used = new Set();
+  c.lvl.picks = c.lvl.picks.filter(p => {
+    if (p.t === 'up') { if ((+sk[p.k] || 0) < 1) return false; p.from = +sk[p.k]; sk[p.k]++; }
+    if (p.t === 'new') { if (+sk[p.k]) return false; sk[p.k] = 1; }
+    if (p.t === 'swap' || p.t === 'drop') { if (used.has(p.i)) return false; used.add(p.i); }
+    return true;
+  });
+}
 function savePc(v){
   const g = G(), d = v.ui.pd, c = g.chars[d.id], first = !c.built;
+  /* Jake's Pyramid rule: warn the GM when this edit makes a level outnumber the one below (cards that already broke it are left alone) */
+  const bad = !v.ui.pyrOk && N.pyrCheck(c.skills, d.skills); v.ui.pyrOk = false;
+  if (bad) { v.ui.alertBox = {title:'WARNING: Character skills break Pyramid rule', body:`${d.name.trim() || 'This character'} would have ${bad.text} From +2 up, a level can’t have more skills than the level below it.`, btns:[['Continue editing', 'alertClose', ''], ['GM override', 'pyrOverride', 'primary']]}; render(v); return; }
   const sv = N.stressVals;
   const pv = [...sv(d.skills.Strength || 0), ...(c.gearBox || [])], mv = sv(d.skills.Will || 0);
   Object.assign(c, {name:d.name.trim(), short:(d.short.trim() || d.name.trim().split(' ')[0]), portrait:d.portrait || null, hc:'', trouble:'',
@@ -2990,7 +3065,9 @@ function doInvoke(v, i, reroll){
   const g = G(), m = g.msgs.find(x => x.id === v.ui.sheetArg), x = m && N.invokeCtx(v, m), o = x && N.invokeOptions(v, m, x)[i];
   if (!o || (reroll && x.against)) return;
   let how = 'gm';
-  if (o.free) {
+  /* Jake: the GM can make an Unnamed aspect invoke free instead of paying a fate point */
+  if (o.unnamed && isGM(v) && v.ui.invFree) how = 'free';
+  else if (o.free) {
     how = 'free';
     if (o.kind === 'cb') { const asp = g.combat.aspects[o.i]; asp.free--; if (asp.boost && asp.free <= 0) g.combat.aspects.splice(o.i, 1); }
     if (o.kind === 'zone') g.combat.zones.find(z => z.id === o.z).free--;
@@ -3004,7 +3081,7 @@ function doInvoke(v, i, reroll){
   const p = g.combat.pending; if (p && p.msgId === t.id) p.total = N.rollTotal(t.roll);
   N.cbReresolve(t);
   v.ui.sheet = null; v.ui.invBy = null;
-  const cost = o.free ? ' (free)' : how === 'fp' ? `, 1 fate point spent${x.pay.o === N.charOf(v.role) ? '' : ` from ${x.pay.name}`}` : '';
+  const cost = o.free || how === 'free' ? ' (free)' : how === 'fp' ? `, 1 fate point spent${x.pay.o === N.charOf(v.role) ? '' : ` from ${x.pay.name}`}` : '';
   const who = x.by && x.by !== x.sides.me ? `${N.tokName(x.by)}: ` : '';
   toast(v, x.against ? `${who}+2 to beat from “${o.t}”${cost}. ${N.tokName(x.sides.me)} now needs ${sgn(t.roll.opp)}.`
     : reroll ? `${who}Rerolled with “${o.t}”${cost}: now ${sgn(N.rollTotal(t.roll))} ${ladderWord(N.rollTotal(t.roll))}.` : `${who}+2 from “${o.t}”${cost}.`);
