@@ -1061,14 +1061,15 @@ function send(v){
   }
   /* Jake: <<Elderly goblin>> in a Narrator line puts them in the scene as a one-off NPC (an NPC with a card joins the scene's
      cast instead). The line reads without the marks; a several-word phrase that starts mid-sentence with one capital reads in
-     lower case ("an elderly goblin"), names like Gorm or Captain Vel, and NPCs with a card, keep theirs */
+     lower case ("an elderly goblin"), names like Gorm or Captain Vel, NPCs with a card, and a first word that is a race, nation, place or other
+     proper noun from the game's data (N.properWord: "Daroese merchant") keep theirs */
   let meet = [];
   if (gm && m.kind === 'rp' && m.as === 'Narrator' && /<<[^<>]+>>/.test(text)) {
     if (!g.scenes[ch]) { toast(v, 'Set a scene in this chat first: << >> adds someone to the scene.'); render(v); return; }
     meet = [...new Set([...text.matchAll(/<<([^<>]+)>>/g)].map(x => x[1].trim().replace(/\s+/g, ' ').slice(0, 60)).filter(Boolean))];
     text = text.replace(/<<([^<>]+)>>/g, (x, w, at, all) => { w = w.trim().replace(/\s+/g, ' ');
       const start = !all.slice(0, at).trim() || /[.!?:"“]\s*$/.test(all.slice(0, at));
-      const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
+      const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && !N.properWord(words[0], w) && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
   }
   push(Object.assign(m, {ch, by:v.role, text}));
   if (move) sceneMove(v, ch, move);
