@@ -290,6 +290,64 @@ N.pushList = () => {
   });
 };
 
+/* ---------- typing: who is writing a message right now (Jack, 2026-11-15) ----------
+   typing/<chat> holds one small entry per seat: {t, k, as}. t is the writer's clock when they last typed (0 = stopped),
+   k 'rp' or 'meta', as the voice (character, NPC or Narrator). A writer marks itself when it starts typing, again every
+   5 s while it keeps going, and clears the mark on a backspace, on send, or when it leaves the box; at most one write a second.
+   Readers listen only to the chats on screen while the app is open, and drop an entry 8 s after its last mark,
+   so a closed tab or a lost connection never leaves dots behind. Each mark costs one write, plus one read per device watching. */
+const TY_ON = new Map(), TYW = {}, TYKEEP = 8000;
+N.TYPING = {};
+let _tyT = 0;
+function tyPaint(){
+  clearTimeout(_tyT); const now = Date.now(); let next = Infinity;
+  for (const c of Object.values(N.TYPING)) for (const [s, e] of Object.entries(c)) { if (e.until <= now) delete c[s]; else next = Math.min(next, e.until); }
+  if (next < Infinity) _tyT = setTimeout(tyPaint, next - now + 30);
+  if (N.typingPaint) N.typingPaint();
+}
+N.typingWatch = chs => {
+  if (!F || !db || !ME || !live) return false;
+  const want = new Set(document.hidden ? [] : chs.filter(c => c && c !== 'gm'));
+  for (const [c, off] of TY_ON) if (!want.has(c)) { off(); TY_ON.delete(c); delete N.TYPING[c]; }
+  for (const c of want) if (!TY_ON.has(c)) {
+    const seen = {}; let first = true;
+    TY_ON.set(c, F.onSnapshot(dref('typing/' + c), MD, snap => {
+      /* a copy kept on this device may be hours old: only the server's word counts */
+      if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
+      const d = snap.data() || {}, now = Date.now(), cur = N.TYPING[c] || (N.TYPING[c] = {});
+      for (const [s, e] of Object.entries(d)) {
+        if (!e || typeof e !== 'object') continue;
+        if (!e.t) { delete cur[s]; seen[s] = 0; continue; }
+        if (seen[s] === e.t) continue;
+        /* on the first look a mark counts only if it is recent; after that any new mark is someone typing now */
+        const fresh = !first || Math.abs(now - e.t) < TYKEEP; seen[s] = e.t;
+        if (fresh) cur[s] = {k:e.k === 'meta' ? 'meta' : 'rp', as:typeof e.as === 'string' ? e.as.slice(0, 60) : '', until:now + TYKEEP};
+      }
+      first = false; tyPaint();
+    }, err => console.warn('typing', c, err?.code)));
+  }
+  return true;
+};
+/* this device's own mark: on (typing) or off, for one chat and seat */
+N.typingMark = (ch, seat, on, k = 'rp', as = '') => {
+  if (!F || !db || !ME || !live || !ch || ch === 'gm' || !seat) return;
+  const key = ch + '|' + seat, w = TYW[key] || (TYW[key] = {ch, seat, on:false, at:0, k:'', as:'', want:null, tm:0});
+  w.want = {on, k, as};
+  if (w.tm) return; /* a write is already waiting a moment; it takes the latest wish */
+  const go = () => {
+    w.tm = 0; const x = w.want, now = Date.now();
+    const need = x.on ? (!w.on || w.k !== x.k || w.as !== x.as || now - w.at > 5000) : w.on;
+    if (!need) return;
+    const wait = 1000 - (now - w.at);
+    if (wait > 0) { w.tm = setTimeout(go, wait); return; }
+    w.on = x.on; w.k = x.k; w.as = x.as; w.at = now;
+    F.setDoc(dref('typing/' + ch), {[seat]:{t:x.on ? now : 0, k:x.k, as:x.as}}, {merge:true}).catch(e => console.warn('typing', e?.code));
+  };
+  go();
+};
+/* clear every mark of this device except the chats still being typed in (chat switched, tab hidden) */
+N.typingStopAll = (keep = []) => { for (const w of Object.values(TYW)) if ((w.on || w.tm) && !keep.includes(w.ch + '|' + w.seat)) N.typingMark(w.ch, w.seat, false); };
+
 /* ---------- pictures kept in the database (maps, scene pictures, portraits) ---------- */
 const MIMG = new Map(), MVIS = new Map();
 /* a picture is either for everyone (vis), for some seats (aud) or for the GM only */

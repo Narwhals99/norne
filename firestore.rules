@@ -157,6 +157,20 @@ service cloud.firestore {
       allow delete: if isGM() || isPlayer();
     }
 
+    // Who is typing right now, one document per chat (typing/table, typing/dm-p1, typing/grp-<id>).
+    // Only people in that chat read it, and each person may change only their own seat's entry.
+    function inChat(ch) {
+      return isGM() || (isPlayer() && (ch == 'table'
+        || (ch.matches('dm-p[0-9]+') && mine(ch.split('-')[1]))
+        || (ch.matches('grp-[a-z0-9]+') && inGroup(ch.split('-')[1]))));
+    }
+    function ownKeys() { return isGM() ? ['gm'] : mySeats(); }
+    match /typing/{ch} {
+      allow read: if inChat(ch);
+      allow create: if inChat(ch) && request.resource.data.keys().hasOnly(ownKeys());
+      allow update: if inChat(ch) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ownKeys());
+    }
+
     // Map images kept out of the public site. Players can load one only once the GM shares that map,
     // with everyone (vis) or with their seat (aud).
     match /mapimgs/{id} {

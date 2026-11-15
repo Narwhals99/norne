@@ -3011,3 +3011,23 @@
 .app .icat-h .cv svg{width:14px;height:14px}
 .app .icat.open .icat-h .cv{transform:rotate(180deg)}
 @media (prefers-reduced-motion:reduce){.app .icat-h .cv{transition:none}}
+
+/* ---------- typing dots (Jack, 2026-11-15): a small pill above the message box, three dots per person in their
+   colour (--ty, the same colour as their bubble's edge) growing and shrinking left to right ---------- */
+.app .composer .typing{position:absolute;left:16px;bottom:100%;margin-bottom:-2px;z-index:2;max-width:calc(100% - 32px);pointer-events:none;
+  display:none;align-items:center;gap:8px;padding:4px 11px 4px 9px;border-radius:999px;font-size:12px;line-height:1.2;color:var(--ink-2);
+  background:color-mix(in srgb,var(--raise) 94%,transparent);box-shadow:0 0 0 1px var(--line-2),0 4px 14px rgba(0,0,0,.18)}
+.app .composer .typing.on{display:inline-flex;animation:tyIn .22s ease-out}
+.app .composer .typing b{font-weight:700;color:var(--ink)}
+.app .composer .tyw{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.app .composer .tyset{display:inline-flex;gap:5px;flex:none}
+.app .composer .tydots{display:inline-flex;align-items:center;gap:3px;padding:3px 5px;border-radius:999px;
+  background:color-mix(in srgb,var(--ty,var(--accent)) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ty,var(--accent)) 55%,transparent)}
+.app .composer .tydots i{width:6px;height:6px;border-radius:50%;background:var(--ty,var(--accent));transform:scale(.55);opacity:.5;animation:tyDot 1.25s ease-in-out infinite}
+.app .composer .tydots i:nth-child(2){animation-delay:.18s}
+.app .composer .tydots i:nth-child(3){animation-delay:.36s}
+@keyframes tyDot{0%,62%,100%{transform:scale(.55);opacity:.5}28%{transform:scale(1.15);opacity:1}}
+@keyframes tyIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.app[data-dev="desktop"] .composer .typing{left:30px}
+@media (prefers-reduced-motion:reduce){.app .composer .tydots i{animation-name:tyFade}.app .composer .typing.on{animation:none}}
+@keyframes tyFade{0%,62%,100%{opacity:.4}28%{opacity:1}}
