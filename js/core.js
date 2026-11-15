@@ -712,7 +712,7 @@ N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target
    The ratings match the ones on a card (N.GEARK); giving the item can set them on the card too. */
 /* item kinds, in the order the catalog lists them. Ids are kept forever (old items keep theirs): potion was "Potions and food" */
 N.ITEMK = [['weapon','Weapons','sword'],['armor','Armor','shieldU'],['clothing','Clothing','boots'],['magic','Magical','magic'],['potion','Potions','potion'],
-  ['ingredient','Potion ingredients','sparkle'],['craft','Crafting ingredients','gear'],['food','Food & drink','drink'],['book','Books','spellbook'],['trinket','Trinkets','coins'],['gear','Gear and tools','bag'],['other','Other','items']];
+  ['ingredient','Potion ingredients','sparkle'],['craft','Crafting ingredients','gear'],['food','Food & drink','drink'],['book','Books','spellbook'],['trinket','Trinkets','coins'],['illicit','Illicit goods','mask'],['gear','Gear and tools','bag'],['other','Other','items']];
 N.ITEM_IC = ['bag','sword','target','arrowR','shieldU','helm','boots','knuckles','magic','sparkle','spellbook','potion','drink','scroll','coins','skull','items'];
 N.itemKind = k => N.ITEMK.find(x => x[0] === k) || N.ITEMK[N.ITEMK.length - 1];
 N.itemById = id => (N.G.items || []).find(x => x.id === id) || null;

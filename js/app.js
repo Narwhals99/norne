@@ -1059,8 +1059,27 @@ function send(v){
     move = hits[0];
     text = text.replace(/\{\{([^{}]+)\}\}/g, (x, w) => w.split(',')[0].trim());
   }
+  /* Jake: <<Elderly goblin>> in a Narrator line puts them in the scene as a one-off NPC (an NPC with a card joins the scene's
+     cast instead). The line reads without the marks; a several-word phrase that starts mid-sentence with one capital reads in
+     lower case ("an elderly goblin"), names like Gorm or Captain Vel, and NPCs with a card, keep theirs */
+  let meet = [];
+  if (gm && m.kind === 'rp' && m.as === 'Narrator' && /<<[^<>]+>>/.test(text)) {
+    if (!g.scenes[ch]) { toast(v, 'Set a scene in this chat first: << >> adds someone to the scene.'); render(v); return; }
+    meet = [...new Set([...text.matchAll(/<<([^<>]+)>>/g)].map(x => x[1].trim().replace(/\s+/g, ' ').slice(0, 60)).filter(Boolean))];
+    text = text.replace(/<<([^<>]+)>>/g, (x, w, at, all) => { w = w.trim().replace(/\s+/g, ' ');
+      const start = !all.slice(0, at).trim() || /[.!?:"“]\s*$/.test(all.slice(0, at));
+      const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
+  }
   push(Object.assign(m, {ch, by:v.role, text}));
   if (move) sceneMove(v, ch, move);
+  if (meet.length) {
+    const added = [];
+    for (const name of meet) { const n = g.npcs.find(x => x.name.toLowerCase() === name.toLowerCase());
+      if (n) { const cast = g.casts[ch] = Array.isArray(g.casts[ch]) ? g.casts[ch] : []; if (!cast.includes(n.name)) { cast.push(n.name); added.push(n.name); } continue; }
+      const ex = g.extras[ch] = Array.isArray(g.extras[ch]) ? g.extras[ch] : [];
+      if (!ex.some(e => e.name.toLowerCase() === name.toLowerCase())) { ex.push({id:uid('o'), name, skills:{}}); added.push(name); } }
+    if (added.length) toast(v, `${added.join(', ')} ${added.length === 1 ? 'is' : 'are'} in the scene now.`);
+  }
   v.ui.draft = ''; v.ui.stick = true; v.ui.reply = null; N.typingMark(ch, v.role, false); N.typingMark(v.ui.ch, v.role, false);
   if (devCommand && v.ui.ch !== 'table') { v.ui.ch = 'table'; toast(v, 'Dev Note sent to Everyone.'); }
   renderAll();

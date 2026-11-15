@@ -841,7 +841,7 @@ function fmtGuide(chat){
     return `<div class="fg-r"><code>${esc(t)}</code><span class="fg-l">${chat ? l.replace(', chat only', '') : l}</span><span class="fg-x">${look}</span></div>`;
   }).join('');
   /* the GM's narrator can move the scene to a map place */
-  const move = chat && G().role === 'gm' ? `<div class="fg-r"><code>{{Little Eundir, Prince City}}</code><span class="fg-l">Narrator only: moves the scene's map location there. Add the city after a comma when two places share a name.</span><span class="fg-x">Little Eundir</span></div>` : '';
+  const move = chat && G().role === 'gm' ? `<div class="fg-r"><code>{{Little Eundir, Prince City}}</code><span class="fg-l">Narrator only: moves the scene's map location there. Add the city after a comma when two places share a name.</span><span class="fg-x">Little Eundir</span></div><div class="fg-r"><code>You see an &lt;&lt;Elderly goblin&gt;&gt;</code><span class="fg-l">Narrator only: adds them to the scene as a one-off NPC (or their NPC card, if they have one).</span><span class="fg-x">You see an elderly goblin</span></div>` : '';
   return `<div class="fguide"><p>Type the marks around your words. ${chat ? 'Works in every chat.' : 'Works in wiki entries, the news and character cards.'}</p>${rows}${move}</div>`;
 }
 function popHtml(v){
