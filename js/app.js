@@ -17,7 +17,7 @@ N.voiceFixable = m => ['rp','ooc','meta'].includes(m.kind) && typeof m.text === 
 /* the voice as one value: 'meta', or for the GM's lines who spoke (Narrator or an NPC), or for a player's 'char' */
 N.msgVoice = m => m.kind !== 'rp' ? 'meta' : m.by === 'gm' ? (m.as || 'Narrator') : 'char';
 N.charVoiceName = seat => { const c = N.charOf(seat); return c && c.built ? c.short : G().P[seat]?.name || 'Your character'; };
-N.msgWho = m => m.kind === 'roll' ? m.roll.who : m.kind === 'rp' && !N.metaRp(m) ? N.speakerObj(m).name : N.msgPerson(m).name;
+N.msgWho = m => m.kind === 'roll' ? (m.by !== 'gm' && N.metaOnly(m.ch) ? N.metaName(m.by) : m.roll.who) : m.kind === 'rp' && !N.metaRp(m) ? N.speakerObj(m).name : N.msgPerson(m).name;
 /* messages anyone can react to or reply to: not scene changes, fight cards or small grey lines */
 /* a pasted GIF link: any https picture address */
 N.gifLinkOk = u => /^https:\/\/\S+$/i.test(String(u || '').trim());
@@ -353,7 +353,7 @@ function markSeen(v){
   const g = G(), seen = g.seen[v.role];
   if (!seen || !chatVisible(v)) return;
   let t = 0; for (const m of g.msgs) if (m.ch === v.ui.ch && m.t > t) t = m.t;
-  if (t > (seen[v.ui.ch] || 0)) seen[v.ui.ch] = t;
+  if (t > (seen[v.ui.ch] || 0)) { seen[v.ui.ch] = t; N.clearNotes && N.clearNotes([v.ui.ch]); }
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAll(); });
 /* a page the browser brings back from its back/forward memory counts as a fresh load: talk starts out of character again */
@@ -2523,11 +2523,12 @@ function act(v, a, el, e){
   case 'sdApply': { const s = ui.sd; sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects, loc:s.loc, share:s.share}, s.post); ui.sheet = null; renderAll(); return; }
   /* ending a scene takes its banner down and lets its one-off NPCs and NPC list go (Undo brings them back) */
   case 'sdEnd': { const ch = val || ui.sd?.ch; if (!ch || !g.scenes[ch]) { ui.sheet = null; break; }
+    const undoStress = clearStress(ch);
     const cast = g.casts[ch], once = g.extras[ch]; delete g.casts[ch]; delete g.extras[ch];
     const title = g.scenes[ch].title, m = push({ch, kind:'scene', by:'gm', scene:null, quiet:true});
     /* Jake: the log shows where a scene ended, like it shows where one started */
     const note = push({ch, kind:'sys', by:'gm', text:title ? `Scene ended: ${title}.` : 'Scene ended.', sceneEnd:true, sceneTitle:title || ''}); ui.sheet = null;
-    toast(v, 'Scene ended.', () => { N.delMsg(note.id); N.delMsg(m.id); if (cast) g.casts[ch] = cast; if (once) g.extras[ch] = once; N.renderAll(); }); renderAll(); return; }
+    toast(v, 'Scene ended. Stress boxes cleared.', () => { N.delMsg(note.id); N.delMsg(m.id); if (cast) g.casts[ch] = cast; if (once) g.extras[ch] = once; undoStress(); N.renderAll(); }); renderAll(); return; }
   /* fight */
   case 'cbBegin': if (N.metaOnly(val || ui.ch)) { toast(v, `No ${d.k ? d.k + 's' : 'fights'} in ${ (val || ui.ch) === 'table' ? 'Everyone' : N.chName(val || ui.ch, 'gm')}, it’s Meta only. Open a chat that isn’t Meta only to begin one.`); break; } N.cbBegin(val || ui.ch, d.k); close(); ui.tab = 'chat'; ui.ch = N.fightCh(); ui.fightOpen = true; ui.fightPane = 'fight'; ui.cbTool = 'zone'; ui.tokSel = null; renderAll(); return;
   case 'openFight': close(); ui.tab = 'chat'; ui.ch = val || N.fightCh(); focusFight(v); ui.fightOpen = true; ui.fightPane = 'fight'; break;
@@ -2665,10 +2666,17 @@ function act(v, a, el, e){
     const [x] = s.items.splice(at, 1); toast(v, `${x.name} taken off the shelf.`, () => { s.items.splice(at, 0, x); renderAll(); }); renderAll(); return; }
   case 'shopKind': ui.shopK = val || ''; break;
   case 'storeKind': ui.storeK = val || ''; break;
+  /* saved storefronts: start from one used here before (or a traveling merchant), mark this one as traveling, forget one */
+  case 'shopUse': { const s = gm && N.shopOf(d.c), x = (g.shopLib || []).find(y => y.id === val); if (!s || !x || s.state === 'open') break;
+    Object.assign(s, {name:x.name, items:JSON.parse(JSON.stringify(x.items || [])), npcs:JSON.parse(JSON.stringify(x.npcs || [])), travel:!!x.travel, lib:x.id});
+    toast(v, `${x.name} is set up again. Change anything before you open it.`); renderAll(); return; }
+  case 'shopTravel': { const s = gm && N.shopOf(d.c); if (!s) break; s.travel = !s.travel; renderAll(); return; }
+  case 'shopForget': { const L = g.shopLib || [], at = L.findIndex(y => y.id === val); if (!gm || at < 0) break;
+    const [x] = L.splice(at, 1); toast(v, `${x.name} won’t be offered again.`, () => { L.splice(at, 0, x); renderAll(); }); renderAll(); return; }
   case 'shopGo': { const s = gm && N.shopOf(d.c); if (!s) break; s.name = (s.name || '').trim();
     if (!s.name) { toast(v, 'Give the store a name first.'); break; }
     if (!s.items.length) { toast(v, 'Put at least one item up for sale first.'); break; }
-    s.state = 'open'; s.t = N.now();
+    s.state = 'open'; s.t = N.now(); shopKeep(s);
     push({ch:s.ch, kind:'sys', by:'gm', text:`${s.name} is open for shopping.`, shop:'open', shopName:s.name, shopId:s.id});
     ui.sheet = null; toast(v, s.ch === 'gm' ? `${s.name} is open in GM notes. Only you see it.` : `${s.name} is open. ${s.ch.startsWith('dm-') ? N.chName(s.ch, 'gm') + ' sees' : 'Everyone in ' + N.chName(s.ch, 'gm') + ' sees'} it now.`); renderAll(); return; }
   /* Jake: a player asks to buy an item; nothing is paid until the GM confirms the request in the chat */
@@ -2947,6 +2955,22 @@ function copyKit(from, to){
   return {done, kept};
 }
 N.copyKit = copyKit;
+/* Jake: starting a new scene or ending one clears the stress boxes of everyone in it (the chat's player characters and
+   the scene's NPC cards); editing a scene leaves them. Returns an undo */
+function clearStress(ch){
+  const f = N.sceneFolk(ch), was = [];
+  for (const o of [...f.pcs, ...f.npcs]) { if (!o.stress) continue; was.push([o, JSON.parse(JSON.stringify(o.stress))]);
+    o.stress = {phys:(o.stress.phys || []).map(() => false), ment:(o.stress.ment || []).map(() => false)}; }
+  return () => was.forEach(([o, st]) => { o.stress = st; });
+}
+/* a store being opened goes into the saved storefronts (the same entry again when it started from one) */
+function shopKeep(s){
+  const g = G(), L = g.shopLib || (g.shopLib = []), here = N.shopHere(s.ch);
+  const x = {id:s.lib || uid('sl'), name:s.name, items:JSON.parse(JSON.stringify(s.items)), npcs:JSON.parse(JSON.stringify(s.npcs || [])), travel:!!s.travel, loc:here ? here.k : '', locL:here ? here.l : '', t:N.now()};
+  const old = L.find(y => y.id === x.id) || (!s.lib && L.find(y => y.name.toLowerCase() === x.name.toLowerCase() && (y.travel || y.loc === x.loc)));
+  if (old) { if (!here && old.loc) { x.loc = old.loc; x.locL = old.locL; } x.id = old.id; Object.assign(old, x); } else L.push(x);
+  s.lib = x.id;
+}
 function setScene(v, ch, s, post){
   const g = G();
   /* a location the players aren't told stays in the GM's own data, so it never reaches their devices */
@@ -2955,8 +2979,9 @@ function setScene(v, ch, s, post){
   const m = push({ch, kind:'scene', by:'gm', scene:sc, quiet:!post});
   if (loc && !share) g.hlocs[m.id] = loc;
   sceneRecent(sc);
+  const undoStress = clearStress(ch);
   const who = ch === 'table' ? 'everyone' : (g.P[ch.slice(3)]?.name || 'them');
-  toast(v, `Scene set for ${who}: ${sc.title}`, () => N.delMsg(m.id));
+  toast(v, `Scene set for ${who}: ${sc.title}. Stress boxes cleared.`, () => { N.delMsg(m.id); undoStress(); N.renderAll(); });
 }
 /* Level Up (Jake's follow-up): when a player sends their level up, the GM's device posts a summary in GM notes
    (players can't write there). lvl.noted marks it done, so it's posted once even if the GM was away */

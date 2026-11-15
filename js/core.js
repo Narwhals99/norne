@@ -705,6 +705,8 @@ N.metaPerson = by => {
 };
 /* who wrote a message, as that chat shows them. Older Everyone messages said in character still show as the person */
 N.msgPerson = m => N.metaOnly(m.ch) ? N.metaPerson(m.by) : N.personObj(m.by);
+/* Everyone (Jake): an old roll there shows the player's own name, never their character's */
+N.metaRoll = m => m && m.kind === 'roll' && m.by !== 'gm' && N.metaOnly(m.ch) && m.roll.who !== N.metaName(m.by) ? {...m, roll:{...m.roll, who:N.metaName(m.by)}} : m;
 N.metaRp = m => m.kind === 'rp' && m.by !== 'gm' && N.metaOnly(m.ch);
 N.metaPic = role => role === 'gm' ? N.G.gmPic || null : N.charOf(role)?.mpic || null;
 
@@ -724,8 +726,8 @@ N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target
    The ratings match the ones on a card (N.GEARK); giving the item can set them on the card too. */
 /* item kinds, in the order the catalog lists them. Ids are kept forever (old items keep theirs): potion was "Potions and food" */
 N.ITEMK = [['weapon','Weapons','sword'],['armor','Armor','shieldU'],['clothing','Clothing','boots'],['magic','Magical','magic'],['potion','Potions','potion'],
-  ['ingredient','Potion ingredients','sparkle'],['craft','Crafting ingredients','gear'],['food','Food & drink','drink'],['book','Books','spellbook'],['trinket','Trinkets','coins'],['illicit','Illicit goods','mask'],['gear','Gear and tools','bag'],['other','Other','items']];
-N.ITEM_IC = ['bag','sword','target','arrowR','shieldU','helm','boots','knuckles','magic','sparkle','spellbook','potion','drink','scroll','coins','skull','gear','mask','items'];
+  ['ingredient','Potion ingredients','forage'],['craft','Crafting ingredients','gear'],['food','Food & drink','drink'],['book','Books','spellbook'],['trinket','Trinkets','coins'],['illicit','Illicit goods','mask'],['gear','Gear and tools','bag'],['other','Other','items']];
+N.ITEM_IC = ['bag','sword','target','arrowR','shieldU','helm','boots','knuckles','magic','sparkle','spellbook','potion','drink','scroll','coins','skull','gear','mask','forage','items'];
 /* Jake: words that keep their capital in a <<Name>> narrator line: races, nations, places on the maps, wiki titles, NPC and
    character names, and any word the wiki writes with a capital in the middle of a sentence (Daroese, Altarian...). Built
    from the game's own data, cached until the wiki or maps change */
@@ -920,6 +922,11 @@ N.itemSync = (it, oldName) => {
    so only the players of that chat receive it. A store being set up never leaves the GM's device.
    A shop item is a copy of the catalog item's player-safe parts (never the GM's notes) plus its price in gold:
    {k, it:catalog id, name, kind, ic, d, path, gears:[[rating key, value]], silver, price} */
+/* Jake: saved storefronts, like newspapers. Every store the GM opens is kept in g.shopLib (gm/shops, unit _lib) with the
+   place of the scene it opened in (the most exact level: neighborhood, else city, else country). A store set up where one
+   was before can start from it. A Traveling merchant (travel:true) is offered everywhere */
+N.shopHere = ch => { const loc = N.myLoc('gm', ch); if (!loc) return null; const o = loc.n || loc.t || loc.c; return o ? {k:N.locKey(o), l:N.locText(loc)} : null; };
+N.shopLibFor = ch => { const here = N.shopHere(ch); return (N.G.shopLib || []).filter(x => x.travel || (here && x.loc === here.k)).sort((a, b) => (b.travel ? 0 : 1) - (a.travel ? 0 : 1) || (b.t || 0) - (a.t || 0)); };
 N.shopOf = ch => (N.G.shops || {})[ch] || null;
 N.shopOpen = ch => { const s = N.shopOf(ch); return s && s.state === 'open' ? s : null; };
 N.shopOk = ch => ch === 'gm' || (!!N.chKey(ch) && !N.metaOnly(ch));

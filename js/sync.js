@@ -534,7 +534,7 @@ function syncNow(){
       if (!LOADED.has('gm/items')) { const was = KNOWN.get('only/' + st)?.units.iv; if (was) only[st].iv = JSON.parse(was); continue; }
       const iv = {}; for (const it of g.items || []) { const l = N.itemPvFor(it, st); if (l.length) iv[N.pvKey(it.name)] = l; }
       if (Object.keys(iv).length) only[st].iv = iv; }
-    writeUnits('gm/shops', {...(g.shops || {})});
+    writeUnits('gm/shops', {...(g.shops || {}), _lib:g.shopLib || []});
     writeUnits('gm/crafts', {...(g.crafts || {})});
     writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, wl:g.wlinks || {}, hlocs:g.hlocs || {}, rnotes:g.rnotes || {}, npcdirs:g.npcDirs || []});
     /* a roll's GM note goes to the players the GM picked for it: just the words, keyed by the roll's message */
@@ -771,7 +771,21 @@ function mergeLocal(d){
   for (const id of d?.n || []) if (!n.includes(id)) { n.push(id); more = true; }
   return more;
 }
-function saveLocal(){ const g = G(); try { mergeLocal(JSON.parse(localStorage.getItem(LKEY()) || '{}')); localStorage.setItem(LKEY(), JSON.stringify({t:g.seen[g.role] || {}, n:g.news.seen[g.role] || []})); } catch(e) {} }
+function saveLocal(quiet){ const g = G(); try { mergeLocal(JSON.parse(localStorage.getItem(LKEY()) || '{}')); localStorage.setItem(LKEY(), JSON.stringify({t:g.seen[g.role] || {}, n:g.news.seen[g.role] || []})); } catch(e) {} if (!quiet) saveSeen(); }
+/* Jake: read marks follow the person across devices. seen/<uid> holds {<key>: {t, n}}, one key per character
+   (same split as LKEY). Each device merges in the newest marks and writes its own a moment after they change */
+const SKEY = () => (ME.seats?.length > 1 && isSeat(G().role) ? G().role : 'me');
+let SEEN_OFF = null, SEEN_T = 0, SEEN_SENT = '';
+function listenSeen(){
+  if (SEEN_OFF || !ME?.uid || N.TEST) return;
+  try { SEEN_OFF = F.onSnapshot(dref('seen/' + ME.uid), snap => { const d = snap.exists() ? snap.data()[SKEY()] : null; if (d && mergeLocal(d)) { saveLocal(true); N.renderAll(); N.clearNotes && N.clearNotes(Object.keys(d.t || {}).filter(c => !N.unread(G().role, c))); } }, e => console.warn('seen', e?.code)); } catch(e) {}
+}
+function saveSeen(){
+  if (!ME?.uid || !F || N.TEST || !started) return;
+  const g = G(), d = {t:g.seen[g.role] || {}, n:(g.news.seen[g.role] || []).slice(-300)}, j = JSON.stringify(d);
+  if (j === SEEN_SENT) return;
+  clearTimeout(SEEN_T); SEEN_T = setTimeout(() => { SEEN_SENT = j; F.setDoc(dref('seen/' + ME.uid), {[SKEY()]:d}, {merge:true}).catch(e => console.warn('seen', e?.code)); }, 2500);
+}
 addEventListener('storage', e => { if (!started || !ME || e.key !== LKEY()) return; try { if (mergeLocal(JSON.parse(e.newValue || '{}'))) N.renderAll(); } catch(err) {} });
 
 /* ---------- start-up ---------- */
@@ -849,7 +863,7 @@ async function start(role){
   started = true;
   const g = G(); g.role = role; V.role = role; V.ui = N.newUi(role); g.me = ME;
   if (isSeat(role)) keepTabSeat(role);
-  loadLocal();
+  loadLocal(); listenSeen();
   const docs = isGM()
     ? ['game/chars','game/combat','gm/combat','gm/maps','gm/wiki','gm/npcs','gm/misc','gm/items','gm/shops','gm/crafts','game/news','gm/news','game/maps','game/wiki','game/meta','game/emoji']
     : ['game/chars','game/combat','game/maps','game/wiki','game/news','game/meta','game/emoji'];
@@ -862,7 +876,7 @@ async function start(role){
     'gm/wiki': u => { g.wiki = vals(u).sort(byO); },
     'gm/npcs': u => { g.npcs = vals(u).map(normNpc).sort((a,b) => a.name.localeCompare(b.name)); },
     'gm/crafts': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.crafts = o; },
-    'gm/shops': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.shops = o; },
+    'gm/shops': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { if (ch === '_lib') continue; const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.shops = o; g.shopLib = u._lib ? JSON.parse(u._lib) : []; },
     'gm/items': u => { g.items = vals(u).map(({o, ...x}) => N.ammoFix(x)).sort((a,b) => a.name.localeCompare(b.name)); },
     'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.wlinks = u.wl ? JSON.parse(u.wl) : {}; g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.rnotes = u.rnotes ? JSON.parse(u.rnotes) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; },
     'game/news': u => { PUB.news = u; mergeView(); },

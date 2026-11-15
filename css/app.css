@@ -3083,3 +3083,17 @@
 .app .defpick.deflow{padding-top:2px}
 /* Level Up count on the Character (player) / Cast (GM) tab */
 .app .tabbar .tbn{position:absolute;top:0;right:calc(50% - 26px);min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--ember);color:#fff;display:grid;place-items:center;font:800 10.5px/1 var(--f-ui);box-shadow:0 0 0 2px var(--page-solid)}
+/* saved storefronts (Jake) */
+.app .shop-libs{display:grid;gap:6px}
+.app .shop-libr{display:flex;align-items:stretch;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .shop-libr.on{box-shadow:inset 0 0 0 2px var(--gold-tx)}
+.app .shop-libb{flex:1;min-width:0;display:flex;gap:10px;align-items:center;padding:9px 12px;text-align:left}
+.app .shop-libb svg{width:22px;height:22px;color:var(--gold-tx);flex:none}
+.app .shop-libb b{display:block;font:700 13.5px/1.25 var(--f-ui);color:var(--ink)}
+.app .shop-libb small{font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .shop-libx{flex:none;width:40px;display:grid;place-items:center;color:var(--ink-3)}
+.app .shop-libx svg{width:16px;height:16px}
+.app .shop-travel{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line);cursor:pointer}
+.app .shop-travel input{width:20px;height:20px;margin:1px 0 0;accent-color:var(--gold, #c9a14a);flex:none}
+.app .shop-travel b{display:block;font:700 13.5px/1.25 var(--f-ui);color:var(--ink)}
+.app .shop-travel small{font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
