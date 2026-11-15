@@ -118,7 +118,7 @@ function chanLast(v, c){
     const m = ms[i];
     if (m.ch !== c || m.fc || (m.kind === 'scene' && (m.quiet || !m.scene))) continue;
     if (m.kind === 'scene') return 'New scene: ' + m.scene.title;
-    if (m.kind === 'roll') return `${m.roll.who} rolled`;
+    if (m.kind === 'roll') return `${m.by !== 'gm' && N.metaOnly(m.ch) ? N.metaName(m.by) : m.roll.who} rolled`;
     if (m.kind === 'fight' || m.kind === 'combat') return 'A fight';
     if (m.kind === 'pic') return `${isMe(v, m) ? 'You' : metaObj(m).name} sent a picture`;
     if (m.kind === 'news') return 'New edition of the paper';
@@ -465,7 +465,7 @@ function rxPill(v, m){
   seen.set(m.id, sig);
   if (!order.length) return '';
   const n = order.reduce((s, e) => s + by[e].length, 0), me = order.some(e => by[e].includes(v.role));
-  const who = order.map(e => `${e} ${by[e].map(x => N.personObj(x).name).join(', ')}`).join(' · ');
+  const who = order.map(e => `${e} ${by[e].map(x => N.metaOnly(m.ch) ? N.metaName(x) : N.personObj(x).name).join(', ')}`).join(' · ');
   return `<button type="button" class="rxp${me ? ' me' : ''}${fresh ? ' rxnew' : ''}" data-a="msgMenu" data-v="${m.id}" title="${esc(who)}" aria-label="Reactions: ${esc(who)}">${order.slice(0, 3).map(e => `<span>${N.emj(e)}</span>`).join('')}${n > 1 ? `<b>${n}</b>` : ''}</button>`;
 }
 function rMsg(v, m, prev, firstNarr){
@@ -506,6 +506,7 @@ function rMsg(v, m, prev, firstNarr){
   if (m.kind === 'note') return `<div class="m mine gmv"><div class="body"><div class="who" style="--who:var(--ink-3)">${IC('lock').replace('<svg','<svg style="width:12px;height:12px"')}Note to self ${time}</div><div class="bub" style="background:var(--raise);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line-2)">${txt}</div></div></div>`;
   if (m.kind === 'fight' || m.kind === 'combat') return fightCard(v, m);
   if (m.kind === 'news') return `<div class="fightcard" style="box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 45%,transparent),0 18px 40px -18px rgba(0,0,0,.9)"><div class="in" style="padding-top:18px;grid-template-columns:auto 1fr;align-items:center"><div class="herald" style="all:unset;display:contents"><span class="np" style="width:54px;height:66px;border-radius:4px;background:#efe6cc;rotate:-4deg;display:grid;place-items:center;font:400 12px/1 var(--f-mast);color:#2a2418;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)">News</span></div><div style="display:grid;gap:6px"><span class="eyebrow" style="color:var(--gold-tx)">${IC('newsL')}New edition</span><h3 style="font-size:18px">${esc(m.text)}</h3><div class="row"><button type="button" class="btn sm gold" data-a="readNews" data-id="${esc(m.nid||'')}">Read it</button></div></div></div></div>`;
+  m = N.metaRoll(m);
   if (m.kind === 'roll' && v.dev === 'phone') { const rn = rnoteRow(v, m); return rn ? `<div class="rlwrap">${rollLine(v, m)}<div class="rlnote">${rn}</div></div>` : rollLine(v, m); }
   if (m.kind === 'roll') {
     const pc = (m.roll.whoKey || '').startsWith('pc:') && g.chars[m.roll.whoKey.slice(3)];

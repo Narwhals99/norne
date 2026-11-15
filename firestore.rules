@@ -170,6 +170,11 @@ service cloud.firestore {
       allow create: if inChat(ch) && request.resource.data.keys().hasOnly(ownKeys());
       allow update: if inChat(ch) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ownKeys());
     }
+    // What each person has read (chat by chat, and news issues), so a chat read on the phone stops showing as unread
+    // on the computer too. seen/<uid> belongs to that signed-in person alone.
+    match /seen/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
 
     // Map images kept out of the public site. Players can load one only once the GM shares that map,
     // with everyone (vis) or with their seat (aud).

@@ -238,6 +238,7 @@ function recentHtml(v, mode){
 /* one action as it shows in the side panel or a fight's record: rolls and results as cards, fight chat as small bubbles, the rest as lines */
 /* near: roleplay's Recent actions, where tapping a roll or a note takes the chat to what was said around then (nearMsg) */
 function actRows(v, ms, past, near){
+  ms = ms.map(N.metaRoll);
   const g = G(), cb = g.combat, keep = v._lastRoll; v._lastRoll = past ? null : (ms.findLast(m => m.kind === 'roll') || {}).id;
   const live = m => (m.kind === 'fight' || m.kind === 'combat') && cb.state !== 'off' && m.cid === cb.id;
   const go = m => near ? ` data-a="nearMsg" data-v="${m.id}" title="Show this moment in the chat"` : '';

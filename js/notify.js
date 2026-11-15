@@ -125,7 +125,7 @@ N.toggleNotify = v => {
 /* what a new message says in a notification: short, with the name of whoever sent it */
 function line(m){
   const who = N.msgPerson(m).name;
-  if (m.kind === 'roll') { const r = m.roll || {}; return `${r.who || who} rolled ${N.sgn(N.rollTotal(r))}${r.skill ? ' on ' + r.skill : ''}`; }
+  if (m.kind === 'roll') { const r = m.roll || {}; return `${(N.metaOnly(m.ch) && m.by !== 'gm' ? who : r.who) || who} rolled ${N.sgn(N.rollTotal(r))}${r.skill ? ' on ' + r.skill : ''}`; }
   if (m.kind === 'news') { const i = G().news?.issues?.find(i => i.id === m.nid) || {}; return `${i.paper || 'The paper'}${i.no ? ' issue #' + i.no : ''} has been delivered!`; }
   if (m.kind === 'combat') return `${who} just started a combat!`;
   if (m.kind === 'scene') return m.scene?.title ? `New scene: ${m.scene.title}` : '';
@@ -176,3 +176,11 @@ function send(list){
     .catch(e => console.warn('push', e));
 }
 })();
+
+/* Jake: a chat read here, or on another device (its read marks arrive through seen/<uid>), takes its notifications
+   off this device's notification list too */
+N.clearNotes = chs => {
+  if (!('serviceWorker' in navigator) || !chs.length) return;
+  navigator.serviceWorker.getRegistration().then(r => r && r.getNotifications ? r.getNotifications() : [])
+    .then(ns => ns.forEach(n => { if (chs.includes(n.data?.ch)) n.close(); })).catch(() => {});
+};
