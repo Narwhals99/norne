@@ -653,6 +653,18 @@ N.sceneFolk = ch => {
   const g = N.G, up = !!g.scenes[ch], cast = up ? N.castOf(ch) || [] : [];
   return {pcs:N.chPcs(ch), npcs:g.npcs.filter(n => cast.includes(n.name)), once:up ? N.extrasOf(ch) : []};
 };
+/* Jake's sidekicks: an NPC card with side:true and lead 'pc:<id>' or 'npc:<id>' joins every scene its leader is in.
+   withSidekicks(ch, cast, from): the cast plus the sidekicks of its NPCs (only those named in from, when given) and, with ch,
+   of that chat's player characters. Sidekicks of sidekicks come along too. Returns a new list of NPC names */
+N.sidekicksOf = key => N.G.npcs.filter(n => n.side && n.lead === key && n.name.trim());
+N.leadName = key => { const [k, id] = String(key || '').split(':'); const o = k === 'pc' ? N.G.chars[id] : k === 'npc' ? N.G.npcs.find(n => n.id === id) : null; return o ? (k === 'pc' ? o.short || o.name : o.name) : ''; };
+N.withSidekicks = (ch, cast, from) => {
+  const out = [...(cast || [])], todo = from ? [...from] : [...out];
+  const add = n => { if (!out.includes(n.name)) { out.push(n.name); todo.push(n.name); } };
+  if (ch) N.chPcs(ch).forEach(c => N.sidekicksOf('pc:' + c.id).forEach(add));
+  while (todo.length) { const nm = todo.shift(), n = N.G.npcs.find(x => x.name === nm); if (n) N.sidekicksOf('npc:' + n.id).forEach(add); }
+  return out;
+};
 N.voices = () => { const names = N.G.npcs.map(n => n.name.trim()).filter(Boolean); return [...new Set([...names, ...N.G.quick.filter(Boolean)])]; };
 N.npcSub = n => n ? [n.race, n.job].filter(Boolean).join(' · ') : 'Quick voice';
 
