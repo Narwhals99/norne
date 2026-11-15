@@ -1224,8 +1224,11 @@ N.charStats = function(c){
      counted, so the history keeps counting and the correction stays. Place and NPC totals use their own keys */
   st.adj = Object.assign({}, c.sadj || {}); st.raw = {};
   for (const [k, d] of Object.entries(st.adj)) if (typeof st[k] === 'number') { st.raw[k] = st[k]; st[k] = Math.max(0, st[k] + (+d || 0)); }
-  const sz = (k, n) => { st.raw[k] = n; return Math.max(0, n + (+st.adj[k] || 0)); };
-  st.nC = sz('nC', st.places.c.size); st.nT = sz('nT', st.places.t.size); st.nN = sz('nN', st.places.n.size); st.nNpc = sz('nNpc', st.npcs.size);
+  /* Jake: the GM adds or removes places and NPCs by name, and changes their counts: sadj.pc / pt / pn (countries, cities,
+     neighborhoods) and sadj.np (NPCs who spoke) hold {name: +/-n}; a place or NPC whose count reaches 0 drops off the list */
+  const byName = (map, d) => { for (const [n, x] of Object.entries(d || {})) { const t = (map.get(n) || 0) + (+x || 0); if (t > 0) map.set(n, t); else map.delete(n); } };
+  byName(st.places.c, st.adj.pc); byName(st.places.t, st.adj.pt); byName(st.places.n, st.adj.pn); byName(st.npcs, st.adj.np);
+  st.nC = st.places.c.size; st.nT = st.places.t.size; st.nN = st.places.n.size; st.nNpc = st.npcs.size;
   return st;
 };
 function heroStats(v, c, mine){
@@ -1235,7 +1238,12 @@ function heroStats(v, c, mine){
   const fix = (k, n) => !ed || !k ? `<b>${n}</b>` : `<span class="sfix"><button type="button" class="ibtn sm" data-a="sadj" data-c="${c.id}" data-k="${k}" data-d="-1" data-n="${n}" aria-label="One less"${n <= 0 ? ' disabled' : ''}>${IC('minus')}</button><b>${n}</b><button type="button" class="ibtn sm" data-a="sadj" data-c="${c.id}" data-k="${k}" data-d="1" aria-label="One more">${IC('plus')}</button>${s.adj[k] ? `<small class="sgm">GM ${s.adj[k] > 0 ? '+' : '−'}${Math.abs(s.adj[k])}</small>` : ''}</span>`;
   const tile = (n, l, ic, tone='', k) => `<div class="stile${tone ? ' ' + tone : ''}${ed && k ? ' ed' : ''}">${IC(ic)}${fix(k, n)}<span>${l}</span></div>`;
   const row = (l, n, sub='', k) => `<div class="srow${ed && k ? ' ed' : ''}"><span>${l}${sub ? `<small>${sub}</small>` : ''}</span>${fix(k, n)}</div>`;
-  const fixed = Object.values(s.adj).some(x => +x);
+  const fixed = Object.values(s.adj).some(x => x && typeof x === 'object' ? Object.values(x).some(y => +y) : +x);
+  /* GM fixing mode for named lists (places, NPCs): each name gets − / + and a remove, and a box to add one the app missed */
+  const nfix = (k, n, x) => `<span class="sfix"><button type="button" class="ibtn sm" data-a="sadjN" data-c="${c.id}" data-k="${k}" data-v="${esc(n)}" data-d="-1" aria-label="One less">${IC('minus')}</button><b>${x}</b><button type="button" class="ibtn sm" data-a="sadjN" data-c="${c.id}" data-k="${k}" data-v="${esc(n)}" data-d="1" aria-label="One more">${IC('plus')}</button><button type="button" class="ibtn sm sdel" data-a="sadjN" data-c="${c.id}" data-k="${k}" data-v="${esc(n)}" data-d="${-x}" aria-label="Remove ${esc(n)}" title="Remove">${IC('trash')}</button>${+(s.adj[k] || {})[n] ? `<small class="sgm">GM ${s.adj[k][n] > 0 ? '+' : '−'}${Math.abs(s.adj[k][n])}</small>` : ''}</span>`;
+  const nlist = (map, k, ic, what, list) => `<div class="snames">${[...map].sort((a, b) => b[1] - a[1]).map(([n, x]) => `<div class="srow ed sname">${k === 'np' ? N.av({name:n, portrait:N.npcByName(n)?.portrait || null, color:'var(--c-npc)'}, 26) : IC(ic)}<span>${esc(n)}</span>${nfix(k, n, x)}</div>`).join('')}
+    <div class="sadd"><input class="inp" id="sadd-${k}-${v.id}" placeholder="Add ${what}" autocomplete="off" aria-label="Add ${what}"${list ? ` list="${list}"` : ''}><button type="button" class="btn sm" data-a="sadjAdd" data-c="${c.id}" data-k="${k}">${IC('plus')}Add</button></div></div>`;
+  const npcList = ed ? `<datalist id="sadl-${v.id}">${G().npcs.map(n => `<option value="${esc(n.name)}">`).join('')}</datalist>` : '';
   const decided = s.succ + s.tie + s.fail;
   const bar = decided ? `<div class="sbar" role="img" aria-label="${s.succ} successes, ${s.tie} ties, ${s.fail} fails">${[['succ', s.succ], ['tie', s.tie], ['fail', s.fail]].filter(x => x[1]).map(([k, n]) => `<i class="${k}" style="flex:${n}"></i>`).join('')}</div>
     <div class="skey"><span><i class="succ"></i>Success ${s.succ}${s.style ? ` <small>(${s.style} with style)</small>` : ''}</span><span><i class="tie"></i>Tie ${s.tie}</span><span><i class="fail"></i>Fail ${s.fail}</span></div>` : '<p class="muted">No rolls against a difficulty yet.</p>';
@@ -1263,14 +1271,14 @@ function heroStats(v, c, mine){
         ${row('Times hit', s.hitBy, s.cons ? `${s.cons} consequence${s.cons === 1 ? '' : 's'} taken` : '', 'hitBy')}${ed ? row('Consequences taken', s.cons, '', 'cons') : ''}
         ${row('Times taken out', s.out, '', 'out')}</section>
       <section class="sec"><h3>Travels</h3>
-        ${row('Scenes played', s.scenes, '', 'scenes')}${ed ? row('Countries', s.nC, '', 'nC') + row('Cities and towns', s.nT, '', 'nT') + row('Neighborhoods', s.nN, '', 'nN') : ''}
-        <div class="ssub"><span class="eyebrow">Countries · ${s.nC}</span>${chips(s.places.c, 'flag')}</div>
-        <div class="ssub"><span class="eyebrow">Cities and towns · ${s.nT}</span>${chips(s.places.t, 'castle')}</div>
-        ${s.places.n.size || s.nN ? `<div class="ssub"><span class="eyebrow">Neighborhoods · ${s.nN}</span>${chips(s.places.n, 'pin')}</div>` : ''}</section>
+        ${row('Scenes played', s.scenes, '', 'scenes')}
+        <div class="ssub"><span class="eyebrow">Countries · ${s.nC}</span>${ed ? nlist(s.places.c, 'pc', 'flag', 'a country') : chips(s.places.c, 'flag')}</div>
+        <div class="ssub"><span class="eyebrow">Cities and towns · ${s.nT}</span>${ed ? nlist(s.places.t, 'pt', 'castle', 'a city or town') : chips(s.places.t, 'castle')}</div>
+        ${s.places.n.size || ed ? `<div class="ssub"><span class="eyebrow">Neighborhoods · ${s.nN}</span>${ed ? nlist(s.places.n, 'pn', 'pin', 'a neighborhood') : chips(s.places.n, 'pin')}</div>` : ''}</section>
       <section class="sec"><h3>People</h3>
-        ${row(own ? 'NPCs who spoke with you' : `NPCs who spoke with ${nm}`, s.nNpc, '', 'nNpc')}
+        ${row(own ? 'NPCs who spoke with you' : `NPCs who spoke with ${nm}`, s.nNpc)}
         ${row('Characters met', s.met, s.heard ? `${s.heard} more heard of` : '', 'met')}
-        ${npcs.length ? `<div class="snpcs">${npcs.slice(0, 6).map(([n, x]) => { const o = N.npcByName(n); return `<div class="snpc">${N.av({name:n, portrait:o?.portrait || null, color:'var(--c-npc)'}, 30)}<span>${esc(n)}</span><small>${x} line${x === 1 ? '' : 's'}</small></div>`; }).join('')}</div>` : ''}
+        ${ed ? `<div class="ssub"><span class="eyebrow">NPCs and lines</span>${nlist(s.npcs, 'np', 'npc', 'an NPC who spoke', 'sadl-' + v.id)}${npcList}</div>` : npcs.length ? `<div class="snpcs">${npcs.slice(0, 6).map(([n, x]) => { const o = N.npcByName(n); return `<div class="snpc">${N.av({name:n, portrait:o?.portrait || null, color:'var(--c-npc)'}, 30)}<span>${esc(n)}</span><small>${x} line${x === 1 ? '' : 's'}</small></div>`; }).join('')}</div>` : ''}
         ${row('Lines said in character', s.ic, '', 'ic')}</section>
       <p class="full muted sfoot">${IC('info')}Counted automatically from the chat history${fixed ? `, with a few numbers fixed by ${esc(N.gmName())}` : ''}. Wins and losses aren’t counted, because the app doesn’t record who won a fight.</p>
     </div></div>`;
