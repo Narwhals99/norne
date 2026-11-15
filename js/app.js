@@ -313,12 +313,35 @@ function render(v){
   if (v.ui.tab === 'map' || paneShows(v, 'map')) { root.querySelectorAll('.mapst').forEach(e => { e._k = null; }); applyMap(v); }
   if (v.ui.fresh) setTimeout(() => { v.ui.fresh = null; }, 900);
   if (N.onRender) N.onRender(v);
+  typingWatch();
   syncBack();
 }
 N.render = render;
 /* is this page open in one of the desktop side panels right now (deskPage notes them on every draw) */
 const paneShows = N.paneShows = (v, id) => (v.dev === 'desktop' ? v.ui.tab === 'chat' : N.sideOpen(v)) && !!v._panes?.includes(id);
 const renderAll = N.renderAll = () => views.forEach(render);
+/* ---------------- typing dots (Jack, 2026-11-15) ----------------
+   Typing marks this seat in the open chat; a backspace or delete takes the mark off at once, and typing again puts it back.
+   The dots in each chat are painted in place (no full redraw), and the chats on screen are the only ones listened to. */
+function typed(v, ev){
+  const ch = v.ui.ch; if (ch === 'gm' || (!isGM(v) && N.chPaused(ch))) return;
+  const del = /^delete/.test(ev?.inputType || ''), on = !del && !!v.ui.draft.trim();
+  const meta = v.ui.mode === 'ooc' || N.metaOnly(ch), c = N.charOf(v.role);
+  N.typingMark(ch, v.role, on, meta ? 'meta' : 'rp', meta ? '' : isGM(v) ? v.ui.voice || 'Narrator' : (c && c.built ? c.short : G().P[v.role]?.name || ''));
+}
+let _tyw = '';
+function typingWatch(){
+  if (!N.typingWatch) return;
+  const chs = [...new Set(views.filter(v => v.root.isConnected).map(v => v.ui.ch))], k = chs.join(',') + (document.hidden ? '|h' : '');
+  if (k === _tyw || N.typingWatch(chs) === false) return; _tyw = k;
+  N.typingStopAll(document.hidden ? [] : views.map(v => v.ui.ch + '|' + v.role));
+}
+N.typingPaint = () => views.forEach(v => {
+  const el = v.root.querySelector('#ty-' + v.id); if (!el) return;
+  const h = N.typingHtml(v); if (el._h === h) return; el._h = h;
+  el.innerHTML = h; el.classList.toggle('on', !!h);
+});
+document.addEventListener('visibilitychange', typingWatch);
 function grow(ta){ ta.style.height = 'auto'; if (ta.value) ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; }
 
 function chatVisible(v){
@@ -553,7 +576,8 @@ function bind(v){
     if (e.target.closest('[data-mapcv]') && v.ui.addPin) { addPinAt(v, e); return; }
     if (e.target.closest('[data-board]') && (v.ui.tokSel || v.ui.zoneSel)) { v.ui.tokSel = null; v.ui.zoneSel = null; render(v); }
   });
-  root.addEventListener('input', e => { const el = e.target; if (el.dataset.i) input(v, el); });
+  root.addEventListener('input', e => { const el = e.target; if (el.dataset.i) input(v, el, e); });
+  root.addEventListener('focusout', e => { if (e.target.dataset?.i === 'draft') N.typingMark(v.ui.ch, v.role, false); });
   root.addEventListener('focusin', e => { const el = e.target; if (el.id && el.matches('textarea, input.inp:not([type]), input.inp[type=text]') && el.dataset.i !== 'draft' && !el.closest('.pop')) v._fld = el.id; });
   root.addEventListener('change', e => { const el = e.target; if (el.dataset.i) change(v, el); });
   document.addEventListener('keydown', e => {
@@ -878,10 +902,10 @@ window.addEventListener('popstate', () => {
 });
 
 /* ---------------- inputs ---------------- */
-function input(v, el){
+function input(v, el, ev){
   const g = G(), i = el.dataset.i, k = el.dataset.k, val = el.value;
   switch (i) {
-    case 'draft': v.ui.draft = val; grow(el); return;
+    case 'draft': v.ui.draft = val; grow(el); typed(v, ev); return;
     case 'fcDraft': v.ui.fcDraft = val; return;
     case 'ndayY': if (v.ui.nday) { v.ui.nday.y = val.slice(0, 24); const p = v.root.querySelector(`#ndp-${v.id}`); if (p) p.innerHTML = N.nextDayPrev(v.ui.nday); } return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
@@ -1037,7 +1061,7 @@ function send(v){
   }
   push(Object.assign(m, {ch, by:v.role, text}));
   if (move) sceneMove(v, ch, move);
-  v.ui.draft = ''; v.ui.stick = true; v.ui.reply = null;
+  v.ui.draft = ''; v.ui.stick = true; v.ui.reply = null; N.typingMark(ch, v.role, false); N.typingMark(v.ui.ch, v.role, false);
   if (devCommand && v.ui.ch !== 'table') { v.ui.ch = 'table'; toast(v, 'Dev Note sent to Everyone.'); }
   renderAll();
   const ta = v.root.querySelector('.composer textarea'); if (ta) ta.focus({preventScroll:true});

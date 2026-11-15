@@ -662,6 +662,20 @@ function fightCard(v, m){
     <div class="row">${gm ? `<button type="button" class="btn gold" data-a="openFight">${IC(K.ic)}Open the ${K.w}</button>` : mine ? `<button type="button" class="btn gold" data-a="watch">${IC(K.ic)}Watch the ${K.w}</button>` : `<button type="button" class="btn" data-a="watch">Watch</button>`}</div>` : `<span class="muted" style="font-weight:600">This ${K.w} is over.</span>`}
   </div></div>`;
 }
+/* who is typing in the open chat: three dots per person in their own colour (their bubble's edge), then their names.
+   Not this tab's own seat. In Everyone and Meta they show as the person, in character as the voice they type in */
+function typingHtml(v){
+  const ch = v.ui.ch, T = (N.TYPING || {})[ch]; if (!T || ch === 'gm') return '';
+  const now = Date.now();
+  const all = Object.entries(T).filter(([s, e]) => s !== v.role && e.until > now && (s === 'gm' || G().P[s]));
+  const xs = all.slice(0, 3).map(([s, e]) =>
+    N.metaOnly(ch) ? N.metaPerson(s) : e.k === 'meta' ? N.personObj(s) : N.speakerObj({by:s, as:e.as}));
+  if (!xs.length) return '';
+  const n = xs.map(o => `<b>${esc(o.name)}</b>`), more = all.length > 3;
+  const words = more ? 'Several people are typing' : n.length === 1 ? `${n[0]} is typing` : n.length === 2 ? `${n[0]} and ${n[1]} are typing` : `${n[0]}, ${n[1]} and ${n[2]} are typing`;
+  return `<span class="tyset">${xs.map(o => `<span class="tydots" style="--ty:${o.color}" aria-hidden="true"><i></i><i></i><i></i></span>`).join('')}</span><span class="tyw">${words}</span>`;
+}
+N.typingHtml = typingHtml;
 function composer(v){
   const g = G(), gm = isGM(v), meta = N.metaOnly(v.ui.ch), ooc = v.ui.mode === 'ooc' || meta;
   let chip, ph;
@@ -681,6 +695,7 @@ function composer(v){
   const paused = N.chPaused(v.ui.ch), grp = paused && v.ui.ch.slice(4);
   if (paused && !gm) return `<div class="composer paused" role="status">${IC('lock')}<span><b>The GM paused this chat</b><small>You can read along. Sending opens again when they resume it.</small></span></div>`;
   return `${paused ? `<div class="pausebar" role="status">${IC('lock')}<span><b>Chat paused</b><small>Players can read but not send.</small></span><button type="button" class="btn sm gold" data-a="grpPause" data-v="${esc(grp)}">${IC('play')}Resume</button></div>` : ''}<form class="composer${ooc?' ooc':''}" data-f="send" onsubmit="return false">
+    ${(t => `<div class="typing${t ? ' on' : ''}" id="ty-${v.id}" role="status" aria-live="polite">${t}</div>`)(v.ui.ch === 'gm' ? '' : typingHtml(v))}
     ${re ? `<div class="replying">${IC('reply')}<span>Replying to <b>${esc(N.msgWho(re))}</b><small>${N.emoText(esc(N.plainText(N.msgSnip(re))))}</small></span><button type="button" class="ibtn sm" data-a="replyOff" aria-label="Stop replying">${IC('x')}</button></div>` : ''}
     <div class="box">
       ${gm && N.nlOn(v) ? `<button type="button" class="emob nlplus" data-a="sheet" data-v="actions" aria-label="Actions" title="Actions (Ctrl K)">${IC('plus')}</button>` : ''}
