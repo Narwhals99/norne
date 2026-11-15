@@ -192,6 +192,7 @@ function mergeChars(){
   if (isGM()) for (const s of N.seats()) { const id = g.P[s]?.char; if (id && !next[id] && prev[id]) next[id] = prev[id]; }
   g.chars = next;
   nameSeats(); keepSeatCard();
+  if (isGM() && N.lvlNotes) setTimeout(N.lvlNotes, 0);
 }
 /* a player's other characters can sit in a party this seat can't read, so this device remembers the name and face
    of each character it has played; the character picker shows them instead of "New character" */

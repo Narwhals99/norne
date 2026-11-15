@@ -58,6 +58,8 @@ N.appHtml = function(v){
   const otherUnread = N.channelsFor(v.role).some(c => !(v.ui.tab === 'chat' && v.ui.ch === c) && N.unread(v.role, c));
   const fightLive = Object.values(N.allFights()).some(f => f.state === 'live');
   const newsNew = gm ? 0 : N.newsUnseen(v.role).length;
+  /* Level Up (Jack): +1 on Character when a player has points to spend, and on Cast for the GM per level up waiting for approval */
+  const lvlN = gm ? N.pcs().filter(c => c.lvl && c.lvl.st === 'sent').length : (N.charOf(v.role)?.lvl?.st === 'open' ? 1 : 0), lvlTab = gm ? 'cast' : 'hero';
   const me = N.personObj(v.role);
 
   const shelfOn = v.ui.tab === 'chat' && !(nl && !ph);
@@ -65,14 +67,14 @@ N.appHtml = function(v){
     <div class="mark">${MARK}<b>N<small>ORNE</small></b></div>
     <div class="navl scroll">
       ${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? `<button type="button" class="ni shopen" data-a="shelfDt" title="Show the chat list" aria-label="Show the chat list">${IC('list')}<span>Chats</span></button>` : ''}
-      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${cur(id)?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&!nl&&otherUnread?'<span class="dot"></span>':''}${(id==='news'||(nl&&id==='world'))&&newsNew?`<span class="badge gold">${newsNew}</span>`:''}</span></button>
+      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${cur(id)?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&!nl&&otherUnread?'<span class="dot"></span>':''}${(id==='news'||(nl&&id==='world'))&&newsNew?`<span class="badge gold">${newsNew}</span>`:''}${id===lvlTab&&lvlN?`<span class="badge gold" title="Level up">${lvlN}</span>`:''}</span></button>
         ${id==='chat' && !shelfOn && (!gm || nl) ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
     </div>
     <div class="art" aria-hidden="true"></div>
     <button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>
   </nav>`;
 
-  const tabbar = `<nav class="tabbar" aria-label="Sections">${tabs.map(([id,l,ic]) => `<button type="button" data-a="tab" data-v="${id}" ${cur(id)?'aria-current="page"':''}><span class="ti">${IC(ic)}</span>${l}${id==='chat'&&fightLive?`<span class="fightdot">${IC('swords')}</span>`:id==='chat'&&otherUnread?'<span class="dot"></span>':''}${(id==='news'||(nl&&id==='world'))&&newsNew?'<span class="dot"></span>':''}</button>`).join('')}</nav>`;
+  const tabbar = `<nav class="tabbar" aria-label="Sections">${tabs.map(([id,l,ic]) => `<button type="button" data-a="tab" data-v="${id}" ${cur(id)?'aria-current="page"':''}><span class="ti">${IC(ic)}</span>${l}${id==='chat'&&fightLive?`<span class="fightdot">${IC('swords')}</span>`:id==='chat'&&otherUnread?'<span class="dot"></span>':''}${(id==='news'||(nl&&id==='world'))&&newsNew?'<span class="dot"></span>':''}${id===lvlTab&&lvlN?`<span class="tbn" aria-label="${lvlN} level up">${lvlN}</span>`:''}</button>`).join('')}</nav>`;
 
   let page = '';
   if (v.ui.tab === 'chat') page = chatPage(v);

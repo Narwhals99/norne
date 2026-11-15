@@ -321,7 +321,10 @@ const defBtn = (t, v) => { const [sk, x] = defSkill(t);
   if (!v || !isGM(v)) return main;
   const open = v.ui.defOther != null && String(v.ui.defOther) === String(t.id);
   const others = Object.entries(N.tokSkills(t)).filter(([k, n]) => k !== 'Athletics' && typeof n === 'number').sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const pick = open ? `<div class="defpick" role="group" aria-label="Defend with another skill">${others.length ? others.map(([k, n]) => `<button type="button" class="cchip" data-a="cbDefend" data-k="${esc(k)}" style="padding:0 11px">${esc(k)} ${sgn(n)}</button>`).join('') : '<span class="muted">No other skills on this card.</span>'}</div>` : '';
+  /* All others (Jake's follow-up): the skills at +0 or −1, so the GM can defend with any skill at all */
+  const skl = N.tokSkills(t), low = N.MUNDANE.filter(k => k !== 'Athletics' && !((+skl[k] || 0) >= 1)).map(k => [k, +skl[k] || 0]).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const chip = ([k, n]) => `<button type="button" class="cchip" data-a="cbDefend" data-k="${esc(k)}" style="padding:0 11px">${esc(k)} ${sgn(n)}</button>`;
+  const pick = open ? `<div class="defpick" role="group" aria-label="Defend with another skill">${others.filter(([, n]) => n >= 1).map(chip).join('')}<button type="button" class="cchip defall" data-a="defAll" aria-pressed="${!!v.ui.defAll}" style="padding:0 11px">All others</button>${v.ui.defAll ? `<div class="defpick deflow">${low.map(chip).join('')}</div>` : ''}</div>` : '';
   return `${main}<button type="button" class="btn" data-a="defOther" data-t="${t.id}" aria-expanded="${open}">Defend with other skill</button>${pick}`; };
 N.defBtn = defBtn;
 /* the token the GM has to defend or soak for right now (players never roll in a fight) */
