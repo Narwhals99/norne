@@ -713,7 +713,30 @@ N.GEARK = [['gearAtk','Melee weapon','sword'],['gearRng','Ranged weapon','target
 /* item kinds, in the order the catalog lists them. Ids are kept forever (old items keep theirs): potion was "Potions and food" */
 N.ITEMK = [['weapon','Weapons','sword'],['armor','Armor','shieldU'],['clothing','Clothing','boots'],['magic','Magical','magic'],['potion','Potions','potion'],
   ['ingredient','Potion ingredients','sparkle'],['craft','Crafting ingredients','gear'],['food','Food & drink','drink'],['book','Books','spellbook'],['trinket','Trinkets','coins'],['illicit','Illicit goods','mask'],['gear','Gear and tools','bag'],['other','Other','items']];
-N.ITEM_IC = ['bag','sword','target','arrowR','shieldU','helm','boots','knuckles','magic','sparkle','spellbook','potion','drink','scroll','coins','skull','items'];
+N.ITEM_IC = ['bag','sword','target','arrowR','shieldU','helm','boots','knuckles','magic','sparkle','spellbook','potion','drink','scroll','coins','skull','gear','mask','items'];
+/* Jake: words that keep their capital in a <<Name>> narrator line: races, nations, places on the maps, wiki titles, NPC and
+   character names, and any word the wiki writes with a capital in the middle of a sentence (Daroese, Altarian...). Built
+   from the game's own data, cached until the wiki or maps change */
+let _proper = null, _properKey = '';
+N.properWord = (w, phrase) => {
+  const g = N.G, key = (g.wiki || []).length + ':' + (g.maps || []).length + ':' + (g.npcs || []).length;
+  if (!_proper || _properKey !== key) {
+    /* one = single proper words; many = whole multi-word names (Prince City, the Old Gods), so their first word alone
+       (Old, Prince) doesn't count */
+    const one = new Set(), many = new Set(), clean = x => x.replace(/[^\p{L}' ]/gu, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const add = t => { const c = clean(String(t || '')); if (!c) return; if (c.includes(' ')) many.add(c); else one.add(c); };
+    N.RACES.forEach(add); N.nations().forEach(add); ['Dwarven', 'Dwarvish', 'Elven', 'Elvish', 'Gnomish'].forEach(add);
+    (g.maps || []).forEach(m => { add(m.name); (m.pins || []).forEach(p => add(p.label)); });
+    (g.npcs || []).forEach(n => add(n.name)); Object.values(g.chars || {}).forEach(c => { add(c.name); add(c.short); });
+    /* a capitalised word in the middle of a wiki sentence, not followed by another capitalised word: Daroese, Altarian */
+    const walk = o => { if (typeof o === 'string') { for (const mm of o.matchAll(/(?<=[\p{Ll},)'’]\s+)(\p{Lu}[\p{L}'’]+)(?!\s+\p{Lu})/gu)) one.add(mm[1].replace(/['’]s$/, '').toLowerCase()); }
+      else if (Array.isArray(o)) o.forEach(walk); else if (o && typeof o === 'object') Object.values(o).forEach(walk); };
+    (g.wiki || []).forEach(e => { add(e.title); walk(e); });
+    _proper = {one, many}; _properKey = key;
+  }
+  const b = String(w || '').replace(/[^\p{L}']/gu, '').toLowerCase(), ph = String(phrase || '').toLowerCase();
+  return !!b && (_proper.one.has(b) || _proper.one.has(b.replace(/s$/, '')) || (!!ph && [..._proper.many].some(n => ph === n || ph.startsWith(n + ' '))));
+};
 N.itemKind = k => N.ITEMK.find(x => x[0] === k) || N.ITEMK[N.ITEMK.length - 1];
 N.itemById = id => (N.G.items || []).find(x => x.id === id) || null;
 N.itemByName = n => { const k = String(n || '').trim().toLowerCase(); return k ? (N.G.items || []).find(x => x.name.toLowerCase() === k) || null : null; };
