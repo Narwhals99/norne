@@ -1088,4 +1088,67 @@ N.tokFromNpc = (n, side, label) => {
     aspects:[n.hc, ...(n.aspects||[])].filter(Boolean), stressV:v, stress:v.map(()=>false), cons:{...(n.cons||{})}, zone:null, out:false, ...N.tokGearOf(n)};
 };
 N.tokFromPc = c => ({id:uid('t'), kind:'pc', ref:c.id, zone:null, out:false});
+
+/* ---------------- the Pyramid rule (Jake, 2026-11-15) ----------------
+   From +2 up, a level may hold no more skills than the level below it. +1 may outnumber +0, and +0 may outnumber −1.
+   Cards that already break it are grandfathered: only a change that makes a level worse than it was counts. */
+N.pyrCount = (sk, L) => Object.values(sk || {}).filter(x => +x === L).length;
+N.pyrExcess = (sk, L) => Math.max(0, N.pyrCount(sk, L) - N.pyrCount(sk, L - 1));
+/* the first level that got worse going from `was` to `now`, or null */
+N.pyrCheck = (was, now) => {
+  for (let L = 8; L >= 2; L--) if (N.pyrExcess(now, L) > N.pyrExcess(was, L))
+    return {L, n:N.pyrCount(now, L), below:N.pyrCount(now, L - 1),
+      text:`${N.pyrCount(now, L)} skill${N.pyrCount(now, L) > 1 ? 's' : ''} at ${sgn(L)} ${ladderWord(L)} but only ${N.pyrCount(now, L - 1)} at ${sgn(L - 1)} ${ladderWord(L - 1)}.`};
+  return null;
+};
+
+/* ---------------- Level Up (Jake, 2026-11-15) ----------------
+   The GM gives a PC a Major (4 points) or Minor (2 points) level up: c.lvl = {k, pts, picks, st:'open'|'sent', back?}.
+   The player spends the points, sends it to the GM, the GM can edit new stunts, then approves it onto the card. */
+N.LVL = {major:['Major level up', 4], minor:['Minor level up', 2]};
+N.LVL_OPTS = [
+  {t:'up', c:1, l:'Raise a skill by 1', s:'Any skill at +1 or more.'},
+  {t:'disc', c:1, l:'Add a discipline', s:'To Fighting, Shooting, Lore or Crafting, if you have the skill.'},
+  {t:'swap', c:1, l:'Replace a stunt', s:'Write the new stunt. The GM approves it.'},
+  {t:'drop', c:1, l:'Discard a stunt', s:'Gives +1 refresh.'},
+  {t:'buy', c:1, l:'New stunt for −1 refresh', s:'Write the stunt. The GM approves it.'},
+  {t:'new', c:2, l:'Raise a +0 skill to +1', s:'A skill that isn’t on your card yet.'},
+  {t:'ref', c:2, l:'+1 refresh', s:''},
+  {t:'magic', c:2, l:'Change a magic’s discipline', s:'A magical skill at +2 or lower.'},
+];
+N.LVL_DISC = ['Fighting','Shooting','Lore','Crafting'];
+N.lvlOpt = t => N.LVL_OPTS.find(o => o.t === t);
+N.lvlSpent = lv => (lv.picks || []).reduce((a, p) => a + (N.lvlOpt(p.t)?.c || 0), 0);
+/* the card after the picks: skills, disciplines, stunts and refresh */
+N.lvlResult = (c, picks) => {
+  const skills = {...(c.skills || {})}, disc = JSON.parse(JSON.stringify(c.disc || {})), st = (c.stunts || []).map(x => [...x]);
+  let refresh = +c.refresh || 0;
+  for (const p of picks || []) {
+    if (p.t === 'up') skills[p.k] = Math.min(8, (+skills[p.k] || 0) + 1);
+    if (p.t === 'new') skills[p.k] = 1;
+    if (p.t === 'disc') disc[p.k] = [...discOf({disc}, p.k).filter(x => x !== p.x), p.x];
+    if (p.t === 'magic') disc[p.k] = [p.x];
+    if (p.t === 'swap' && st[p.i]) st[p.i] = [p.n || '', p.d || ''];
+    if (p.t === 'drop' && st[p.i]) { st[p.i] = null; refresh++; }
+    if (p.t === 'buy') { st.push([p.n || '', p.d || '']); refresh--; }
+    if (p.t === 'ref') refresh++;
+  }
+  return {skills, disc, stunts:st.filter(Boolean), refresh};
+};
+/* stunts already used by a pick (each one can be replaced or discarded once) */
+N.lvlStuntUsed = lv => new Set((lv.picks || []).filter(p => p.t === 'swap' || p.t === 'drop').map(p => p.i));
+N.lvlLine = (c, p) => {
+  const st = i => (c.stunts || [])[i]?.[0] || 'a stunt';
+  switch (p.t) {
+    case 'up': return `${p.k} ${sgn(p.from)} → ${sgn(p.from + 1)}`;
+    case 'new': return `${p.k} +0 → +1`;
+    case 'disc': return `${p.k}: new discipline ${p.x}`;
+    case 'magic': return `${p.k}: discipline ${p.was || 'none'} → ${p.x}`;
+    case 'swap': return `Replace “${st(p.i)}” with “${p.n}”`;
+    case 'drop': return `Discard “${st(p.i)}”, +1 refresh`;
+    case 'buy': return `New stunt “${p.n}”, −1 refresh`;
+    case 'ref': return '+1 refresh';
+  }
+  return '';
+};
 })();

@@ -141,7 +141,7 @@ function nowState(v){
     if (cb.phase === 'notice') return {tone:'turn', eye:`The ${K.w} is on`, title:'Notice roll', sub:`Rolls Notice for everyone in the ${K.w} to see who goes first, or set the order yourself.`, acts:`<button type="button" class="btn gold" data-a="cbNotice">${N.fateDie}Notice roll</button><button type="button" class="btn" data-a="cbOrderOpen">${IC('list')}Set the order by hand</button>`};
     if (cb.phase === 'pick') return {tone:'turn', eye:cb.ord ? 'Turn order' : 'Notice roll', title:'Who goes first?', sub:cb.ord ? 'You set this order. Tap someone to start with them, or change it.' : 'Highest roll goes first. Tap someone else to start with them, or set the whole order.', acts:noticeChips() + `<button type="button" class="btn sm" data-a="cbOrderOpen">${IC('list')}${cb.ord ? 'Change the order' : 'Set the order by hand'}</button>`, cls:'pick', end:`<button type="button" class="btn primary" data-a="cbGo">Start${IC('next')}</button>`};
     if (p && p.stage === 'defend' && pa && pd)
-      return {tok:pd, tone:'alert', eye:'Defend', title:`${N.tokName(pa)} attacks ${N.tokName(pd)}`, sub:`${p.skill} for ${sgn(p.total)} ${ladderWord(p.total)}. Roll ${N.tokName(pd)}’s defense.`, acts:defBtn(pd)};
+      return {tok:pd, tone:'alert', eye:'Defend', title:`${N.tokName(pa)} attacks ${N.tokName(pd)}`, sub:`${p.skill} for ${sgn(p.total)} ${ladderWord(p.total)}. Roll ${N.tokName(pd)}’s defense.`, acts:defBtn(pd, v)};
     if (p && p.stage === 'style' && pa && pd) {
       const less = Math.max(0, p.dmg - 2);
       return {tok:pa, tone:'alert', eye:'Succeeded with style', title:`${N.tokName(pa)} hits ${N.tokName(pd)} with style`, sub:`Do the full ${p.dmg} shift${pl(p.dmg)}, or ${less} and put a boost on ${N.tokName(pd)}.`,
@@ -313,9 +313,16 @@ function gmRow(v){
 }
 /* the defense skill: [skill, skill value]. Every defense is Athletics (Jake's rule), whatever the attack was.
    Armor doesn't change the roll. */
-function defSkill(t){ return ['Athletics', N.tokSkills(t).Athletics || 0]; }
+function defSkill(t, other){ const sk = other || 'Athletics'; return [sk, N.tokSkills(t)[sk] || 0]; }
 N.defSkill = defSkill;
-const defBtn = t => { const [sk, x] = defSkill(t); return `<button type="button" class="btn gold" data-a="cbDefend">${N.fateDie}Defend: ${esc(sk)} ${sgn(x)}</button>`; };
+/* Athletics stays the default. The GM can also defend with another of the defender's skills (Jake, 2026-11-15). */
+const defBtn = (t, v) => { const [sk, x] = defSkill(t);
+  const main = `<button type="button" class="btn gold" data-a="cbDefend">${N.fateDie}Defend: ${esc(sk)} ${sgn(x)}</button>`;
+  if (!v || !isGM(v)) return main;
+  const open = v.ui.defOther != null && String(v.ui.defOther) === String(t.id);
+  const others = Object.entries(N.tokSkills(t)).filter(([k, n]) => k !== 'Athletics' && typeof n === 'number').sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const pick = open ? `<div class="defpick" role="group" aria-label="Defend with another skill">${others.length ? others.map(([k, n]) => `<button type="button" class="cchip" data-a="cbDefend" data-k="${esc(k)}" style="padding:0 11px">${esc(k)} ${sgn(n)}</button>`).join('') : '<span class="muted">No other skills on this card.</span>'}</div>` : '';
+  return `${main}<button type="button" class="btn" data-a="defOther" data-t="${t.id}" aria-expanded="${open}">Defend with other skill</button>${pick}`; };
 N.defBtn = defBtn;
 /* the token the GM has to defend or soak for right now (players never roll in a fight) */
 N.owedTok = v => {

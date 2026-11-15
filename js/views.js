@@ -90,6 +90,7 @@ N.appHtml = function(v){
     ${shelfOn && v.dev === 'phone' && v.ui.shelf ? `<div class="scrim shelf-scrim" data-a="shelf"></div>${shelfHtml(v)}` : ''}
     ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
     ${v.ui.pop ? `<div class="scrim" style="background:transparent;backdrop-filter:none" data-a="closePop"></div>${popHtml(v)}` : ''}
+    ${v.ui.alertBox ? `<div class="scrim alert-scrim"></div><div class="alertbox" role="alertdialog" aria-modal="true" aria-label="${esc(v.ui.alertBox.title)}"><span class="ic">${IC('warn')}</span><h3>${esc(v.ui.alertBox.title)}</h3><p>${esc(v.ui.alertBox.body)}</p><div class="btns">${v.ui.alertBox.btns.map(([l, a, cls]) => `<button type="button" class="btn ${cls}" data-a="${a}">${esc(l)}</button>`).join('')}</div></div>` : ''}
     ${N.updReady && !v.ui.toast ? `<div class="toast upd" role="status"><span class="star4"></span><span>Norne was updated.</span><button type="button" data-a="appReload">Reload</button><button type="button" data-a="appLater" aria-label="Not now">${IC('x')}</button></div>` : ''}
     ${v.ui.toast ? `<div class="toast" role="status"><span class="star4"></span><span>${esc(v.ui.toast.text)}</span>${v.ui.toast.undo?'<button type="button" data-a="undo">Undo</button>':''}</div>` : ''}`;
 };
@@ -304,7 +305,7 @@ function chatView(v, side){
   /* an attack waiting on this screen's defense shows above the chat too, so it isn't missed with the board closed */
   const owed = N.owedTok(v), pend = cb.pending;
   const owedBar = owed ? (pend.stage === 'defend'
-    ? `<div class="fightbar owed">${IC('attack','sw')}<div class="t">${esc(N.tokName(N.tokById(pend.att)))} attacks ${gm ? esc(N.tokName(owed)) : 'you'}!<span>${esc(pend.skill)} for ${sgn(pend.total)} ${ladderWord(pend.total)}. Roll the defense.</span></div>${N.defBtn(owed)}</div>`
+    ? `<div class="fightbar owed">${IC('attack','sw')}<div class="t">${esc(N.tokName(N.tokById(pend.att)))} attacks ${gm ? esc(N.tokName(owed)) : 'you'}!<span>${esc(pend.skill)} for ${sgn(pend.total)} ${ladderWord(pend.total)}. Roll the defense.</span></div>${N.defBtn(owed, v)}</div>`
     : `<div class="fightbar owed">${IC('warn','sw')}<div class="t">${gm ? esc(N.tokName(owed)) + ' takes' : 'You take'} ${pend.shifts} shift${pend.shifts>1?'s':''}<span>Pick a stress box or a consequence on the board.</span></div><button type="button" class="btn sm gold" data-a="openFight">Soak the hit</button></div>`) : '';
   /* an open store in this chat: players browse it; the GM also sees one being set up */
   const craft = !side && gm && N.craftOf(ch), craftIt = craft && N.itemById(craft.make);
@@ -743,11 +744,11 @@ function gmScreen(v){
   const pcs = N.pcs(), npc1 = g.npcs[0], waiting = N.MEMBERS.filter(m => m.role === 'pending').length;
   const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
     ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
-    ['sheet', 'items', 'Item catalog', 'data-v="items"'],
+    ['sheet', 'items', 'Item catalog', 'data-v="items"'], ['sheet', 'star', 'Level up', 'data-v="lvlGive"'],
     ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export the log', 'data-v="export"'], ['sheet', 'smile', 'Emoji and GIFs', 'data-v="emoji"'], ['sheet', 'upload', 'Import lore', 'data-v="import"'], ['sheet', 'trash', 'Wipe a chat', 'data-v="wipe"']];
   const scenes = N.channelsFor('gm').filter(c => c !== 'gm' && g.scenes[c]).length;
   return `<div class="gs">
-    ${fight}${shopBtns}${craftBtns}
+    ${fight}${shopBtns}${craftBtns}${pcs.filter(c => c.lvl && c.lvl.st === 'sent').map(c => `<button type="button" class="bigcta lvcta" data-a="sheet" data-v="lvlRev" data-c="${esc(c.id)}"><span class="ic">${IC('star')}</span><span><b>Level up to approve: ${esc(c.short || c.name)}</b><small>${esc(c.short || c.name)} spent ${c.lvl.pts} points. Review the picks and approve.</small></span></button>`).join('')}
     <button type="button" class="bigcta scn" data-a="sheet" data-v="scene"><span class="ic">${IC('image')}</span><span><b>Scene changer</b><small>Pick who it’s for, Everyone or one player, then set the picture, name and aspects.${scenes ? ` ${scenes} chat${scenes > 1 ? 's have' : ' has'} a scene now.` : ''}</small></span></button>
     <section class="gs-sec gs-tools"><div class="gs-h"><h3>GM tools</h3></div>
       <div class="tools">${tiles.map(([a, ic, l, x]) => `<button type="button" data-a="${a}" ${x}>${IC(ic)}${l}</button>`).join('')}</div>
@@ -1321,6 +1322,8 @@ N.sheetBody = function(v, c){
       <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.nat?`${esc(c.nat)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${N.emoText(N.marks(esc(N.pcTag(c))))}</div>`:''}</div>
       <div class="fp"><div class="res"><div><span class="eyebrow">Fate points · refresh ${c.refresh}</span><div class="coins">${coinsHtml(c, gm)}</div></div>${goldHtml(c, 'c', gm)}${gm ? N.xferBtn('c', c.id) : ''}</div>${gm?`<div class="gmbar"><button type="button" class="btn sm" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Edit card</button>${revBtn(c.id)}<button type="button" class="btn sm" data-a="pcToNpc" data-v="${c.id}" title="Make a new NPC card from this sheet">${IC('npc')}Copy as NPC</button><button type="button" class="btn sm danger" data-a="sheet" data-v="pcDel" data-c="${c.id}">${IC('trash')}Delete</button></div>`:''}</div>
     </section>
+    ${c.lvl && ((mine && !gm) || (gm && v.ui.tab === 'cast')) ? (() => { const lv = c.lvl, left = lv.pts - N.lvlSpent(lv), sent = lv.st === 'sent';
+      return `<button type="button" class="bigcta lvcta full${sent ? ' sent' : ''}" data-a="sheet" data-v="${gm ? 'lvlRev' : 'lvlUp'}" data-c="${esc(c.id)}"><span class="ic">${IC('star')}</span><span><b>${gm ? (sent ? 'Level up to approve' : 'Level up given') : sent ? 'Level up sent' : 'Level up!'}</b><small>${gm ? (sent ? `${esc(c.short)} spent ${lv.pts} points. Review and approve.` : `${esc(c.short)} has ${left} of ${lv.pts} points left to spend.`) : sent ? `Waiting for ${esc(N.gmName())} to approve.` : `${N.LVL[lv.k]?.[0] || 'Level up'}: ${left} point${left === 1 ? '' : 's'} to spend.`}</small></span>${IC('right')}</button>`; })() : ''}
     ${gm && v.ui.tab === 'cast' && v.ui.castSel === c.id ? `<div class="full statrow"><button type="button" class="btn statbtn" data-a="heroStats" data-v="${c.id}">${IC('scroll')}Stats</button></div>` : ''}
     ${(v.ui.tab === 'hero' || v._pane === 'hero') && mine && !gm ? `<div class="full statrow"><button type="button" class="btn statbtn" data-a="heroStats" data-v="${c.id}">${IC('scroll')}Stats</button>${N.figOk && N.figOk() ? `<button type="button" class="btn statbtn" data-a="figOpen">${IC('hero')}Figure</button>` : ''}</div>` : ''}
     ${wikiSec(v, c.id)}
