@@ -1633,7 +1633,7 @@ function act(v, a, el, e){
   case 'lvBackGo': { const c = gm && g.chars[ui.sheetArg], lv = c && c.lvl; if (!lv) break;
     lv.st = 'open'; delete lv.noted; lv.back = (ui.lvBack || '').trim() || 'Have another look at your picks.'; ui.lvBack = ''; ui.sheet = null;
     sys(`${N.gmName()} sent ${c.short || c.name}’s level up back: ${lv.back}`, 'dm-' + c.player); toast(v, 'Sent back.'); renderAll(); return; }
-  case 'lvCancel': { const c = gm && g.chars[ui.sheetArg]; if (!c || !c.lvl) break; delete c.lvl; ui.sheet = null; toast(v, `${c.short || c.name}’s level up was cancelled.`); renderAll(); return; }
+  case 'lvCancel': { const c = gm && g.chars[ui.sheetArg]; if (!c || !c.lvl) break; delete c.lvl; ui.sheet = null; sys(`${N.gmName()} cancelled ${c.short || c.name}’s level up.`, 'dm-' + c.player); toast(v, `${c.short || c.name}’s level up was cancelled.`); renderAll(); return; }
   case 'lvApprove': { const c = gm && g.chars[ui.sheetArg], lv = c && c.lvl; if (!lv) break;
     const r = N.lvlResult(c, lv.picks), lines = lv.picks.map(p => N.lvlLine(c, p));
     c.skills = r.skills; c.disc = r.disc; c.stunts = r.stunts; c.refresh = r.refresh;
