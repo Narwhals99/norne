@@ -3078,3 +3078,6 @@
 .app .lv-oth{display:flex;gap:8px}
 .app .lv-oth .inp{flex:1;min-width:0}
 @media (max-width:420px){.app .lv-opts{grid-template-columns:minmax(0,1fr)}}
+.app .defpick .defall{border-style:dashed}
+.app .defpick .defall[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--gold-tx);color:var(--ink)}
+.app .defpick.deflow{padding-top:2px}

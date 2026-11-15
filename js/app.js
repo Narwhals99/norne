@@ -1243,7 +1243,7 @@ function afterFightRoll(v, r, m){
 function cbDefend(v, other){
   const g = G(), cb = g.combat, p = cb.pending; if (!p || p.stage !== 'defend') return;
   if (other && !isGM(v)) other = null;
-  v.ui.defOther = null;
+  v.ui.defOther = null; v.ui.defAll = false;
   const d = N.tokById(p.def), a = N.tokById(p.att); if (!d || !a) { cb.pending = null; renderAll(); return; }
   N.boostTick(d);
   const [skill, x] = N.defSkill(d, other);
@@ -1627,11 +1627,11 @@ function act(v, a, el, e){
     if (lv.pts - N.lvlSpent(lv) > 0) { toast(v, 'Spend all your points first.'); break; }
     const bad = N.pyrCheck(c.skills, N.lvlResult(c, lv.picks).skills);
     if (bad) { ui.alertBox = {title:'Your skills break the Pyramid rule', body:`With these picks you’d have ${bad.text} From +2 up, a level can’t have more skills than the level below it. Change your picks so it fits.`, btns:[['Fix my picks', 'alertClose', 'primary']]}; break; }
-    lv.st = 'sent'; delete lv.back; ui.lv = null; ui.sheet = null;
+    lv.st = 'sent'; delete lv.back; delete lv.noted; ui.lv = null; ui.sheet = null;
     sys(`${c.short || c.name} sent their level up to ${N.gmName()}: ${lv.picks.map(p => N.lvlLine(c, p)).join(', ')}.`, 'dm-' + c.player);
-    toast(v, `Sent to ${N.gmName()}.`); renderAll(); return; }
+    toast(v, `Sent to ${N.gmName()}.`); renderAll(); if (isGM(v)) N.lvlNotes(); return; }
   case 'lvBackGo': { const c = gm && g.chars[ui.sheetArg], lv = c && c.lvl; if (!lv) break;
-    lv.st = 'open'; lv.back = (ui.lvBack || '').trim() || 'Have another look at your picks.'; ui.lvBack = ''; ui.sheet = null;
+    lv.st = 'open'; delete lv.noted; lv.back = (ui.lvBack || '').trim() || 'Have another look at your picks.'; ui.lvBack = ''; ui.sheet = null;
     sys(`${N.gmName()} sent ${c.short || c.name}’s level up back: ${lv.back}`, 'dm-' + c.player); toast(v, 'Sent back.'); renderAll(); return; }
   case 'lvCancel': { const c = gm && g.chars[ui.sheetArg]; if (!c || !c.lvl) break; delete c.lvl; ui.sheet = null; toast(v, `${c.short || c.name}’s level up was cancelled.`); renderAll(); return; }
   case 'lvApprove': { const c = gm && g.chars[ui.sheetArg], lv = c && c.lvl; if (!lv) break;
@@ -1643,7 +1643,7 @@ function act(v, a, el, e){
     sys(`${N.gmName()} approved ${c.short || c.name}’s level up: ${lines.join(', ')}.`, 'dm-' + c.player);
     toast(v, 'Level up approved and on the card.'); renderAll(); return; }
   case 'alertClose': ui.alertBox = null; break;
-  case 'pyrOverride': if (gm) { ui.alertBox = null; ui.pyrOk = true; savePc(v); } return;
+  case 'pyrOverride': if (gm) { ui.alertBox = null; ui.pyrOk = true; if (ui.sheet === 'npcNew') saveNpc(v); else savePc(v); } return;
   case 'sadj': { const c = g.chars[d.c]; if (!gm || !c) break; if (+d.d < 0 && +d.n <= 0) break;
     const a2 = c.sadj = c.sadj || {}; a2[d.k] = (+a2[d.k] || 0) + (+d.d); if (!a2[d.k]) delete a2[d.k]; if (!Object.keys(a2).length) delete c.sadj; renderAll(); return; }
   /* places and NPCs by name: d.k pc|pt|pn|np, d.v the name, d.d how much (a remove passes minus the whole count) */
@@ -2587,7 +2587,8 @@ function act(v, a, el, e){
     break;
   }
   case 'cbDefend': cbDefend(v, d.k); return;
-  case 'defOther': if (gm) ui.defOther = ui.defOther === d.t ? null : d.t; break;
+  case 'defOther': if (gm) ui.defOther = ui.defOther === d.t ? null : d.t; ui.defAll = false; break;
+  case 'defAll': if (gm) ui.defAll = !ui.defAll; break;
   case 'cbStyle': N.cbStyle(val); renderAll(); return;
   case 'cbBoostName': { const b = cb.aspects.find(x => x.boost && !x.t), t = (ui.boostName || '').trim(); if (!b) break; if (!t) { toast(v, 'Give the boost a short name first.'); break; } b.t = t; ui.boostName = ''; fsys(`${b.by}’s boost${b.on ? ` on ${b.on}` : ''}: “${t}”.`); renderAll(); return; }
   case 'cbDrop': if (cb.pending) { const t = N.tokById(cb.pending.def); cb.pending = null; fsys(`${N.gmName()} settles the hit on ${t ? N.tokName(t) : 'them'} by hand.`); } renderAll(); return;
@@ -2957,6 +2958,19 @@ function setScene(v, ch, s, post){
   const who = ch === 'table' ? 'everyone' : (g.P[ch.slice(3)]?.name || 'them');
   toast(v, `Scene set for ${who}: ${sc.title}`, () => N.delMsg(m.id));
 }
+/* Level Up (Jake's follow-up): when a player sends their level up, the GM's device posts a summary in GM notes
+   (players can't write there). lvl.noted marks it done, so it's posted once even if the GM was away */
+N.lvlNotes = () => {
+  const g = G(); if (g.role !== 'gm') return;
+  let any = false;
+  for (const c of Object.values(g.chars || {})) {
+    const lv = c.lvl; if (!lv || lv.st !== 'sent' || lv.noted) continue;
+    const lines = lv.picks.map(p => (p.t === 'swap' || p.t === 'buy') ? `${N.lvlLine(c, p)} (needs your approval${p.d ? `: ${p.d}` : ''})` : N.lvlLine(c, p));
+    sys(`${c.short || c.name} finished their ${(N.LVL[lv.k]?.[0] || 'level up').toLowerCase()} (${lv.pts} points): ${lines.join('; ')}. Open Cast > ${c.short || c.name} > Level up to approve it.`, 'gm');
+    lv.noted = true; any = true;
+  }
+  if (any) renderAll();
+};
 /* Level Up: add the pick the player built in v.ui.lv (see the lvlUp sheet) */
 function lvAdd(v, d){
   const g = G(), c = g.chars[v.ui.sheetArg], lv = c && c.lvl, f = v.ui.lv; if (!lv || lv.st === 'sent' || !f) return;
@@ -3023,6 +3037,9 @@ function otherDisc(v, d, act, k){
 }
 function saveNpc(v){
   const g = G(), d = v.ui.nd, old = d.edit && g.npcs.find(x => x.id === d.edit);
+  /* the Pyramid rule covers NPC cards too (Jake's follow-up): same warning, same override */
+  const bad = !v.ui.pyrOk && N.pyrCheck(old ? old.skills : (d.copyOf ? g.chars[d.copyOf]?.skills : {}) || {}, d.skills); v.ui.pyrOk = false;
+  if (bad) { v.ui.alertBox = {title:'WARNING: Character skills break Pyramid rule', body:`${d.name.trim() || 'This NPC'} would have ${bad.text} From +2 up, a level can’t have more skills than the level below it.`, btns:[['Continue editing', 'alertClose', ''], ['GM override', 'pyrOverride', 'primary']]}; render(v); return; }
   const base = {name:d.name.trim(), race:d.race.trim(), nat:(d.nat || '').trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
     skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0,
     inv:(d.inv || []).map(x => [...x]), dir:N.nd.byId(d.dir) ? d.dir : null, side:!!(d.side && d.lead), lead:d.side && d.lead ? d.lead : ''};
