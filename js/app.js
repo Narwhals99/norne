@@ -1421,12 +1421,127 @@ function mapBox(v){ const cv = v.root.querySelector('[data-mapcv]'); return cv ?
    or for a long, thin map (a wide one on a phone) a little bigger than the whole map so it isn't a thin strip */
 function kMin(v){ const m = curMap(v), b = mapBox(v); return Math.min(b.w / m.w, b.h / m.h); }
 function kOpen(v){ const m = curMap(v), b = mapBox(v); return Math.min(Math.max(b.w / m.w, b.h / m.h) * 1.05, kMin(v) * 2.2); }
-function clampT(v){
-  const m = curMap(v), b = mapBox(v), T = v.ui.mapT, k0 = kMin(v);
-  T.k = clamp(T.k, k0, Math.max(k0 * 10, 1.6));
+/* how far out and in a map zooms. Earth zoom (js/earth.js) widens both ends: a map with a map above it zooms out past
+   its own edge (to shrink back into its place), and one with maps drawn on it zooms in until the smallest can take over */
+const kFit = (m, b) => Math.min(b.w / m.w, b.h / m.h);
+function kLim(v, m = curMap(v)){
+  const b = mapBox(v), k0 = kFit(m, b); let lo = k0, hi = Math.max(k0 * 10, 1.6), up = null;
+  if (N.earthOn()) {
+    const gm = isGM(v); up = N.earthUp(gm, m);
+    if (up) lo = k0 * N.earthOutAt(up.fp) * .85;
+    for (const c of N.earthKids(gm, m)) hi = Math.max(hi, kFit(c, b) * N.earthIn(c) * 1.15);
+  }
+  return [lo, hi, k0, up];
+}
+/* keep a view {k, x, y} of map m inside its limits. A map with a map above it (Earth zoom) isn't held to the screen's
+   edges: the map above is drawn around it, so it only has to keep the middle of the screen on itself (and a little
+   past, which is how sliding off its edge hands back to the map above) */
+function clampView(v, m, T){
+  const b = mapBox(v), [lo, hi, , up] = kLim(v, m);
+  T.k = clamp(T.k, lo, hi);
   const W = m.w * T.k, H = m.h * T.k;
+  if (up) { T.x = clamp(T.x, b.w / 2 - W - 30, b.w / 2 + 30); T.y = clamp(T.y, b.h / 2 - H - 30, b.h / 2 + 30); return; }
   T.x = W <= b.w ? (b.w - W) / 2 : clamp(T.x, b.w - W, 0);
   T.y = H <= b.h ? (b.h - H) / 2 : clamp(T.y, b.h - H, 0);
+}
+function clampT(v){ clampView(v, curMap(v), v.ui.mapT); }
+/* Earth zoom: hand over to the next map. Going in, a map drawn on this one is under the middle of the screen and has
+   grown big enough; going out, this map has shrunk enough, or the middle of the screen has slid off its edge. The new
+   map starts exactly where the old picture of it was, so nothing jumps, and the gesture or wheel that got here simply
+   carries on. Sliding off one nation onto its neighbour hands out and straight in again. */
+function earthStep(v, again){
+  if (!N.earthOn() || v._eBusy) return false;
+  const m = curMap(v), b = mapBox(v), T = v.ui.mapT, gm = isGM(v), k0 = kFit(m, b);
+  let to = null, T2 = null, dir = '';
+  const up = N.earthUp(gm, m);
+  if (up) {
+    const f = up.fp, k = T.k / f.s, W = m.w * T.k, H = m.h * T.k;
+    const off = T.x > b.w / 2 + 10 || T.x + W < b.w / 2 - 10 || T.y > b.h / 2 + 10 || T.y + H < b.h / 2 - 10;
+    if (T.k < k0 * N.earthOutAt(f) || off) {
+      T2 = {k, x:T.x - f.x * k, y:T.y - f.y * k};
+      /* off the edge of the map above as well (a nation on the rim of the world): there is nowhere to hand back to */
+      const t = {...T2}; clampView(v, up.map, t);
+      if (!off || Math.abs(t.x - T2.x) + Math.abs(t.y - T2.y) < 2) { to = up.map; dir = 'out'; }
+    }
+  }
+  if (!to && !again) { const L = N.earthLead(gm, m, T, b); if (L && L.fill >= N.earthIn(L.c)) { to = L.c.map; T2 = {k:T.k * L.c.s, x:L.sx, y:L.sy}; dir = 'in'; } }
+  if (!to) return false;
+  const bk = v.ui.mapBack = v.ui.mapBack || [];
+  if (dir === 'in') { if (bk[bk.length - 1] !== m.id) bk.push(m.id); } else if (bk[bk.length - 1] === to.id) bk.pop();
+  Object.assign(v.ui, {mapId:to.id, mapT:{id:to.id, ...T2, bw:b.w, bh:b.h}, pinSel:null, mapType:'all', pop:null});
+  if (dir === 'out' && !again) { const L = N.earthLead(gm, to, T2, b); if (L && L.c.map.id !== m.id && L.fill >= N.earthIn(L.c)) { bk.push(to.id); Object.assign(v.ui, {mapId:L.c.map.id, mapT:{id:L.c.map.id, k:T2.k * L.c.s, x:L.sx, y:L.sy, bw:b.w, bh:b.h}}); } }
+  v._eBusy = 1; try { render(v); } finally { v._eBusy = 0; }
+  return true;
+}
+/* Earth zoom: the pictures that come and go with the zoom, set once a frame from applyMap */
+function earthDraw(v, st, m, b, T){
+  const gm = isGM(v), k0 = kFit(m, b), up = N.earthUp(gm, m), want = v._eWant = v._eWant || new Set();
+  let more = false; const L = N.earthLead(gm, m, T, b), lead = L ? L.fill : 0;
+  for (const el of st.querySelectorAll('.einset')) {
+    /* a map found on this one shows only while it is the one under the middle of the screen, coming in as it grows
+       (neighbouring nation maps overlap, and each has its own legend and margins); a framed one whenever it isn't a speck */
+    const px = +el.dataset.l * T.k, fit = el.classList.contains('efit');
+    const o = (fit ? (L && L.c.map.id === el.dataset.ech ? N.earthFade(30 + (L.fill - .45) / .4 * 110) : 0) : N.earthFade(px)).toFixed(2);
+    if (el._o !== o || el.style.opacity !== o) { el._o = o; el.style.opacity = o; }
+    /* big on screen: time for its sharper copy */
+    if (px > 190 && +o > 0 && !want.has(el.dataset.ech)) { want.add(el.dataset.ech); more = true; }
+  }
+  /* the map above shows around this one whenever this one doesn't cover the screen */
+  const out = !!up && (m.w * T.k < b.w - 1 || m.h * T.k < b.h - 1);
+  st.classList.toggle('eout', out);
+  if (out && up && !want.has(up.map.id)) { want.add(up.map.id); more = true; }
+  /* places fade as their map hands over: this map's on the way in to a smaller one, and on its own way out */
+  const li = L ? N.earthIn(L.c) : 1, fin = 1 - clamp((lead - li * .75) / (li * .25), 0, 1), lo = up ? N.earthOutAt(up.fp) : 0, fout = up ? clamp((T.k / k0 - lo) / (up.fp.fit ? .12 : .4), 0, 1) : 1;
+  const po = Math.min(fin, fout).toFixed(2), pins = st.querySelector('.pins');
+  if (pins && pins._o !== po) { pins._o = po; pins.style.opacity = po; pins.style.visibility = +po < .05 ? 'hidden' : ''; }
+  /* the soft copy under the map is only for the moment before the real picture arrives */
+  const im = st.querySelector('img:not(.eimg)'), pre = st.querySelector('.epre');
+  if (pre) pre.style.display = im && im.complete && im.naturalWidth ? 'none' : '';
+  if (more) { clearTimeout(v._eMore); v._eMore = setTimeout(() => { if (!v._mapG && !v._fly) render(v); else v._eLate = 1; }, 120); }
+}
+/* Earth zoom: glide the view so that map point (px, py) ends in the middle of the screen at zoom k. Tapping a place
+   flies into its map this way (earthStep hands over on the way), the back chip flies out. Any touch or wheel stops it. */
+function earthFly(v, px, py, k, done){
+  if (v._fly) cancelAnimationFrame(v._fly);
+  const T0 = {...v.ui.mapT}, b = mapBox(v), id = T0.id, t0 = performance.now();
+  const ms = clamp(Math.abs(Math.log(k / T0.k)) * 420 + 200, 280, 1100);
+  const s0x = T0.x + px * T0.k, s0y = T0.y + py * T0.k;
+  const fin = ok => { v._fly = 0; if (v._eLate) { v._eLate = 0; render(v); } if (done) done(ok); };
+  const step = now => {
+    const T = v.ui.mapT;
+    if (!T || T.id !== id || v._mapG || v._mapWheel || !mapBox(v)) { v._fly = 0; return; }
+    const u = Math.min(1, (now - t0) / ms), e = u < .5 ? 2 * u * u : 1 - 2 * (1 - u) * (1 - u);
+    T.k = T0.k * Math.pow(k / T0.k, e);
+    T.x = s0x + (b.w / 2 - s0x) * e - px * T.k; T.y = s0y + (b.h / 2 - s0y) * e - py * T.k;
+    applyMap(v);
+    if (v.ui.mapT.id !== id) return fin(true);
+    if (u < 1) v._fly = requestAnimationFrame(step); else fin(false);
+  };
+  v._fly = requestAnimationFrame(step);
+}
+/* fly into a map drawn on the open one (false if it isn't one, or Earth zoom is off) */
+function earthInto(v, id){
+  if (!N.earthOn() || !v.ui.mapT || !mapBox(v)) return false;
+  const m = curMap(v), c = N.earthKids(isGM(v), m).find(x => x.map.id === id); if (!c || v.ui.mapT.id !== m.id) return false;
+  const b = mapBox(v);
+  Object.assign(v.ui, {pinSel:null, pop:null}); render(v);
+  earthFly(v, c.x + c.w / 2, c.y + c.h / 2, kFit(c, b) * (N.earthIn(c) + .04), ok => {
+    /* the map's edge can stop the place reaching the middle of the screen: then it opens the plain way */
+    if (!ok) { openMapFrom(v, id); Object.assign(v.ui, {mapT:null, mapType:'all'}); render(v); return; }
+    const n = curMap(v); earthFly(v, n.w / 2, n.h / 2, Math.max(v.dev === 'phone' ? kOpen(v) : kMin(v), kMin(v) * 1.02));
+  });
+  return true;
+}
+/* fly out to the map above (false if `id` isn't it) */
+function earthOut(v, id){
+  if (!N.earthOn() || !v.ui.mapT || !mapBox(v)) return false;
+  const m = curMap(v), up = N.earthUp(isGM(v), m); if (!up || up.map.id !== id || v.ui.mapT.id !== m.id) return false;
+  const f = up.fp;
+  earthFly(v, m.w / 2, m.h / 2, kMin(v) * (N.earthOutAt(f) - .02), ok => {
+    if (!ok) return;
+    earthFly(v, f.x + f.w / 2, f.y + f.h / 2, v.dev === 'phone' ? kOpen(v) : kMin(v));
+  });
+  return true;
 }
 function centerOn(v, rx, ry, k){
   const m = curMap(v), b = mapBox(v); const T = v.ui.mapT = {id:m.id, k:k || v.ui.mapT?.k || kMin(v), x:0, y:0};
@@ -1450,14 +1565,16 @@ function applyMap(v){
     v.ui.mapT.bw = b.w; v.ui.mapT.bh = b.h;
   }
   clampT(v);
+  if (earthStep(v)) return;
   const st = b.cv.querySelector('.mapst'), T = v.ui.mapT;
   b.cv.classList.toggle('moving', !!(v._mapG || v._mapWheel));
+  if (N.earthOn()) earthDraw(v, st, m, b, T);
   st.style.transform = `translate(${T.x}px,${T.y}px) scale(${T.k})`;
   /* pins and beacons keep their size on screen. Set on each one (not as a --k variable on the map, which restyled every
      element inside every pin on every frame) */
   /* first time this map shows in this style: make its copy with the colours painted in (js/mappic.js), so the big
      picture needs no CSS filter, which on a phone took a full-size extra copy in memory and crashed the page */
-  const im = st.querySelector('img');
+  const im = st.querySelector('img:not(.eimg)');
   if (im && !im._bk && !im.classList.contains('baked')) { im._bk = 1; N.mapBake(m.src, v.style + '/' + v.theme, getComputedStyle(im).filter, im); }
   if (st._k !== T.k) { st._k = T.k; const s = `scale(${1 / T.k})`; for (const el of st.querySelectorAll('.pin,.beacon')) el.style.transform = s; }
 }
@@ -1475,7 +1592,7 @@ function mapStill(v){
 }
 function zoomAt(v, f, px, py){
   const T = v.ui.mapT; if (!T) return;
-  const k1 = T.k; T.k = clamp(T.k * f, kMin(v), Math.max(kMin(v) * 10, 1.6)); const r = T.k / k1;
+  const k1 = T.k, [lo, hi] = kLim(v); T.k = clamp(T.k * f, lo, hi); const r = T.k / k1;
   T.x = px - (px - T.x) * r; T.y = py - (py - T.y) * r; mapFrame(v);
 }
 function mapWheel(v, f, px, py){
@@ -1509,7 +1626,7 @@ function mapDown(v, e){
   };
   const end = () => {
     window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up);
-    if (v._mapG === g) { v._mapG = null; mapStill(v); }
+    if (v._mapG === g) { v._mapG = null; mapStill(v); if (v._eLate) { v._eLate = 0; render(v); } }
   };
   const up = ev => {
     if (!pts.delete(ev.pointerId)) return;
@@ -1532,6 +1649,7 @@ function pinGo(v, pid, force){
   if (wk && mp) return false;
   if (wk && !isGM(v)) { act(v, 'wiki', {dataset:{v:wk.id}}); return true; }
   if (!mp) return false;
+  if (earthInto(v, mp.id)) return true;
   openMapFrom(v, mp.id); Object.assign(v.ui, {pinSel:null, mapT:null, mapType:'all', pop:null}); render(v); return true;
 }
 function addPinAt(v, e){
@@ -1734,6 +1852,7 @@ function act(v, a, el, e){
     if (d.tabto) ui.tab = d.tabto;
     return act(v, d.act, fake, e); }
   /* Jack's GM test mode: a pretend table where nothing is saved. The page reloads into it and out of it */
+  case 'earth': if (!N.earthOk()) break; N.earthSet(val === 'on'); ui.mapT = null; break;
   case 'gmTest': if (!N.isJack()) break; try { if (val === 'on') localStorage.setItem('norne-gmtest', '1'); else localStorage.removeItem('norne-gmtest'); } catch(e) {} location.reload(); return;
   case 'sceneLive': { v._jump = null; const ml = v.root.querySelector('.chat > .msgs[data-sk="msgs"]'); if (ml) ml.scrollTo({top:ml.scrollHeight, behavior:'smooth'}); return; }
   case 'fold': ui.folded.set(d.id, !d.f); break;
@@ -2007,7 +2126,7 @@ function act(v, a, el, e){
   case 'mapEditGo': close(); ui.tab = 'map'; ui.mapEdit = true; ui.addPin = false; break;
   case 'castNpcs': close(); ui.tab = 'cast'; ui.castSeg = 'npcs'; ui.castSel = null; break;
   /* map */
-  case 'mapBack': { const b = ui.mapBack || [], to = b.pop(); if (!to) break; ui.mapId = to; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
+  case 'mapBack': { const b = ui.mapBack || [], top = b[b.length - 1]; if (top && earthOut(v, top)) return; const to = b.pop(); if (!to) break; ui.mapId = to; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
   case 'mapGo': ui.mapBack = []; ui.mapId = val; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break;
   case 'mapEdit': ui.mapEdit = !ui.mapEdit; ui.addPin = false; break;
   /* map folders: open one in the maps dropdown, make, rename, move or delete one (GM) */
