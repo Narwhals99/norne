@@ -63,6 +63,8 @@
     return '';
   };
 
+  /* the 1280 px copy if it is already made, without starting one */
+  N.mapMidHave = src => (src && mids.get(idOf(src))) || '';
   N.mapMid = src => {
     if (!src) return '';
     const id = idOf(src); if (mids.has(id)) return mids.get(id);
