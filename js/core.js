@@ -61,14 +61,29 @@ const blocks = (s, inline = inl) => {
    xl() works on text that is already escaped, before marks() */
 const LINK_RE = /\[\[(pc|npc|wiki):([\w-]+)\|([^\]\n]+)\]\]/g;
 /* can this screen open it: a wiki entry it can read, a card the GM has, or (players) their own card or one whose name was revealed */
-N.linkSees = (k, id) => { const g = N.G, gm = g.role === 'gm';
-  if (k === 'wiki') return g.wiki.some(e => e.id === id && (gm || !e.gm));
+/* N.seeAs: while the GM previews the wiki as a player (World > Preview as), the seat whose eyes the page is drawn with */
+N.seeAs = null;
+/* can this screen read the entry: the GM all of it, a player what they were sent, a preview what that player can read */
+N.wikiCan = e => !!e && (N.seeAs ? N.audSeats(e, 'wiki').includes(N.seeAs) : N.G.role === 'gm' || !e.gm);
+N.linkSees = (k, id) => { const g = N.G, gm = g.role === 'gm' && !N.seeAs;
+  if (k === 'wiki') return g.wiki.some(e => e.id === id && N.wikiCan(e));
+  if (N.seeAs) return g.chars[id]?.player === N.seeAs || N.revOf(id, N.seeAs).includes('name');
   return gm ? !!(g.chars[id] || g.npcs.some(n => n.id === id)) : N.charOf(g.role)?.id === id || !!g.known?.[id]?.name; };
-const xl = h => h.replace(LINK_RE, (m, k, id, lab) => N.linkSees(k, id) ? `<a class="wl" data-a="${k === 'wiki' ? 'wiki' : 'cardView'}" data-v="${id}">${lab}</a>` : lab);
+/* a link to a wiki entry this reader can't open still shows, greyed with a lock; tapping it says it is outside their knowledge.
+   (the GM sees these only in a preview; the GM's links to a deleted entry stay plain words) */
+N.lockLink = lab => `<a class="wl lk" data-a="wLocked" role="button" tabindex="0" title="Outside your knowledge">${IC('lock')}${lab}</a>`;
+const xl = h => h.replace(LINK_RE, (m, k, id, lab) => N.linkSees(k, id) ? `<a class="wl" data-a="${k === 'wiki' ? 'wiki' : 'cardView'}" data-v="${id}">${lab}</a>`
+  : k === 'wiki' && (N.G.role !== 'gm' || N.seeAs) ? N.lockLink(lab) : lab);
 /* card text with its marks and links (aspects, stunts, bio as text) */
 N.linkText = s => marks(xl(esc(s)));
-/* the copy a player gets: links they can't follow become the plain name (seeOk(kind, id) says which they can) */
-N.linkScrub = (x, seeOk) => x == null ? x : JSON.parse(JSON.stringify(x).replace(LINK_RE, (m, k, id, lab) => seeOk(k, id) ? m : lab));
+/* the copy a player gets: links they can't follow become the plain name (seeOk(kind, id) says which they can).
+   seeOk answering 'lock' keeps a wiki link as a locked one with no id ([[wiki:-|Title]]), so the player sees a link they can't open
+   and learns nothing about the entry. Old [[Title]] links to an entry turn into [[wiki:<id>|Title]] first, so they lock the same way */
+const OLD_RE = /\[\[([^\]|\n]+)(?:\|([^\]\n]+))?\]\]/g;
+N.linkScrub = (x, seeOk) => x == null ? x : JSON.parse(JSON.stringify(x)
+  .replace(OLD_RE, (m, t, lab) => { if (/^(pc|npc|wiki):[\w-]+$/.test(t)) return m; const e = (N.G.wiki || []).find(w => w.title.toLowerCase() === t.trim().toLowerCase());
+    return e ? N.linkTok('wiki', e.id, lab || t) : m; })
+  .replace(LINK_RE, (m, k, id, lab) => { const ok = seeOk(k, id); return ok === 'lock' ? `[[wiki:-|${lab}]]` : ok ? m : lab; }));
 /* the link to put in text: the name loses anything that would end the link early */
 N.linkTok = (k, id, name) => `[[${k}:${id}|${String(name || '').replace(/[[\]\n|]+/g, ' ').replace(/\s+/g, ' ').trim() || '…'}]]`;
 /* the wiki pages the GM linked to a PC or NPC card (Wiki pages on the sheet): G.wlinks = {cardId:[entry ids]}.

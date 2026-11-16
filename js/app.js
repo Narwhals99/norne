@@ -2221,6 +2221,10 @@ function act(v, a, el, e){
     const inPane = paneShows(v, 'world');
     ui.wikiPrev = (v.dev === 'phone' && ui.tab === 'world' || inPane) && ui.wikiSel && ui.wikiSel !== val ? [...(ui.wikiPrev || []), ui.wikiSel] : [];
     if (!inPane) ui.tab = 'world'; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
+  /* a locked link (N.lockLink): a little note by the link, nothing opens */
+  case 'wLocked': if (ui.pop?.type === 'wlock' && ui.pop.lab === el.textContent) ui.pop = null; else { openPop(v, 'wlock', el); ui.pop.lab = el.textContent; } break;
+  /* the GM previews the wiki as one player (views.js worldPage); empty stops it */
+  case 'wAs': if (!gm) break; ui.pop = null; ui.wikiAs = val || null; if (!paneShows(v, 'world')) ui.tab = 'world'; break;
   case 'wCat': ui.wikiCat = ui.wikiCat === val ? null : val; if (v.dev === 'phone') ui.wikiSel = null; break;
   case 'wBack': if (ui.wikiSel && ui.wikiPrev?.length) { ui.wikiSel = ui.wikiPrev.pop(); const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; } else if (ui.wikiSel) ui.wikiSel = null; else ui.wikiCat = null; break;
   /* a link to a PC or NPC card (N.xl) opens it over the page, as this screen may see it; closing it goes back to where it was

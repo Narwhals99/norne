@@ -916,6 +916,20 @@
 .app a.wl{color:var(--link);text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--link) 40%,transparent);text-underline-offset:3px;cursor:pointer}
 /* the GM's links to cards and entries (N.xl), and Wiki pages on a card */
 .app a.wl svg{width:15px;height:15px;display:inline;vertical-align:-2px;margin-right:5px;color:var(--gold-tx)}
+/* a link to a wiki entry the reader can't open (N.lockLink): its own muted colour, dotted, with a small lock */
+.app a.wl.lk{color:var(--ink-3);text-decoration-style:dotted;text-decoration-color:color-mix(in srgb,var(--ink-3) 70%,transparent);cursor:help}
+.app a.wl.lk svg{width:12px;height:12px;margin-right:3px;vertical-align:-1px;color:currentColor;opacity:.85}
+.app .icard a.wl.lk{color:var(--ink-3)}
+.app .pop.lockpop{padding:12px 14px;min-width:200px;max-width:min(290px,92%)}
+.app .lockpop .lk-h{display:flex;align-items:center;gap:8px;font:800 14px/1.25 var(--f-ui);color:var(--ink)}
+.app .lockpop .lk-h svg{width:18px;height:18px;flex:0 0 auto;color:var(--ink-3)}
+.app .lockpop p{margin:6px 0 0;font:600 13.5px/1.45 var(--f-ui);color:var(--ink-2)}
+/* the GM's Preview as bar over the wiki */
+.app .asbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border-radius:14px;background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--accent) 55%,transparent);margin:2px 0 8px}
+.app .asbar>svg{width:20px;height:20px;flex:0 0 auto;color:var(--accent-tx,var(--gold-tx))}
+.app .asbar>span{flex:1 1 0;min-width:110px;display:grid;font:800 15px/1.25 var(--f-ui);color:var(--ink)}
+.app .asbar small{font:700 11px/1.4 var(--f-ui);letter-spacing:.06em;color:var(--ink-3)}
+.app .asbar>span small:first-child{text-transform:uppercase;letter-spacing:.1em}
 .app .wlinks{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px}
 .app .wlinks .wlk{display:inline-flex;align-items:center;gap:2px;min-width:0}
 .app .wlinks a.wl{font:700 15px/1.3 var(--f-ui);overflow-wrap:anywhere}
