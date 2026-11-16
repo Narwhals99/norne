@@ -769,21 +769,19 @@
    memory (2026-11-06). Smooth pinching comes from drawing once per frame (mapFrame in app.js). .moving stays as a hook only. */
 .app .mapst .pins{position:absolute;inset:0;pointer-events:none}
 /* Earth zoom (js/earth.js, a test): the next maps down drawn on the open map (.einset), and around a map zoomed out
-   past its edge the map above it (.eback). All small copies, laid out at most 512 px and scaled into place, so the
-   style's colour filter never works on a big picture. A map found on its parent by its picture (.efit) melts in at the
-   edges; one that only sits on its pin (a city plan) is a small framed picture */
+   past its edge the map above it (.eback). All small copies with the style's colour already painted in, laid out at
+   most 512 px and scaled into place. They take NO filter, mask or blurred shadow: on an iPhone each of those costs a
+   copy of the picture at its size on screen, and these get far bigger than the screen (the page was killed, 2026-11-16).
+   One not in use is display:none, not just see-through. A map found on its parent by its picture (.efit) has no frame;
+   one that only sits on its pin (a city plan) gets a gold line */
 .app .mapst.earth{isolation:isolate}
-.app .mapst .eimg{position:absolute;left:0;top:0;max-width:none;transform-origin:0 0}
-.app .mapst .einset{opacity:0;transition:opacity .25s;border-radius:12px;box-shadow:0 0 0 3px var(--gold),0 6px 24px rgba(0,0,0,.55)}
-.app .mapst .einset.efit{border-radius:0;box-shadow:none;
-  -webkit-mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent),linear-gradient(transparent,#000 5%,#000 95%,transparent);-webkit-mask-composite:source-in;
-  mask-image:linear-gradient(90deg,transparent,#000 5%,#000 95%,transparent),linear-gradient(transparent,#000 5%,#000 95%,transparent);mask-composite:intersect}
+.app .mapst .eimg{position:absolute;left:0;top:0;max-width:none;transform-origin:0 0;filter:none!important}
+.app .mapst .einset{display:none;opacity:0;box-shadow:0 0 0 3px var(--gold)}
+.app .mapst .einset.efit{box-shadow:none}
 .app .mapst .eback{z-index:-2;display:none}
 .app .mapst .epre{z-index:-1}
 .app .mapst .eframe{position:absolute;inset:0;pointer-events:none;display:none}
 .app .mapst.eout .eback,.app .mapst.eout .eframe{display:block}
-.app .mapst.eout.eframed>img:first-child{border-radius:var(--er)}
-.app .mapst.eout.eframed .epre{border-radius:12px}
 .app .mapst.earth .pins{transition:opacity .18s}
 .app[data-theme="night"] .mapst img{filter:saturate(.85) brightness(.88)}
 /* the map's colours already painted into its picture (js/mappic.js): no filter, so no extra full-size copy in memory */

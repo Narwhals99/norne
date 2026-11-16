@@ -17,6 +17,15 @@
 (function(){
   const N = window.N, clamp = N.clamp;
   let pref = false; try { pref = localStorage.getItem('norne-earth') === '1'; } catch(e) {}
+  /* Safety catch. An iPhone that runs out of memory kills the page without a word ("A problem repeatedly occurred"),
+     and a switch that stays on would kill it again on every visit. So while Earth zoom is drawing, a mark sits on the
+     device; leaving the page the normal way takes it off. Finding the mark at start means the page died with Earth
+     zoom on screen: the switch turns itself off and Profile says so. */
+  const LIVE = 'norne-earth-live'; let live = false;
+  try { if (localStorage.getItem(LIVE)) { localStorage.removeItem(LIVE); if (pref) { pref = false; localStorage.removeItem('norne-earth'); N.earthCrashed = true; } } } catch(e) {}
+  N.earthLive = on => { if (live === !!on) return; live = !!on; try { if (live) localStorage.setItem(LIVE, '1'); else localStorage.removeItem(LIVE); } catch(e) {} };
+  addEventListener('pagehide', () => N.earthLive(false));
+  document.addEventListener('visibilitychange', () => { if (document.hidden) N.earthLive(false); });
 /* when a map drawn on the open one takes over, and when it hands back, as how much of the screen it fills (1 = it
      just fits). A map found on its parent (fit) is the same land drawn closer, so the parent stays until you are well
      inside it and comes back as soon as you can see all of it. A framed city plan takes over while still inside the
@@ -25,7 +34,7 @@
   N.earthOutAt = c => c.fit ? .95 : .45;
   N.earthOk = () => !!N.EARTH_ALL || N.isJack();
   N.earthOn = () => pref && N.earthOk();
-  N.earthSet = on => { pref = !!on; cache = null; try { if (pref) localStorage.setItem('norne-earth', '1'); else localStorage.removeItem('norne-earth'); } catch(e) {} };
+  N.earthSet = on => { pref = !!on; cache = null; N.earthCrashed = false; if (!pref) N.earthLive(false); try { if (pref) localStorage.setItem('norne-earth', '1'); else localStorage.removeItem('norne-earth'); } catch(e) {} };
 
   /* ---- the comparison ----
      find find where picture C (a smaller map) lies on picture P (the map above), near pin (px,py in 0..1).
@@ -80,29 +89,30 @@
   }
 
   /* ---- finding a map on its parent, once per device ----
-     Both pictures are read small (the parent 240 px, the map 96 px), compared, and the answer kept on the device.
+     Both pictures are read small (the parent 240 px, the map 96 px, from the small copies js/mappic.js keeps), compared, and the answer kept on the device.
      One at a time, and never while a finger is on the map. */
   const FIT_OK = .8;                 /* likeness needed to trust the place found (nation maps score .9 and up) */
   const fits = new Map(), asked = new Set(), pix = new Map(), jobs = [];
   let working = false, soon = false, cache = null;
   const fitKey = (m, k) => 'norne-ef1:' + N.picBase(m.src) + '>' + N.picBase(k.map.src) + '@' + k.pin.rx.toFixed(3) + ',' + k.pin.ry.toFixed(3);
-  function pixels(src, max){
-    const id = N.picBase(src) + '/' + max; if (pix.has(id)) return Promise.resolve(pix.get(id));
-    const u = N.imgUrl(src); if (!u) return Promise.reject(new Error('not loaded'));
+  /* a picture's pixels, from one of its small copies only (never the full map: an iPhone has no room to open ten
+     maps in a row) */
+  function pixels(url, max, keepAs){
+    if (keepAs && pix.has(keepAs)) return Promise.resolve(pix.get(keepAs));
     return new Promise((ok, no) => { const im = new Image(); im.decoding = 'async'; im.onerror = no;
-      im.onload = () => { const k = max / Math.max(im.naturalWidth, im.naturalHeight), c = document.createElement('canvas');
+      im.onload = () => { const k = Math.min(1, max / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas');
         c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
         const x = c.getContext('2d', {willReadFrequently:true}); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
         const o = {w:c.width, h:c.height, d:x.getImageData(0, 0, c.width, c.height).data}; c.width = c.height = 0;
-        if (max > 100) pix.set(id, o);   /* the parent's is used again for each of its maps */
+        if (keepAs) pix.set(keepAs, o);   /* the parent's is used again for each of its maps */
         ok(o); };
-      im.src = u; });
+      im.src = url; });
   }
   function work(){
     if (working || !jobs.length) return;
     if ((N.views || []).some(v => v._mapG || v._fly)) { setTimeout(work, 400); return; }
     working = true; const j = jobs.shift();
-    Promise.all([pixels(j.m.src, 240), pixels(j.k.map.src, 96)]).then(([P, C]) => {
+    Promise.all([pixels(j.pu, 240, N.picBase(j.m.src)), pixels(j.cu, 96)]).then(([P, C]) => {
       const r = earthMatch(P, C, j.k.pin.rx, j.k.pin.ry), val = r && r.s >= FIT_OK ? {x:+r.x.toFixed(4), y:+r.y.toFixed(4), w:+r.w.toFixed(4)} : 0;
       fits.set(j.key, val); try { localStorage.setItem(j.key, JSON.stringify(val)); } catch(e) {}
       cache = null; clearTimeout(work.t); work.t = setTimeout(() => N.renderAll && N.renderAll(), 80);
@@ -114,10 +124,28 @@
     const key = fitKey(m, k); if (fits.has(key)) return fits.get(key);
     let have = null; try { have = localStorage.getItem(key); } catch(e) {}
     if (have != null) { let val = 0; try { val = JSON.parse(have) || 0; } catch(e) {} fits.set(key, val); return val; }
-    if (!asked.has(key) && N.imgUrl(m.src) && N.imgUrl(k.map.src)) { asked.add(key); jobs.push({key, m, k}); setTimeout(work, 300); }
-    else if (!asked.has(key)) soon = true;   /* pictures still loading: look again shortly */
+    if (asked.has(key)) return undefined;
+    /* compared from the small copies: the parent's 1280 px one and the map's 160 px one */
+    const pu = N.mapMid(m.src), cu = pu && small(k.map.src);
+    if (pu && cu) { asked.add(key); jobs.push({key, m, k, pu, cu}); setTimeout(work, 300); }
+    else soon = true;   /* small copies still being made: look again shortly */
     return undefined;
   }
+
+  /* a map's 160 px copy. Making one opens the whole map once (js/mappic.js), and the world map asks for ten at once the
+     first time, so on a phone they are asked for one at a time with a pause between, to let memory settle */
+  let lastAsk = 0, waitT = 0;
+  function small(src){
+    const phone = (N.views || []).some(v => v.dev === 'phone');
+    if (!phone) return N.mapThumb(src);
+    const id = N.picBase(src); if (small.got.has(id)) return N.mapThumb(src);
+    const now = Date.now();
+    if (now - lastAsk < 1000) { if (!waitT) waitT = setTimeout(() => { waitT = 0; cache = null; N.renderAll && N.renderAll(); }, 1000 - (now - lastAsk) + 30); return ''; }
+    const t = N.mapThumb(src);
+    if (t) small.got.add(id); else if (N.imgUrl(src)) lastAsk = now;   /* asked: the next one waits its turn */
+    return t;
+  }
+  small.got = new Set();
 
   /* where each next map sits on its parent, in the parent's own pixels. Found by its picture if it can be (above);
      else centred on its pin, its longest side most of
@@ -161,7 +189,7 @@
         for (const k of list) up.set(k.map.id, {map:m, fp:k});
       }
     }
-    cache = {sig, t:Date.now() - (soon ? 3400 : 0), up, kids}; soon = false;
+    cache = {sig, t:Date.now() - (soon ? 3940 : 0), up, kids}; soon = false;   /* still waiting for small copies: good for a moment only */
     return cache;
   }
   /* the maps drawn on map m: [{map, pin, x, y, w, h, s, fit}] (s = parent pixels per pixel of the smaller map, fit = found
@@ -184,5 +212,32 @@
   /* how see-through a map drawn on its parent is, from its longest side on screen in px: nothing while it is a speck */
   N.earthFade = px => { const t = clamp((px - 30) / 110, 0, 1); return t * t * (3 - 2 * t); };
   /* its picture: the 160 px copy until it is big on screen (sharp = true), then the 1280 px one. Never the full map */
-  N.earthPic = (src, sharp) => (sharp && N.mapMid(src)) || N.mapThumb(src);
+  N.earthPic = (src, sharp) => (sharp && N.mapMid(src)) || small(src);
+
+  /* the style's colour (night dims the maps, Parchment browns them) painted into a small copy, so none of these
+     pictures needs a CSS filter: on an iPhone a filter on a picture stretched over the screen costs a screen-sized
+     (or far bigger) copy in memory. key = style/theme, filter = the map picture's CSS filter there (applyMap notes it) */
+  const filters = new Map(), tints = new Map(), tinting = new Set();
+  N.earthFilter = (key, f) => { if (f != null && filters.get(key) !== f) { filters.set(key, f); if (N.earthOn()) setTimeout(() => N.renderAll && N.renderAll(), 60); } };
+  N.earthTint = (url, key) => {
+    if (!url) return '';
+    const f = filters.get(key); if (f == null) return '';
+    const M = N.mapMatrix(f); if (!M || (M.m.join() === '1,0,0,0,1,0,0,0,1' && !M.o[0] && !M.o[1] && !M.o[2])) return url;
+    const id = key + '|' + f + '|' + (url.length > 200 ? url.length + ':' + url.slice(-64) : url); if (tints.has(id)) return tints.get(id);
+    if (tinting.has(id)) return '';
+    tinting.add(id);
+    const im = new Image(); im.decoding = 'async';
+    im.onerror = () => { tints.set(id, url); };
+    im.onload = () => {
+      const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const x = c.getContext('2d', {willReadFrequently:true}); x.drawImage(im, 0, 0);
+      const m = M.m, o = M.o, W = c.width, H = c.height;
+      for (let y = 0; y < H; y += 128) { const bh = Math.min(128, H - y), band = x.getImageData(0, y, W, bh), p = band.data;
+        for (let i = 0; i < p.length; i += 4) { const r = p[i], g = p[i+1], b = p[i+2]; p[i] = m[0]*r + m[1]*g + m[2]*b + o[0]; p[i+1] = m[3]*r + m[4]*g + m[5]*b + o[1]; p[i+2] = m[6]*r + m[7]*g + m[8]*b + o[2]; }
+        x.putImageData(band, 0, y); }
+      c.toBlob(b => { c.width = c.height = 0; tints.set(id, b ? URL.createObjectURL(b) : url); clearTimeout(N.earthTint.t); N.earthTint.t = setTimeout(() => N.renderAll && N.renderAll(), 80); }, 'image/jpeg', .88);
+    };
+    im.src = url;
+    return '';
+  };
 })();

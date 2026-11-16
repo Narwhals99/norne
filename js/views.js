@@ -967,18 +967,18 @@ function mapPage(v){
   let earth = '';
   if (E) {
     /* each is laid out small (at most 512 px) and scaled up to its place, so the style's colour filter stays cheap */
-    const want = v._eWant || new Set(), n1 = n => n.toFixed(1);
+    const want = v._eWant || new Set(), n1 = n => n.toFixed(1), tk = v.style + '/' + v.theme, tint = u => N.earthTint(u, tk);
     const pic = (cls, s, x, y, w, h, more = '') => { const k = 512 / Math.max(w, h); return `<img class="eimg ${cls}" src="${s}" alt="" draggable="false"${more} style="width:${n1(w * k)}px;height:${n1(h * k)}px;transform:translate(${n1(x)}px,${n1(y)}px) scale(${(1 / k).toFixed(5)})">`; };
     if (E.up) {
-      const f = E.up.fp, pm = E.up.map, S = 1 / f.s, back = (want.has(pm.id) && N.mapMid(pm.src)) || N.mapThumb(pm.src), pre = src ? N.mapMidHave(m.src) : (N.mapMidHave(m.src) || N.mapThumb(m.src));
+      const f = E.up.fp, pm = E.up.map, S = 1 / f.s, back = tint((want.has(pm.id) && N.mapMid(pm.src)) || N.mapThumb(pm.src)), pre = tint(src ? N.mapMidHave(m.src) : (N.mapMidHave(m.src) || N.mapThumb(m.src)));
       if (back) earth += pic('eback', back, -f.x * S, -f.y * S, pm.w * S, pm.h * S);
       if (pre) earth += pic('epre', pre, 0, 0, m.w, m.h);
-      if (!f.fit) earth += `<div class="eframe" style="border-radius:${n1(m.w * .025)}px;box-shadow:0 0 0 ${n1(m.w * .006)}px var(--gold),0 ${n1(m.w * .012)}px ${n1(m.w * .05)}px rgba(0,0,0,.55)"></div>`;
+      if (!f.fit) earth += `<div class="eframe" style="box-shadow:0 0 0 ${n1(m.w * .006)}px var(--gold)"></div>`;
     }
-    earth += E.kids.map(c => { const s = N.earthPic(c.map.src, want.has(c.map.id)); return s ? pic('einset' + (c.fit ? ' efit' : ''), s, c.x, c.y, c.w, c.h, ` data-ech="${esc(c.map.id)}" data-l="${n1(Math.max(c.w, c.h))}"`) : ''; }).join('');
+    earth += E.kids.map(c => { const s = tint(N.earthPic(c.map.src, want.has(c.map.id))); return s ? pic('einset' + (c.fit ? ' efit' : ''), s, c.x, c.y, c.w, c.h, ` data-ech="${esc(c.map.id)}" data-l="${n1(Math.max(c.w, c.h))}"`) : ''; }).join('');
   }
   return `<div class="mapv" data-map="${m.id}">
-    <div class="mapcv" data-mapcv="1"><div class="mapst${E ? ' earth' : ''}${E && E.up && !E.up.fp.fit ? ' eframed' : ''}" style="width:${m.w}px;height:${m.h}px${E && E.up ? `;--er:${(m.w * .025).toFixed(1)}px` : ''}">${src ? `<img${bk ? ' class="baked"' : ''}${E ? ` id="mapimg-${v.id}-${esc(m.id)}"` : ''} src="${src}" alt="${esc(m.name)}" width="${m.w}" height="${m.h}" draggable="false">` : ''}${earth}
+    <div class="mapcv" data-mapcv="1"><div class="mapst${E ? ' earth' : ''}${E && E.up && !E.up.fp.fit ? ' eframed' : ''}" style="width:${m.w}px;height:${m.h}px">${src ? `<img${bk ? ' class="baked"' : ''}${E ? ` id="mapimg-${v.id}-${esc(m.id)}"` : ''} src="${src}" alt="${esc(m.name)}" width="${m.w}" height="${m.h}" draggable="false">` : ''}${earth}
       <div class="pins">${pins.filter(p => (gm || p.vis) && match(p)).map(p => {
         const t = N.PINT[p.type] || N.PINT.note, go = !(gm && v.ui.mapEdit) && N.pinTo(m, p), gm2 = go && g.maps.find(x => x.id === go && (gm || x.vis !== false)), wk = !(gm && v.ui.mapEdit) && N.pinWiki(p, gm); return `<button type="button" class="pin${gm2 || wk?' go':''}${wk?' wk':''}${m.labeled?' dotp':''}${v.ui.pinSel===p.id?' sel':''}${!gm||p.vis?'':N.audOf(p,'pin')==='gm'?' hid':' some'}${p.type==='here'?' here':''}" data-pin="${p.id}" style="left:${p.rx*m.w}px;top:${p.ry*m.h}px;--pc:${t.col}" aria-label="${esc(p.label)}${p.sub ? `, ${esc(p.sub)}` : ''}${gm2 ? `. Open ${esc(gm2.name)}` : ''}${wk ? `. Article: ${esc(wk.title)}` : ''}"${gm2 || wk ? ` title="${gm2 ? `Open ${esc(gm2.name)}` : ''}${gm2 && wk ? ' or read ' : wk ? 'Read ' : ''}${wk ? esc(wk.title) : ''}"` : ''}><span class="pm">${IC(t.ic)}</span><span class="pl${p.sub ? ' two' : ''}"><span class="pw"><span class="plt">${esc(p.label)}</span>${p.sub ? `<small class="psub">${esc(p.sub)}</small>` : ''}</span>${wk ? IC('scroll') : ''}${gm2 ? IC('right') : ''}</span></button>`; }).join('')}
         ${beacons.map(k => { const o = loc[k], next = o.to && g.maps.find(x => x.id === o.to && (gm || x.vis !== false)); return `<button type="button" class="beacon" data-a="locGo" data-v="${k}" style="left:${o.rx*m.w}px;top:${o.ry*m.h}px" aria-label="${gm ? 'The scene is' : 'You are'} in ${esc(o.l)}${next ? `. Open ${esc(next.name)}` : ''}"><span class="bd"></span><span class="bl">${gm ? 'Scene' : 'You'} · ${esc(o.l)}${next ? IC('right') : ''}</span></button>`; }).join('')}
