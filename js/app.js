@@ -1476,13 +1476,14 @@ function earthStep(v, again){
 /* Earth zoom: the pictures that come and go with the zoom, set once a frame from applyMap */
 function earthDraw(v, st, m, b, T){
   const gm = isGM(v), k0 = kFit(m, b), up = N.earthUp(gm, m), want = v._eWant = v._eWant || new Set();
+  N.earthLive(true);
   let more = false; const L = N.earthLead(gm, m, T, b), lead = L ? L.fill : 0;
   for (const el of st.querySelectorAll('.einset')) {
     /* a map found on this one shows only while it is the one under the middle of the screen, coming in as it grows
        (neighbouring nation maps overlap, and each has its own legend and margins); a framed one whenever it isn't a speck */
     const px = +el.dataset.l * T.k, fit = el.classList.contains('efit');
     const o = (fit ? (L && L.c.map.id === el.dataset.ech ? N.earthFade(30 + (L.fill - .45) / .4 * 110) : 0) : N.earthFade(px)).toFixed(2);
-    if (el._o !== o || el.style.opacity !== o) { el._o = o; el.style.opacity = o; }
+    if (el._o !== o || el.style.opacity !== o) { el._o = o; el.style.opacity = o; el.style.display = +o ? 'block' : 'none'; }
     /* big on screen: time for its sharper copy */
     if (px > 190 && +o > 0 && !want.has(el.dataset.ech)) { want.add(el.dataset.ech); more = true; }
   }
@@ -1575,7 +1576,7 @@ function applyMap(v){
   /* first time this map shows in this style: make its copy with the colours painted in (js/mappic.js), so the big
      picture needs no CSS filter, which on a phone took a full-size extra copy in memory and crashed the page */
   const im = st.querySelector('img:not(.eimg)');
-  if (im && !im._bk && !im.classList.contains('baked')) { im._bk = 1; N.mapBake(m.src, v.style + '/' + v.theme, getComputedStyle(im).filter, im); }
+  if (im && !im._bk && !im.classList.contains('baked')) { im._bk = 1; const f = getComputedStyle(im).filter; if (N.earthFilter) N.earthFilter(v.style + '/' + v.theme, f); N.mapBake(m.src, v.style + '/' + v.theme, f, im); }
   if (st._k !== T.k) { st._k = T.k; const s = `scale(${1 / T.k})`; for (const el of st.querySelectorAll('.pin,.beacon')) el.style.transform = s; }
 }
 /* smooth zooming: a pinch or wheel sends many moves per frame. Each one used to restyle every pin and redraw the whole
