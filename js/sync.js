@@ -482,8 +482,10 @@ function syncNow(){
        (revealed cards) keep only links to what that player can see */
     const wikiFor = (id, st) => { const e = g.wiki.find(x => x.id === id); return !!e && N.audSeats(e, 'wiki').includes(st); };
     const nameFor = (id, st) => g.chars[id]?.player === st || N.revOf(id, st).includes('name');
-    const pubLink = (k, id) => k !== 'wiki' || g.wiki.some(e => e.id === id && N.audOf(e, 'wiki') !== 'gm');
-    const seatLink = st => (k, id) => k === 'wiki' ? wikiFor(id, st) : nameFor(id, st);
+    /* a wiki link a player can't follow stays as a locked link (N.linkScrub 'lock'); a link to a deleted entry becomes plain words */
+    const wikiHas = id => g.wiki.some(e => e.id === id);
+    const pubLink = (k, id) => k !== 'wiki' || (g.wiki.some(e => e.id === id && N.audOf(e, 'wiki') !== 'gm') || (wikiHas(id) ? 'lock' : false));
+    const seatLink = st => (k, id) => k === 'wiki' ? wikiFor(id, st) || (wikiHas(id) ? 'lock' : false) : nameFor(id, st);
     if (LOADED.has('gm/maps')) {
       for (const m of g.maps) {
         if (!m.src?.startsWith('fs:')) continue;
@@ -493,7 +495,7 @@ function syncNow(){
       writeUnits('gm/maps', asUnits(g.maps, (m,i) => ({...m, pins:m.pins.map(p => pinOut(m, p)), o:i})));
       /* places shown to some players only: a map everyone sees carries the public places, and each of those players gets
          their own extra places in only/<seat> (key q:<map id>); a map for some players carries each one's own places */
-      const pinPub = (m, p) => { const {see, ...o} = pinOut(m, p); if (o.wiki && !pubLink('wiki', o.wiki)) delete o.wiki; return {...o, vis:true}; }, forSeat = (p, st) => !p.vis && p.type !== 'party' && (p.see || []).includes(st);
+      const pinPub = (m, p) => { const {see, ...o} = pinOut(m, p); if (o.wiki && pubLink('wiki', o.wiki) !== true) delete o.wiki; return {...o, vis:true}; }, forSeat = (p, st) => !p.vis && p.type !== 'party' && (p.see || []).includes(st);
       const pinsFor = (m, st) => m.pins.filter(p => p.vis || p.type === 'party' || (st && forSeat(p, st))).map(p => pinPub(m, p));
       writeUnits('game/maps', asUnits(g.maps, (m,i) => {
         const a = N.audOf(m, 'map'), {see, ...pub} = m;

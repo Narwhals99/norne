@@ -914,6 +914,18 @@ function popHtml(v){
     const row = ([id, l, ic]) => `<button type="button" class="opt" role="menuitemradio" aria-checked="${picks[slot] === id}" data-a="pane" data-v="${slot}:${id}"><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${esc(l)}${picks[1 - slot] === id ? `<small>Swaps with the ${slot ? 'top' : 'bottom'} panel</small>` : ''}</span>${picks[slot] === id ? `<span class="ck">${IC('check')}</span>` : ''}</button>`;
     return `<div class="pop pane-pop" style="${pos}" role="menu" aria-label="Show in the ${slot ? 'bottom' : 'top'} panel"><div class="lbl">Show in the ${slot ? 'bottom' : 'top'} panel</div>${paneOpts(v, mode).map(row).join('')}</div>`;
   }
+  if (p.type === 'wAs') {
+    /* World > Preview as: pick the player whose view of the wiki to see; each row says whether they can read the open entry */
+    const e = g.wiki.find(x => x.id === v.ui.wikiSel), cur = v.ui.wikiAs;
+    const row = st => { const c = N.charOf(st), pl = g.P[st]?.name || 'A player', ok = !e || N.audSeats(e, 'wiki').includes(st);
+      return `<button type="button" class="opt" role="menuitemradio" aria-checked="${cur === st}" data-a="wAs" data-v="${st}">${N.av(c ? {name:c.name, portrait:c.portrait, color:c.color} : {name:pl}, 30)}<span>${esc(c?.name || pl)}<small>${c ? esc(pl) + ' · ' : ''}${e ? (ok ? 'Can read this entry' : 'Can’t read this entry') : ''}</small></span>${cur === st ? `<span class="ck">${IC('check')}</span>` : ''}</button>`; };
+    const seats = N.seats();
+    return `<div class="pop" style="${pos}" role="menu" aria-label="Preview the wiki as"><div class="lbl">Preview the wiki as</div>${seats.map(row).join('') || '<p class="muted" style="margin:6px 10px 8px;font:600 13px/1.4 var(--f-ui)">No players yet.</p>'}${cur ? `<div class="sep"></div><button type="button" class="opt" data-a="wAs" data-v=""><span class="av" style="--s:30px;box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('x').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>Stop previewing<small>Back to the GM’s view</small></span></button>` : ''}</div>`;
+  }
+  if (p.type === 'wlock') {
+    /* a tapped link to an entry this reader can't open */
+    return `<div class="pop lockpop" style="${pos}" role="dialog" aria-label="Outside your knowledge"><div class="lk-h">${IC('lockD')}<b>${esc(p.lab || 'This entry')}</b></div><p>Outside your knowledge; ask GM for Lore check.</p></div>`;
+  }
   if (p.type === 'wnew') {
     const row = (a, ic, l, sub, x='') => `<button type="button" class="opt" data-a="${a}" ${x}><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${l}<small>${sub}</small></span></button>`;
     return `<div class="pop" style="${pos}" role="menu" aria-label="New">${row('wNew', 'quill', 'Wiki entry', 'A person, place or rule')}${row('writeNews', 'newsL', 'News edition', 'Players get a ping')}<div class="sep"></div>${row('sheet', 'gear', 'Categories', 'Rename, reorder, icons', 'data-v="wCats"')}</div>`;
@@ -1023,30 +1035,50 @@ function pinCard(v, m, p){
 }
 
 /* ================= world ================= */
+/* the GM can preview the wiki as one player sees it (v.ui.wikiAs = their seat): the page is drawn with N.seeAs set, so lists,
+   sections and links follow that player's permissions, and the GM's own tools step aside until the preview stops */
+const wikiAs = v => isGM(v) && v.ui.wikiAs && G().P[v.ui.wikiAs] ? v.ui.wikiAs : null;
+const asName = st => N.charOf(st)?.name || G().P[st]?.name || 'this player';
 function worldPage(v){
+  N.seeAs = wikiAs(v);
+  try { return worldPage1(v); } finally { N.seeAs = null; }
+}
+/* the bar over a preview: whose eyes, change, stop */
+function asBar(v){
+  const st = N.seeAs; if (!st) return '';
+  const pl = G().P[st]?.name, c = N.charOf(st);
+  return `<div class="asbar" role="status">${IC('eye')}<span><small>Previewing the wiki as</small><b>${esc(asName(st))}</b>${c && pl ? `<small>${esc(pl)}’s view</small>` : ''}</span><button type="button" class="btn sm ghost" data-a="pop" data-v="wAs">Change</button><button type="button" class="btn sm" data-a="wAs" data-v="">${IC('x')}Stop</button></div>`;
+}
+function worldPage1(v){
   /* in a desktop side panel (v._pane) the wiki steps through one column like a phone: categories, entries, the entry */
-  const g0 = G(), gm = isGM(v), ph = v.dev === 'phone' || v._pane === 'world';
-  const g = Object.assign({}, g0, {wiki: g0.wiki.filter(e => gm || !e.gm)});
+  const g0 = G(), gm = isGM(v) && !N.seeAs, ph = v.dev === 'phone' || v._pane === 'world';
+  const g = Object.assign({}, g0, {wiki: g0.wiki.filter(e => N.wikiCan(e))});
   const q = v.ui.wikiQ.trim().toLowerCase();
   const hit = e => !q || [e.title, e.summary, ...(e.body||[])].join(' ').toLowerCase().includes(q);
   const index = `<div class="wi scroll" data-sk="wi">
     ${v._pane ? (gm ? `<div class="top ph" style="padding:0;justify-content:flex-end"><button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button></div>` : '') : ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm ghost" data-a="sheet" data-v="wCats">${IC('gear')}Categories</button><button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
+    ${asBar(v)}
     <div class="search">${IC('search')}<input class="inp" id="wq-${v.id}" data-i="wikiQ" placeholder="Search ${g.wiki.length} entries" value="${esc(v.ui.wikiQ)}"></div>
     ${q ? `<div class="ents">${g.wiki.filter(hit).slice(0,40).map(e => entBtn(v,e)).join('') || '<p class="muted" style="font-weight:600">Nothing matches.</p>'}</div>`
       : `<div class="cats">${N.catNames(g.wiki).map(c => { const es = g.wiki.filter(e => e.cat === c); if (!es.length) return ''; const open = v.ui.wikiCat === c; return `<button type="button" class="cat" data-a="wCat" data-v="${esc(c)}" aria-current="${open}"><span class="ci">${IC(N.catIcon(c))}</span><b>${esc(c)}</b><span class="n">${es.length}</span>${IC('right','car')}</button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${es.map(e => entBtn(v,e)).join('')}</div>` : ''}`; }).join('')}</div>`}
   </div>`;
-  const read = v.ui.wikiSel ? articleHtml(v, g.wiki.find(e => e.id === v.ui.wikiSel)) : `<div class="quiet" style="align-self:center"><div class="art" style="width:260px;height:220px"></div><p>Pick a category, or search for a person, place or rule.<br>Everything here comes from Nörne’s lore.</p></div>`;
+  /* previewing an entry that player can't read: say so instead of a blank page */
+  const hid = N.seeAs && v.ui.wikiSel && !g.wiki.some(e => e.id === v.ui.wikiSel) && g0.wiki.find(e => e.id === v.ui.wikiSel);
+  const read = hid ? `<div class="quiet" style="align-self:center">${IC('lockD').replace('<svg','<svg style="width:46px;height:46px;color:var(--ink-3)"')}<p><b>${esc(asName(N.seeAs))} can’t read “${esc(hid.title)}”.</b><br>It isn’t in their wiki, and links to it show greyed with a lock.</p></div>`
+    : v.ui.wikiSel ? articleHtml(v, g.wiki.find(e => e.id === v.ui.wikiSel)) : `<div class="quiet" style="align-self:center"><div class="art" style="width:260px;height:220px"></div><p>Pick a category, or search for a person, place or rule.<br>Everything here comes from Nörne’s lore.</p></div>`;
   if (!ph) return `<div class="world">${index}<div class="scroll" data-sk="wr" style="min-height:0;display:grid">${read}</div></div>`;
-  if (v.ui.wikiSel) return `<div class="world"><div class="scroll" data-sk="wr" style="min-height:0;padding-top:var(--safe-t,0px)"><div class="top ph"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1 style="font-size:16px">${esc(g.wiki.find(e=>e.id===v.ui.wikiSel)?.cat||'')}</h1></div>${read}</div></div>`;
-  if (v.ui.wikiCat) { const es = g.wiki.filter(e => e.cat === v.ui.wikiCat); return `<div class="world"><div class="wi scroll" data-sk="wc"><div class="top ph" style="padding-left:0;padding-right:0"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1>${esc(v.ui.wikiCat)}</h1><span class="tag">${es.length}</span></div><div class="ents">${es.map(e=>entBtn(v,e)).join('')}</div></div></div>`; }
+  if (v.ui.wikiSel) return `<div class="world"><div class="scroll" data-sk="wr" style="min-height:0;padding-top:var(--safe-t,0px)"><div class="top ph"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1 style="font-size:16px">${esc(g0.wiki.find(e=>e.id===v.ui.wikiSel)?.cat||'')}</h1></div>${N.seeAs ? `<div style="padding:0 16px">${asBar(v)}</div>` : ''}${read}</div></div>`;
+  if (v.ui.wikiCat) { const es = g.wiki.filter(e => e.cat === v.ui.wikiCat); return `<div class="world"><div class="wi scroll" data-sk="wc"><div class="top ph" style="padding-left:0;padding-right:0"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1>${esc(v.ui.wikiCat)}</h1><span class="tag">${es.length}</span></div>${asBar(v)}<div class="ents">${es.map(e=>entBtn(v,e)).join('')}</div></div></div>`; }
   return `<div class="world">${index}</div>`;
 }
 const audTag = (x, kind) => { const a = N.audOf(x, kind); return a === '*' ? '' : a === 'gm' ? ' <span class="tag gold">GM</span>' : ` <span class="tag">${esc(N.audLabel(x, kind).replace(/^Only /, ''))}</span>`; };
-function entBtn(v, e){ return `<button type="button" class="ent" data-a="wiki" data-v="${e.id}" aria-current="${v.ui.wikiSel===e.id}"><b>${esc(e.title)}${isGM(v)?audTag(e,'wiki'):''}</b><small>${esc(e.summary)}</small></button>`; }
+function entBtn(v, e){ return `<button type="button" class="ent" data-a="wiki" data-v="${e.id}" aria-current="${v.ui.wikiSel===e.id}"><b>${esc(e.title)}${isGM(v) && !N.seeAs?audTag(e,'wiki'):''}</b><small>${esc(e.summary)}</small></button>`; }
 function links(s){
-  const g = G(), gm = g.role === 'gm';
-  /* [[Entry]] links, the GM's links to cards and entries (N.xl), and the GM's custom emoji (:name:) */
-  return N.emoText(N.marks(N.xl(esc(s))).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, t, lab) => { const e = g.wiki.find(x => esc(x.title).toLowerCase() === t.toLowerCase() && (gm || !x.gm)); lab = lab || t; return e ? `<a class="wl" data-a="wiki" data-v="${e.id}">${lab}</a>` : lab; }));
+  const g = G();
+  /* [[Entry]] links, the GM's links to cards and entries (N.xl), and the GM's custom emoji (:name:).
+     In a preview an old [[Entry]] link to an entry that player can't read shows locked, as it will for them */
+  return N.emoText(N.marks(N.xl(esc(s))).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (m, t, lab) => { const e = g.wiki.find(x => esc(x.title).toLowerCase() === t.toLowerCase()); lab = lab || t;
+    return e && N.wikiCan(e) ? `<a class="wl" data-a="wiki" data-v="${e.id}">${lab}</a>` : e && (N.seeAs || g.role !== 'gm') ? N.lockLink(lab) : lab; }));
 }
 function block(p){
   const ls = p.split('\n');
@@ -1057,11 +1089,11 @@ function block(p){
 }
 function articleHtml(v, e){
   if (!e) return '';
-  const g = G(), gm = isGM(v);
+  const g = G(), gm = isGM(v) && !N.seeAs, as = N.seeAs;
   const needle = '[[' + e.title.toLowerCase() + ']]', needle2 = '[[wiki:' + e.id.toLowerCase() + '|';
-  const backs = g.wiki.filter(x => x.id !== e.id && (gm || !x.gm) && (t => t.includes(needle) || t.includes(needle2))([x.summary, ...(x.body||[]), ...(x.info||[]).map(i=>i[1]), ...(x.parts||[]).map(p => p.text)].join(' ').toLowerCase())).slice(0,8);
+  const backs = g.wiki.filter(x => x.id !== e.id && N.wikiCan(x) && (t => t.includes(needle) || t.includes(needle2))([x.summary, ...(x.body||[]), ...(x.info||[]).map(i=>i[1]), ...(x.parts||[]).map(p => p.text)].join(' ').toLowerCase())).slice(0,8);
   return `<article class="article">
-    <div style="display:flex;align-items:center;gap:8px"><span class="eyebrow" style="color:var(--gold-tx);flex:1">${IC(N.catIcon(e.cat)).replace('<svg','<svg style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:6px"')}${esc(e.cat)}${gm && N.audOf(e,'wiki') !== '*' ? ' · ' + (e.gm ? 'GM only' : esc(N.audLabel(e,'wiki'))) : ''}</span>${gm?`<button type="button" class="btn sm" data-a="wEdit" data-v="${e.id}">${IC('pen')}Edit</button>`:''}</div>
+    <div style="display:flex;align-items:center;gap:8px"><span class="eyebrow" style="color:var(--gold-tx);flex:1">${IC(N.catIcon(e.cat)).replace('<svg','<svg style="width:14px;height:14px;display:inline;vertical-align:-2px;margin-right:6px"')}${esc(e.cat)}${gm && N.audOf(e,'wiki') !== '*' ? ' · ' + (e.gm ? 'GM only' : esc(N.audLabel(e,'wiki'))) : ''}</span>${gm?`<button type="button" class="btn sm ghost" data-a="pop" data-v="wAs" title="See this entry as one player does">${IC('eye')}Preview as</button><button type="button" class="btn sm" data-a="wEdit" data-v="${e.id}">${IC('pen')}Edit</button>`:''}</div>
     <h1>${esc(e.title)}</h1>
     ${e.summary ? `<p class="sum">${links(e.summary)}</p>` : ''}
     <div class="rule"><span class="star4"></span></div>
@@ -1069,7 +1101,7 @@ function articleHtml(v, e){
     ${e.info?.length ? `<dl class="facts">${e.info.map(([k,x]) => `<dt>${esc(k)}</dt><dd>${links(x)}</dd>`).join('')}</dl>` : ''}
     ${(e.body||[]).map(block).join('')}
     ${e.soon || !(e.body||[]).length ? '<p class="muted" style="font-weight:700;font-size:13px">More coming soon.</p>' : ''}
-    ${N.wikiParts(e).map(p => { const to = N.partTo(p), ps = p.imgs || [];
+    ${N.wikiParts(e).filter(p => { const to = N.partTo(p); return !as || to === 'all' || to === 'some' && (p.see || []).includes(as); }).map(p => { const to = N.partTo(p), ps = p.imgs || [];
       const tag = to === 'all' ? '' : to === 'gm' ? `<span class="eyebrow">${IC('lock').replace('<svg','<svg style="width:13px;height:13px"')}GM only · players never see this</span>` : `<span class="eyebrow">${IC('eye').replace('<svg','<svg style="width:13px;height:13px"')}${gm ? (p.see?.length ? `Only ${esc(N.namesList(p.see))}` : 'Nobody picked yet') : 'Not every player can read this'}</span>`;
       return `<section class="wsect${to === 'all' ? ' open' : to === 'gm' ? ' gmo' : ''}">${tag}${p.h ? `<h3>${links(p.h)}</h3>` : ''}${ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(x => `<figure class="wfig">${N.wikiImg(x.src, x.cap || p.h || e.title)}${x.cap ? `<figcaption>${N.emoText(N.marks(esc(x.cap)))}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}${(p.text || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).map(block).join('')}</section>`; }).join('')}
     ${backs.length ? `<p class="backs"><span class="eyebrow" style="margin-right:8px">Linked from</span>${backs.map(b => `<a class="wl" data-a="wiki" data-v="${b.id}" style="color:var(--link);cursor:pointer">${esc(b.title)}</a>`).join(', ')}</p>` : ''}
