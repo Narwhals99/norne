@@ -32,8 +32,13 @@
      screen, and hands back once it is small again. */
   N.earthIn = c => c.fit ? 1.5 : .72;
   N.earthOutAt = c => c.fit ? .95 : .45;
+  /* a way out that needs no Profile: opening Norne with #safe (or ?safe) in the address turns Earth zoom off */
+  if (/[?#&]safe\b/.test(location.search + location.hash)) { pref = false; try { localStorage.removeItem('norne-earth'); localStorage.removeItem(LIVE); } catch(e) {} }
+  /* phones and tablets: off for now. Jack's iPhone was still killed for memory after PR #216 (2026-11-17), so Earth
+     zoom is a computer-only test until a lighter phone version is proven */
+  N.earthTouch = () => (N.views || []).some(v => v.dev === 'phone') || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
   N.earthOk = () => !!N.EARTH_ALL || N.isJack();
-  N.earthOn = () => pref && N.earthOk();
+  N.earthOn = () => pref && N.earthOk() && (!!N.EARTH_ALL || !N.earthTouch());
   N.earthSet = on => { pref = !!on; cache = null; N.earthCrashed = false; if (!pref) N.earthLive(false); try { if (pref) localStorage.setItem('norne-earth', '1'); else localStorage.removeItem('norne-earth'); } catch(e) {} };
 
   /* ---- the comparison ----
