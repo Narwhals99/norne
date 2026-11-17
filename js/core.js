@@ -674,7 +674,12 @@ N.calAbs = (y, m, d) => N.calYnum(y) * 364 + N.yday(m, d);
 N.calFromAbs = a => { const y = Math.floor(a / 364); let r = a - y * 364, m = 0; while (m < 11 && r >= N.MONTHS[m][1]) { r -= N.MONTHS[m][1]; m++; } return {y, m, d:r + 1}; };
 /* how an event repeats: {k:'none'|'day'|'week'|'month'|'year', n:every n}. Events from before repeats: a year means once, no year every year */
 N.CAL_REP = [['none', 'Never'], ['day', 'Days'], ['week', 'Weeks'], ['month', 'Months'], ['year', 'Years']];
-N.calRep = e => e.rep && e.rep.k ? {k:e.rep.k, n:Math.max(1, +e.rep.n || 1)} : {k:String(e.y || '').trim() ? 'none' : 'year', n:1};
+N.calRep = e => e.rep && e.rep.k ? {k:e.rep.k, n:Math.max(1, +e.rep.n || 1), by:e.rep.by === 'nth' ? 'nth' : 'date'} : {k:String(e.y || '').trim() ? 'none' : 'year', n:1, by:'date'};
+/* Jake: a monthly or yearly event can fall on the same date, or on the nth weekday of the month ("3rd Readyday"); a start in the
+   last week of its month means the last such weekday (5 = last) */
+N.calNth = (m, d) => d + 7 > N.MONTHS[m][1] ? 5 : Math.ceil(d / 7);
+N.calNthText = (m, d) => `${N.calNth(m, d) === 5 ? 'last' : N.ordinal(N.calNth(m, d))} ${N.WEEKDAYS[N.calWd(m, d)]}`;
+const nthHit = (e, at) => N.calWd(at.m, at.d) === N.calWd(e.m, e.d) && (N.calNth(e.m, e.d) === 5 ? at.d + 7 > N.MONTHS[at.m][1] : Math.ceil(at.d / 7) === N.calNth(e.m, e.d));
 N.calLen = e => Math.min(60, Math.max(1, +e.n || 1));
 /* does an occurrence of e begin on day z (an absolute day) */
 const calStarts = (e, z) => {
@@ -685,13 +690,20 @@ const calStarts = (e, z) => {
   if (r.k === 'day') return mod(z - S, r.n) === 0;
   if (r.k === 'week') return mod(z - S, 7 * r.n) === 0;
   const ys = N.calYnum(e.y);
-  if (r.k === 'month') return mod((at.y * 12 + at.m) - (ys * 12 + e.m), r.n) === 0 && at.d === Math.min(e.d, N.MONTHS[at.m][1]);
-  return at.m === e.m && at.d === e.d && mod(at.y - ys, r.n) === 0;
+  if (r.k === 'month') return mod((at.y * 12 + at.m) - (ys * 12 + e.m), r.n) === 0 && (r.by === 'nth' ? nthHit(e, at) : at.d === Math.min(e.d, N.MONTHS[at.m][1]));
+  return at.m === e.m && (r.by === 'nth' ? nthHit(e, at) : at.d === e.d) && mod(at.y - ys, r.n) === 0;
 };
 /* is e on that day: 0 if not, else which of its days it is (1 = the first) */
 N.calOn = (e, m, d, y) => { const Z = N.calAbs(y, m, d); for (let k = 0; k < N.calLen(e); k++) if (calStarts(e, Z - k)) return k + 1; return 0; };
 /* "Every 2 weeks", "Every year", '' for a one-off */
-N.calRepText = e => { const r = N.calRep(e); if (r.k === 'none') return ''; const u = r.k; return r.n > 1 ? `Every ${r.n} ${u}s` : `Every ${u}`; };
+N.calRepText = e => { const r = N.calRep(e); if (r.k === 'none') return ''; const u = r.k, t = r.n > 1 ? `Every ${r.n} ${u}s` : `Every ${u}`;
+  return r.k === 'month' || r.k === 'year' ? `${t} on the ${r.by === 'nth' ? N.calNthText(e.m, e.d) + (r.k === 'year' ? ' of ' + N.MONTHS[e.m][0] : '') : N.ordinal(e.d) + (r.k === 'year' ? ' of ' + N.MONTHS[e.m][0] : '')}` : t; };
+/* event notes: a blank line starts a new paragraph, lines starting with - or * or • are bullet points, other line breaks stay */
+N.calNote = s => String(s || '').replace(/\r/g, '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).map(par => {
+  const out = []; let ul = null;
+  for (const ln of par.split('\n')) { const b = /^\s*(?:[-*•])\s+(.*)$/.exec(ln), h = t => N.emoText(N.marks(N.esc(t)));
+    if (b) { if (!ul) out.push(ul = []); ul.push(h(b[1])); } else { ul = null; out.push(h(ln)); } }
+  return out.map((x, i) => Array.isArray(x) ? `<ul>${x.map(t => `<li>${t}</li>`).join('')}</ul>` : `<p>${x}</p>`).join('').replace(/<\/p><p>/g, '<br>'); }).join('');
 N.NEXT_DAY_META = 'GM will now refresh Fate points and Gold, and will run Strength checks on Consequences.';
 /* in a Meta-only chat a person shows by their own name, not "Jack · Brann" */
 N.metaName = by => N.metaPerson(by).name;
