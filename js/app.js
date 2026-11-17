@@ -913,6 +913,7 @@ function input(v, el, ev){
     case 'lvSt': { const c = isGM(v) && g.chars[v.ui.sheetArg], p = c && c.lvl && c.lvl.picks[+k]; if (p) p[el.dataset.f] = val; return; }
     case 'ndayY': if (v.ui.nday) { v.ui.nday.y = val.slice(0, 24); const p = v.root.querySelector(`#ndp-${v.id}`); if (p) p.innerHTML = N.nextDayPrev(v.ui.nday); } return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
+    case 'ced': if (v.ui.ced) { v.ui.ced[k] = val; if (k === 'title') { const b = v.root.querySelector('[data-a="ceSave"]'); if (b) b.disabled = !val.trim(); } } return;
     case 'invTransferQ': if (v.ui.invTransfer) { v.ui.invTransfer.q = val; render(v); } return;
     case 'invTransferQty': if (v.ui.invTransfer) v.ui.invTransfer.qty = val; return;
     case 'itQ': v.ui.itQ = val; render(v); return;
@@ -1010,6 +1011,9 @@ function change(v, el){
   if (i === 'ndSkill' && val) { v.ui.nd.skills[val] = +el.dataset.x; render(v); }
   if (i === 'wd' && el.dataset.k !== 'cap') v.ui.wd[el.dataset.k] = val;
   if (i === 'cd') render(v);
+  if (i === 'cedM' && v.ui.ced) { v.ui.ced.m = +val; v.ui.ced.d = Math.min(v.ui.ced.d, N.MONTHS[+val][1]); render(v); }
+  if (i === 'cedD' && v.ui.ced) { v.ui.ced.d = +val; render(v); }
+  if (i === 'calCh') { v.ui.calCh = val; v.ui.calV = null; v.ui.calSel = null; render(v); }
   if (i === 'cdTo') v.ui.cd[+el.dataset.n].to = val;
   if (i === 'mapName') renderAll();
   if (i === 'gold' && isGM(v)) { const g = G(), o = el.dataset.c ? g.chars[el.dataset.c] : g.npcs.find(x => x.id === el.dataset.n);
@@ -1963,6 +1967,8 @@ function act(v, a, el, e){
   case 'ndayGo': { const d = ui.nday, ch = ui.ch; if (!gm || !d || !N.grpOf(ch) || N.metaOnly(ch)) break;
     const day = d.u ? {u:true} : {w:clamp(d.w, 0, 6), d:clamp(d.d, 1, 31), m:clamp(d.m, 0, 11), y:String(d.y || '').trim()};
     const a = push({ch, kind:'rp', by:'gm', as:'Narrator', text:N.dayLine(day), day});
+    /* the calendar's today in this chat follows (World > Calendar) */
+    if (!day.u) g.calDates = {...g.calDates, [ch]:{...day, t:a.t}};
     push({ch, kind:'meta', by:'gm', text:N.NEXT_DAY_META, t:a.t + 1});
     ui.nday = null; ui.sheet = null; ui.stick = true; toast(v, 'Next day posted.'); renderAll(); return; }
   case 'grpPause': { const gr = gm && N.grpOf('grp-' + val); if (!gr) break; const on = !gr.paused;
@@ -2220,13 +2226,43 @@ function act(v, a, el, e){
     /* a desktop side panel showing the wiki opens the entry there and the chat stays put */
     const inPane = paneShows(v, 'world');
     ui.wikiPrev = (v.dev === 'phone' && ui.tab === 'world' || inPane) && ui.wikiSel && ui.wikiSel !== val ? [...(ui.wikiPrev || []), ui.wikiSel] : [];
-    if (!inPane) ui.tab = 'world'; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
+    if (!inPane) ui.tab = 'world'; ui.wikiCal = false; ui.wikiSel = val; if (v.dev === 'desktop') ui.wikiCat = en.cat; ui.wikiQ = ui.wikiQ && v.dev === 'desktop' ? ui.wikiQ : ''; const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; break; }
   /* a locked link (N.lockLink): a little note by the link, nothing opens */
   case 'wLocked': if (ui.pop?.type === 'wlock' && ui.pop.lab === el.textContent) ui.pop = null; else { openPop(v, 'wlock', el); ui.pop.lab = el.textContent; } break;
   /* the GM previews the wiki as one player (views.js worldPage); empty stops it */
   case 'wAs': if (!gm) break; ui.pop = null; ui.wikiAs = val || null; if (!paneShows(v, 'world')) ui.tab = 'world'; break;
+  /* Jake: a player asks the GM for a Lore check on an entry they can't open. The request rides on their own card (c.lore);
+     the GM's device posts it in GM notes as that player's Meta message (N.loreNotes), since players can't write there */
+  case 'loreAsk': { const p = ui.pop; if (!p || p.type !== 'wlock' || gm || N.seeAs) break; const c = N.charOf(v.role); if (!c) break;
+    const a = String(p.lab || '').replace(/\s+/g, ' ').trim().slice(0, 120) || 'an entry';
+    c.lore = [...(c.lore || []), {id:uid('lr'), a, t:Date.now()}].slice(-20); p.sent = true;
+    toast(v, `Asked ${N.gmName()} for a Lore check on ${a}.`); renderAll(); return; }
+  /* ---------- World > Calendar ---------- */
+  case 'wCal': ui.pop = null; ui.wikiCal = true; ui.wikiSel = null; ui.wikiPrev = []; ui.calSel = null; ui.calV = null; if (!paneShows(v, 'world')) ui.tab = 'world'; break;
+  case 'calNav': { const cv = calView(v); let m = cv.m + (+val || 0), y = cv.y; const num = /^\d+$/.test(String(y || '').trim());
+    if (m > 11) { m = 0; if (num) y = String(+y + 1); } if (m < 0) { m = 11; if (num) y = String(Math.max(0, +y - 1)); }
+    ui.calV = {m, y}; ui.calSel = null; break; }
+  case 'calDay': ui.calSel = ui.calSel === +val ? null : +val; break;
+  case 'calNow': ui.calV = null; ui.calSel = null; break;
+  /* the GM makes the picked day "today" in the chat picked on the calendar */
+  case 'calSet': { if (!gm) break; const ch = calCh(v), cv = calView(v), dd = ui.calSel; if (!ch || !dd) break;
+    const was = g.calDates[ch]; g.calDates = {...g.calDates, [ch]:{w:N.calWd(cv.m, dd), d:dd, m:cv.m, y:String(cv.y || '').trim(), t:Date.now()}};
+    toast(v, `Today in ${N.chName(ch, 'gm')} is now ${N.dayLine(g.calDates[ch])}.`, () => { const o = {...g.calDates}; if (was) o[ch] = was; else delete o[ch]; g.calDates = o; N.renderAll(); }); renderAll(); return; }
+  case 'calEvNew': if (!gm) break; { const cv = calView(v); openSheet(v, 'calEv', {}); ui.ced = {id:null, title:'', note:'', m:cv.m, d:ui.calSel || 1, y:String(cv.y || '').trim(), every:!String(cv.y || '').trim(), gm:true}; } break;
+  case 'calEvEdit': { const e = gm && (g.calEv || []).find(x => x.id === val); if (!e) break; openSheet(v, 'calEv', {});
+    ui.ced = {id:e.id, title:e.title, note:e.note || '', m:e.m, d:e.d, y:String(e.y || calView(v).y || '').trim(), every:!String(e.y || '').trim(), ...(e.gm ? {gm:true} : {}), ...(e.see ? {see:[...e.see]} : {})}; } break;
+  case 'ceAud': if (ui.ced) N.audSet(ui.ced, 'wiki', val); break;
+  case 'ceEvery': if (ui.ced) ui.ced.every = val === '1'; break;
+  case 'ceSave': { const d = ui.ced; if (!gm || !d || !d.title.trim()) break;
+    const e = {id:d.id || uid('ev'), title:d.title.trim().slice(0, 80), note:String(d.note || '').trim().slice(0, 600), m:clamp(+d.m, 0, 11), d:clamp(+d.d, 1, N.MONTHS[clamp(+d.m, 0, 11)][1]), y:d.every ? '' : String(d.y || '').trim().slice(0, 24),
+      ...(d.gm ? {gm:true} : {}), ...(Array.isArray(d.see) && d.see.length ? {see:[...d.see]} : {})};
+    const l = [...(g.calEv || [])], i = l.findIndex(x => x.id === e.id); if (i >= 0) l[i] = e; else l.push(e); g.calEv = l;
+    ui.ced = null; ui.sheet = null; if (calView(v).m === e.m) ui.calSel = e.d; toast(v, `${d.id ? 'Saved' : 'Added'} ${e.title}.`); renderAll(); return; }
+  case 'ceDel': { const l = g.calEv || [], i = l.findIndex(x => x.id === ui.ced?.id); if (!gm || i < 0) break; const e = l[i];
+    g.calEv = l.filter(x => x !== e); ui.ced = null; ui.sheet = null;
+    toast(v, `Deleted ${e.title}.`, () => { g.calEv = [...g.calEv.slice(0, i), e, ...g.calEv.slice(i)]; N.renderAll(); }); renderAll(); return; }
   case 'wCat': ui.wikiCat = ui.wikiCat === val ? null : val; if (v.dev === 'phone') ui.wikiSel = null; break;
-  case 'wBack': if (ui.wikiSel && ui.wikiPrev?.length) { ui.wikiSel = ui.wikiPrev.pop(); const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; } else if (ui.wikiSel) ui.wikiSel = null; else ui.wikiCat = null; break;
+  case 'wBack': if (ui.wikiCal) { ui.wikiCal = false; break; } if (ui.wikiSel && ui.wikiPrev?.length) { ui.wikiSel = ui.wikiPrev.pop(); const r = v.root.querySelector('[data-sk="wr"]'); if (r) r.scrollTop = 0; } else if (ui.wikiSel) ui.wikiSel = null; else ui.wikiCat = null; break;
   /* a link to a PC or NPC card (N.xl) opens it over the page, as this screen may see it; closing it goes back to where it was
      followed from (a card opened from another card goes back to that one) */
   case 'cardView': if (!N.linkSees('pc', val)) break; ui.pop = null; { const was = ui.sheet === 'card' && ui.sheetArg !== val ? ui.sheetArg : null;
@@ -3120,6 +3156,24 @@ N.lvlNotes = () => {
   }
   if (any) renderAll();
 };
+/* Lore checks (Jake): a player's request (c.lore, set by loreAsk) becomes their Meta message in GM notes, posted by the GM's device.
+   Each request is posted once (m.lore = its id), then taken off the card */
+N.loreNotes = () => {
+  const g = G(); if (g.role !== 'gm') return;
+  let any = false;
+  for (const c of Object.values(g.chars || {})) {
+    if (!Array.isArray(c.lore) || !c.lore.length) continue;
+    for (const r of c.lore) if (r && r.id && !g.msgs.some(m => m.lore === r.id))
+      push({ch:'gm', kind:'meta', by:c.player || 'gm', text:`${c.name || c.short || 'A player'} is requesting a Lore check on ${r.a || 'an entry'}.`, lore:r.id});
+    delete c.lore; any = true;
+  }
+  if (any) renderAll();
+};
+/* the calendar's month on screen (v.ui.calV), else the month of today */
+function calCh(v){ const g = G(); if (!isGM(v) || N.seeAs) return N.calChFor(N.seeAs || v.role);
+  const l = N.calChats(); return l.includes(v.ui.calCh) ? v.ui.calCh : l.find(c => N.calDayOf(c)) || l[0] || null; }
+function calView(v){ if (v.ui.calV) return v.ui.calV; const t = calCh(v) && N.calDayOf(calCh(v)); return t ? {m:t.m, y:String(t.y || '')} : {m:0, y:''}; }
+N.calCh = calCh; N.calView = calView;
 /* Level Up: add the pick the player built in v.ui.lv (see the lvlUp sheet) */
 function lvAdd(v, d){
   const g = G(), c = g.chars[v.ui.sheetArg], lv = c && c.lvl, f = v.ui.lv; if (!lv || lv.st === 'sent' || !f) return;

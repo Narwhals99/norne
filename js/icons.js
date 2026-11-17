@@ -9,3 +9,5 @@ window.ICONS.houses=["0 0 256 256","<g fill=\"currentColor\"><g transform=\"tran
 
 /* a folder (used by the scene window's picture folders) */
 window.ICONS.folder=["0 0 256 256","<g fill=\"currentColor\"><path d=\"M224 88v112.89a7.11 7.11 0 0 1-7.11 7.11H39.38a7.4 7.4 0 0 1-7.38-7.38V80h184a8 8 0 0 1 8 8\" opacity=\".2\"/><path d=\"M216 72h-84.69L104 44.69A15.86 15.86 0 0 0 92.69 40H40a16 16 0 0 0-16 16v144.62A15.4 15.4 0 0 0 39.38 216h177.51A15.13 15.13 0 0 0 232 200.89V88a16 16 0 0 0-16-16M40 56h52.69l16 16H40Zm176 144H40V88h176Z\"/></g>"];
+/* calendar (World > Calendar) */
+window.ICONS.calendar=["0 0 256 256","<g fill=\"currentColor\"><path d=\"M216 48v32H40V48a8 8 0 0 1 8-8h160a8 8 0 0 1 8 8\" opacity=\".2\"/><path d=\"M208 32h-24v-8a8 8 0 0 0-16 0v8H88v-8a8 8 0 0 0-16 0v8H48a16 16 0 0 0-16 16v160a16 16 0 0 0 16 16h160a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16M72 48v8a8 8 0 0 0 16 0v-8h80v8a8 8 0 0 0 16 0v-8h24v24H48V48Zm136 160H48V96h160Z\"/><circle cx=\"88\" cy=\"132\" r=\"12\"/><circle cx=\"128\" cy=\"132\" r=\"12\"/><circle cx=\"168\" cy=\"132\" r=\"12\"/><circle cx=\"88\" cy=\"172\" r=\"12\"/><circle cx=\"128\" cy=\"172\" r=\"12\"/></g>"];

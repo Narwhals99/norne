@@ -431,7 +431,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, rnotes:{}, rnMine:{}, shops:{}, crafts:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, rnotes:{}, rnMine:{}, shops:{}, crafts:{}, calDates:{}, calEv:[], calPub:[], calMine:[],
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -635,6 +635,34 @@ N.dayLine = d => d.u ? 'Date unknown' : `${N.WEEKDAYS[d.w]}, ${N.ordinal(d.d)} o
 N.dayAfter = d => { if (!d || d.u) return null; let {w, d:n, m, y} = d; w = (w + 1) % 7; n++;
   if (n > N.MONTHS[m][1]) { n = 1; m++; if (m > 11) { m = 0; const t = String(y || '').trim(); if (/^\d+$/.test(t)) y = String(+t + 1); } }
   return {w, d:n, m, y:y || ''}; };
+/* ---------- Calendar (World > Calendar, Jake) ----------
+   G.calDates = {<chat>: {w, d, m, y, t}}: "today" in a party or group chat, set by the GM on the calendar or by Next day.
+   G.calEv (GM) = [{id, title, note, m, d, y, gm?, see?}]: y '' means every year; who sees it works like a wiki entry
+   (gm:true only the GM, see:[seats] those players). Players get G.calPub (everyone's) and G.calMine (picked for them). */
+N.SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'];
+N.WD_SHORT = ['1st Mkt', '2nd Mkt', '3rd Mkt', '4th Mkt', 'Free', 'Rest', 'Ready'];
+/* the day of the year, from 0 (1st of First Rain). The year has 364 days, exactly 52 weeks, so a date falls on the same day of the week every year */
+N.yday = (m, d) => { let n = 0; for (let i = 0; i < m; i++) n += N.MONTHS[i][1]; return n + d - 1; };
+/* the newest dated day known in a chat: the calendar's own date or the last Next day line there, whichever came later */
+N.calDayOf = ch => { const g = N.G, a = (g.calDates || {})[ch] || null;
+  let b = null; for (let i = g.msgs.length - 1; i >= 0; i--) { const m = g.msgs[i]; if (m.ch === ch && m.day) { b = {...m.day, t:m.t}; break; } }
+  const x = !a ? b : !b ? a : (b.t || 0) > (a.t || 0) ? b : a;
+  return x && !x.u && N.MONTHS[x.m] ? x : null; };
+/* which day of the week dates fall on: taken from any known date (the newest), else the year starts on First Market */
+N.calAnchor = () => { let best = null; const chs = new Set([...Object.keys(N.G.calDates || {}), ...N.G.msgs.filter(m => m.day).map(m => m.ch)]);
+  for (const ch of chs) { const x = N.calDayOf(ch); if (x && (!best || (x.t || 0) > (best.t || 0))) best = x; } return best; };
+N.calWd = (m, d) => { const a = N.calAnchor(); const off = a ? a.w - N.yday(a.m, a.d) : 0; return (((off + N.yday(m, d)) % 7) + 7) % 7; };
+/* the chat whose "today" a player's calendar shows: their party, else a roleplay group chat they are in that has a date */
+N.calChFor = seat => { const pt = N.partyOf(seat); if (pt) return 'grp-' + pt.id;
+  const gs = (N.G.groups || []).filter(x => (x.seats || []).includes(seat) && !x.meta).map(x => 'grp-' + x.id);
+  return gs.find(c => N.calDayOf(c)) || gs[0] || null; };
+/* the chats the GM can set a date for: parties and group chats where people roleplay */
+N.calChats = () => N.channelsFor('gm').filter(c => c.startsWith('grp-') && !N.metaOnly(c));
+/* the events one person sees: the GM all of them, a player (or the GM previewing as one) theirs */
+N.calEvents = seat => { const g = N.G;
+  if (g.role === 'gm') return seat ? (g.calEv || []).filter(e => N.audSeats(e, 'wiki').includes(seat)) : (g.calEv || []);
+  return [...(g.calPub || []), ...(g.calMine || [])]; };
+N.calOn = (e, m, d, y) => e.m === m && e.d === d && (!String(e.y || '').trim() || String(e.y).trim() === String(y || '').trim());
 N.NEXT_DAY_META = 'GM will now refresh Fate points and Gold, and will run Strength checks on Consequences.';
 /* in a Meta-only chat a person shows by their own name, not "Jack · Brann" */
 N.metaName = by => N.metaPerson(by).name;

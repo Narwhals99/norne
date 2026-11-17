@@ -938,6 +938,22 @@ N.sheetHtml = function(v){
   }
   /* Jake: the GM ends the day in a roleplay party or group chat. A Narrator line with the new date (or "Date unknown"),
      then a Meta line saying the GM refreshes Fate points and Gold and runs Strength checks on Consequences */
+  /* World > Calendar: the GM adds or edits an event on a day (Jake) */
+  case 'calEv': {
+    const d = v.ui.ced; if (!d || !gm) return '';
+    const opt = (l, cur) => l.map((x, i) => `<option value="${i}"${i === cur ? ' selected' : ''}>${esc(x)}</option>`).join('');
+    const days = [...Array(N.MONTHS[d.m][1])].map((_, i) => `<option value="${i + 1}"${i + 1 === +d.d ? ' selected' : ''}>${i + 1}</option>`).join('');
+    const y = String(d.y || '').trim();
+    const body = `<label class="field"><span>Event</span><input class="inp" id="cet-${v.id}" data-i="ced" data-k="title" value="${esc(d.title)}" placeholder="e.g. The duke’s wedding" maxlength="80" autocomplete="off"></label>
+      <div class="ndgrid cegrid"><label class="field ndd"><span>Day</span><select class="inp" data-i="cedD">${days}</select></label>
+        <label class="field ndm"><span>Month</span><select class="inp" data-i="cedM">${opt(N.MONTHS.map(x => x[0]), +d.m)}</select></label></div>
+      <p class="muted" style="margin:-4px 0 0;font:600 12.5px/1.4 var(--f-ui)">That day is a ${esc(N.WEEKDAYS[N.calWd(+d.m, +d.d)])}.</p>
+      <div><h4>Which years</h4><div class="seg" role="group" aria-label="Which years"><button type="button" data-a="ceEvery" data-v="1" aria-pressed="${!!d.every}">Every year</button><button type="button" data-a="ceEvery" data-v="0" aria-pressed="${!d.every}"${y ? '' : ' disabled'}>Only ${y ? esc(y) : 'this year'}</button></div>
+        ${y ? '' : '<p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">No year is set on the calendar, so the event comes back every year.</p>'}</div>
+      <label class="field"><span>Notes (optional)</span><textarea class="inp" id="cen-${v.id}" data-i="ced" data-k="note" rows="3" placeholder="What happens, where, who is there">${esc(d.note || '')}</textarea></label>
+      <div><h4>Who sees it</h4>${N.audPick('ceAud', d, 'wiki')}</div>`;
+    return sheet(d.id ? 'Edit event' : 'New event', body, `${d.id ? `<button type="button" class="btn danger" data-a="ceDel" style="flex:0 0 auto" aria-label="Delete this event">${IC('trash')}<span class="only-dt">Delete</span></button>` : ''}<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="ceSave" ${d.title.trim() ? '' : 'disabled'}>${IC('check')}${d.id ? 'Save event' : 'Add event'}</button>`);
+  }
   case 'nextDay': {
     const d = v.ui.nday; if (!d || !gm) return '';
     const opt = (list, cur) => list.map((t, i) => `<option value="${i}"${i === cur ? ' selected' : ''}>${esc(t)}</option>`).join('');

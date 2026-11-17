@@ -193,6 +193,7 @@ function mergeChars(){
   g.chars = next;
   nameSeats(); keepSeatCard();
   if (isGM() && N.lvlNotes) setTimeout(N.lvlNotes, 0);
+  if (isGM() && N.loreNotes) setTimeout(N.loreNotes, 0);
 }
 /* a player's other characters can sit in a party this seat can't read, so this device remembers the name and face
    of each character it has played; the character picker shows them instead of "New character" */
@@ -538,7 +539,7 @@ function syncNow(){
       if (Object.keys(iv).length) only[st].iv = iv; }
     writeUnits('gm/shops', {...(g.shops || {}), _lib:g.shopLib || []});
     writeUnits('gm/crafts', {...(g.crafts || {})});
-    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, wl:g.wlinks || {}, hlocs:g.hlocs || {}, rnotes:g.rnotes || {}, npcdirs:g.npcDirs || []});
+    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, wl:g.wlinks || {}, hlocs:g.hlocs || {}, rnotes:g.rnotes || {}, npcdirs:g.npcDirs || [], cal:g.calEv || []});
     /* a roll's GM note goes to the players the GM picked for it: just the words, keyed by the roll's message */
     for (const st of N.seats()) { if (!only[st]) continue; const rn = {};
       for (const [id, n] of Object.entries(g.rnotes || {})) if (n && n.t && (n.see || []).includes(st)) rn[id] = n.t;
@@ -564,7 +565,13 @@ function syncNow(){
       writeUnits('game/news', Object.fromEntries(g.news.issues.map(i => [i.id, share(i, 'news', 'n:' + i.id, i)]).filter(e => e[1])));
     }
     /* wiki categories and the GIF search key; the server copy is read back into g first, so writing it all is safe */
-    { const meta = {}; if (g.cats) meta.cats = g.cats; if (g.gifKey) meta.gif = g.gifKey; if (g.gmPic) meta.gmpic = g.gmPic; if (g.mapDirs?.length) meta.mapdirs = g.mapDirs; writeUnits('game/meta', meta); }
+    { const meta = {}; if (g.cats) meta.cats = g.cats; if (g.gifKey) meta.gif = g.gifKey; if (g.gmPic) meta.gmpic = g.gmPic; if (g.mapDirs?.length) meta.mapdirs = g.mapDirs;
+      /* the calendar: each chat's today, and the events every player sees; events for some players go to their only/<seat> (ce) */
+      if (Object.keys(g.calDates || {}).length) meta.cald = g.calDates;
+      const evOut = e => ({id:e.id, title:e.title, note:e.note || '', m:e.m, d:e.d, y:e.y || ''});
+      const pub = (g.calEv || []).filter(e => N.audOf(e, 'wiki') === '*').map(evOut); if (pub.length) meta.cale = pub;
+      for (const e of g.calEv || []) { const a = N.audOf(e, 'wiki'); if (Array.isArray(a)) for (const st of a) if (only[st]) (only[st].ce = only[st].ce || []).push(evOut(e)); }
+      writeUnits('game/meta', meta); }
     writeUnits('game/emoji', asUnits(g.emoji));
     for (const [st, units] of Object.entries(only)) {
       const path = 'only/' + st;
@@ -694,6 +701,7 @@ function setMine(u){
   G().known = {}; for (const [key, j] of Object.entries(u)) if (key.startsWith('r:')) { try { G().known[key.slice(2)] = JSON.parse(j); } catch(e) {} }
   try { G().ivMine = u.iv ? JSON.parse(u.iv) : {}; } catch(e) { G().ivMine = {}; }
   try { G().rnMine = u.rn ? JSON.parse(u.rn) : {}; } catch(e) { G().rnMine = {}; }
+  try { G().calMine = u.ce ? JSON.parse(u.ce) : []; } catch(e) { G().calMine = []; }
   G().wlinks = {}; for (const [key, j] of Object.entries(u)) if (key.startsWith('l:')) { try { G().wlinks[key.slice(2)] = JSON.parse(j); } catch(e) {} }
   for (const [key, j] of Object.entries(u)) { const k = KIND[key[0]]; if (k && key[1] === ':') MINE[k][key.slice(2)] = j; }
   mergeView();
@@ -880,12 +888,12 @@ async function start(role){
     'gm/crafts': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.crafts = o; },
     'gm/shops': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { if (ch === '_lib') continue; const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.shops = o; g.shopLib = u._lib ? JSON.parse(u._lib) : []; },
     'gm/items': u => { g.items = vals(u).map(({o, ...x}) => N.ammoFix(x)).sort((a,b) => a.name.localeCompare(b.name)); },
-    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.wlinks = u.wl ? JSON.parse(u.wl) : {}; g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.rnotes = u.rnotes ? JSON.parse(u.rnotes) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; },
+    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.wlinks = u.wl ? JSON.parse(u.wl) : {}; g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.rnotes = u.rnotes ? JSON.parse(u.rnotes) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; g.calEv = u.cal ? JSON.parse(u.cal) : []; },
     'game/news': u => { PUB.news = u; mergeView(); },
     'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
     'game/maps': u => { PUB.maps = u; mergeView(); },
     'game/wiki': u => { PUB.wiki = u; mergeView(); },
-    'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; g.gifKey = u.gif ? JSON.parse(u.gif) : ''; g.gmPic = u.gmpic ? JSON.parse(u.gmpic) : null; g.mapDirs = u.mapdirs ? JSON.parse(u.mapdirs) : []; },
+    'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; g.gifKey = u.gif ? JSON.parse(u.gif) : ''; g.gmPic = u.gmpic ? JSON.parse(u.gmpic) : null; g.mapDirs = u.mapdirs ? JSON.parse(u.mapdirs) : []; g.calDates = u.cald ? JSON.parse(u.cald) : {}; g.calPub = u.cale ? JSON.parse(u.cale) : []; },
     'game/emoji': u => { g.emoji = vals(u).sort(byO); },
   };
   /* everything is asked for at once; the GM's private fights need the seat list from members first */
