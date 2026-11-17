@@ -924,7 +924,8 @@ function popHtml(v){
   }
   if (p.type === 'wlock') {
     /* a tapped link to an entry this reader can't open */
-    return `<div class="pop lockpop" style="${pos}" role="dialog" aria-label="Outside your knowledge"><div class="lk-h">${IC('lockD')}<b>${esc(p.lab || 'This entry')}</b></div><p>Outside your knowledge; ask GM for Lore check.</p></div>`;
+    return `<div class="pop lockpop" style="${pos}" role="dialog" aria-label="Outside your knowledge"><div class="lk-h">${IC('lockD')}<b>${esc(p.lab || 'This entry')}</b></div><p>Outside your knowledge.</p>${isGM(v) ? `<p class="fine">${N.seeAs || v.ui.wikiAs ? 'The player sees an “Ask GM for Lore check” button here.' : ''}</p>`
+      : p.sent ? `<p class="lk-sent">${IC('check')}Asked ${esc(N.gmName())} for a Lore check.</p>` : `<button type="button" class="btn sm primary lk-ask" data-a="loreAsk">${IC('scroll')}Ask GM for Lore check</button>`}</div>`;
   }
   if (p.type === 'wnew') {
     const row = (a, ic, l, sub, x='') => `<button type="button" class="opt" data-a="${a}" ${x}><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${l}<small>${sub}</small></span></button>`;
@@ -1059,17 +1060,51 @@ function worldPage1(v){
     ${v._pane ? (gm ? `<div class="top ph" style="padding:0;justify-content:flex-end"><button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button></div>` : '') : ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm ghost" data-a="sheet" data-v="wCats">${IC('gear')}Categories</button><button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
     ${asBar(v)}
     <div class="search">${IC('search')}<input class="inp" id="wq-${v.id}" data-i="wikiQ" placeholder="Search ${g.wiki.length} entries" value="${esc(v.ui.wikiQ)}"></div>
+    ${calBtn(v)}
     ${q ? `<div class="ents">${g.wiki.filter(hit).slice(0,40).map(e => entBtn(v,e)).join('') || '<p class="muted" style="font-weight:600">Nothing matches.</p>'}</div>`
       : `<div class="cats">${N.catNames(g.wiki).map(c => { const es = g.wiki.filter(e => e.cat === c); if (!es.length) return ''; const open = v.ui.wikiCat === c; return `<button type="button" class="cat" data-a="wCat" data-v="${esc(c)}" aria-current="${open}"><span class="ci">${IC(N.catIcon(c))}</span><b>${esc(c)}</b><span class="n">${es.length}</span>${IC('right','car')}</button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${es.map(e => entBtn(v,e)).join('')}</div>` : ''}`; }).join('')}</div>`}
   </div>`;
   /* previewing an entry that player can't read: say so instead of a blank page */
   const hid = N.seeAs && v.ui.wikiSel && !g.wiki.some(e => e.id === v.ui.wikiSel) && g0.wiki.find(e => e.id === v.ui.wikiSel);
-  const read = hid ? `<div class="quiet" style="align-self:center">${IC('lockD').replace('<svg','<svg style="width:46px;height:46px;color:var(--ink-3)"')}<p><b>${esc(asName(N.seeAs))} can’t read “${esc(hid.title)}”.</b><br>It isn’t in their wiki, and links to it show greyed with a lock.</p></div>`
+  const read = v.ui.wikiCal ? calHtml(v) : hid ? `<div class="quiet" style="align-self:center">${IC('lockD').replace('<svg','<svg style="width:46px;height:46px;color:var(--ink-3)"')}<p><b>${esc(asName(N.seeAs))} can’t read “${esc(hid.title)}”.</b><br>It isn’t in their wiki, and links to it show greyed with a lock.</p></div>`
     : v.ui.wikiSel ? articleHtml(v, g.wiki.find(e => e.id === v.ui.wikiSel)) : `<div class="quiet" style="align-self:center"><div class="art" style="width:260px;height:220px"></div><p>Pick a category, or search for a person, place or rule.<br>Everything here comes from Nörne’s lore.</p></div>`;
   if (!ph) return `<div class="world">${index}<div class="scroll" data-sk="wr" style="min-height:0;display:grid">${read}</div></div>`;
+  if (v.ui.wikiCal) return `<div class="world"><div class="scroll" data-sk="wr" style="min-height:0;padding-top:var(--safe-t,0px)"><div class="top ph"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1 style="font-size:16px">Calendar</h1></div>${N.seeAs ? `<div style="padding:0 16px">${asBar(v)}</div>` : ''}${read}</div></div>`;
   if (v.ui.wikiSel) return `<div class="world"><div class="scroll" data-sk="wr" style="min-height:0;padding-top:var(--safe-t,0px)"><div class="top ph"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1 style="font-size:16px">${esc(g0.wiki.find(e=>e.id===v.ui.wikiSel)?.cat||'')}</h1></div>${N.seeAs ? `<div style="padding:0 16px">${asBar(v)}</div>` : ''}${read}</div></div>`;
   if (v.ui.wikiCat) { const es = g.wiki.filter(e => e.cat === v.ui.wikiCat); return `<div class="world"><div class="wi scroll" data-sk="wc"><div class="top ph" style="padding-left:0;padding-right:0"><button type="button" class="ibtn" data-a="wBack" aria-label="Back">${IC('left')}</button><h1>${esc(v.ui.wikiCat)}</h1><span class="tag">${es.length}</span></div>${asBar(v)}<div class="ents">${es.map(e=>entBtn(v,e)).join('')}</div></div></div>`; }
   return `<div class="world">${index}</div>`;
+}
+/* ---------- World > Calendar (Jake): Nörne's months and weeks, today in the reader's party, and the GM's events ---------- */
+function calBtn(v){
+  const st = N.seeAs || (isGM(v) ? null : v.role), ch = N.calCh(v), t = ch && N.calDayOf(ch);
+  return `<button type="button" class="cat calbtn" data-a="wCal" aria-current="${!!v.ui.wikiCal}"><span class="ci">${IC('calendar')}</span><span class="cb-t"><b>Calendar</b><small>${t ? esc(N.dayLine(t)) : st ? 'No date set yet' : 'Set today, add events'}</small></span>${IC('right','car')}</button>`;
+}
+function calHtml(v){
+  const gm = isGM(v) && !N.seeAs, st = N.seeAs || (gm ? null : v.role), ch = N.calCh(v), today = ch && N.calDayOf(ch);
+  const cv = N.calView(v), m = cv.m, y = String(cv.y || '').trim(), len = N.MONTHS[m][1], first = N.calWd(m, 1), sel = v.ui.calSel && v.ui.calSel <= len ? v.ui.calSel : null;
+  const evs = N.calEvents(st), on = d => evs.filter(e => N.calOn(e, m, d, y));
+  const isToday = d => today && today.m === m && today.d === d && String(today.y || '').trim() === y;
+  const cells = [...Array(first)].map(() => '<span class="cd blank"></span>').join('') + [...Array(len)].map((_, i) => { const d = i + 1, n = on(d).length;
+    return `<button type="button" class="cd${isToday(d) ? ' today' : ''}" data-a="calDay" data-v="${d}" aria-pressed="${sel === d}" aria-label="${esc(N.dayLine({w:N.calWd(m, d), d, m, y}))}${isToday(d) ? ', today' : ''}${n ? `, ${n} event${n > 1 ? 's' : ''}` : ''}"><span class="n">${d}</span>${n ? `<span class="dots">${'<i></i>'.repeat(Math.min(n, 3))}</span>` : ''}</button>`; }).join('');
+  const chats = gm ? N.calChats() : [];
+  const where = gm ? (chats.length ? `<label class="cal-ch"><span>Today in</span><select class="inp" data-i="calCh" aria-label="Chat whose date you set">${chats.map(c => `<option value="${c}"${c === ch ? ' selected' : ''}>${esc(N.chName(c, 'gm'))}</option>`).join('')}</select></label>` : `<p class="muted cal-note">Make a party or group chat to give it a date.</p>`) : '';
+  const todayLine = today ? `<button type="button" class="cal-today" data-a="calNow">${IC('sun')}<span><small>${gm && chats.length < 2 ? 'Today in ' + esc(N.chName(ch, 'gm')) : 'Today'}</small><b>${esc(N.dayLine(today))}</b></span></button>`
+    : `<p class="muted cal-note">${gm ? (ch ? `No date in ${esc(N.chName(ch, 'gm'))} yet. Pick a day, then Make this today.` : '') : `${esc(N.gmName())} hasn’t set today’s date for your party yet.`}</p>`;
+  const evRow = e => { const a = N.audOf(e, 'wiki');
+    return `<div class="cal-ev"><span class="ci">${IC('star')}</span><div><b>${esc(e.title)}${gm ? (a === 'gm' ? ' <span class="tag gold">GM only</span>' : a === '*' ? '' : ` <span class="tag">${esc(N.namesList(a))}</span>`) : ''}</b>${String(e.y || '').trim() ? '' : '<small>Every year</small>'}${e.note ? `<p>${N.emoText(N.marks(esc(e.note)))}</p>` : ''}</div>${gm ? `<button type="button" class="ibtn" data-a="calEvEdit" data-v="${e.id}" aria-label="Edit ${esc(e.title)}">${IC('pen')}</button>` : ''}</div>`; };
+  const day = sel ? `<div class="cal-day"><h3>${esc(N.dayLine({w:N.calWd(m, sel), d:sel, m, y}))}${isToday(sel) ? ' <span class="tag gold">Today</span>' : ''}</h3>
+      ${on(sel).map(evRow).join('') || `<p class="muted cal-note">Nothing on this day.</p>`}
+      ${gm ? `<div class="cal-act"><button type="button" class="btn sm primary" data-a="calEvNew">${IC('plus')}Add event</button>${ch && !isToday(sel) ? `<button type="button" class="btn sm" data-a="calSet">${IC('sun')}Make this today${chats.length > 1 ? ` in ${esc(N.chName(ch, 'gm'))}` : ''}</button>` : ''}</div>` : ''}</div>`
+    : `<div class="cal-day"><p class="muted cal-note">${gm ? 'Tap a day to add an event or make it today.' : 'Tap a day to see what happens on it.'}</p></div>`;
+  /* this month's events in date order, so nothing hides behind a dot */
+  const month = [...Array(len)].flatMap((_, i) => on(i + 1).map(e => [i + 1, e]));
+  return `<section class="cal" aria-label="Calendar">
+    <div class="cal-top">${where}${todayLine}</div>
+    <div class="cal-h"><button type="button" class="ibtn" data-a="calNav" data-v="-1" aria-label="Previous month">${IC('left')}</button><div><h2>${esc(N.MONTHS[m][0])}</h2><small>${N.SEASONS[Math.floor(m / 3)]} · ${len} days${y ? ' · ' + esc(y) : ''}</small></div><button type="button" class="ibtn" data-a="calNav" data-v="1" aria-label="Next month">${IC('right')}</button></div>
+    <div class="cal-g" role="grid">${N.WEEKDAYS.map((w, i) => `<span class="wd" title="${w}">${N.WD_SHORT[i]}</span>`).join('')}${cells}</div>
+    ${day}
+    ${month.length ? `<div class="cal-list"><span class="eyebrow">This month</span>${month.map(([d, e]) => `<button type="button" class="cal-li" data-a="calDay" data-v="${d}"><span class="dn">${d}</span><span>${esc(e.title)}</span></button>`).join('')}</div>` : ''}
+  </section>`;
 }
 const audTag = (x, kind) => { const a = N.audOf(x, kind); return a === '*' ? '' : a === 'gm' ? ' <span class="tag gold">GM</span>' : ` <span class="tag">${esc(N.audLabel(x, kind).replace(/^Only /, ''))}</span>`; };
 function entBtn(v, e){ return `<button type="button" class="ent" data-a="wiki" data-v="${e.id}" aria-current="${v.ui.wikiSel===e.id}"><b>${esc(e.title)}${isGM(v) && !N.seeAs?audTag(e,'wiki'):''}</b><small>${esc(e.summary)}</small></button>`; }
