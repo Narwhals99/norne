@@ -154,16 +154,25 @@ N.pushOut = m => {
   if (!PUSH_URL || !worth(m)) return;
   out.push(m); clearTimeout(outT); outT = setTimeout(flush, 700);
 };
-function flush(){
-  const list = out; out = [];
+function flush(now){
+  clearTimeout(outT);
+  const list = out; out = []; if (!list.length) return;
+  /* leaving Norne (phone locked, app switched): send at once with the list already read, since the page is
+     about to be frozen and a wait for a fresh list would never finish */
+  if (now && N.PUSH?.length) { send(list, true); return; }
   (N.pushList ? N.pushList() : Promise.resolve()).then(() => send(list));
 }
-function send(list){
+document.addEventListener('visibilitychange', () => { if (document.hidden) flush(true); });
+addEventListener('pagehide', () => flush(true));
+/* the device's person still plays the seat it was saved for. The GM's seat is 'gm', which N.seatsOf leaves out
+   (it lists only player seats), so checking that alone silently skipped every GM device from 2026-11-12 on */
+const holds = (who, seat) => seat === 'gm' ? who.role === 'gm' : N.seatsOf(who).includes(seat);
+function send(list, leaving){
   const role = G().role, uid = N.me?.()?.uid, pushes = [], now = Date.now();
   for (const d of N.PUSH || []) {
     const who = N.MEMBERS.find(x => x.uid === d.uid);
     /* none of the sender's own devices, whichever character each one was saved as */
-    if (d.uid === uid || d.role === role || !who || !N.seatsOf(who).includes(d.role)) continue;
+    if (d.uid === uid || d.role === role || !who || !holds(who, d.role)) continue;
     /* Norne is open on that device right now, so they'll see it there */
     if (d.seen && now - d.seen < SEEN_FOR) continue;
     const byCh = {};
@@ -171,7 +180,8 @@ function send(list){
     for (const [ch, ts] of Object.entries(byCh)) pushes.push({sub:d.sub, title:'Norne', body:pings(ts), ch});
   }
   if (!pushes.length || N.TEST) return;
-  fetch(PUSH_URL, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pushes})})
+  fetch(PUSH_URL, {method:'POST', /* plain text needs no CORS check first, so it is quicker and can still leave while the page closes */
+    headers:{'Content-Type':'text/plain;charset=UTF-8'}, body:JSON.stringify({pushes}), keepalive:!!leaving})
     .then(r => r.json()).then(r => { if (r.gone?.length && N.pushDrop) N.pushDrop(r.gone); })
     .catch(e => console.warn('push', e));
 }
