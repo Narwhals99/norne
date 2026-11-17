@@ -2258,10 +2258,11 @@ function act(v, a, el, e){
     ui.ced = {id:e.id, title:e.title, note:e.note || '', m:e.m, d:e.d, y:String(e.y || '').trim(), n:N.calLen(e), rep:N.calRep(e), c:e.c || '', tod:e.tod || '', pin:e.pin || null,
       ...(e.gm ? {gm:true} : {}), ...(e.see ? {see:[...e.see]} : {})}; } break;
   case 'ceAud': if (ui.ced) N.audSet(ui.ced, 'wiki', val); break;
-  case 'ceRep': if (ui.ced) ui.ced.rep = {k:val, n:ui.ced.rep?.n || 1}; break;
+  case 'ceRep': if (ui.ced) ui.ced.rep = {k:val, n:ui.ced.rep?.n || 1, by:ui.ced.rep?.by || 'date'}; break;
+  case 'ceBy': if (ui.ced) ui.ced.rep = {...(ui.ced.rep || {k:'month', n:1}), by:val === 'nth' ? 'nth' : 'date'}; break;
   case 'ceColor': if (ui.ced) ui.ced.c = ui.ced.c === val ? '' : val; break;
   case 'ceSave': { const d = ui.ced; if (!gm || !d || !d.title.trim()) break;
-    const m = clamp(+d.m || 0, 0, 11), y = String(d.y || '').trim().slice(0, 24), r = d.rep && d.rep.k && d.rep.k !== 'none' ? {k:d.rep.k, n:clamp(parseInt(d.rep.n, 10) || 1, 1, 99)} : {k:'none', n:1};
+    const m = clamp(+d.m || 0, 0, 11), y = String(d.y || '').trim().slice(0, 24), r = d.rep && d.rep.k && d.rep.k !== 'none' ? {k:d.rep.k, n:clamp(parseInt(d.rep.n, 10) || 1, 1, 99), ...((d.rep.k === 'month' || d.rep.k === 'year') && d.rep.by === 'nth' ? {by:'nth'} : {})} : {k:'none', n:1};
     /* a yearly event without a year comes back every year, before and after; any other repeat starts from its first day */
     const e = {id:d.id || uid('ev'), title:d.title.trim().slice(0, 80), note:String(d.note || '').trim().slice(0, 600), m, d:clamp(+d.d || 1, 1, N.MONTHS[m][1]), y,
       rep:r, n:clamp(parseInt(d.n, 10) || 1, 1, 60), ...(d.c ? {c:d.c} : {}), ...(String(d.tod || '').trim() ? {tod:String(d.tod).trim().slice(0, 40)} : {}), ...(d.pin ? {pin:d.pin} : {}),
