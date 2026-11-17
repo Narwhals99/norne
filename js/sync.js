@@ -568,7 +568,9 @@ function syncNow(){
     { const meta = {}; if (g.cats) meta.cats = g.cats; if (g.gifKey) meta.gif = g.gifKey; if (g.gmPic) meta.gmpic = g.gmPic; if (g.mapDirs?.length) meta.mapdirs = g.mapDirs;
       /* the calendar: each chat's today, and the events every player sees; events for some players go to their only/<seat> (ce) */
       if (Object.keys(g.calDates || {}).length) meta.cald = g.calDates;
-      const evOut = e => ({id:e.id, title:e.title, note:e.note || '', m:e.m, d:e.d, y:e.y || ''});
+      if (g.calYear) meta.caly = g.calYear;
+      if (Object.values(g.calLabels || {}).some(Boolean)) meta.call = g.calLabels;
+      const evOut = e => { const {gm, see, ...o} = e; return {...o, note:e.note || '', y:e.y || ''}; };
       const pub = (g.calEv || []).filter(e => N.audOf(e, 'wiki') === '*').map(evOut); if (pub.length) meta.cale = pub;
       for (const e of g.calEv || []) { const a = N.audOf(e, 'wiki'); if (Array.isArray(a)) for (const st of a) if (only[st]) (only[st].ce = only[st].ce || []).push(evOut(e)); }
       writeUnits('game/meta', meta); }
@@ -893,7 +895,7 @@ async function start(role){
     'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
     'game/maps': u => { PUB.maps = u; mergeView(); },
     'game/wiki': u => { PUB.wiki = u; mergeView(); },
-    'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; g.gifKey = u.gif ? JSON.parse(u.gif) : ''; g.gmPic = u.gmpic ? JSON.parse(u.gmpic) : null; g.mapDirs = u.mapdirs ? JSON.parse(u.mapdirs) : []; g.calDates = u.cald ? JSON.parse(u.cald) : {}; g.calPub = u.cale ? JSON.parse(u.cale) : []; },
+    'game/meta': u => { g.cats = u.cats ? JSON.parse(u.cats) : null; g.gifKey = u.gif ? JSON.parse(u.gif) : ''; g.gmPic = u.gmpic ? JSON.parse(u.gmpic) : null; g.mapDirs = u.mapdirs ? JSON.parse(u.mapdirs) : []; g.calDates = u.cald ? JSON.parse(u.cald) : {}; g.calPub = u.cale ? JSON.parse(u.cale) : []; g.calYear = u.caly ? JSON.parse(u.caly) : ''; g.calLabels = u.call ? JSON.parse(u.call) : {}; },
     'game/emoji': u => { g.emoji = vals(u).sort(byO); },
   };
   /* everything is asked for at once; the GM's private fights need the seat list from members first */

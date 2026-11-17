@@ -1080,30 +1080,39 @@ function calBtn(v){
   return `<button type="button" class="cat calbtn" data-a="wCal" aria-current="${!!v.ui.wikiCal}"><span class="ci">${IC('calendar')}</span><span class="cb-t"><b>Calendar</b><small>${t ? esc(N.dayLine(t)) : st ? 'No date set yet' : 'Set today, add events'}</small></span>${IC('right','car')}</button>`;
 }
 function calHtml(v){
-  const gm = isGM(v) && !N.seeAs, st = N.seeAs || (gm ? null : v.role), ch = N.calCh(v), today = ch && N.calDayOf(ch);
+  const g = G(), gm = isGM(v) && !N.seeAs, st = N.seeAs || (gm ? null : v.role), ch = N.calCh(v), today = ch && N.calDayOf(ch);
   const cv = N.calView(v), m = cv.m, y = String(cv.y || '').trim(), len = N.MONTHS[m][1], first = N.calWd(m, 1), sel = v.ui.calSel && v.ui.calSel <= len ? v.ui.calSel : null;
-  const evs = N.calEvents(st), on = d => evs.filter(e => N.calOn(e, m, d, y));
+  const evs = N.calEvents(st), on = d => evs.map(e => [e, N.calOn(e, m, d, y)]).filter(x => x[1]);
   const isToday = d => today && today.m === m && today.d === d && String(today.y || '').trim() === y;
-  const cells = [...Array(first)].map(() => '<span class="cd blank"></span>').join('') + [...Array(len)].map((_, i) => { const d = i + 1, n = on(d).length;
-    return `<button type="button" class="cd${isToday(d) ? ' today' : ''}" data-a="calDay" data-v="${d}" aria-pressed="${sel === d}" aria-label="${esc(N.dayLine({w:N.calWd(m, d), d, m, y}))}${isToday(d) ? ', today' : ''}${n ? `, ${n} event${n > 1 ? 's' : ''}` : ''}"><span class="n">${d}</span>${n ? `<span class="dots">${'<i></i>'.repeat(Math.min(n, 3))}</span>` : ''}</button>`; }).join('');
+  const col = e => N.calColor(e.c) || 'var(--gold-tx)';
+  const cells = [...Array(first)].map(() => '<span class="cd blank"></span>').join('') + [...Array(len)].map((_, i) => { const d = i + 1, es = on(d), n = es.length;
+    return `<button type="button" class="cd${isToday(d) ? ' today' : ''}" data-a="calDay" data-v="${d}" aria-pressed="${sel === d}" aria-label="${esc(N.dayLine({w:N.calWd(m, d), d, m, y}))}${isToday(d) ? ', today' : ''}${n ? `, ${n} event${n > 1 ? 's' : ''}` : ''}"><span class="n">${d}</span>${n ? `<span class="dots">${es.slice(0, 3).map(([e]) => `<i style="background:${col(e)}"></i>`).join('')}</span>` : ''}</button>`; }).join('');
   const chats = gm ? N.calChats() : [];
-  const where = gm ? (chats.length ? `<label class="cal-ch"><span>Today in</span><select class="inp" data-i="calCh" aria-label="Chat whose date you set">${chats.map(c => `<option value="${c}"${c === ch ? ' selected' : ''}>${esc(N.chName(c, 'gm'))}</option>`).join('')}</select></label>` : `<p class="muted cal-note">Make a party or group chat to give it a date.</p>`) : '';
-  const todayLine = today ? `<button type="button" class="cal-today" data-a="calNow">${IC('sun')}<span><small>${gm && chats.length < 2 ? 'Today in ' + esc(N.chName(ch, 'gm')) : 'Today'}</small><b>${esc(N.dayLine(today))}</b></span></button>`
-    : `<p class="muted cal-note">${gm ? (ch ? `No date in ${esc(N.chName(ch, 'gm'))} yet. Pick a day, then Make this today.` : '') : `${esc(N.gmName())} hasn’t set today’s date for your party yet.`}</p>`;
-  const evRow = e => { const a = N.audOf(e, 'wiki');
-    return `<div class="cal-ev"><span class="ci">${IC('star')}</span><div><b>${esc(e.title)}${gm ? (a === 'gm' ? ' <span class="tag gold">GM only</span>' : a === '*' ? '' : ` <span class="tag">${esc(N.namesList(a))}</span>`) : ''}</b>${String(e.y || '').trim() ? '' : '<small>Every year</small>'}${e.note ? `<p>${N.emoText(N.marks(esc(e.note)))}</p>` : ''}</div>${gm ? `<button type="button" class="ibtn" data-a="calEvEdit" data-v="${e.id}" aria-label="Edit ${esc(e.title)}">${IC('pen')}</button>` : ''}</div>`; };
+  const where = gm ? `<div class="cal-gm">${chats.length ? `<label class="cal-ch"><span>Today in</span><select class="inp" data-i="calCh" aria-label="Chat whose date you set">${chats.map(c => `<option value="${c}"${c === ch ? ' selected' : ''}>${esc(N.chName(c, 'gm'))}</option>`).join('')}</select></label>` : `<p class="muted cal-note">Make a party or group chat to give it a date.</p>`}
+      <div class="cal-tools"><label class="cal-yr"><span>Year</span><input class="inp" type="number" inputmode="numeric" data-i="calYear" value="${esc(g.calYear || '')}" placeholder="e.g. 1204" aria-label="The calendar’s year"></label><button type="button" class="btn sm ghost" data-a="sheet" data-v="calColors">${IC('pen')}Colour labels</button></div></div>` : '';
+  const todayLine = today ? `<div class="cal-today"><button type="button" class="ct-go" data-a="calNow">${IC('sun')}<span><small>Today</small><b>${esc(N.dayLine(today))}</b></span></button>${gm ? `<button type="button" class="btn sm ghost" data-a="calClear" title="Take the date off this chat">${IC('x')}Clear date</button>` : ''}</div>`
+    : `<p class="muted cal-note">${gm ? (ch ? `No date in ${esc(N.chName(ch, 'gm'))}. Pick a day, then Make this today.` : '') : `${esc(N.gmName())} hasn’t set today’s date for your party yet.`}</p>`;
+  const pinOf = e => { const p = e.pin, mp = p && g.maps.find(x => x.id === p.m && (gm || x.vis !== false)), pn = mp && mp.pins.find(x => x.id === p.p); return pn ? {mp, pn} : null; };
+  const evRow = ([e, k]) => { const a = N.audOf(e, 'wiki'), pp = pinOf(e), L = N.calLen(e), rt = N.calRepText(e), cl = e.c ? N.calColorName(e.c) : '';
+    const meta = [e.tod ? `${IC('clock')}${esc(e.tod)}` : '', L > 1 ? `Day ${k} of ${L}` : '', rt, cl].filter(Boolean).join(' · ');
+    return `<div class="cal-ev" style="--ec:${col(e)}"><span class="ci">${IC('star')}</span><div><b>${N.emoText(N.marks(esc(e.title)))}${gm ? (a === 'gm' ? ' <span class="tag gold">GM only</span>' : a === '*' ? '' : ` <span class="tag">${esc(N.namesList(a))}</span>`) : ''}</b>${meta ? `<small>${meta}</small>` : ''}${e.note ? `<p>${N.emoText(N.marks(esc(e.note)))}</p>` : ''}${pp ? `<button type="button" class="cal-pin" data-a="calPin" data-v="${e.pin.m}:${e.pin.p}">${IC('pin')}${esc(pp.pn.label || 'Place')}<small>${esc(pp.mp.name || '')}</small></button>` : ''}</div>${gm ? `<button type="button" class="ibtn" data-a="calEvEdit" data-v="${e.id}" aria-label="Edit ${esc(e.title)}">${IC('pen')}</button>` : ''}</div>`; };
   const day = sel ? `<div class="cal-day"><h3>${esc(N.dayLine({w:N.calWd(m, sel), d:sel, m, y}))}${isToday(sel) ? ' <span class="tag gold">Today</span>' : ''}</h3>
       ${on(sel).map(evRow).join('') || `<p class="muted cal-note">Nothing on this day.</p>`}
       ${gm ? `<div class="cal-act"><button type="button" class="btn sm primary" data-a="calEvNew">${IC('plus')}Add event</button>${ch && !isToday(sel) ? `<button type="button" class="btn sm" data-a="calSet">${IC('sun')}Make this today${chats.length > 1 ? ` in ${esc(N.chName(ch, 'gm'))}` : ''}</button>` : ''}</div>` : ''}</div>`
     : `<div class="cal-day"><p class="muted cal-note">${gm ? 'Tap a day to add an event or make it today.' : 'Tap a day to see what happens on it.'}</p></div>`;
-  /* this month's events in date order, so nothing hides behind a dot */
-  const month = [...Array(len)].flatMap((_, i) => on(i + 1).map(e => [i + 1, e]));
+  /* this month's events in date order (a long one once, on its first day here), so nothing hides behind a dot */
+  const seen = new Set(), month = [];
+  for (let d = 1; d <= len; d++) for (const [e, k] of on(d)) { const key = e.id + ':' + (d - k); if (seen.has(key)) continue; seen.add(key); month.push([d, e, k]); }
+  const used = new Set(month.map(x => x[1].c).filter(Boolean)), labs = g.calLabels || {};
+  const legend = N.CAL_COLORS.filter(([k]) => used.has(k) || String(labs[k] || '').trim());
   return `<section class="cal" aria-label="Calendar">
     <div class="cal-top">${where}${todayLine}</div>
-    <div class="cal-h"><button type="button" class="ibtn" data-a="calNav" data-v="-1" aria-label="Previous month">${IC('left')}</button><div><h2>${esc(N.MONTHS[m][0])}</h2><small>${N.SEASONS[Math.floor(m / 3)]} · ${len} days${y ? ' · ' + esc(y) : ''}</small></div><button type="button" class="ibtn" data-a="calNav" data-v="1" aria-label="Next month">${IC('right')}</button></div>
+    <div class="cal-h"><button type="button" class="ibtn" data-a="calNav" data-v="-1" aria-label="Previous month">${IC('left')}</button><div><h2>${esc(N.MONTHS[m][0])}${y ? ` <span class="cal-y">${esc(y)}</span>` : ''}</h2><small>${N.SEASONS[Math.floor(m / 3)]} · ${len} days</small></div><button type="button" class="ibtn" data-a="calNav" data-v="1" aria-label="Next month">${IC('right')}</button></div>
     <div class="cal-g" role="grid">${N.WEEKDAYS.map((w, i) => `<span class="wd" title="${w}">${N.WD_SHORT[i]}</span>`).join('')}${cells}</div>
+    ${legend.length ? `<div class="cal-leg">${legend.map(([k]) => `<span><i style="background:${N.calColor(k)}"></i>${esc(N.calColorName(k))}</span>`).join('')}</div>` : ''}
     ${day}
-    ${month.length ? `<div class="cal-list"><span class="eyebrow">This month</span>${month.map(([d, e]) => `<button type="button" class="cal-li" data-a="calDay" data-v="${d}"><span class="dn">${d}</span><span>${esc(e.title)}</span></button>`).join('')}</div>` : ''}
+    ${month.length ? `<div class="cal-list"><span class="eyebrow">This month</span>${month.map(([d, e, k]) => { const L = N.calLen(e), end = Math.min(len, d + L - k);
+      return `<button type="button" class="cal-li" data-a="calDay" data-v="${d}" style="--ec:${col(e)}"><span class="dn">${d}${end > d ? `–${end}` : ''}</span><span>${N.emoText(N.marks(esc(e.title)))}${e.tod ? `<small>${esc(e.tod)}</small>` : ''}</span></button>`; }).join('')}</div>` : ''}
   </section>`;
 }
 const audTag = (x, kind) => { const a = N.audOf(x, kind); return a === '*' ? '' : a === 'gm' ? ' <span class="tag gold">GM</span>' : ` <span class="tag">${esc(N.audLabel(x, kind).replace(/^Only /, ''))}</span>`; };

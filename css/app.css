@@ -3144,7 +3144,8 @@
 .app .cal-top{display:grid;gap:10px}
 .app .cal-ch{display:flex;align-items:center;gap:10px;font:800 11px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
 .app .cal-ch select{flex:1;min-width:0}
-.app .cal-today{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:14px;text-align:left;background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink)}
+.app .cal-today{display:flex;align-items:center;gap:10px;padding:10px 12px 10px 14px;border-radius:14px;background:var(--gold-soft);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink)}
+.app .cal-today .ct-go{flex:1;min-width:0;display:flex;align-items:center;gap:12px;text-align:left;color:inherit}
 .app .cal-today svg{width:22px;height:22px;flex:none;color:var(--gold-tx)}
 .app .cal-today span{display:grid;gap:3px}
 .app .cal-today small{font:700 11px/1.2 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
@@ -3168,7 +3169,7 @@
 .app .cal-day{display:grid;gap:10px;padding:14px;border-radius:16px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2)}
 .app .cal-day h3{margin:0;font:800 15px/1.3 var(--f-ui);color:var(--ink)}
 .app .cal-ev{display:flex;gap:10px;align-items:flex-start}
-.app .cal-ev .ci{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:var(--gold-soft);color:var(--gold-tx)}
+.app .cal-ev .ci{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--ec,var(--gold-tx)) 22%,transparent);color:var(--ec,var(--gold-tx))}
 .app .cal-ev .ci svg{width:16px;height:16px}
 .app .cal-ev>div{flex:1;min-width:0;display:grid;gap:3px}
 .app .cal-ev b{font:800 14.5px/1.3 var(--f-ui);color:var(--ink)}
@@ -3178,6 +3179,36 @@
 .app .cal-list{display:grid;gap:6px}
 .app .cal-li{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:10px;text-align:left;font:700 14px/1.3 var(--f-ui);color:var(--ink)}
 .app .cal-li:hover{background:var(--raise)}
-.app .cal-li .dn{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;flex:none;background:var(--raise-2);font:800 13px/1 var(--f-ui);color:var(--gold-tx)}
-.app .ndgrid.cegrid{grid-template-columns:.8fr 1.4fr}
+.app .cal-li .dn{min-width:28px;height:28px;padding:0 6px;box-sizing:border-box;border-radius:8px;display:grid;place-items:center;flex:none;background:var(--raise-2);box-shadow:inset 3px 0 0 var(--ec,var(--gold-tx));font:800 13px/1 var(--f-ui);color:var(--ink)}
+.app .cal-li>span:last-child{display:grid;gap:2px}
+.app .cal-li small{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .ndgrid.cegrid{grid-template-columns:.8fr 1.4fr 1fr}
+.app .ndgrid.cegrid2{grid-template-columns:.7fr 1.6fr}
+.app .cal-gm{display:grid;gap:10px}
+.app .cal-tools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.app .cal-yr{display:flex;align-items:center;gap:10px;font:800 11px/1 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+.app .cal-yr input{width:110px}
+.app .cal-tools .btn{margin-left:auto}
+.app .cal-h .cal-y{font:inherit;color:var(--ink-3)}
+.app .cal-ev small{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.app .cal-ev small svg{width:12px;height:12px}
+.app .cal-pin{justify-self:start;display:inline-flex;align-items:center;gap:6px;margin-top:4px;padding:5px 10px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2);font:700 13px/1.2 var(--f-ui);color:var(--link,var(--gold-tx))}
+.app .cal-pin svg{width:14px;height:14px}
+.app .cal-pin small{font:600 11.5px/1 var(--f-ui);color:var(--ink-3)}
+.app .cal-leg{display:flex;flex-wrap:wrap;gap:6px 14px;font:700 12.5px/1.2 var(--f-ui);color:var(--ink-2)}
+.app .cal-leg span{display:inline-flex;align-items:center;gap:6px}
+.app .cal-leg i,.app .cecols i,.app .celabs i{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+.app .cal-leg i{box-shadow:0 0 0 2px var(--raise)}
+.app .cepills{display:flex;flex-wrap:wrap;gap:8px}
+.app .cepills button{height:34px;padding:0 14px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2);font:700 13px/1 var(--f-ui);color:var(--ink-2)}
+.app .cepills button[aria-pressed="true"]{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--gold);color:var(--ink)}
+.app .cevery{display:flex;align-items:center;gap:8px;margin-top:10px;font:700 13.5px/1.3 var(--f-ui);color:var(--ink-2)}
+.app .cevery input{width:76px}
+.app .cecols{display:flex;flex-wrap:wrap;gap:8px}
+.app .cecols button{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 12px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2);font:700 13px/1 var(--f-ui);color:var(--ink)}
+.app .cecols button i{background:var(--ec);width:12px;height:12px}
+.app .cecols button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--ec);background:color-mix(in srgb,var(--ec) 18%,var(--raise))}
+.app .celabs{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+.app .celabs .field>span{display:flex;align-items:center;gap:7px}
+.app .celabs i{background:var(--ec)}
 @media (min-width:760px){.app .cal-g .cd{aspect-ratio:1.6/1}}

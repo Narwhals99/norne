@@ -913,7 +913,7 @@ function input(v, el, ev){
     case 'lvSt': { const c = isGM(v) && g.chars[v.ui.sheetArg], p = c && c.lvl && c.lvl.picks[+k]; if (p) p[el.dataset.f] = val; return; }
     case 'ndayY': if (v.ui.nday) { v.ui.nday.y = val.slice(0, 24); const p = v.root.querySelector(`#ndp-${v.id}`); if (p) p.innerHTML = N.nextDayPrev(v.ui.nday); } return;
     case 'ie': if (v.ui.invEdit) v.ui.invEdit[k] = val; return;
-    case 'ced': if (v.ui.ced) { v.ui.ced[k] = val; if (k === 'title') { const b = v.root.querySelector('[data-a="ceSave"]'); if (b) b.disabled = !val.trim(); } } return;
+    case 'ced': if (v.ui.ced) { if (k === 'repN') { v.ui.ced.rep = {...(v.ui.ced.rep || {k:'none'}), n:val}; return; } v.ui.ced[k] = val; if (k === 'title') { const b = v.root.querySelector('[data-a="ceSave"]'); if (b) b.disabled = !val.trim(); } } return;
     case 'invTransferQ': if (v.ui.invTransfer) { v.ui.invTransfer.q = val; render(v); } return;
     case 'invTransferQty': if (v.ui.invTransfer) v.ui.invTransfer.qty = val; return;
     case 'itQ': v.ui.itQ = val; render(v); return;
@@ -1013,6 +1013,11 @@ function change(v, el){
   if (i === 'cd') render(v);
   if (i === 'cedM' && v.ui.ced) { v.ui.ced.m = +val; v.ui.ced.d = Math.min(v.ui.ced.d, N.MONTHS[+val][1]); render(v); }
   if (i === 'cedD' && v.ui.ced) { v.ui.ced.d = +val; render(v); }
+  if (i === 'cedPin' && v.ui.ced) { const [m, p] = val.split(':'); v.ui.ced.pin = val ? {m, p} : null; }
+  if (i === 'ced' && v.ui.ced && (el.dataset.k === 'y' || el.dataset.k === 'n')) render(v);
+  if (i === 'calLab' && isGM(v)) { G().calLabels = {...(G().calLabels || {}), [el.dataset.k]:val.trim().slice(0, 30)}; renderAll(); }
+  /* the GM sets the year: it shows on days posted without one, new events start in it, and the calendar jumps there */
+  if (i === 'calYear' && isGM(v)) { const y = String(parseInt(val, 10) || '').slice(0, 6); G().calYear = y; v.ui.calV = {m:calView(v).m, y}; renderAll(); }
   if (i === 'calCh') { v.ui.calCh = val; v.ui.calV = null; v.ui.calSel = null; render(v); }
   if (i === 'cdTo') v.ui.cd[+el.dataset.n].to = val;
   if (i === 'mapName') renderAll();
@@ -2248,16 +2253,29 @@ function act(v, a, el, e){
   case 'calSet': { if (!gm) break; const ch = calCh(v), cv = calView(v), dd = ui.calSel; if (!ch || !dd) break;
     const was = g.calDates[ch]; g.calDates = {...g.calDates, [ch]:{w:N.calWd(cv.m, dd), d:dd, m:cv.m, y:String(cv.y || '').trim(), t:Date.now()}};
     toast(v, `Today in ${N.chName(ch, 'gm')} is now ${N.dayLine(g.calDates[ch])}.`, () => { const o = {...g.calDates}; if (was) o[ch] = was; else delete o[ch]; g.calDates = o; N.renderAll(); }); renderAll(); return; }
-  case 'calEvNew': if (!gm) break; { const cv = calView(v); openSheet(v, 'calEv', {}); ui.ced = {id:null, title:'', note:'', m:cv.m, d:ui.calSel || 1, y:String(cv.y || '').trim(), every:!String(cv.y || '').trim(), gm:true}; } break;
+  case 'calEvNew': if (!gm) break; { const cv = calView(v); openSheet(v, 'calEv', {}); ui.ced = {id:null, title:'', note:'', m:cv.m, d:ui.calSel || 1, y:String(cv.y || g.calYear || '').trim(), n:1, rep:{k:'none', n:1}, c:'', tod:'', pin:null, gm:true}; } break;
   case 'calEvEdit': { const e = gm && (g.calEv || []).find(x => x.id === val); if (!e) break; openSheet(v, 'calEv', {});
-    ui.ced = {id:e.id, title:e.title, note:e.note || '', m:e.m, d:e.d, y:String(e.y || calView(v).y || '').trim(), every:!String(e.y || '').trim(), ...(e.gm ? {gm:true} : {}), ...(e.see ? {see:[...e.see]} : {})}; } break;
+    ui.ced = {id:e.id, title:e.title, note:e.note || '', m:e.m, d:e.d, y:String(e.y || '').trim(), n:N.calLen(e), rep:N.calRep(e), c:e.c || '', tod:e.tod || '', pin:e.pin || null,
+      ...(e.gm ? {gm:true} : {}), ...(e.see ? {see:[...e.see]} : {})}; } break;
   case 'ceAud': if (ui.ced) N.audSet(ui.ced, 'wiki', val); break;
-  case 'ceEvery': if (ui.ced) ui.ced.every = val === '1'; break;
+  case 'ceRep': if (ui.ced) ui.ced.rep = {k:val, n:ui.ced.rep?.n || 1}; break;
+  case 'ceColor': if (ui.ced) ui.ced.c = ui.ced.c === val ? '' : val; break;
   case 'ceSave': { const d = ui.ced; if (!gm || !d || !d.title.trim()) break;
-    const e = {id:d.id || uid('ev'), title:d.title.trim().slice(0, 80), note:String(d.note || '').trim().slice(0, 600), m:clamp(+d.m, 0, 11), d:clamp(+d.d, 1, N.MONTHS[clamp(+d.m, 0, 11)][1]), y:d.every ? '' : String(d.y || '').trim().slice(0, 24),
+    const m = clamp(+d.m || 0, 0, 11), y = String(d.y || '').trim().slice(0, 24), r = d.rep && d.rep.k && d.rep.k !== 'none' ? {k:d.rep.k, n:clamp(parseInt(d.rep.n, 10) || 1, 1, 99)} : {k:'none', n:1};
+    /* a yearly event without a year comes back every year, before and after; any other repeat starts from its first day */
+    const e = {id:d.id || uid('ev'), title:d.title.trim().slice(0, 80), note:String(d.note || '').trim().slice(0, 600), m, d:clamp(+d.d || 1, 1, N.MONTHS[m][1]), y,
+      rep:r, n:clamp(parseInt(d.n, 10) || 1, 1, 60), ...(d.c ? {c:d.c} : {}), ...(String(d.tod || '').trim() ? {tod:String(d.tod).trim().slice(0, 40)} : {}), ...(d.pin ? {pin:d.pin} : {}),
       ...(d.gm ? {gm:true} : {}), ...(Array.isArray(d.see) && d.see.length ? {see:[...d.see]} : {})};
+    if (r.k === 'none' && !y && g.calYear) e.y = g.calYear;
     const l = [...(g.calEv || [])], i = l.findIndex(x => x.id === e.id); if (i >= 0) l[i] = e; else l.push(e); g.calEv = l;
     ui.ced = null; ui.sheet = null; if (calView(v).m === e.m) ui.calSel = e.d; toast(v, `${d.id ? 'Saved' : 'Added'} ${e.title}.`); renderAll(); return; }
+  /* Jake: the GM takes the date off a chat ("no date"); Next day or Make this today give it one again */
+  case 'calClear': { if (!gm) break; const ch = calCh(v); if (!ch || !N.calDayOf(ch)) break; const was = g.calDates[ch];
+    g.calDates = {...g.calDates, [ch]:{u:true, t:Date.now()}};
+    toast(v, `${N.chName(ch, 'gm')} has no date now.`, () => { const o = {...g.calDates}; if (was) o[ch] = was; else delete o[ch]; g.calDates = o; N.renderAll(); }); renderAll(); return; }
+  /* an event's map pin: open that map with the place picked */
+  case 'calPin': { const [mid, pid] = String(val).split(':'), m = g.maps.find(x => x.id === mid && seeMap(v, x)); if (!m || !m.pins.some(p => p.id === pid)) { toast(v, 'That place isn’t on your maps.'); return; }
+    openMapFrom(v, m.id); ui.tab = 'map'; ui.pop = null; ui.pinSel = pid; ui.mapT = null; ui.mapType = 'all'; break; }
   case 'ceDel': { const l = g.calEv || [], i = l.findIndex(x => x.id === ui.ced?.id); if (!gm || i < 0) break; const e = l[i];
     g.calEv = l.filter(x => x !== e); ui.ced = null; ui.sheet = null;
     toast(v, `Deleted ${e.title}.`, () => { g.calEv = [...g.calEv.slice(0, i), e, ...g.calEv.slice(i)]; N.renderAll(); }); renderAll(); return; }
@@ -3172,7 +3190,7 @@ N.loreNotes = () => {
 /* the calendar's month on screen (v.ui.calV), else the month of today */
 function calCh(v){ const g = G(); if (!isGM(v) || N.seeAs) return N.calChFor(N.seeAs || v.role);
   const l = N.calChats(); return l.includes(v.ui.calCh) ? v.ui.calCh : l.find(c => N.calDayOf(c)) || l[0] || null; }
-function calView(v){ if (v.ui.calV) return v.ui.calV; const t = calCh(v) && N.calDayOf(calCh(v)); return t ? {m:t.m, y:String(t.y || '')} : {m:0, y:''}; }
+function calView(v){ if (v.ui.calV) return v.ui.calV; const t = calCh(v) && N.calDayOf(calCh(v)); return t ? {m:t.m, y:String(t.y || '')} : {m:0, y:String(G().calYear || '')}; }
 N.calCh = calCh; N.calView = calView;
 /* Level Up: add the pick the player built in v.ui.lv (see the lvlUp sheet) */
 function lvAdd(v, d){
