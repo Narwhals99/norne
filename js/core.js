@@ -431,7 +431,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, rnotes:{}, rnMine:{}, shops:{}, crafts:{}, calDates:{}, calEv:[], calPub:[], calMine:[],
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, rnotes:{}, rnMine:{}, shops:{}, crafts:{}, calDates:{}, calEv:[], calPub:[], calMine:[], calYear:'', calLabels:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -647,7 +647,8 @@ N.yday = (m, d) => { let n = 0; for (let i = 0; i < m; i++) n += N.MONTHS[i][1];
 N.calDayOf = ch => { const g = N.G, a = (g.calDates || {})[ch] || null;
   let b = null; for (let i = g.msgs.length - 1; i >= 0; i--) { const m = g.msgs[i]; if (m.ch === ch && m.day) { b = {...m.day, t:m.t}; break; } }
   const x = !a ? b : !b ? a : (b.t || 0) > (a.t || 0) ? b : a;
-  return x && !x.u && N.MONTHS[x.m] ? x : null; };
+  /* a day posted without a year takes the calendar's year (G.calYear, set by the GM) */
+  return x && !x.u && N.MONTHS[x.m] ? (String(x.y || '').trim() || !N.G.calYear ? x : {...x, y:N.G.calYear}) : null; };
 /* which day of the week dates fall on: taken from any known date (the newest), else the year starts on First Market */
 N.calAnchor = () => { let best = null; const chs = new Set([...Object.keys(N.G.calDates || {}), ...N.G.msgs.filter(m => m.day).map(m => m.ch)]);
   for (const ch of chs) { const x = N.calDayOf(ch); if (x && (!best || (x.t || 0) > (best.t || 0))) best = x; } return best; };
@@ -662,7 +663,35 @@ N.calChats = () => N.channelsFor('gm').filter(c => c.startsWith('grp-') && !N.me
 N.calEvents = seat => { const g = N.G;
   if (g.role === 'gm') return seat ? (g.calEv || []).filter(e => N.audSeats(e, 'wiki').includes(seat)) : (g.calEv || []);
   return [...(g.calPub || []), ...(g.calMine || [])]; };
-N.calOn = (e, m, d, y) => e.m === m && e.d === d && (!String(e.y || '').trim() || String(e.y).trim() === String(y || '').trim());
+/* Jake's 8 colours for events; the GM can write a label for each (G.calLabels = {red:'Holidays', ...}) */
+N.CAL_COLORS = [['red', 'Red', '#e5484d'], ['blue', 'Blue', '#3e8ef7'], ['green', 'Green', '#30a46c'], ['yellow', 'Yellow', '#e9b400'],
+  ['purple', 'Purple', '#8e4ec6'], ['cyan', 'Cyan', '#05a2c2'], ['orange', 'Orange', '#f76b15'], ['pink', 'Pink', '#e93d82']];
+N.calColor = k => (N.CAL_COLORS.find(c => c[0] === k) || [])[2] || '';
+N.calColorName = k => { const c = N.CAL_COLORS.find(x => x[0] === k); return c ? ((N.G.calLabels || {})[k] || '').trim() || c[1] : ''; };
+/* days are counted on one line across years: year * 364 + day of the year. A year that isn't a number counts as 0 */
+N.calYnum = y => parseInt(String(y || '').trim(), 10) || 0;
+N.calAbs = (y, m, d) => N.calYnum(y) * 364 + N.yday(m, d);
+N.calFromAbs = a => { const y = Math.floor(a / 364); let r = a - y * 364, m = 0; while (m < 11 && r >= N.MONTHS[m][1]) { r -= N.MONTHS[m][1]; m++; } return {y, m, d:r + 1}; };
+/* how an event repeats: {k:'none'|'day'|'week'|'month'|'year', n:every n}. Events from before repeats: a year means once, no year every year */
+N.CAL_REP = [['none', 'Never'], ['day', 'Days'], ['week', 'Weeks'], ['month', 'Months'], ['year', 'Years']];
+N.calRep = e => e.rep && e.rep.k ? {k:e.rep.k, n:Math.max(1, +e.rep.n || 1)} : {k:String(e.y || '').trim() ? 'none' : 'year', n:1};
+N.calLen = e => Math.min(60, Math.max(1, +e.n || 1));
+/* does an occurrence of e begin on day z (an absolute day) */
+const calStarts = (e, z) => {
+  const r = N.calRep(e), S = N.calAbs(e.y, e.m, e.d), at = N.calFromAbs(z), mod = (a, b) => ((a % b) + b) % b;
+  if (r.k === 'year' && !String(e.y || '').trim()) return at.m === e.m && at.d === e.d;
+  if (z < S) return false;
+  if (r.k === 'none') return z === S;
+  if (r.k === 'day') return mod(z - S, r.n) === 0;
+  if (r.k === 'week') return mod(z - S, 7 * r.n) === 0;
+  const ys = N.calYnum(e.y);
+  if (r.k === 'month') return mod((at.y * 12 + at.m) - (ys * 12 + e.m), r.n) === 0 && at.d === Math.min(e.d, N.MONTHS[at.m][1]);
+  return at.m === e.m && at.d === e.d && mod(at.y - ys, r.n) === 0;
+};
+/* is e on that day: 0 if not, else which of its days it is (1 = the first) */
+N.calOn = (e, m, d, y) => { const Z = N.calAbs(y, m, d); for (let k = 0; k < N.calLen(e); k++) if (calStarts(e, Z - k)) return k + 1; return 0; };
+/* "Every 2 weeks", "Every year", '' for a one-off */
+N.calRepText = e => { const r = N.calRep(e); if (r.k === 'none') return ''; const u = r.k; return r.n > 1 ? `Every ${r.n} ${u}s` : `Every ${u}`; };
 N.NEXT_DAY_META = 'GM will now refresh Fate points and Gold, and will run Strength checks on Consequences.';
 /* in a Meta-only chat a person shows by their own name, not "Jack · Brann" */
 N.metaName = by => N.metaPerson(by).name;

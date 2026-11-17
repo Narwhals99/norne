@@ -943,16 +943,32 @@ N.sheetHtml = function(v){
     const d = v.ui.ced; if (!d || !gm) return '';
     const opt = (l, cur) => l.map((x, i) => `<option value="${i}"${i === cur ? ' selected' : ''}>${esc(x)}</option>`).join('');
     const days = [...Array(N.MONTHS[d.m][1])].map((_, i) => `<option value="${i + 1}"${i + 1 === +d.d ? ' selected' : ''}>${i + 1}</option>`).join('');
-    const y = String(d.y || '').trim();
-    const body = `<label class="field"><span>Event</span><input class="inp" id="cet-${v.id}" data-i="ced" data-k="title" value="${esc(d.title)}" placeholder="e.g. The duke’s wedding" maxlength="80" autocomplete="off"></label>
+    const y = String(d.y || '').trim(), r = d.rep || {k:'none', n:1}, L = Math.max(1, parseInt(d.n, 10) || 1);
+    const unit = {day:'days', week:'weeks', month:'months', year:'years'}[r.k];
+    const end = L > 1 ? N.calFromAbs(N.calAbs(y, +d.m, +d.d) + L - 1) : null;
+    const pins = g.maps.filter(m => m.pins.length).map(m => `<optgroup label="${esc(m.name || 'Map')}">${m.pins.filter(p => p.type !== 'party').map(p => `<option value="${m.id}:${p.id}"${d.pin && d.pin.m === m.id && d.pin.p === p.id ? ' selected' : ''}>${esc(p.label || 'Place')}</option>`).join('')}</optgroup>`).join('');
+    const body = `${N.textTools(v)}<label class="field"><span>Event</span><input class="inp" id="cet-${v.id}" data-i="ced" data-k="title" value="${esc(d.title)}" placeholder="e.g. The duke’s wedding" maxlength="80" autocomplete="off"></label>
       <div class="ndgrid cegrid"><label class="field ndd"><span>Day</span><select class="inp" data-i="cedD">${days}</select></label>
-        <label class="field ndm"><span>Month</span><select class="inp" data-i="cedM">${opt(N.MONTHS.map(x => x[0]), +d.m)}</select></label></div>
-      <p class="muted" style="margin:-4px 0 0;font:600 12.5px/1.4 var(--f-ui)">That day is a ${esc(N.WEEKDAYS[N.calWd(+d.m, +d.d)])}.</p>
-      <div><h4>Which years</h4><div class="seg" role="group" aria-label="Which years"><button type="button" data-a="ceEvery" data-v="1" aria-pressed="${!!d.every}">Every year</button><button type="button" data-a="ceEvery" data-v="0" aria-pressed="${!d.every}"${y ? '' : ' disabled'}>Only ${y ? esc(y) : 'this year'}</button></div>
-        ${y ? '' : '<p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">No year is set on the calendar, so the event comes back every year.</p>'}</div>
+        <label class="field ndm"><span>Month</span><select class="inp" data-i="cedM">${opt(N.MONTHS.map(x => x[0]), +d.m)}</select></label>
+        <label class="field ndy"><span>Year</span><input class="inp" type="number" inputmode="numeric" data-i="ced" data-k="y" value="${esc(y)}" placeholder="Any"></label></div>
+      <p class="muted" style="margin:-4px 0 0;font:600 12.5px/1.4 var(--f-ui)">Starts on a ${esc(N.WEEKDAYS[N.calWd(+d.m, +d.d)])}.${end ? ` Ends ${esc(N.dayLine({w:N.calWd(end.m, end.d), d:end.d, m:end.m, y:y ? String(end.y) : ''}))}.` : ''}</p>
+      <div class="ndgrid cegrid2"><label class="field"><span>Lasts (days)</span><input class="inp" type="number" min="1" max="60" inputmode="numeric" data-i="ced" data-k="n" value="${L}"></label>
+        <label class="field"><span>Time of day (optional)</span><input class="inp" id="cetod-${v.id}" data-i="ced" data-k="tod" value="${esc(d.tod || '')}" placeholder="e.g. Dusk, Third bell" maxlength="40" autocomplete="off"></label></div>
+      <div><h4>Repeats</h4><div class="cepills cerep" role="group" aria-label="Repeats">${N.CAL_REP.map(([k, l]) => `<button type="button" data-a="ceRep" data-v="${k}" aria-pressed="${r.k === k}">${k === 'none' ? 'Never' : 'Every ' + l.toLowerCase().replace(/s$/, '')}</button>`).join('')}</div>
+        ${unit ? `<label class="cevery"><span>Every</span><input class="inp" type="number" min="1" max="99" inputmode="numeric" data-i="ced" data-k="repN" value="${Math.max(1, parseInt(r.n, 10) || 1)}" aria-label="How many ${unit} apart"><span>${unit}${r.k === 'year' && !y ? ', in every year' : y ? `, from ${esc(N.MONTHS[d.m][0])} ${esc(y)} on` : ''}</span></label>` : ''}</div>
+      <div><h4>Colour</h4><div class="cecols" role="group" aria-label="Colour">${N.CAL_COLORS.map(([k]) => `<button type="button" data-a="ceColor" data-v="${k}" aria-pressed="${d.c === k}" style="--ec:${N.calColor(k)}"><i></i>${esc(N.calColorName(k))}</button>`).join('')}</div></div>
+      <label class="field"><span>Map pin (optional)</span><select class="inp" data-i="cedPin"><option value="">No pin</option>${pins}</select></label>
       <label class="field"><span>Notes (optional)</span><textarea class="inp" id="cen-${v.id}" data-i="ced" data-k="note" rows="3" placeholder="What happens, where, who is there">${esc(d.note || '')}</textarea></label>
       <div><h4>Who sees it</h4>${N.audPick('ceAud', d, 'wiki')}</div>`;
     return sheet(d.id ? 'Edit event' : 'New event', body, `${d.id ? `<button type="button" class="btn danger" data-a="ceDel" style="flex:0 0 auto" aria-label="Delete this event">${IC('trash')}<span class="only-dt">Delete</span></button>` : ''}<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="ceSave" ${d.title.trim() ? '' : 'disabled'}>${IC('check')}${d.id ? 'Save event' : 'Add event'}</button>`);
+  }
+  /* World > Calendar: the GM writes a label for each event colour (everyone sees them in the legend) */
+  case 'calColors': {
+    if (!gm) return '';
+    const labs = g.calLabels || {};
+    return sheet('Colour labels', `<p class="muted" style="margin:0;font:600 13px/1.45 var(--f-ui)">Write what each colour means, e.g. Holidays or Markets. Players see the labels under the calendar.</p>
+      <div class="celabs">${N.CAL_COLORS.map(([k, l]) => `<label class="field" style="--ec:${N.calColor(k)}"><span><i></i>${l}</span><input class="inp" id="cel-${k}-${v.id}" data-i="calLab" data-k="${k}" value="${esc(labs[k] || '')}" placeholder="${l}" maxlength="30" autocomplete="off"></label>`).join('')}</div>`,
+      `<button type="button" class="btn primary lg" data-a="closeSheet">${IC('check')}Done</button>`);
   }
   case 'nextDay': {
     const d = v.ui.nday; if (!d || !gm) return '';
