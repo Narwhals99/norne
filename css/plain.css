@@ -242,3 +242,9 @@
 .app[data-style="plain"][data-nl] .m.say.npc .bub, .app[data-style="plain"][data-nl] .m.say.npc.mine .bub{background:color-mix(in srgb,var(--nlb) 30%,var(--page-solid));color:var(--ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--nlb) 55%,transparent)}
 .app[data-style="plain"][data-nl] .m.say.npc.mine .bub em, .app[data-style="plain"][data-nl] .m.say.npc.mine .bub a{color:inherit}
 .app[data-style="plain"][data-nl] .m.say.npc .who .tag{color:var(--nlb);box-shadow:inset 0 0 0 1px currentColor;background:none}
+/* Meta wears the colour pair as an outline and stays see-through (Jack, 2026-11-18): yours the first spot colour,
+   everyone else's the second, the "Meta" label tinted to match. Nothing fills in, so Meta still never reads as speech */
+.app[data-style="plain"][data-nl] .m.ooc .bub{background:none;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--nlb) 80%,transparent)}
+.app[data-style="plain"][data-nl] .m.ooc.mine .bub{background:none;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--nla) 85%,transparent)}
+.app[data-style="plain"][data-nl] .m.ooc .bub::before{color:var(--nlb)}
+.app[data-style="plain"][data-nl] .m.ooc.mine .bub::before{color:var(--nla)}
