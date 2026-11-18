@@ -884,6 +884,8 @@
 .app .ent:hover{background:var(--accent-soft)}
 .app .ent b{font:600 16px/1.2 var(--f-display)}
 .app .ent small{font:500 12.5px/1.35 var(--f-ui);color:var(--ink-3);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.app .ent .ent-hit{font-style:italic;color:var(--ink-2)}
+.app .ent .ent-hit mark{background:var(--accent-soft);color:var(--ink);border-radius:3px;padding:0 1px;font-style:normal;box-shadow:inset 0 -1.5px 0 var(--accent)}
 .app .ent[aria-current="true"]{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--gold)}
 /* wiki categories and entries: the same liquid glass as OOC bubbles (--glass-* tokens) */
 .app .cat,.app .ent{position:relative;border:0;

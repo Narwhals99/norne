@@ -380,6 +380,22 @@ N.partTo = p => p.to || (p.see?.length ? 'some' : 'gm');
 /* the entry's sections in order. The lore's old GM notes (e.secret) show as a GM-only section until the GM saves the entry
    (sec:1 marks the section they became, so a lore re-import doesn't show them twice) */
 N.wikiParts = e => { const ps = e.parts || []; return e.secret && !ps.some(p => p.sec) ? [...ps, {id:'sec', h:'GM notes', text:e.secret, to:'gm', sec:1}] : ps; };
+/* ---------- wiki search ----------
+   N.fold: lower case without accents, one character for one so positions in the folded text match the original */
+N.fold = s => { let o = ''; for (const c of String(s || '')) { const f = c.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); o += f.length === c.length ? f : c.toLowerCase().length === c.length ? c.toLowerCase() : c; } return o; };
+/* an entry's searchable words as the reader sees them: links show their names, marks drop, sections follow the same
+   audience rule as the article (a GM preview as a player searches only that player's sections) */
+N.wikiText = e => { const as = N.seeAs, ps = N.wikiParts(e).filter(p => { const to = N.partTo(p); return !as || to === 'all' || to === 'some' && (p.see || []).includes(as); });
+  return [...(e.body || []), ...(e.info || []).map(i => (i || []).join(': ')), ...ps.flatMap(p => [p.h ? p.h + ':' : '', p.text || ''])].filter(Boolean).join('\n')
+    .replace(/\[\[(?:(?:pc|npc|wiki):[\w-]+\|)?([^\]|\n]+)(?:\|([^\]\n]+))?\]\]/g, (m, a, b) => b || a).replace(/[*_~`|]+/g, '').replace(/\s+/g, ' '); };
+/* about 120 characters around the first hit, cut at word edges */
+N.snip = (t, fq) => { const i = N.fold(t).indexOf(fq); if (i < 0) return ''; let a = Math.max(0, i - 50), b = Math.min(t.length, i + fq.length + 70);
+  if (a > 0) { const s = t.indexOf(' ', a); if (s > -1 && s < i) a = s + 1; } if (b < t.length) { const s = t.lastIndexOf(' ', b); if (s > i + fq.length) b = s; }
+  return (a > 0 ? '…' : '') + t.slice(a, b) + (b < t.length ? '…' : ''); };
+/* escaped text with every hit wrapped in <mark> */
+N.markFold = (t, fq) => { const f = N.fold(t); let o = '', at = 0, i; if (!fq) return esc(t);
+  while ((i = f.indexOf(fq, at)) > -1) { o += esc(t.slice(at, i)) + '<mark>' + esc(t.slice(i, i + fq.length)) + '</mark>'; at = i + fq.length; }
+  return o + esc(t.slice(at)); };
 /* every picture in an entry: its own, then each section's */
 N.wikiAllPics = e => [...N.wikiPics(e), ...(e.parts || []).flatMap(p => p.imgs || [])];
 N.audOf = (x, kind) => hiddenOf(x, kind) ? 'gm' : kind === 'pin' && (x.vis || x.type === 'party') ? '*' : (Array.isArray(x.see) && x.see.length ? x.see : '*');

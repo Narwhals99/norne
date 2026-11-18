@@ -1055,13 +1055,16 @@ function worldPage1(v){
   const g0 = G(), gm = isGM(v) && !N.seeAs, ph = v.dev === 'phone' || v._pane === 'world';
   const g = Object.assign({}, g0, {wiki: g0.wiki.filter(e => N.wikiCan(e))});
   const q = v.ui.wikiQ.trim().toLowerCase();
-  const hit = e => !q || [e.title, e.summary, ...(e.body||[])].join(' ').toLowerCase().includes(q);
+  /* search reads the whole entry: title, summary, the text, the facts box and every section this reader can see,
+     ignoring case and accents (Norne finds Nörne). Title hits come first, then summaries, then the rest */
+  const fq = N.fold(q), hits = !fq ? [] : g.wiki.map(e => { const t = N.wikiText(e); const r = N.fold(e.title).includes(fq) ? 0 : N.fold(e.summary || '').includes(fq) ? 1 : N.fold(t).includes(fq) ? 2 : -1;
+    return r < 0 ? null : {e, r, sn: r === 2 ? N.snip(t, fq) : ''}; }).filter(Boolean).sort((a, b) => a.r - b.r);
   const index = `<div class="wi scroll" data-sk="wi">
     ${v._pane ? (gm ? `<div class="top ph" style="padding:0;justify-content:flex-end"><button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button></div>` : '') : ph ? `<div class="top ph" style="padding:calc(6px + var(--safe-t,0px)) 0 0">${meBtn(v)}<h1>World</h1>${gm?`<button type="button" class="btn sm primary" data-a="pop" data-v="wnew">${IC('plus')}New${IC('caret')}</button>`:''}</div>` : `<div style="display:flex;align-items:center;gap:10px"><h1 class="ttl" style="flex:1;font-size:26px">World</h1>${gm?`<button type="button" class="btn sm ghost" data-a="sheet" data-v="wCats">${IC('gear')}Categories</button><button type="button" class="btn sm primary spark" data-a="wNew">${IC('plus')}New entry</button>`:''}</div>`}
     ${asBar(v)}
     <div class="search">${IC('search')}<input class="inp" id="wq-${v.id}" data-i="wikiQ" placeholder="Search ${g.wiki.length} entries" value="${esc(v.ui.wikiQ)}"></div>
     ${calBtn(v)}
-    ${q ? `<div class="ents">${g.wiki.filter(hit).slice(0,40).map(e => entBtn(v,e)).join('') || '<p class="muted" style="font-weight:600">Nothing matches.</p>'}</div>`
+    ${q ? `<div class="ents">${hits.slice(0,40).map(h => entBtn(v, h.e, h.sn, fq)).join('') || '<p class="muted" style="font-weight:600">Nothing matches.</p>'}</div>`
       : `<div class="cats">${N.catNames(g.wiki).map(c => { const es = g.wiki.filter(e => e.cat === c); if (!es.length) return ''; const open = v.ui.wikiCat === c; return `<button type="button" class="cat" data-a="wCat" data-v="${esc(c)}" aria-current="${open}"><span class="ci">${IC(N.catIcon(c))}</span><b>${esc(c)}</b><span class="n">${es.length}</span>${IC('right','car')}</button>${open && !ph ? `<div class="ents" style="padding:2px 0 8px 8px">${es.map(e => entBtn(v,e)).join('')}</div>` : ''}`; }).join('')}</div>`}
   </div>`;
   /* previewing an entry that player can't read: say so instead of a blank page */
@@ -1116,7 +1119,8 @@ function calHtml(v){
   </section>`;
 }
 const audTag = (x, kind) => { const a = N.audOf(x, kind); return a === '*' ? '' : a === 'gm' ? ' <span class="tag gold">GM</span>' : ` <span class="tag">${esc(N.audLabel(x, kind).replace(/^Only /, ''))}</span>`; };
-function entBtn(v, e){ return `<button type="button" class="ent" data-a="wiki" data-v="${e.id}" aria-current="${v.ui.wikiSel===e.id}"><b>${esc(e.title)}${isGM(v) && !N.seeAs?audTag(e,'wiki'):''}</b><small>${esc(e.summary)}</small></button>`; }
+/* sn: a search hit inside the entry's text, shown under the summary with the searched words marked */
+function entBtn(v, e, sn, fq){ return `<button type="button" class="ent" data-a="wiki" data-v="${e.id}" aria-current="${v.ui.wikiSel===e.id}"><b>${esc(e.title)}${isGM(v) && !N.seeAs?audTag(e,'wiki'):''}</b><small>${esc(e.summary)}</small>${sn ? `<small class="ent-hit">${N.markFold(sn, fq)}</small>` : ''}</button>`; }
 function links(s){
   const g = G();
   /* [[Entry]] links, the GM's links to cards and entries (N.xl), and the GM's custom emoji (:name:).
