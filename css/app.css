@@ -3219,3 +3219,60 @@
 .app .cal-nb{display:grid;gap:6px;font:500 14px/1.45 var(--f-ui);color:var(--ink-2);overflow-wrap:anywhere}
 .app .cal-nb p{margin:0}
 .app .cal-nb ul{margin:0;padding-left:20px;display:grid;gap:2px}
+
+/* ---------- personal notes (js/notes.js, Jack 2026-11-18): folders and notes, in a sheet or a side panel ---------- */
+.app .pn{display:flex;flex-direction:column;gap:10px;min-height:0}
+.app .pane-notes{padding:12px}
+.app .pn-q{flex:none}
+.app .pn-h{margin:6px 0 0;font:700 12px/1.2 var(--f-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.app .pn-dirs,.app .pn-list{display:flex;flex-direction:column;gap:6px}
+.app .pn-dir,.app .pn-note,.app .pn-add{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 12px;border-radius:var(--r-md,12px);
+  border:1px solid var(--line);background:var(--raise);color:var(--ink);font:600 15px/1.3 var(--f-ui);cursor:pointer}
+.app .pn-dir:hover,.app .pn-note:hover,.app .pn-add:hover{border-color:var(--line-3)}
+.app .pn-dir[aria-current="true"],.app .pn-note[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.app .pn-di{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--gold-soft);color:var(--gold);flex:none}
+.app .pn-di svg{width:19px;height:19px}
+.app .pn-dt{flex:1;min-width:0;display:flex;flex-direction:column}
+.app .pn-dt b,.app .pn-nt b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .pn-dt small,.app .pn-nt small{font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .pn-dir>svg{width:16px;height:16px;color:var(--ink-3);flex:none}
+.app .pn-add{justify-content:center;border-style:dashed;background:transparent;color:var(--accent-tx)}
+.app .pn-add svg{width:16px;height:16px}
+.app .pn-note{flex-direction:column;align-items:stretch;gap:3px}
+.app .pn-nt{display:flex;align-items:baseline;gap:8px;min-width:0}
+.app .pn-nt b{flex:1;min-width:0}
+.app .pn-nt small{flex:none}
+.app .pn-np{font:500 13.5px/1.4 var(--f-ui);color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.app .pn-np i{color:var(--ink-3)}
+.app .pn-np mark{background:var(--gold-soft);color:inherit;border-radius:3px;padding:0 1px}
+.app .pn-nd{display:flex;align-items:center;gap:5px;font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .pn-nd svg{width:13px;height:13px}
+.app .pn-new{align-self:flex-start}
+.app .pn-bar{display:flex;align-items:center;gap:6px;min-height:40px}
+.app .pn-bar h3{flex:1;min-width:0;display:flex;align-items:center;gap:8px;margin:0;font:700 17px/1.2 var(--f-display);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .pn-bar h3 svg{width:18px;height:18px;color:var(--gold);flex:none}
+.app .pn-bar .ibtn.on{color:var(--ember-ink);background:var(--ember)}
+.app .pn-mv{display:flex;align-items:center;gap:6px;min-width:0;flex:0 1 auto}
+.app .pn-mv svg{width:17px;height:17px;color:var(--gold);flex:none}
+.app .pn-mv select{min-width:0;max-width:220px;--h:36px}
+.app .pn-st{flex:1;text-align:right;font:600 12px/1.2 var(--f-ui);color:var(--ink-3);white-space:nowrap}
+.app .pn-form{display:flex;align-items:center;gap:6px}
+.app .pn-form .inp{flex:1;min-width:0}
+.app .pn-warn{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 12px;border-radius:var(--r-md,12px);background:var(--ember-soft);color:var(--ink);font:600 13.5px/1.35 var(--f-ui)}
+.app .pn-warn>svg{width:18px;height:18px;color:var(--ember);flex:none}
+.app .pn-warn span{flex:1 1 160px}
+.app .pn-title{font:700 18px/1.3 var(--f-display)}
+.app .pn-text{min-height:220px;resize:vertical;font:500 16px/1.55 var(--f-ui)}
+.app .pn-empty{margin:4px 0;font:600 13.5px/1.45 var(--f-ui);color:var(--ink-3)}
+/* the desktop sheet: folders down the left, the open folder or note on the right */
+.app .pn-wide{flex-direction:row;align-items:stretch;gap:16px;height:min(68vh,640px)}
+.app .pn-side{flex:0 0 260px;display:flex;flex-direction:column;gap:10px;overflow:auto;padding-right:4px}
+.app .pn-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;overflow:auto;padding-left:16px;border-left:1px solid var(--line)}
+.app .pn-wide .pn-text{flex:1;min-height:240px;resize:none}
+.app .pn-btn[aria-pressed="true"]{color:var(--gold)}
+/* phones: the notes sheet stands nearly full height, so there is room to write */
+.app .sheet.pn-sheet{height:92%;max-height:92%}
+@container dev (min-width: 760px){ .app .sheet.pn-sheet{width:min(960px,94%);height:min(760px,88%);max-height:88%} .app .sheet.pn-sheet .pn-wide{height:100%} }
+.app .sheet.pn-sheet .sh-b{display:flex;flex-direction:column}
+.app .pn-sheet .pn{flex:1}
+.app .sheet:not(.wide) .pn-text,.app .pn-sheet .pn:not(.pn-wide) .pn-text{flex:1}

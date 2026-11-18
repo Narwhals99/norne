@@ -906,6 +906,7 @@ async function start(role){
     MEMJ = true; applyMembers(snap.docs.map(d => ({uid:d.id, ...d.data()}))); changed(); res();
   }, err => { fail(err); res(); }));
   await Promise.all([members.then(() => Promise.all((isGM() ? N.seats() : [role]).map(listenFight))), ...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs(), listenGroups(), isGM() ? null : listenDoc('only/' + role, setMine, true)]);
+  if (!isGM()) listenNotes(role);
   ensureChars();
   for (const t of ['click','change','input','submit','keydown','pointerup']) document.addEventListener(t, queueSync);
   window.addEventListener('pagehide', syncNow);
@@ -915,6 +916,17 @@ async function start(role){
   if (g.maps[0]) V.ui.mapId = (N.defMap(isGM()) || g.maps[0]).id;
   if (readyCheck()) N.renderAll();
   if (isGM() && !g.wiki.length && !g.maps.length && !STALE.size) { V.ui.sheet = 'import'; N.renderAll(); }
+}
+/* personal notes (js/notes.js): notes/<seat> is this character's own notebook, read and written by its player alone.
+   It loads beside the rest and never holds up the start. Each note is its own field, so devices only replace what they changed */
+function listenNotes(seat){
+  N.pnWrite = (s, fields) => { const body = {}; for (const [k, x] of Object.entries(fields)) body[k] = x == null ? F.deleteField() : x; return F.setDoc(dref('notes/' + s), body, {merge:true}); };
+  window.addEventListener('pagehide', () => N.pn && N.pn.flushAll());
+  document.addEventListener('visibilitychange', () => { if (document.hidden && N.pn) N.pn.flushAll(); });
+  try { F.onSnapshot(dref('notes/' + seat), MD, snap => {
+    if (snap.metadata.fromCache && !snap.exists()) return;
+    if (N.pn) N.pn.load(seat, snap.exists() ? snap.data() : null, !snap.metadata.fromCache);
+  }, e => { console.warn('notes', e?.code); if (N.pn) N.pn.denied(seat); }); } catch(e) { console.warn('notes', e); }
 }
 /* a new player waits for the GM's device to lay out their character card */
 function readyCheck(){

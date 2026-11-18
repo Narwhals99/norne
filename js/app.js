@@ -588,6 +588,7 @@ function bind(v){
     if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'fcDraft') { e.preventDefault(); fcSend(v); }
     if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'dOth') { e.preventDefault(); e.target.parentElement.querySelector('button')?.click(); }
     if (e.key === 'Enter' && e.target.dataset.i === 'gold') { e.preventDefault(); e.target.blur(); }
+    if (e.key === 'Enter' && !e.isComposing && N.pn && N.pn.enter(v, e.target)) e.preventDefault();
     if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = v.ui.sheet === 'scenePics' ? 'scene' : null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
   root.addEventListener('pointerdown', e => { hsDrag(v, e); down(v, e); });
@@ -907,6 +908,7 @@ function input(v, el, ev){
   switch (i) {
     case 'draft': v.ui.draft = val; grow(el); typed(v, ev); return;
     case 'fcDraft': v.ui.fcDraft = val; return;
+    case 'pnQ': case 'pnDirName': case 'pnRenName': case 'pnTitle': case 'pnText': N.pn.input(v, el, i); return;
     case 'ndLead': if (v.ui.nd) v.ui.nd.lead = val; return;
     case 'lv': if (v.ui.lv) v.ui.lv[k] = val; return;
     case 'lvBack': v.ui.lvBack = val; return;
@@ -1007,6 +1009,7 @@ function input(v, el, ev){
 }
 function change(v, el){
   const i = el.dataset.i, val = el.value;
+  if (i === 'pnMove') { N.pn.change(v, el, i); return; }
   if (i === 'pdSkill' && val) { v.ui.pd.skills[val] = +el.dataset.x; render(v); }
   if (i === 'ndSkill' && val) { v.ui.nd.skills[val] = +el.dataset.x; render(v); }
   if (i === 'wd' && el.dataset.k !== 'cap') v.ui.wd[el.dataset.k] = val;
@@ -1804,6 +1807,7 @@ function act(v, a, el, e){
     break; }
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); if (val === 'search') { render(v); const f = v.root.querySelector(`#cq-${v.id}`); if (f) { f.focus({preventScroll:true}); f.select(); } return; } break;
+  case 'pn': N.pn.act(v, el); return;
   case 'closeSheet': if (ui.sheet === 'scenePics') { ui.sheet = 'scene'; break; } if (!askTell(v)) { ui.sheet = null; ui.tellAsk = null; } break;
   /* the GM's answer to "Send notifications?" after revealing something */
   case 'tellTog': { const it = ui.tellAsk?.items[+val]; if (it) it.on = !it.on; break; }
