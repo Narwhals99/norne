@@ -148,6 +148,12 @@ service cloud.firestore {
       allow write: if isGM();
     }
 
+    // Personal notes: each character's own notebook (folders and notes), notes/p1, notes/p2, ...
+    // Only the player holding that seat reads or writes it. Not other players, and not the GM (Jack, 2026-11-18).
+    match /notes/{s} {
+      allow read, write: if mine(s);
+    }
+
     // Push addresses: one per phone or computer with notifications on, so whoever writes a message
     // can ping the others. A person saves only their own; anyone at the table may clear a dead one.
     match /push/{dev} {

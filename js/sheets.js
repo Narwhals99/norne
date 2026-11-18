@@ -26,7 +26,7 @@ function sdCopyHtml(d, forwho){
     ${d.copy ? `<p class="muted" style="margin:8px 0;font:600 12.5px/1.4 var(--f-ui)">Starts this same scene (picture, place, aspects, NPCs and one-offs, as set here) in the chat you pick. This chat's scene stays as it is.${(k => k.length ? ` It also copies ${k.join(', ')}, with the players of the chat you pick.` : '')(sdKit(d.ch))}</p>
     <div class="forwho">${to.map(c => `<button type="button" data-a="sdCopy" data-v="${c}">${name(c)}</button>`).join('')}</div>` : ''}</div>`;
 }
-const sheet = (title, body, foot, o={}) => `<div class="sheet${o.wide?' wide':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+const sheet = (title, body, foot, o={}) => `<div class="sheet${o.wide?' wide':''}${o.cls?' '+o.cls:''}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
   <div class="sh-h">${o.lead||''}<h2 class="ttl">${title}</h2><button type="button" class="ibtn" data-a="closeSheet" aria-label="Close">${IC('x')}</button></div>
   <div class="sh-b scroll" data-sk="sheet">${body}</div>${foot ? `<div class="sh-f">${foot}</div>` : ''}</div>`;
 const PORTRAITS = ['human-fighter','rogue-woman','elf-archer','dwarf-warrior','mage-woman','soldier-woman','noble-duelist','priest','bandit-woman','thug','innkeeper','town-guard','noble-queen','goblin-spearman','wizard-old','vampire-lady'];
@@ -390,6 +390,8 @@ N.sheetHtml = function(v){
       <p class="muted" style="margin:0;font:600 12.5px/1.45 var(--f-ui)">Highlighted players have a private chat with you. Automatic notes (a new character card, inventory changes, news) only go to an open one.</p>`;
     return sheet('Private chats', body, `<button type="button" class="btn primary lg" data-a="closeSheet">${IC('check')}Done</button>`);
   }
+  /* personal notes (js/notes.js): the player's own folders and notes, private to them */
+  case 'notes': return N.pn ? sheet(N.pn.title(v), N.pn.html(v, v.dev === 'desktop'), '', {wide:true, cls:'pn-sheet'}) : '';
   case 'search': {
     const q = v.ui.cq || '', all = v.ui.cqAll !== false;
     const body = `<div class="srch-top"><label class="search srch-q"><span class="vh">Search for</span>${IC('search')}<input class="inp" type="search" id="cq-${v.id}" data-i="chatQ" value="${esc(q)}" placeholder="Words, a name, a skill…" autocomplete="off" enterkeyhint="search"></label>

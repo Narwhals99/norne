@@ -215,7 +215,7 @@ function paneOpts(v, mode){
     ['recent', rp ? 'Recent actions' : N.cbKind() === 'fight' ? 'Fight results and chat' : 'Results and chat', rp ? 'dice' : 'swords'],
     ...(gm && !rp ? [['gms', 'GM screen', 'crown']] : []),
     ['map', 'Map', 'map'], ['world', 'World', 'world'], ['news', 'News', 'newsL'],
-    ...(gm ? [['cast', 'Cast', 'cast']] : [['hero', 'Character sheet', 'scroll']]), ['inv', 'Inventory', 'bag']];
+    ...(gm ? [['cast', 'Cast', 'cast']] : [['hero', 'Character sheet', 'scroll']]), ['inv', 'Inventory', 'bag'], ...(N.pn && N.pn.on(v) ? [['notes', 'My notes', 'notes']] : [])];
 }
 /* the two panels' picks for this screen, falling back to the panels it came with */
 function panePicks(v, mode){
@@ -230,6 +230,7 @@ function paneBody(v, id, slot, a, mode){
   if (id === 'def') return a;
   if (id === 'recent') return `<div class="rcnt rc-in">${N.recentHtml(v, mode)}${mode === 'cb' ? fightComposer(v) : ''}</div>`;
   if (id === 'gms') return `<div class="rail-a scroll" data-sk="rail-${slot}">${gmScreen(v)}</div>`;
+  if (id === 'notes') return `<div class="pane-c pane-notes scroll" data-sk="pane-notes-${slot}">${N.pn.html(v, false, 'pnp' + slot)}</div>`;
   v._pane = id;
   try {
     const page = id === 'map' ? mapPage(v) : id === 'world' ? worldPage(v) : id === 'news' ? newsPage(v) : id === 'hero' ? heroPage(v) : id === 'cast' ? castPage(v) : id === 'inv' ? invPage(v) : '';
@@ -290,11 +291,12 @@ function chatView(v, side){
   const fa = fightAvail(v), grpBtn = gm && !!N.grpOf(ch);
   /* Jake: the GM ends the day in a party or group chat where people roleplay (not a Meta-only one) */
   const dayBtn = grpBtn && !N.metaOnly(ch);
-  const topPh = `<div class="top ph${dayBtn && !fa ? ' busy' : ''}">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${dayBtn && !fa ? `<button type="button" class="ibtn" data-a="sheet" data-v="nextDay" aria-label="Next day" title="Next day">${IC('sun')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn${N.chPaused(ch) ? ' on' : ''}" data-a="grpPause" data-v="${ch.slice(4)}" aria-label="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}" title="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}">${IC(N.chPaused(ch) ? 'play' : 'lock')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn" data-a="grpEdit" data-v="${ch.slice(4)}" aria-label="Edit this group chat" title="Edit this group chat">${IC('gear')}</button>` : ''}<button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>${N.nlOn(v) ? (fa && v.ui.fightPane === 'fight' ? '' : `<button type="button" class="ibtn nlside" data-a="sidePane" data-v="1" aria-label="Side panel" title="Side panel">${N.nl.PANEL}</button>`) : sideBtn(v, 'chat')}</div>`;
+  const topPh = `<div class="top ph${dayBtn && !fa ? ' busy' : ''}">${shelfBtn(v)}${fa ? `<div style="flex:1;display:flex;justify-content:center">${fightSeg(v)}</div>` : `<button type="button" class="chname" data-a="shelf">${chanIcon(v,ch)}<span><b>${esc(N.chName(ch, v.role))}</b><small>${esc(N.chSub(ch, v.role))}</small></span></button>`}${dayBtn && !fa ? `<button type="button" class="ibtn" data-a="sheet" data-v="nextDay" aria-label="Next day" title="Next day">${IC('sun')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn${N.chPaused(ch) ? ' on' : ''}" data-a="grpPause" data-v="${ch.slice(4)}" aria-label="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}" title="${N.chPaused(ch) ? 'Resume the chat' : 'Pause the chat'}">${IC(N.chPaused(ch) ? 'play' : 'lock')}</button>` : ''}${grpBtn && !fa ? `<button type="button" class="ibtn" data-a="grpEdit" data-v="${ch.slice(4)}" aria-label="Edit this group chat" title="Edit this group chat">${IC('gear')}</button>` : ''}${N.pn ? N.pn.topBtn(v) : ''}<button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>${N.nlOn(v) ? (fa && v.ui.fightPane === 'fight' ? '' : `<button type="button" class="ibtn nlside" data-a="sidePane" data-v="1" aria-label="Side panel" title="Side panel">${N.nl.PANEL}</button>`) : sideBtn(v, 'chat')}</div>`;
   const topDt = side ? '' : `<header class="top dt"><div style="flex:1;min-width:0"><h1>${esc(N.chName(ch, v.role))}</h1><span class="sub">${esc(N.chSub(ch, v.role))}</span></div>
     ${dayBtn && !fa ? `<button type="button" class="btn sm" data-a="sheet" data-v="nextDay" style="--h:36px" title="End the day and start the next one">${IC('sun')}Next day</button>` : ''}
     ${grpBtn ? `<button type="button" class="btn sm${N.chPaused(ch) ? ' gold' : ''}" data-a="grpPause" data-v="${ch.slice(4)}" style="--h:36px" title="${N.chPaused(ch) ? 'Let the players talk again' : 'Stop the players from sending messages'}">${IC(N.chPaused(ch) ? 'play' : 'lock')}${N.chPaused(ch) ? 'Resume chat' : 'Pause chat'}</button>` : ''}
     ${grpBtn ? `<button type="button" class="btn sm" data-a="grpEdit" data-v="${ch.slice(4)}" style="--h:36px">${IC('gear')}Edit group</button>` : ''}
+    ${N.pn ? N.pn.topBtn(v) : ''}
     <button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
     ${N.nlOn(v) && !(fa && v.ui.fightOpen) ? `<button type="button" class="ibtn nlside" data-a="nlSideOff" aria-pressed="${!v.ui.nlSideOff}" aria-label="${v.ui.nlSideOff ? 'Show' : 'Hide'} the side panel" title="${v.ui.nlSideOff ? 'Show' : 'Hide'} the side panel">${N.nl.PANEL}</button>` : ''}
