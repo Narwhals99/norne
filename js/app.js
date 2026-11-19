@@ -1021,6 +1021,7 @@ function change(v, el){
   if (i === 'calLab' && isGM(v)) { G().calLabels = {...(G().calLabels || {}), [el.dataset.k]:val.trim().slice(0, 30)}; renderAll(); }
   /* the GM sets the year: it shows on days posted without one, new events start in it, and the calendar jumps there */
   if (i === 'calYear' && isGM(v)) { const y = String(parseInt(val, 10) || '').slice(0, 6); G().calYear = y; v.ui.calV = {m:calView(v).m, y}; renderAll(); }
+  if (i === 'slLoc' && v.ui.slEd) { const L = v.ui.slEd.sel; L[el.dataset.k] = val; if (el.dataset.k === 'c') { L.t = ''; L.n = ''; } if (el.dataset.k === 't') L.n = ''; render(v); }
   if (i === 'calCh') { v.ui.calCh = val; v.ui.calV = null; v.ui.calSel = null; render(v); }
   if (i === 'cdTo') v.ui.cd[+el.dataset.n].to = val;
   if (i === 'mapName') renderAll();
@@ -2853,6 +2854,13 @@ function act(v, a, el, e){
   case 'shopUse': { const s = gm && N.shopOf(d.c), x = (g.shopLib || []).find(y => y.id === val); if (!s || !x || s.state === 'open') break;
     Object.assign(s, {name:x.name, items:JSON.parse(JSON.stringify(x.items || [])), npcs:JSON.parse(JSON.stringify(x.npcs || [])), travel:!!x.travel, lib:x.id});
     toast(v, `${x.name} is set up again. Change anything before you open it.`); renderAll(); return; }
+  /* Jake: change where a saved store is kept (v.ui.slEd = {id, sel}); All saved stores lists stores from every place */
+  case 'shopAll': ui.shopAll = !ui.shopAll; ui.slEd = null; break;
+  case 'shopLocEd': { const x = val && (g.shopLib || []).find(y => y.id === val); ui.slEd = gm && x && ui.slEd?.id !== x.id ? {id:x.id, sel:{c:'', t:'', n:'', ...(x.sel || N.shopSel(x))}} : null; break; }
+  case 'shopLocSave': { const e = ui.slEd, x = gm && e && (g.shopLib || []).find(y => y.id === e.id); if (!x) break;
+    const was = {loc:x.loc, locL:x.locL, sel:x.sel}, loc = N.locBuild(e.sel), o = loc && (loc.n || loc.t || loc.c);
+    Object.assign(x, {loc:o ? N.locKey(o) : '', locL:loc ? N.locText(loc) : '', sel:loc ? N.locKeys(loc) : {c:'', t:'', n:''}}); ui.slEd = null;
+    toast(v, loc ? `${x.name} is now kept in ${x.locL}.` : `${x.name} has no place now.`, () => { Object.assign(x, was); renderAll(); }); renderAll(); return; }
   case 'shopTravel': { const s = gm && N.shopOf(d.c); if (!s) break; s.travel = !s.travel; renderAll(); return; }
   case 'shopForget': { const L = g.shopLib || [], at = L.findIndex(y => y.id === val); if (!gm || at < 0) break;
     const [x] = L.splice(at, 1); toast(v, `${x.name} won’t be offered again.`, () => { L.splice(at, 0, x); renderAll(); }); renderAll(); return; }
@@ -3149,9 +3157,9 @@ function clearStress(ch){
 /* a store being opened goes into the saved storefronts (the same entry again when it started from one) */
 function shopKeep(s){
   const g = G(), L = g.shopLib || (g.shopLib = []), here = N.shopHere(s.ch);
-  const x = {id:s.lib || uid('sl'), name:s.name, items:JSON.parse(JSON.stringify(s.items)), npcs:JSON.parse(JSON.stringify(s.npcs || [])), travel:!!s.travel, loc:here ? here.k : '', locL:here ? here.l : '', t:N.now()};
+  const x = {id:s.lib || uid('sl'), name:s.name, items:JSON.parse(JSON.stringify(s.items)), npcs:JSON.parse(JSON.stringify(s.npcs || [])), travel:!!s.travel, loc:here ? here.k : '', locL:here ? here.l : '', ...(here ? {sel:N.locKeys(N.myLoc('gm', s.ch))} : {}), t:N.now()};
   const old = L.find(y => y.id === x.id) || (!s.lib && L.find(y => y.name.toLowerCase() === x.name.toLowerCase() && (y.travel || y.loc === x.loc)));
-  if (old) { if (!here && old.loc) { x.loc = old.loc; x.locL = old.locL; } x.id = old.id; Object.assign(old, x); } else L.push(x);
+  if (old) { if (!here && old.loc) { x.loc = old.loc; x.locL = old.locL; if (old.sel) x.sel = old.sel; } x.id = old.id; Object.assign(old, x); } else L.push(x);
   s.lib = x.id;
 }
 function setScene(v, ch, s, post){
