@@ -1027,6 +1027,9 @@ N.itemSync = (it, oldName) => {
    was before can start from it. A Traveling merchant (travel:true) is offered everywhere */
 N.shopHere = ch => { const loc = N.myLoc('gm', ch); if (!loc) return null; const o = loc.n || loc.t || loc.c; return o ? {k:N.locKey(o), l:N.locText(loc)} : null; };
 N.shopLibFor = ch => { const here = N.shopHere(ch); return (N.G.shopLib || []).filter(x => x.travel || (here && x.loc === here.k)).sort((a, b) => (b.travel ? 0 : 1) - (a.travel ? 0 : 1) || (b.t || 0) - (a.t || 0)); };
+/* the country > city > neighborhood picks behind a saved store's place, for stores saved before they were kept (x.sel) */
+N.shopSel = x => { const [mi, pi] = String(x.loc || '').split('|'), m = N.G.maps.find(y => y.id === mi), p = m && m.pins.find(y => y.id === pi);
+  const hit = p ? N.placeFind(p.label).find(l => N.LOCK.some(k => N.locKey(l[k]) === x.loc)) : null; return hit ? N.locKeys(hit) : {c:'', t:'', n:''}; };
 N.shopOf = ch => (N.G.shops || {})[ch] || null;
 N.shopOpen = ch => { const s = N.shopOf(ch); return s && s.state === 'open' ? s : null; };
 N.shopOk = ch => ch === 'gm' || (!!N.chKey(ch) && !N.metaOnly(ch));
