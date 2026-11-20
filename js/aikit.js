@@ -16,6 +16,7 @@
 export const MODELS = [
   {id:'caelis', n:'Caelis', file:'models/caelis.glb', who:'Caelis Rethvael'},
   {id:'xira', n:'Xira', file:'models/xira.glb', who:'Xira'},
+  {id:'egrot', n:'Egrot', file:'models/egrot.glb', who:'Egrot'},
 ];
 const BY = new Map(MODELS.map(m => [m.id, m]));
 export const isModel = id => BY.has(id);
