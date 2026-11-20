@@ -28,7 +28,7 @@ function tokHtml(v, t, size){
   if (mine) cls.push('me');
   /* standing as a 3D figure (js/figboard.js): the circle hides, the name and stress boxes stay */
   if (N.figHas && N.figHas(v, t)) cls.push('fig');
-  return `<button type="button" class="${cls.join(' ')}" data-tok="${t.id}" aria-label="${esc(name)}${out?' (taken out)':''}"${hit}>${N.av(o, size)}<span class="nm">${mine?'You':esc(name)}</span>${out?'':`<span class="st">${st.v.map((x,i)=>`<i class="${on(i)?'on':''}"></i>`).join('')}</span>`}${t.kind==='npc'&&N.sideOf(t)==='ally'?`<span class="ji" title="Ally">${IC('heart')}</span>`:''}</button>`;
+  return `<button type="button" class="${cls.join(' ')}" data-tok="${t.id}" aria-label="${esc(name)}${out?' (taken out)':''}"${hit}>${N.av(o, size)}<span class="nm">${mine?'You':esc(name)}</span>${out?'':`<span class="st">${st.v.map((x,i)=>`<i class="${on(i)?'on':''}"></i>`).join('')}</span>`}${t.kind==='npc'&&N.sideOf(t)==='ally'?`<span class="ji" title="Ally">${IC('heart')}</span>`:''}${N.isCrowd(t) && !out ? `<span class="crowdn" title="${t.crowd} in the crowd">×${t.crowd}</span>` : ''}</button>`;
 }
 N.tokHtml = tokHtml;
 
@@ -366,10 +366,11 @@ N.tokCard = function(v, t){
   const sk = Object.entries(N.tokSkills(t)).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const asp = t.kind === 'pc' ? (() => { const c = g.chars[t.ref] || {aspects:[]}; return [c.hc, c.trouble, ...c.aspects]; })() : (t.aspects || []);
   const sd = N.sideOf(t), role = t.kind === 'pc' ? `Played by ${esc(g.P[g.chars[t.ref]?.player]?.name || 'a former player')}` : sd === 'ally' ? 'Ally' : sd !== 'foe' ? esc(N.teamOf(t).name) : (t.type === 'nameless' ? 'Nameless foe' : 'Foe');
+  const crowdRow = N.isCrowd(t) ? `<span>Crowd</span><span class="tk-crowd"><b>${t.crowd} of ${t.crowd0}</b><small>${t.crowd > 1 ? `skills ${sgn(t.crowd - 1)} over one alone` : 'one alone: base skills'}</small>${gm ? `<span class="mini"><button type="button" data-a="tokCrowd" data-t="${t.id}" data-d="-1" aria-label="One fewer in the crowd" ${t.crowd < 1 ? 'disabled' : ''}>−</button><button type="button" data-a="tokCrowd" data-t="${t.id}" data-d="1" aria-label="One more in the crowd" ${t.crowd >= N.CROWD_MAX ? 'disabled' : ''}>+</button></span>` : ''}</span>` : '';
   /* the GM moves anyone to another team (Jake: three-way fights and contests) */
   const teamRow = gm && N.cbKind() !== 'challenge' ? `<span>Team</span><span class="tk-teams">${N.teams().map(tm => `<button type="button" class="tchip" style="--tc:${tm.col}" data-a="tokTeam" data-t="${t.id}" data-v="${tm.id}" aria-pressed="${sd === tm.id}"><i></i>${esc(tm.name)}</button>`).join('')}</span>` : '';
   return `<div class="tokcard">
-    <div class="hd">${N.av(o,54)}<span style="flex:1;min-width:0"><b>${esc(N.tokName(t))}</b><small>${role} · ${z?esc(z.name):'Not placed'}${t.out?' · taken out':''}</small></span>${gm?`<button type="button" class="btn sm ghost tok-rm" data-a="sheet" data-v="tokRm" data-c="${t.id}" title="Take ${esc(N.tokName(t))} out of this fight">${IC('trash')}Remove</button>`:''}${v.dev==='desktop'?`<button type="button" class="ibtn sm" data-a="tokClose" aria-label="Close">${IC('x')}</button>`:''}</div>
+    <div class="hd">${N.av(o,54)}<span style="flex:1;min-width:0"><b>${esc(N.tokName(t))}${N.isCrowd(t) ? ` <span class="tag ember">×${t.crowd}</span>` : ''}</b><small>${N.isCrowd(t) ? 'Crowd · ' : ''}${role} · ${z?esc(z.name):'Not placed'}${t.out?' · taken out':''}</small></span>${gm?`<button type="button" class="btn sm ghost tok-rm" data-a="sheet" data-v="tokRm" data-c="${t.id}" title="Take ${esc(N.tokName(t))} out of this fight">${IC('trash')}Remove</button>`:''}${v.dev==='desktop'?`<button type="button" class="ibtn sm" data-a="tokClose" aria-label="Close">${IC('x')}</button>`:''}</div>
     ${asp.filter(Boolean).length ? `<div class="icards">${asp.filter(Boolean).map((a,i)=>`<span class="icard" style="--rot:${i%2?.6:-.6}deg"><span>${N.emoText(N.marks(esc(a)))}</span></span>`).join('')}</div>` : ''}
     ${(() => { /* situation aspects the GM pinned on this fighter, and boosts others put on them */
       const on = g.combat.aspects.filter(a => a.onTok === t.id || (a.boost && a.on && a.on === N.tokName(t)));
@@ -377,7 +378,7 @@ N.tokCard = function(v, t){
     ${(() => { /* boosts this fighter holds: their own free invokes */
       const mine = g.combat.aspects.filter(a => a.boost && a.tok === t.id && a.t && a.free);
       return mine.length ? `<div class="icards tok-on"><span class="tok-on-l">Their boosts</span>${mine.map((a,i)=>`<span class="icard boost" style="--rot:${i%2?.6:-.6}deg"><span class="k">Boost${a.on ? ` · on ${esc(a.on)}` : ''}${a.keep ? ' · until used' : a.left != null ? ` · ${a.left > 0 ? `for ${a.left} roll${a.left > 1 ? 's' : ''}` : 'last roll'}` : ''}</span><span>${N.emoText(N.marks(esc(a.t)))}</span><span class="fi"><i></i></span></span>`).join('')}</div>` : ''; })()}
-    <div class="kv">${teamRow}<span>Stress</span><span class="boxes">${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
+    <div class="kv">${teamRow}${crowdRow}${N.isCrowd(t) ? '<span hidden></span><span hidden>' : '<span>Stress</span><span class="boxes">'}${st.v.map((x,i)=>`<button type="button" class="sbox${st.s[i]?' on':''}" ${gm?`data-a="tokStress" data-t="${t.id}" data-i="${i}"`:'disabled'} aria-pressed="${st.s[i]}">${x}</button>`).join('')}</span>
       ${(() => {
         /* the same pool an invoke spends (N.invokePayer): the PC's character card or the named NPC's card */
         const pool = N.tokFpPool(t); if (!pool || (!gm && t.kind !== 'pc')) return '';
@@ -385,7 +386,7 @@ N.tokCard = function(v, t){
         return `<span>Fate points</span><span class="coins tok-fp">${Array.from({length:n}, (_,i) => `<span class="coin${i<fp?'':' off'}"></span>`).join('')}<b class="fp-n">${fp}</b>${gm ? `<span class="mini"><button type="button" data-a="tokFp" data-t="${t.id}" data-d="-1" aria-label="Take a fate point from ${esc(pool.name)}" ${fp<1?'disabled':''}>−</button><button type="button" data-a="tokFp" data-t="${t.id}" data-d="1" aria-label="Give ${esc(pool.name)} a fate point" ${fp>=10?'disabled':''}>+</button><button type="button" class="xf-mini" data-a="xfer" data-v="${pool.pc ? 'c' : 'n'}:${esc(t.ref)}" data-k="fp" aria-label="Transfer fate points from ${esc(pool.name)}" title="Transfer to another character">${IC('swap')}</button></span>` : ''}</span>`;
       })()}
       ${(() => {
-        const cs = N.tokCons(t); if (!gm && t.kind !== 'pc' && !cs.some(x => x.v)) return '';
+        const cs = N.tokCons(t); if (N.isCrowd(t) || (!gm && t.kind !== 'pc' && !cs.some(x => x.v))) return '';
         const src = N.tokConsSrc(t), ed = sl => `<div class="cq-ed"><label><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${src.i} data-k="${sl.k}" value="${esc(sl.v)}" placeholder="Empty"></label>${sl.v ? N.conStEd(src.own, sl, sl.st) : ''}</div>`;
         return `<span class="kv-w">Consequences</span><span class="kv-w cq-list${gm ? ' ed' : ''}">${cs.map(sl => gm ? ed(sl) : N.cqChip(sl)).join('')}</span>`;
       })()}
@@ -505,7 +506,7 @@ N.setupPanel = function(v){
         ${cb.zones.length ? `<div class="zlist">${cb.zones.map(z => `<div class="zi" style="--zc:${z.col}${v.ui.zoneSel===z.id?';box-shadow:inset 0 0 0 1.5px var(--gold)':''}"><i></i><span>${esc(z.name)}${z.aspect?`<small>${esc(z.aspect)}</small>`:''}</span><button type="button" class="ibtn sm" data-a="zoneEdit" data-v="${z.id}" aria-label="Edit ${esc(z.name)}">${IC('pen')}</button></div>`).join('')}</div>` : ''}
         ${zs && v.dev==='desktop' ? zoneForm(v, zs) : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm ${(v.ui.cbTool||'move')==='zone'?'primary':''}" data-a="cbTool" data-v="${(v.ui.cbTool||'move')==='zone'?'move':'zone'}">${IC('zone')}${(v.ui.cbTool||'move')==='zone'?'Done drawing':'Draw zones'}</button>${cb.zones.length?'':`<button type="button" class="btn sm ghost" data-a="cbQuickZones">${IC('sparkle')}Quick: 3 zones</button>`}</div>`)}
-      ${step(4, cb.tokens.some(t => t.kind === 'npc'), kind === 'fight' ? 'Enemies and allies' : kind === 'contest' ? 'Rivals and others' : 'NPCs who help (optional)', `${kind !== 'challenge' ? N.teamLine(v) : ''}${N.foeList(false, v)}<button type="button" class="btn sm ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>${N.figRows ? N.figRows(v) : ''}`)}
+      ${step(4, cb.tokens.some(t => t.kind === 'npc'), kind === 'fight' ? 'Enemies and allies' : kind === 'contest' ? 'Rivals and others' : 'NPCs who help (optional)', `${kind !== 'challenge' ? N.teamLine(v) : ''}${N.foeList(false, v)}<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>${kind !== 'challenge' ? `<button type="button" class="btn sm" data-a="crowdNew">${IC('users')}Add a crowd</button>` : ''}</div>${N.figRows ? N.figRows(v) : ''}`)}
       ${step(5, tray.length === 0 && placed.length > 0, 'Place everyone', `<small>${tray.length ? 'Drag onto a zone, or tap a token and then a zone.' : placed.length ? 'Everyone is on the board. Drag tokens to rearrange.' : (cb.ch === 'gm' ? 'Add NPCs first.' : 'Invite players or add foes first.')}</small>
         <div class="tray" data-tray="1">${tray.length ? tray.map(t => tokHtml(v, t)).join('') : '<span class="empty">Nobody waiting</span>'}</div>`)}
       ${scoring}${rolls}
@@ -666,6 +667,8 @@ N.cbAddNpc = function(nid, side, zone){
   const same = cb.tokens.filter(t => t.ref === nid).length;
   const t = N.tokFromNpc(n, side, same ? `${n.name} ${same+1}` : null);
   if (same === 1) { const first = cb.tokens.find(x => x.ref === nid); if (first && first.name === n.name) first.name = n.name + ' 1'; }
+  /* the picture the GM picked for them in this chat's scene (Jake) */
+  t.portrait = N.npcFace(n.name, N.fightCh()) || t.portrait;
   t.zone = zone || null;
   cb.tokens.push(t); N.cbLateInit(t); return t;
 };
@@ -805,6 +808,7 @@ N.cbResolve = function(again){
     out = {k:'hit', t:dmg ? `Hit${style ? ' with style' : ''} · ${dmg} shift${dmg>1?'s':''}` : 'Hit · armor holds'};
     if (!dmg) { after = `${dn}’s armor takes the whole blow. No harm done.`; N.cbSettled(p); fo = 'armor'; }
     else if (style) { p.stage = 'style'; p.dmg = dmg; after = `${N.gmName()} picks: the full ${dmg} shift${dmg>1?'s':''}, or ${Math.max(0, dmg - 2)} and a boost on ${dn}.`; fo = 'style'; }
+    else if (N.isCrowd(d)) { after = N.crowdHit(p, d, dmg); fo = 'hit'; }
     else { p.stage = 'absorb'; p.shifts = dmg; after = `${dn} must soak ${dmg} shift${dmg>1?'s':''}: check a stress box or take a consequence.`; fo = 'hit'; }
   } else if (sh === 0) { out = {k:'tie', t:'Tie'}; after = `No harm done. ${an} gets a boost on ${dn}.`; N.cbSettled(p); boost(a, d); fo = 'tie'; }
   else { out = {k:'miss', t:sh <= -3 ? 'Defended with style' : 'Defended'}; after = `${dn} turns the attack aside${sh <= -3 ? ` and gets a boost on ${an}` : ''}. No harm done.`; N.cbSettled(p); if (sh <= -3) boost(d, a); fo = sh <= -3 ? 'bstyle' : 'block'; }
@@ -916,7 +920,16 @@ N.cbStyle = function(choice){
   if (choice === 'boost') { dmg = Math.max(0, dmg - 2); p.boosted = true; (fx.boosts = fx.boosts || []).push(N.addBoost(a, d).id); }
   const how = choice === 'boost' ? `${an} takes 2 off the damage and puts a boost on ${dn}.` : `${an} goes for the full damage.`;
   if (!dmg) { N.cbSettled(p); sys(`${how} No harm done.`); return; }
+  if (N.isCrowd(d)) { sys(`${how} ${N.crowdHit(p, d, dmg)}`); return; }
   p.stage = 'absorb'; p.shifts = dmg; sys(`${how} ${dn} must soak ${dmg} shift${dmg>1?'s':''}.`);
+};
+/* Jake's crowd rule: every unsoaked shift on a crowd is one member killed, and each one lost takes 1 off all its skills.
+   Settled at once (no soak step); N.cbUndo puts them back if an invoke or the GM's shifts change the result */
+N.crowdHit = function(p, d, dmg){
+  const fx = p.fx = p.fx || {}, was = d.crowd | 0, kill = Math.min(was, dmg), left = was - kill, dn = N.tokName(d);
+  fx.crowd = {was, out:!!d.out}; d.crowd = left; N.cbSettled(p);
+  if (!left) { d.crowd = 0; d.out = true; return `${kill === 1 ? 'The last of' : `All ${kill} of`} ${dn} ${kill === 1 ? 'falls' : 'fall'}. The crowd is taken out.`; }
+  return `${kill} of ${dn} ${kill === 1 ? 'falls' : 'fall'}. ${left} left${left > 1 ? `, skills ${sgn(left - 1)} over one alone` : ', down to one alone'}.`;
 };
 /* An attack is settled once its harm is on the cards. It stays as combat.last until the next attack, so an invoke
    on either of its rolls can still change the outcome: N.cbReresolve takes back what it did (stress box, taken out,
@@ -926,6 +939,7 @@ N.cbUndo = function(p){
   const g = G(), cb = g.combat, fx = p.fx || {}, d = N.tokById(p.def);
   /* fx.box / fx.out: NPC hits settled automatically before NPCs got the soak step */
   if (d && d.kind === 'npc') { if (fx.box != null) d.stress[fx.box] = false; if (fx.out) d.out = false; }
+  if (d && fx.crowd) { d.crowd = fx.crowd.was; d.out = fx.crowd.out; }
   const sk = fx.soak || fx.pc;
   if (d && sk) {
     if (sk.k === 'box') { const st = N.tokStress(d); if (st.s[sk.i] != null) st.s[sk.i] = false; }

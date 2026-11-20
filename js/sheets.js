@@ -50,7 +50,7 @@ N.allRollers = v => {
   const g = G();
   if (!isGM(v)) { const c = N.charOf(v.role); return c && c.built ? [{key:'pc:'+c.id, name:c.short, portrait:c.portrait, color:c.color, skills:c.skills}] : []; }
   const out = [];
-  if (g.combat.state === 'live') g.combat.tokens.filter(t => t.kind === 'npc' && !t.out).forEach(t => out.push({key:'tok:'+t.id, name:t.name, portrait:t.portrait, color:N.tokObj(t).color, skills:t.skills || {}}));
+  if (g.combat.state === 'live') g.combat.tokens.filter(t => t.kind === 'npc' && !t.out).forEach(t => out.push({key:'tok:'+t.id, name:t.name, portrait:t.portrait, color:N.tokObj(t).color, skills:N.tokSkills(t)}));
   g.npcs.forEach(n => out.push({key:'npc:'+n.id, name:n.name, portrait:n.portrait, color:'var(--c-npc)', skills:n.skills}));
   N.extrasOf(v.ui.ch === 'gm' ? 'table' : v.ui.ch).forEach(x => out.push({key:'one:'+x.id, name:x.name, color:'var(--c-npc)', skills:x.skills || {}}));
   N.pcs().filter(c => c.built).forEach(c => out.push({key:'pc:'+c.id, name:c.short, portrait:c.portrait, color:c.color, skills:c.skills}));
@@ -292,7 +292,7 @@ N.sheetHtml = function(v){
         return `<div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">NPCs in this scene${d.cast.length ? ` · ${d.cast.length}` : ''}</h4>${d.cast.length ? `<button type="button" class="btn sm ghost" data-a="sdCastNone">Clear</button>` : ''}</div>
           ${all.length > 10 ? `<div class="pop-find sd-find">${IC('search')}<input class="inp" id="sdcq-${v.id}" data-i="castQ" placeholder="Find an NPC" value="${esc(d.castQ || '')}" autocomplete="off"></div>` : ''}
           ${(() => { /* the GM's NPC folders from the Cast page: loose NPCs first, then each folder, closed until opened (or while searching) */
-            const chip = n => { const npc = N.npcByName(n); return `<button type="button" data-a="sdCast" data-v="${esc(n)}" aria-pressed="${d.cast.includes(n)}">${N.av({name:n, portrait:npc?.portrait, color:'var(--c-npc)'}, 28)}${esc(n)}${npc && npc.side && N.leadName(npc.lead) ? `<small>Sidekick of ${esc(N.leadName(npc.lead))}</small>` : ''}</button>`; };
+            const chip = n => { const npc = N.npcByName(n), many = N.npcPics(npc).length > 1, pk = d.cpics && d.cpics[n] && N.npcPics(npc).includes(d.cpics[n]) ? d.cpics[n] : npc?.portrait; return `<button type="button" data-a="sdCast" data-v="${esc(n)}" aria-pressed="${d.cast.includes(n)}"${d.picFor === n ? ' class="picking"' : ''}>${N.av({name:n, portrait:pk, color:'var(--c-npc)'}, 28)}${esc(n)}${many ? `<span class="manypics" title="Has ${N.npcPics(npc).length} pictures">${IC('image')}${N.npcPics(npc).length}</span>` : ''}${npc && npc.side && N.leadName(npc.lead) ? `<small>Sidekick of ${esc(N.leadName(npc.lead))}</small>` : ''}</button>`; };
             const dirOf = n => N.nd.of(N.npcByName(n)), dirs = N.nd.list().filter(([id]) => shown.some(n => N.nd.tree(id).includes(dirOf(n))));
             if (!dirs.length) return `<div class="forwho sdcast" role="group" aria-label="NPCs in this scene">${shown.map(chip).join('') || '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No NPC by that name.</p>'}</div>`;
             const loose = shown.filter(n => !dirOf(n)), open = d.dirOpen || {};
@@ -300,6 +300,7 @@ N.sheetHtml = function(v){
               const dir = N.nd.byId(id), here = shown.filter(n => dirOf(n) === id), all = N.nd.npcs(id).map(n => n.name.trim()).filter(Boolean), on = all.filter(n => d.cast.includes(n)).length, isOpen = q || open[id];
               return `<div class="sddir" style="--dd:${depth}"><div class="sddir-h"><button type="button" class="sddir-t" data-a="sdDirTog" data-v="${esc(id)}" aria-expanded="${!!isOpen}">${IC('folder')}<span><b>${esc(dir.name)}</b><small>${on ? `${on} of ${all.length} here` : `${all.length} ${all.length === 1 ? 'NPC' : 'NPCs'}`}</small></span>${IC(isOpen ? 'caret' : 'right')}</button><button type="button" class="btn sm ghost" data-a="sdCastDir" data-v="${esc(id)}">${on === all.length ? 'Unpick all' : `Pick all ${all.length}`}</button></div>
                 ${isOpen && here.length ? `<div class="forwho sdcast" role="group" aria-label="NPCs in ${esc(dir.name)}">${here.map(chip).join('')}</div>` : ''}</div>`; }).join('')}</div>`; })()}
+          ${sdPicsHtml(d)}
           <p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${d.cast.length ? `Speak as in this chat lists only ${d.cast.length === 1 ? 'this NPC' : `these ${d.cast.length}`} and the Narrator. Everyone else is one tap away. Players don’t see this list.` : 'Pick who is here and Speak as lists only them. None picked lists no NPC cards; everyone else is still one tap away.'}</p></div>`; })()}
       <div><h4>One-off NPCs · only for this scene${d.extras.length ? ` · ${d.extras.length}` : ''}</h4>
         ${d.extras.length ? `<div class="sdones">${d.extras.map((x, i) => `<span class="sdone">${N.av({name:x.name, color:'var(--c-npc)'}, 28)}<span><b>${esc(x.name)}</b><small>${Object.entries(x.skills || {}).map(([k, n]) => `${esc(k)} ${sgn(n)}`).join(' · ') || 'No skills'}</small></span><button type="button" class="xb" data-a="sdOneDel" data-v="${i}" aria-label="Remove ${esc(x.name)}">${IC('x')}</button></span>`).join('')}</div>` : ''}
@@ -465,7 +466,25 @@ N.sheetHtml = function(v){
       ${toks.length ? `<div><h4>Who is on which team</h4><div class="team-ps">${toks.map(who).join('')}</div></div>` : ''}`, `<button type="button" class="btn primary" data-a="closeSheet">${IC('check')}Done</button>`);
   }
   case 'addFoe': return sheet(`Add to the ${N.kw().w}`, `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${g.combat.zones.length?'They appear in the first zone. Drag them where they belong.':'Draw a zone first, then place them.'}</p>${N.foeList(true, v)}
-      <button type="button" class="btn block ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>`);
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn ghost" data-a="npcNew" style="flex:1">${IC('plus')}Make a new NPC</button>${N.cbKind() !== 'challenge' ? `<button type="button" class="btn" data-a="crowdNew" data-place="1" style="flex:1">${IC('users')}Add a crowd</button>` : ''}</div>`);
+  /* Jake (2026-11-19): a crowd, many identical people fighting as one NPC. The GM sets one member's skills and gear
+     (or copies them from an NPC card) and how many there are; each member past the first adds +1 to every skill */
+  case 'cbCrowd': {
+    const d = v.ui.crowd; if (!d || !gm) return '';
+    const g2 = G(), ch = N.fightCh(), n = Math.max(1, d.n | 0), kind = N.cbKind(), tn = g2.combat.tn || {};
+    const srcs = [...(g2.scenes[ch] ? N.extrasOf(ch).map(x => [`once:${x.id}`, x.name, 'One-off · this scene']) : []), ...g2.npcs.map(x => [`npc:${x.id}`, x.name, x.type === 'nameless' ? 'Nameless' : 'NPC card']), ...g2.foes.map((x, i) => [`foe:${i}`, x.name, 'Built earlier'])];
+    const sides = [['foe', tn.foe || (kind === 'fight' ? 'Foe' : 'Rival')], ['ally', tn.ally || 'Ally'], ...N.teams().filter(x => x.extra).map(x => [x.id, x.name])];
+    const top = Object.entries(d.skills).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const prev = top.length ? `With ${n}: ${top.map(([k, x]) => `${esc(k)} ${sgn(x + n - 1)}`).join(' · ')}${n > 1 ? ` · every other skill ${sgn(n - 1)}` : ''}.` : `With ${n}: every skill ${sgn(n - 1)}.`;
+    const body = `<p class="muted" style="margin:0;font:600 13px/1.45 var(--f-ui)">Many people who fight as one. Set up <b>one</b> of them, then say how many. Each one past the first adds +1 to every skill. A hit from the crowd uses one member’s weapon. Shifts that land on the crowd kill that many of them, and each one lost takes 1 off its skills.</p>
+      ${srcs.length ? `<label class="field"><span>Start from (optional) · copies skills and gear</span><select class="inp" id="crf-${v.id}" data-i="crFrom"><option value="">Nobody, I’ll set them</option>${srcs.map(([k, l, sub]) => `<option value="${esc(k)}" ${d.from === k ? 'selected' : ''}>${esc(l)} · ${esc(sub)}</option>`).join('')}</select></label>` : ''}
+      <div class="cr-top"><label class="field"><span>Name</span><input class="inp" id="crn-${v.id}" data-i="cr" data-k="name" value="${esc(d.name)}" placeholder="e.g. Town guards" maxlength="40" autocomplete="off"></label>
+        <div class="field"><span>How many</span><div class="cr-n"><button type="button" class="btn sm" data-a="crN" data-d="-1" aria-label="One fewer" ${n <= 2 ? 'disabled' : ''}>${IC('minus')}</button><b>${n}</b><button type="button" class="btn sm" data-a="crN" data-d="1" aria-label="One more" ${n >= N.CROWD_MAX ? 'disabled' : ''}>${IC('plus')}</button></div></div></div>
+      <div><h4>Skills of one member</h4>${skillLadder(v, d, 'crSkill', 'crSkillDel', RUNGS)}<p class="muted cr-prev">${prev}</p></div>
+      <div><h4>Gear of one member</h4><div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">${N.GEARS.map(([k, l]) => `<label class="field"><span>${l}</span>${N.gearSelect(`cr${k}-${v.id}`, `data-i="cr" data-k="${k}"`, d[k])}</label>`).join('')}</div></div>
+      ${kind !== 'challenge' ? `<div><h4>Team</h4><div class="seg" role="group" aria-label="Team">${sides.map(([k, l]) => `<button type="button" data-a="crSide" data-v="${esc(k)}" aria-pressed="${d.side === k}">${esc(l)}</button>`).join('')}</div></div>` : ''}`;
+    return sheet('Add a crowd', body, `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="crowdAdd" ${d.name.trim() ? '' : 'disabled'}>${IC('users')}Add ${n} ${esc(d.name.trim() || 'to the fight')}</button>`);
+  }
   case 'cbAspect': return sheet('Situation aspects', `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Something true about this fight, like the weather, the ground or a fire. Shown on the board for everyone, and anyone can invoke it.${g.combat.aspects.some(a => !a.boost) ? ' Tap one to remove it.' : ''}</p>
       <div class="icards">${g.combat.aspects.map((a,i)=>a.boost ? '' : `<button type="button" class="icard" data-a="cbAspDel" data-i="${i}" title="Tap to remove">${a.on ? `<span class="k">On ${esc(a.on)}</span>` : ''}${esc(a.t)}${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</button>`).join('')}</div>
       <label class="field"><span>New aspect</span><input class="inp" id="cba-${v.id}" data-i="cbAsp" value="${esc(v.ui.cbAsp||'')}" placeholder="e.g. Fog Off the River"></label>
@@ -954,7 +973,6 @@ N.sheetHtml = function(v){
     const y = String(d.y || '').trim(), r = d.rep || {k:'none', n:1}, L = Math.max(1, parseInt(d.n, 10) || 1);
     const unit = {day:'days', week:'weeks', month:'months', year:'years'}[r.k];
     const end = L > 1 ? N.calFromAbs(N.calAbs(y, +d.m, +d.d) + L - 1) : null;
-    const pins = g.maps.filter(m => m.pins.length).map(m => `<optgroup label="${esc(m.name || 'Map')}">${m.pins.filter(p => p.type !== 'party').map(p => `<option value="${m.id}:${p.id}"${d.pin && d.pin.m === m.id && d.pin.p === p.id ? ' selected' : ''}>${esc(p.label || 'Place')}</option>`).join('')}</optgroup>`).join('');
     const body = `${N.textTools(v)}<label class="field"><span>Event</span><input class="inp" id="cet-${v.id}" data-i="ced" data-k="title" value="${esc(d.title)}" placeholder="e.g. The duke’s wedding" maxlength="80" autocomplete="off"></label>
       <div class="ndgrid cegrid"><label class="field ndd"><span>Day</span><select class="inp" data-i="cedD">${days}</select></label>
         <label class="field ndm"><span>Month</span><select class="inp" data-i="cedM">${opt(N.MONTHS.map(x => x[0]), +d.m)}</select></label>
@@ -966,7 +984,7 @@ N.sheetHtml = function(v){
         ${unit ? `<label class="cevery"><span>Every</span><input class="inp" type="number" min="1" max="99" inputmode="numeric" data-i="ced" data-k="repN" value="${Math.max(1, parseInt(r.n, 10) || 1)}" aria-label="How many ${unit} apart"><span>${unit}${r.k === 'year' && !y ? ', in every year' : y ? `, from ${esc(N.MONTHS[d.m][0])} ${esc(y)} on` : ''}</span></label>` : ''}
         ${r.k === 'month' || r.k === 'year' ? `<div class="cepills ceby" role="group" aria-label="Falls on"><button type="button" data-a="ceBy" data-v="date" aria-pressed="${r.by !== 'nth'}">On the ${N.ordinal(+d.d)}${r.k === 'year' ? ' of ' + esc(N.MONTHS[d.m][0]) : ''}</button><button type="button" data-a="ceBy" data-v="nth" aria-pressed="${r.by === 'nth'}">On the ${esc(N.calNthText(+d.m, +d.d))}${r.k === 'year' ? ' of ' + esc(N.MONTHS[d.m][0]) : ''}</button></div>` : ''}</div>
       <div><h4>Colour</h4><div class="cecols" role="group" aria-label="Colour">${N.CAL_COLORS.map(([k]) => `<button type="button" data-a="ceColor" data-v="${k}" aria-pressed="${d.c === k}" style="--ec:${N.calColor(k)}"><i></i>${esc(N.calColorName(k))}</button>`).join('')}</div></div>
-      <label class="field"><span>Map pin (optional)</span><select class="inp" data-i="cedPin"><option value="">No pin</option>${pins}</select></label>
+      ${calPinPick(v, d)}
       <label class="field"><span>Notes (optional)</span><textarea class="inp" id="cen-${v.id}" data-i="ced" data-k="note" rows="3" placeholder="What happens, where, who is there. A blank line starts a new paragraph; start a line with - for a bullet point.">${esc(d.note || '')}</textarea></label>
       <div><h4>Who sees it</h4>${N.audPick('ceAud', d, 'wiki')}</div>`;
     return sheet(d.id ? 'Edit event' : 'New event', body, `${d.id ? `<button type="button" class="btn danger" data-a="ceDel" style="flex:0 0 auto" aria-label="Delete this event">${IC('trash')}<span class="only-dt">Delete</span></button>` : ''}<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="ceSave" ${d.title.trim() ? '' : 'disabled'}>${IC('check')}${d.id ? 'Save event' : 'Add event'}</button>`);
@@ -1123,6 +1141,42 @@ function skillLadder(v, d, sel, del, rungs){
   const mv = del.replace('Del', 'Mv'), top = rungs[0][0], low = rungs[rungs.length-1][0];
   return `<div class="lad">${rungs.map(([x,w,n]) => { const here = used.filter(k => d.skills[k] === x); return `<div class="rung"><span class="lv"><b>${sgn(x)}</b>${w}${n?` · ${here.length}/${n}`:''}</span><span class="sks">${here.map(k => `<span class="skc"><b>${esc(k)}</b><button type="button" data-a="${mv}" data-v="${esc(k)}" data-d="-1" aria-label="Lower ${esc(k)}" title="Lower" ${x<=low?'disabled':''}>${IC('minus')}</button><button type="button" data-a="${mv}" data-v="${esc(k)}" data-d="1" aria-label="Raise ${esc(k)}" title="Raise" ${x>=top?'disabled':''}>${IC('plus')}</button><button type="button" data-a="${del}" data-v="${esc(k)}" aria-label="Remove ${esc(k)}" title="Remove">${IC('x')}</button></span>`).join('')}${!n || here.length < n ? `<select class="inp" data-i="${sel}" data-x="${x}" id="${sel}${x}-${v.id}" style="width:auto;min-height:34px;padding:4px 10px;border-radius:999px;font-size:14px"><option value="">+ Add</option>${opts}</select>` : ''}</span></div>`; }).join('')}</div>`;
 }
+/* Jake (2026-11-19): a calendar event's map pin is picked by walking the map folders (folder › map › its places)
+   instead of one long list, with a search over every place. d.pb = {at:'d:<folder>'|'m:<map>'|null, q} */
+const evPins = m => (m.pins || []).filter(p => p.type !== 'party').sort((a, b) => (a.label || '').localeCompare(b.label || ''));
+function calPinPick(v, d){
+  const g = G(), pb = d.pb = d.pb || {at:null, q:''}, cur = d.pin && g.maps.find(m => m.id === d.pin.m), cp = cur && cur.pins.find(p => p.id === d.pin.p);
+  const head = `<div class="cepin-h"><span class="cepin-l">Map pin (optional)</span>${cp ? `<span class="cepin-cur">${IC('pinL')}<span><b>${esc(cp.label || 'Place')}</b><small>${esc([N.dirName(N.mapDirOf(cur)), cur.name || 'Map'].filter(Boolean).join(' › '))}</small></span><button type="button" class="xb" data-a="cePin" data-v="" aria-label="No pin">${IC('x')}</button></span>` : '<span class="cepin-none">No pin</span>'}</div>`;
+  const withPins = g.maps.filter(m => evPins(m).length);
+  if (!withPins.length) return `<div class="cepin">${head}<p class="muted cepin-empty">No places on the maps yet.</p></div>`;
+  const pinBtn = (m, p, where) => `<button type="button" class="cepin-r pin-r" data-a="cePin" data-v="${m.id}:${p.id}" aria-pressed="${!!(d.pin && d.pin.m === m.id && d.pin.p === p.id)}">${IC('pinL')}<span><b>${esc(p.label || 'Place')}</b>${where || p.sub ? `<small>${esc([p.sub, where].filter(Boolean).join(' · '))}</small>` : ''}</span></button>`;
+  const q = (pb.q || '').trim().toLowerCase();
+  let body;
+  if (q) {
+    const hits = withPins.flatMap(m => evPins(m).filter(p => `${p.label || ''} ${p.sub || ''}`.toLowerCase().includes(q)).map(p => [m, p]));
+    body = hits.length ? hits.slice(0, 60).map(([m, p]) => pinBtn(m, p, [N.dirName(N.mapDirOf(m)), m.name || 'Map'].filter(Boolean).join(' › '))).join('') : '<p class="muted cepin-empty">No place by that name.</p>';
+  } else {
+    const at = String(pb.at || ''), map = at.startsWith('m:') && g.maps.find(m => m.id === at.slice(2)), dir = map ? N.mapDirOf(map) : at.startsWith('d:') && N.dirById(at.slice(2)) ? at.slice(2) : null;
+    const crumbs = [['', 'All maps'], ...N.dirPath(dir).map(x => ['d:' + x.id, x.name]), ...(map ? [['m:' + map.id, map.name || 'Map']] : [])];
+    const nav = `<div class="cepin-crumbs">${crumbs.map(([k, l], i) => i === crumbs.length - 1 ? `<b>${esc(l)}</b>` : `<button type="button" data-a="cePb" data-v="${esc(k)}">${esc(l)}</button>${IC('right')}`).join('')}</div>`;
+    if (map) body = nav + evPins(map).map(p => pinBtn(map, p)).join('');
+    else {
+      const ids = id => new Set(N.dirTree(id)), nPins = id => { const s = ids(id); return withPins.filter(m => s.has(N.mapDirOf(m))).reduce((a, m) => a + evPins(m).length, 0); };
+      const dirs = N.dirKids(dir).filter(x => nPins(x.id)), maps = withPins.filter(m => N.mapDirOf(m) === dir).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      body = nav + dirs.map(x => `<button type="button" class="cepin-r" data-a="cePb" data-v="d:${esc(x.id)}">${IC('folder')}<span><b>${esc(x.name)}</b><small>${nPins(x.id)} places</small></span>${IC('right')}</button>`).join('')
+        + maps.map(m => `<button type="button" class="cepin-r" data-a="cePb" data-v="m:${esc(m.id)}">${IC('mapL')}<span><b>${esc(m.name || 'Map')}</b><small>${evPins(m).length} ${evPins(m).length === 1 ? 'place' : 'places'}</small></span>${IC('right')}</button>`).join('');
+    }
+  }
+  return `<div class="cepin">${head}<div class="pop-find cepin-find">${IC('search')}<input class="inp" id="cepq-${v.id}" data-i="cePinQ" value="${esc(pb.q || '')}" placeholder="Find a place on any map" autocomplete="off"></div><div class="cepin-list scroll">${body}</div></div>`;
+}
+/* the scene sheet: for each NPC with several pictures, which one they use in this scene (Jake, 2026-11-19).
+   One the GM just tapped (d.picFor) asks first and joins the scene with the picture picked. */
+function sdPicsHtml(d){
+  const names = [...new Set([...(d.picFor ? [d.picFor] : []), ...d.cast])].filter(nm => N.npcPics(N.npcByName(nm)).length > 1);
+  if (!names.length) return '';
+  return `<div class="sdpics">${names.map(nm => { const n = N.npcByName(nm), ps = N.npcPics(n), ask = d.picFor === nm, cur = ask ? null : d.cpics && ps.includes(d.cpics[nm]) ? d.cpics[nm] : n.portrait;
+    return `<div class="sdpic${ask ? ' ask' : ''}"><span class="sdpic-l"><b>${esc(nm)}</b><small>${ask ? 'Pick their picture for this scene to add them' : 'Picture in this scene'}</small></span><span class="sdpic-o" role="radiogroup" aria-label="${esc(nm)}’s picture">${ps.map((p, i) => `<button type="button" role="radio" data-a="sdPic" data-n="${esc(nm)}" data-v="${i}" aria-checked="${p === cur}" title="${i ? `Picture ${i + 1}` : 'Main portrait'}">${N.av({name:nm, portrait:p, color:'var(--c-npc)'}, 44)}</button>`).join('')}</span></div>`; }).join('')}</div>`;
+}
 /* disciplines for the skills that need one: a magic takes exactly one, the others can take several.
    "Other" lets the GM write in a discipline that isn't on the list; ones already written in elsewhere are suggested */
 function discPick(v, d, act){
@@ -1176,6 +1230,7 @@ function pcEditor(v){
 function npcEditor(v){
   const d = v.ui.nd;
   return `${raceList(v)}<div><h4>Portrait</h4>${portraitPick(d.portrait, 'ndPortrait', 'ndUpload')}</div>
+    <div class="altpics-w"><h4>Other pictures<small>A different look, mood or disguise. When you put them in a scene, you pick which picture they use there.</small></h4><div class="altpics">${(d.pics || []).map((p, i) => `<span class="altpic">${N.av({name:d.name || '?', portrait:p, color:'var(--c-npc)'}, 56)}<button type="button" class="xb" data-a="ndAltDel" data-v="${i}" aria-label="Remove this picture">${IC('x')}</button><button type="button" class="btn sm ghost" data-a="ndAltMain" data-v="${i}" title="Make this the main portrait">${IC('star')}Main</button></span>`).join('')}${(d.pics || []).length < 8 ? `<button type="button" class="altpic add" data-a="ndAltAdd"><span class="av" style="--s:56px;--c:var(--line-3);background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2)">${IC('plus').replace('<svg','<svg style="width:20px;height:20px"')}</span><span>Add a picture</span></button>` : ''}</div></div>
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
       <label class="field"><span>Name</span><input class="inp" id="ndn-${v.id}" data-i="nd" data-k="name" value="${esc(d.name)}" placeholder="Name or role"></label>
       <label class="field"><span>Race</span><input class="inp" id="ndr-${v.id}" data-i="nd" data-k="race" list="races-${v.id}" value="${esc(d.race)}" placeholder="Optional"></label>

@@ -1461,6 +1461,11 @@
 .app .shr.shnew{opacity:.85;margin-top:2px}
 .app .shr.shnew .cic{background:transparent;border:1.5px dashed var(--line-3);box-sizing:border-box}
 .app .shr.shnew:hover{opacity:1}
+.app .sharch{margin-top:4px;padding-top:6px;border-top:1px dashed var(--line-2)}
+.app .shr.sharch-b>svg{width:14px;height:14px;flex:none;color:var(--ink-4)}
+.app .shr.sharch-b .cic{background:transparent;box-shadow:inset 0 0 0 1.5px var(--line-2)}
+.app .sharch .shr:not(.sharch-b){opacity:.8}
+.app .sharch .shr[aria-current]{opacity:1}
 .app .shg h3{margin:0;padding:0 10px 4px;font:800 10.5px/1 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-4)}
 .app .shr{position:relative;display:flex;align-items:center;gap:10px;width:100%;min-height:52px;padding:7px 10px 7px 8px;border-radius:14px;text-align:left;color:var(--ink-3);transition:background .15s,color .15s}
 .app .shr .av{--s:34px;box-shadow:none;font-size:14px;flex:none}
@@ -1534,6 +1539,7 @@
   .app .shelf.mini .shh{justify-content:center;padding:10px 0 6px}
   .app .shelf.mini .shh h2,.app .shelf.mini .shr .t,.app .shelf.mini .shr .tag{display:none}
   .app .shelf.mini .shl{gap:8px;justify-items:center}
+  .app .shelf.mini .sharch-b>svg{display:none}
   .app .shelf.mini .shg h3{font-size:0;padding:0;height:1px;margin:0 10px 6px;background:var(--line)}
   .app .shelf.mini .shr{width:52px;min-height:48px;padding:0;justify-content:center}
   .app .shelf.mini .shr .badge{position:absolute;top:1px;right:0;height:17px;min-width:17px;font-size:10px;padding:0 4px;box-shadow:0 0 0 2px var(--page-solid)}
@@ -3284,3 +3290,67 @@
 .app .shop-loced>b{font:800 13.5px/1.3 var(--f-ui);color:var(--ink)}
 .app .shop-locg{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .app .shop-loced .shop-acts{justify-content:flex-end}
+
+/* calendar event: the map pin picker walks folders › maps › places (Jake, 2026-11-19) */
+.app .cepin{display:grid;gap:8px}
+.app .cepin-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.app .cepin-l{font:700 12.5px/1.2 var(--f-ui);color:var(--ink-3);letter-spacing:.02em}
+.app .cepin-none{font:600 13px/1.2 var(--f-ui);color:var(--ink-4)}
+.app .cepin-cur{display:inline-flex;align-items:center;gap:8px;padding:5px 6px 5px 10px;border-radius:14px;background:var(--gold-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-tx) 40%,transparent);min-width:0;max-width:100%}
+.app .cepin-cur>svg{width:16px;height:16px;flex:none;color:var(--gold-tx)}
+.app .cepin-cur span{display:grid;min-width:0}
+.app .cepin-cur b{font:700 13.5px/1.2 var(--f-ui);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .cepin-cur small{font:600 11.5px/1.2 var(--f-ui);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .cepin-find{display:flex;align-items:center;gap:8px}
+.app .cepin-find svg{width:16px;height:16px;color:var(--ink-3);flex:none}
+.app .cepin-find .inp{flex:1;min-width:0;height:38px}
+.app .cepin-list{display:grid;gap:2px;max-height:260px;overflow:auto;padding:4px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .cepin-crumbs{display:flex;align-items:center;gap:4px;flex-wrap:wrap;padding:4px 6px 6px;font:600 12.5px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .cepin-crumbs button{color:var(--accent-tx,var(--accent));font:inherit;padding:2px 2px;text-decoration:underline;text-underline-offset:2px}
+.app .cepin-crumbs b{color:var(--ink);font-weight:700}
+.app .cepin-crumbs svg{width:11px;height:11px;opacity:.6}
+.app .cepin-r{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:6px 10px;border-radius:10px;text-align:left;color:var(--ink-2)}
+.app .cepin-r:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.app .cepin-r>svg{width:17px;height:17px;flex:none;color:var(--ink-3)}
+.app .cepin-r>svg:last-child:not(:first-child){width:13px;height:13px;margin-left:auto}
+.app .cepin-r span{display:grid;gap:2px;min-width:0;flex:1}
+.app .cepin-r b{font:700 14px/1.2 var(--f-ui);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .cepin-r small{font:600 12px/1.2 var(--f-ui);color:var(--ink-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .cepin-r[aria-pressed="true"]{background:var(--gold-soft);box-shadow:inset 0 0 0 1.5px var(--gold-tx)}
+.app .cepin-r[aria-pressed="true"]>svg{color:var(--gold-tx)}
+.app .cepin-empty{margin:6px 8px;font:600 13px/1.4 var(--f-ui)}
+.app .cepin-cur .xb{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;color:var(--ink-3);flex:none}
+.app .cepin-cur .xb svg{width:14px;height:14px}
+/* crowds in fights (Jake, 2026-11-19): the number left rides on the token like a badge */
+.app .tok .crowdn{position:absolute;top:-5px;left:0;min-width:20px;height:18px;padding:0 5px;border-radius:9px;background:var(--ember);color:var(--ember-ink);font:800 11px/18px var(--f-ui);text-align:center;box-shadow:0 0 0 2px var(--page-solid);pointer-events:none}
+.app .tk-crowd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.app .tk-crowd b{font:700 14px/1.2 var(--f-ui);color:var(--ink)}
+.app .tk-crowd small{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .cr-top{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:end}
+.app .cr-n{display:flex;align-items:center;gap:10px;min-height:44px}
+.app .cr-n b{min-width:2ch;text-align:center;font:800 20px/1 var(--f-ui);color:var(--ink)}
+.app .cr-prev{margin:8px 0 0;font:600 12.5px/1.4 var(--f-ui)}
+.app .tk-crowd .mini{display:flex;gap:4px}
+.app .tk-crowd .mini button{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--sunk);font:800 15px/1 var(--f-ui);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line-2)}
+.app .tk-crowd .mini button:disabled{opacity:.4}
+/* NPC other pictures (Jake, 2026-11-19): on the NPC card editor, and the per-scene pick in the scene sheet */
+.app .altpics-w h4 small{display:block;margin-top:3px;font:600 12px/1.35 var(--f-ui);color:var(--ink-3);text-transform:none;letter-spacing:0}
+.app .altpics{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start}
+.app .altpic{position:relative;display:grid;justify-items:center;gap:6px}
+.app .altpic .xb{position:absolute;top:-6px;right:-6px;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--page-solid);color:var(--ink-3);box-shadow:0 0 0 1px var(--line-2)}
+.app .altpic .xb svg{width:12px;height:12px}
+.app .altpic .btn{--h:28px;font-size:12px;padding:0 8px}
+.app .altpic.add span:last-child{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .sdcast .manypics{display:inline-flex;align-items:center;gap:2px;margin-left:2px;font:700 11px/1 var(--f-ui);color:var(--ink-3)}
+.app .sdcast .manypics svg{width:12px;height:12px}
+.app .sdcast button.picking{box-shadow:inset 0 0 0 2px var(--gold-tx)}
+.app .sdpics{display:grid;gap:8px;margin-top:10px}
+.app .sdpic{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 10px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .sdpic.ask{background:var(--gold-soft);box-shadow:inset 0 0 0 1.5px var(--gold-tx)}
+.app .sdpic-l{display:grid;gap:2px;min-width:120px;flex:1}
+.app .sdpic-l b{font:700 14px/1.2 var(--f-ui);color:var(--ink)}
+.app .sdpic-l small{font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .sdpic-o{display:flex;gap:8px;flex-wrap:wrap}
+.app .sdpic-o button{border-radius:50%;padding:2px;box-shadow:inset 0 0 0 2px transparent}
+.app .sdpic-o button[aria-checked="true"]{box-shadow:inset 0 0 0 2.5px var(--gold-tx)}
+.app .sdpic-o button[aria-checked="false"] .av{opacity:.75}
