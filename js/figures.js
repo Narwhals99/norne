@@ -118,7 +118,7 @@ const HTML = `
       <label class="wpn" data-r="wpnRow"><span>Try a weapon</span><select data-r="wpn" aria-label="Weapon to try"></select></label>
       <div class="bar" data-r="views" role="group" aria-label="View">
         <button type="button" class="chip" data-v="one" aria-pressed="true">My figure</button>
-        <button type="button" class="chip" data-v="ai" aria-pressed="false" hidden>AI model</button>
+        <button type="button" class="chip" data-v="ai" aria-pressed="false" hidden>New version</button>
         <button type="button" class="chip" data-v="all" aria-pressed="false">Every race's default</button>
         <button type="button" class="chip" data-v="beasts" aria-pressed="false">Every animal</button>
       </div>
@@ -191,17 +191,22 @@ N.figMakerOpen = () => !!box;
    one at a time, and lets go of its 3D context when it has had nothing to do for a while (phones have few). */
 const PICS = new Map(), PEND = new Set();
 let shotQ = Promise.resolve(), shotR = null, shotIdle = 0;
-N.figPic = (spec, big) => {
+/* who: the character or NPC card the figure is on, so one with a model of its own (js/aikit.js) is pictured as it */
+N.figPic = (spec, big, who) => {
   if (!spec || !spec.race) return null;
-  const key = (big ? 'big:' : '') + JSON.stringify(spec);
+  const names = who ? [who.name, who.short] : [];
+  const key = (big ? 'big:' : '') + JSON.stringify(spec) + (who ? '|' + names.join('|') : '');
   if (PICS.has(key)) return PICS.get(key);
   if (!PEND.has(key)) { PEND.add(key);
-    shotQ = shotQ.then(() => shoot(spec, big)).then(src => { PICS.set(key, src); if (PICS.size > 80) PICS.delete(PICS.keys().next().value); })
+    shotQ = shotQ.then(() => shoot(spec, big, names)).then(src => { PICS.set(key, src); if (PICS.size > 80) PICS.delete(PICS.keys().next().value); })
       .catch(() => { PICS.set(key, null); }).then(() => { PEND.delete(key); if (N.renderAll) N.renderAll(); }); }
   return null;
 };
-function shoot(spec, big){
-  return kitLoad().then(({THREE, K}) => K.loadHair(K.hairId(spec.hair || 'bald')).catch(() => {}).then(() => {
+function shoot(spec, big, names){
+  return kitLoad().then(({THREE, K}) => { const own = K.modelFor(...(names || []));
+    if (own && spec.model == null && !spec.beast) spec = Object.assign({}, spec, {model:own});
+    return K.loadFor(spec).catch(() => {}); }).then(() => kitP).then(({THREE, K}) => {
+    const own = K.modelFor(...(names || [])); if (own && spec.model == null && !spec.beast) spec = Object.assign({}, spec, {model:own});
     /* big: the Inventory tab's figure */
     const W = big ? 192 : 96, H = big ? 240 : 120;
     if (!shotR) { shotR = new THREE.WebGLRenderer({antialias:true, alpha:true, preserveDrawingBuffer:true, powerPreference:'low-power'});
@@ -218,7 +223,7 @@ function shoot(spec, big){
     sc.remove(rig.root); K.dispose(rig);
     clearTimeout(shotIdle); shotIdle = setTimeout(() => { if (shotR) { shotR.dispose(); try { shotR.forceContextLoss(); } catch (e) {} shotR = null; } }, 20000);
     return src;
-  }));
+  });
 }
 /* the GM's fight setup (step 4): every NPC in the fight with its figure. A card NPC uses the figure saved on its card;
    a one-off or an enemy built earlier has no card, so it gets a random look for this fight, which can be rolled again
@@ -235,13 +240,13 @@ N.figRows = v => {
   if (!N.figOk() || !v || v.role !== 'gm') return '';
   const g = N.G, toks = (g.combat.tokens || []).filter(t => t.kind === 'npc'); if (!toks.length) return '';
   const IC = N.IC || (() => '');
-  const pic = f => { const src = f && N.figPic(f); return `<span class="figpic" aria-hidden="true">${src ? `<img src="${src}" alt="">` : f ? '<i class="wait"></i>' : '<i></i>'}</span>`; };
+  const pic = (f, card) => { const src = f && N.figPic(f, false, card); return `<span class="figpic" aria-hidden="true">${src ? `<img src="${src}" alt="">` : f ? '<i class="wait"></i>' : '<i></i>'}</span>`; };
   const rows = toks.map(t => {
     const card = g.npcs.find(n => n.id === t.ref), f = card ? card.fig : t.fig, busy = RAND.has(t.id);
     const sub = card ? (f ? 'Figure from the card' : 'No figure on the card yet') : busy ? 'Making a look…' : f ? 'Random look · this fight only' : 'No card, so no figure yet';
     const btns = card ? `<span class="figbtns"><button type="button" class="btn sm" data-a="figOpen" data-v="npc:${esc(card.id)}" style="--h:30px">${IC('hero')}${f ? 'Change' : 'Make figure'}</button></span>`
       : `<span class="figbtns"><button type="button" class="btn sm" data-a="figRand" data-v="${esc(t.id)}" style="--h:30px"${busy ? ' disabled' : ''}>${IC('sparkle')}${f ? 'Another look' : 'Random look'}</button>${f ? `<button type="button" class="btn sm ghost" data-a="figOpen" data-v="tok:${esc(t.id)}" style="--h:30px">Change</button>` : ''}</span>`;
-    return `<div class="zi figrow">${pic(f)}<span>${esc(t.name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span>${btns}</div>`;
+    return `<div class="zi figrow">${pic(f, card)}<span>${esc(t.name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span>${btns}</div>`;
   }).join('');
   return `<div class="figrows"><small class="foe-sc">${IC('hero')}Figures</small><div class="zlist">${rows}</div><small>Each fighter stands on the board as their figure. A card NPC’s figure is made from its card.</small></div>`;
 };
@@ -259,7 +264,7 @@ function start(box, THREE, K){
   const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(-300, 700, 600); scene.add(sun);
 
   const ANIM_NAMES = [['idle', 'Stand'], ['walk', 'Walk'], ['sword', 'Attack'], ['bow', 'Shoot'], ['magic', 'Magic'], ['hit', 'Hit'], ['block', 'Block'], ['dodge', 'Dodge'], ['down', 'Knocked down']];
-  let spec = null, rig = null, aiRig = null, all = [], view = 'one', tab = 'body', anim = 'idle', wpn = '', t0 = performance.now(), spin = .35, frozen = null, running = true;
+  let shownAi = false, spec = null, rig = null, aiRig = null, all = [], view = 'one', tab = 'body', anim = 'idle', wpn = '', t0 = performance.now(), spin = .35, frozen = null, running = true;
   /* whose figure this is (targetOf); with none (the GM from Profile) there is nothing to save */
   const T = openT, mine = () => T ? T.get() : null, who = mine(), cname = T ? T.name : '', pc = T && T.kind === 'pc';
   const DRAFT = 'norne-fig-test', copy = s => JSON.parse(JSON.stringify(s));
@@ -324,9 +329,11 @@ function start(box, THREE, K){
       /* the AI model made from this look (js/aikit.js), shown under AI model; it is what stands in fights */
       if (aiRig) { scene.remove(aiRig.root); K.dispose(aiRig); aiRig = null; }
       if (spec.model && !spec.beast && K.modelReady(spec.model)) { aiRig = K.buildFigure(spec); scene.add(aiRig.root); K.hold(aiRig, wpnLook()); }
-      else if (K.isModel(spec.model) && !spec.beast) toast('The AI model could not load. Check the connection and pick it again.');
-      $('views').querySelector('[data-v="ai"]').hidden = !aiRig;
+      else if (K.isModel(spec.model) && !spec.beast) toast('The new version could not load. Check the connection and pick it again.');
+      $('views').querySelector('[data-v="ai"]').hidden = !aiRig; $('views').querySelector('[data-v="one"]').textContent = aiRig ? 'Old figure' : 'My figure';
       if (view === 'ai' && !aiRig) { setView('one'); return; }
+      /* the maker opens on the version the character stands as */
+      if (aiRig && !shownAi) { shownAi = true; if (view === 'one') { setView('ai'); return; } }
       rig.root.visible = view === 'one'; if (aiRig) aiRig.root.visible = view === 'ai';
       frame();
     });
@@ -417,16 +424,16 @@ function start(box, THREE, K){
       return;
     }
     if (tab === 'body') {
-      grp('Race', spec.race, K.RACE_LIST.map(x => opt(x, x, x === spec.race, 'race')).join(''));
-      /* an AI-made model of this look (js/aikit.js): in fights the figure stands as it */
+      /* first, for a character with a model of their own (js/aikit.js): which figure they stand as */
       /* a model made for one character is only offered for that character */
       const models = K.MODELS.filter(m => !m.who || m.id === own || m.id === spec.model);
       if (models.length) {
         const mo = models.find(m => m.id === spec.model);
-        grp('AI model', mo ? mo.n : 'None', opt('', 'None', !mo, 'model') + models.map(m => opt(m.id, m.n, m === mo, 'model')).join(''));
-        o.push(`<p class="note">${mo ? `<b>In fights this figure stands as the ${esc(mo.n)} model.</b> See it under <b>AI model</b> below the picture. The look you build here is what it was made from, and shows if the model can’t load.`
-          : 'An AI model is made from a look built here (picture, then Tripo, then Blender). Pick one to stand as it in fights.'}</p>`);
+        grp('Figure in fights', mo ? 'New version' : 'Old figure', opt('', 'Old figure', !mo, 'model') + models.map(m => opt(m.id, models.length > 1 ? m.n : 'New version', m === mo, 'model')).join(''));
+        o.push(`<p class="note">${mo ? `<b>${n} stands as the new version</b> in fights and on the Inventory tab. Pick <b>Old figure</b> and save to go back to the one built from the parts here; that one also shows if the new version can’t load.`
+          : `${n} stands as the old figure, built from the parts here. Pick <b>New version</b> and save to use the new one in fights and on the Inventory tab.`}</p>`);
       }
+      grp('Race', spec.race, K.RACE_LIST.map(x => opt(x, x, x === spec.race, 'race')).join(''));
       grp('Body shape', '', opt('f', 'Female', spec.body === 'f', 'body') + opt('m', 'Male', spec.body === 'm', 'body'));
       grp(spec.race === 'Human' ? 'People' : r.beast === 'bird' ? 'Feathers' : r.beast ? 'Skin, scales or fur' : 'Skin', r.skins[spec.skin].n, r.skins.map((s, i) => sw(i, s.n, s.c, i === +spec.skin, 'skin')).join(''), 'sws');
       if (spec.race === 'Human') o.push(`<p class="note">Picking a people also sets the hair and eye colour the lore gives them. You can still change both.</p>`);
@@ -505,7 +512,7 @@ function start(box, THREE, K){
     view = w;
     $('views').querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.v === w)));
     const many = w === 'all' || w === 'beasts'; stage.classList.toggle('all', many);
-    $('tag').textContent = w === 'all' ? 'Every race, default look' : w === 'beasts' ? 'Every animal and monster' : w === 'ai' ? tagText + ' · AI model' : tagText; $('spin').hidden = many;
+    $('tag').textContent = w === 'all' ? 'Every race, default look' : w === 'beasts' ? 'Every animal and monster' : w === 'ai' ? tagText + ' · new version' : tagText; $('spin').hidden = many;
     if (many && allKind !== w) { all.forEach(r => { scene.remove(r.root); K.dispose(r); }); all = []; labels.innerHTML = ''; buildAll(w); }
     if (rig) rig.root.visible = w === 'one'; if (aiRig) aiRig.root.visible = w === 'ai'; all.forEach(r => { r.root.visible = many; });
     requestAnimationFrame(() => { layoutAll(); frame(); });

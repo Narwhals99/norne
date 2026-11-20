@@ -1502,7 +1502,7 @@ N.invPv = (v, name) => {
 const INV_SLOTS = [['melee','Melee weapon','sword','gearAtk','Fighting · shifts added to a hit'],['ranged','Ranged weapon','target','gearRng','Shooting · added to the roll'],
   ['ammo','Ranged ammo','arrowR','gearAmmo','Shooting · shifts added to a hit'],['armor','Armor','shieldU','gearDef','shifts taken off a hit'],['shield','Shield','shieldU','shield','+1 when defending']];
 function invFig(v, c){
-  const mine = c.player === v.role && !isGM(v), src = c.fig && N.figPic ? N.figPic(c.fig, 'big') : null;
+  const mine = c.player === v.role && !isGM(v), src = c.fig && N.figPic ? N.figPic(c.fig, 'big', c) : null;
   const pic = src ? `<img src="${src}" alt="${esc(c.short || c.name)}’s figure">` : c.fig ? '<i class="wait" aria-hidden="true"></i>' : `<span class="nofig" aria-hidden="true">${IC('hero')}</span>`;
   const btn = mine && N.figOk && N.figOk() ? `<button type="button" class="btn sm" data-a="figOpen">${IC(c.fig ? 'pen' : 'plus')}${c.fig ? 'Change figure' : 'Make my figure'}</button>` : '';
   const n = (c.inv || []).length, eq = (c.inv || []).filter(r => N.invX(r).eq || N.invX(r).eq2).length;
