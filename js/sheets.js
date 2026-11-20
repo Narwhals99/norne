@@ -392,6 +392,8 @@ N.sheetHtml = function(v){
     return sheet('Private chats', body, `<button type="button" class="btn primary lg" data-a="closeSheet">${IC('check')}Done</button>`);
   }
   /* personal notes (js/notes.js): the player's own folders and notes, private to them */
+  /* music the GM plays in a chat (js/music.js) */
+  case 'music': return N.mu ? sheet(N.mu.title(v), N.mu.html(v), '', {cls:'mu-sheet'}) : '';
   case 'notes': return N.pn ? sheet(N.pn.title(v), N.pn.html(v, v.dev === 'desktop'), '', {wide:true, cls:'pn-sheet'}) : '';
   case 'search': {
     const q = v.ui.cq || '', all = v.ui.cqAll !== false;

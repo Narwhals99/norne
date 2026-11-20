@@ -176,6 +176,17 @@ service cloud.firestore {
       allow create: if inChat(ch) && request.resource.data.keys().hasOnly(ownKeys());
       allow update: if inChat(ch) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ownKeys());
     }
+    // Music (js/music.js). music/lib: the song library (folders and the song list); songparts/<song>_<n>: the song files
+    // in pieces. Everyone at the table can play them; the GM and Jack add and remove songs.
+    // music/<chat>: what plays in that chat. Only people in the chat read it; only the GM changes it.
+    match /music/{ch} {
+      allow read: if ch == 'lib' ? (isGM() || isPlayer()) : inChat(ch);
+      allow write: if ch == 'lib' ? (isGM() || isDeveloper()) : isGM();
+    }
+    match /songparts/{id} {
+      allow read: if isGM() || isPlayer();
+      allow write: if isGM() || isDeveloper();
+    }
     // What each person has read (chat by chat, and news issues), so a chat read on the phone stops showing as unread
     // on the computer too. seen/<uid> belongs to that signed-in person alone.
     match /seen/{uid} {

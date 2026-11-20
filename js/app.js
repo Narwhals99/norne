@@ -909,6 +909,7 @@ function input(v, el, ev){
     case 'draft': v.ui.draft = val; grow(el); typed(v, ev); return;
     case 'fcDraft': v.ui.fcDraft = val; return;
     case 'pnQ': case 'pnDirName': case 'pnRenName': case 'pnTitle': case 'pnText': N.pn.input(v, el, i); return;
+    case 'muDir': case 'muRen': case 'muVol': case 'muMyVol': N.mu.input(v, el, i); return;
     case 'ndLead': if (v.ui.nd) v.ui.nd.lead = val; return;
     case 'cr': if (v.ui.crowd) { const c = v.ui.crowd; if (k === 'name') { c.name = val; const b = v.root.querySelector('[data-a="crowdAdd"]'); if (b) { b.disabled = !val.trim(); } } else c[k] = +val || 0; } return;
     case 'lv': if (v.ui.lv) v.ui.lv[k] = val; return;
@@ -1012,6 +1013,7 @@ function input(v, el, ev){
 function change(v, el){
   const i = el.dataset.i, val = el.value;
   if (i === 'pnMove') { N.pn.change(v, el, i); return; }
+  if (i === 'muVol' || i === 'muMyVol' || i === 'muMove') { N.mu.change(v, el, i); return; }
   if (i === 'pdSkill' && val) { v.ui.pd.skills[val] = +el.dataset.x; render(v); }
   if (i === 'ndSkill' && val) { v.ui.nd.skills[val] = +el.dataset.x; render(v); }
   if (i === 'crSkill' && val && v.ui.crowd) { v.ui.crowd.skills[val] = +el.dataset.x; render(v); }
@@ -1818,6 +1820,7 @@ function act(v, a, el, e){
   case 'rail': ui.rail = !v.root.querySelector('.page .rail'); try { localStorage.setItem('norne-rail', ui.rail ? '1' : '0'); } catch(e) {} break;
   case 'sheet': ui.pop = null; ui.invBack = null; openSheet(v, val, d); if (val === 'search') { render(v); const f = v.root.querySelector(`#cq-${v.id}`); if (f) { f.focus({preventScroll:true}); f.select(); } return; } break;
   case 'pn': N.pn.act(v, el); return;
+  case 'mu': N.mu.act(v, el); return;
   case 'closeSheet': if (ui.sheet === 'scenePics') { ui.sheet = 'scene'; break; } if (!askTell(v)) { ui.sheet = null; ui.tellAsk = null; } break;
   /* the GM's answer to "Send notifications?" after revealing something */
   case 'tellTog': { const it = ui.tellAsk?.items[+val]; if (it) it.on = !it.on; break; }
