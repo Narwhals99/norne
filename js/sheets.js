@@ -18,6 +18,18 @@ const sdKit = ch => { const f = N.fightIn(ch), sh = N.shopOf(ch), out = [];
   if (sh) out.push(`the store${sh.name ? ` “${esc(sh.name)}”` : ''}${sh.state === 'open' ? ' (open)' : ''}`);
   if (N.craftOf(ch)) out.push('the crafting setup');
   return out; };
+/* Jake: scene drafts, built ahead of time and started later in any chat. A fold at the top of the scene window lists them */
+function sdDraftsHtml(d){
+  const L = G().sdrafts || [], cur = d.draft && L.find(x => x.id === d.draft);
+  const from = cur ? `<div class="sddraft-on">${IC('scroll')}<span><b>From the draft “${esc(cur.title)}”</b><small>Pick who it’s for below, then start it. Update draft saves changes back to the draft. The draft stays until you delete it.</small></span><button type="button" class="btn sm ghost" data-a="sdDraftNew">Start blank</button></div>` : '';
+  if (!L.length) return from;
+  const open = !!d.drafts || (!cur && !d.touched && !G().scenes[d.ch]);
+  const row = x => { const n = (x.cast || []).length + (x.extras || []).length, a = (x.aspects || []).length, bits = [x.where, a ? `${a} aspect${a === 1 ? '' : 's'}` : '', n ? `${n} NPC${n === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+    return `<div class="sddraft${d.draft === x.id ? ' on' : ''}"><i class="fpic" style="${x.place || x.art ? N.sceneArt(x) : ''};${x.place ? 'background-size:420% auto' : ''}">${x.art || x.place ? N.scenePic(x) : IC('image')}</i><span><b>${esc(x.title)}</b><small>${esc(bits || 'No picture or aspects yet')}${x.art || x.place ? '' : ' · needs a picture'}</small></span>
+      <button type="button" class="btn sm${d.draft === x.id ? '' : ' primary'}" data-a="sdDraftLoad" data-v="${esc(x.id)}" ${d.draft === x.id ? 'disabled' : ''}>${d.draft === x.id ? 'Loaded' : 'Use'}</button><button type="button" class="xb" data-a="sdDraftDel" data-v="${esc(x.id)}" aria-label="Delete the draft ${esc(x.title)}">${IC('x')}</button></div>`; };
+  return `${from}<div class="sddrafts"><button type="button" class="sddrafts-h" data-a="sdDrafts" aria-expanded="${open}">${IC('scroll')}<span><b>Scene drafts · ${L.length}</b><small>Scenes you built ahead of time. Use one, pick the chat, start it.</small></span>${IC(open ? 'caret' : 'right')}</button>
+    ${open ? `<div class="sddraft-list">${L.map(row).join('')}</div>` : ''}</div>`;
+}
 function sdCopyHtml(d, forwho){
   const to = forwho.filter(c => c !== d.ch && !N.metaOnly(c));
   if (!to.length) return '';
@@ -259,6 +271,7 @@ N.sheetHtml = function(v){
     const onNames = [...new Set([...N.chPcs(d.ch).map(c => c.short), ...d.cast, ...d.extras.map(x => x.name), ...d.aspects.map(a => a.on).filter(Boolean)])];
     const aspOn = (a, i) => onNames.length ? `<select class="aspon-sel" id="sdao-${v.id}-${i}" data-i="sdAspOn" data-n="${i}" aria-label="Who “${esc(a.t)}” is on"><option value="">Whole scene</option>${onNames.map(n => `<option value="${esc(n)}" ${a.on === n ? 'selected' : ''}>On ${esc(n)}</option>`).join('')}</select>` : '';
     const body = `
+      ${sdDraftsHtml(d)}
       ${has ? `<div class="seg sdmode" role="group" aria-label="Edit or start new"><button type="button" data-a="sdMode" data-v="edit" aria-pressed="${edit}">${IC('pen')}Edit this scene</button><button type="button" data-a="sdMode" data-v="new" aria-pressed="${!edit}">${IC('plus')}Start a new scene</button></div>
         <p class="muted" style="margin:-6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${edit ? `Changes fix up “${esc(has.title)}” in place. No new scene line in the chat, and free invokes already spent stay spent.` : `“${esc(has.title)}” ends and a fresh scene starts in this chat.`}</p>` : ''}
       <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:c.startsWith('grp-')?`<span class="cic">${IC('whisper')}</span>${esc(N.chName(c,'gm'))}`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
@@ -314,7 +327,7 @@ N.sheetHtml = function(v){
     const ok = d.title.trim() && (d.art || d.place), forName = d.ch === 'table' ? 'everyone' : esc(N.chName(d.ch, 'gm'));
     return sheet(edit ? 'Edit the scene' : has ? 'Start a new scene' : 'Set the scene', body,
       edit ? `<button type="button" class="btn danger" data-a="sheet" data-v="sceneEnd" style="flex:0 0 auto">${IC('stop')}End scene</button><button type="button" class="btn primary lg" data-a="sdSave" ${ok ? '' : 'disabled'}>${IC('check')}Save changes</button>`
-           : `<button type="button" class="btn primary lg" data-a="sdApply" ${ok ? '' : 'disabled'}>${IC('image')}Start scene for ${forName}</button>`, {wide:true});
+           : `<button type="button" class="btn" data-a="sdDraftSave" ${d.title.trim() ? '' : 'disabled'} style="flex:0 0 auto">${IC('scroll')}${d.draft && (g.sdrafts || []).some(x => x.id === d.draft) ? '<span class="only-dt">Update draft</span><span class="only-ph">Update</span>' : '<span class="only-dt">Save as draft</span><span class="only-ph">Draft</span>'}</button><button type="button" class="btn primary lg sdgo" data-a="sdApply" ${ok ? '' : 'disabled'}>${IC('image')}<span>Start scene for ${forName}</span></button>`, {wide:true});
   }
   case 'sceneEnd': {
     const ch = v.ui.sd?.ch || (v.ui.ch === 'gm' ? 'table' : v.ui.ch), sc = g.scenes[ch]; if (!sc) return '';

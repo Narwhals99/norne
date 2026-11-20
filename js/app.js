@@ -2749,7 +2749,7 @@ function act(v, a, el, e){
   case 'sdFor': { const sd = ui.sd; sd.ch = val;
     /* another chat: open its scene to edit, unless the GM is already building a new one */
     if (g.scenes[val] && !(sd.mode === 'new' && sd.touched)) sdLoad(sd, 'edit');
-    else { const keep = {title:sd.title, where:sd.where, date:sd.date, art:sd.art, place:sd.place, aspects:sd.aspects, loc:sd.loc, share:sd.share, touched:sd.touched}; sdLoad(sd, 'new'); if (keep.touched) Object.assign(sd, keep); }
+    else { const keep = {title:sd.title, where:sd.where, date:sd.date, art:sd.art, place:sd.place, aspects:sd.aspects, loc:sd.loc, share:sd.share, touched:sd.touched, ...(sd.draft ? {draft:sd.draft, cast:N.withSidekicks(val, sd.cast), extras:sd.extras, cpics:sd.cpics} : {})}; sdLoad(sd, 'new'); if (keep.touched) Object.assign(sd, keep); }
     break; }
   case 'sdMode': sdLoad(ui.sd, val); break;
   case 'sdOneAdd': { const sd = ui.sd, name = (sd.oneName || '').trim(); if (!name) { toast(v, 'Give them a name first.'); break; }
@@ -2806,6 +2806,27 @@ function act(v, a, el, e){
     ui.sheet = null; renderAll(); return; }
   case 'sdShare': ui.sd.share = !ui.sd.share; break;
   case 'sdLocClear': ui.sd.loc = {c:'', t:'', n:''}; break;
+  /* Jake: scene drafts. The GM builds a scene ahead of time, keeps it as a draft (GM-only, not tied to a chat),
+     and later loads it here and starts it in whichever chat, party or group they pick. A draft stays until deleted, so it can be used again */
+  case 'sdDraftSave': { const s = ui.sd, title = (s.title || '').trim(); if (!title) { toast(v, 'Give the scene a name first.'); break; }
+    const L = g.sdrafts || (g.sdrafts = []), old = s.draft && L.find(x => x.id === s.draft);
+    const x = {id:old ? old.id : uid('sdr'), title, where:(s.where || '').trim(), date:(s.date || '').trim(), art:s.art || null, place:s.place || null,
+      aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})})), loc:{...(s.loc || {c:'', t:'', n:''})}, share:s.share !== false,
+      cast:[...s.cast], extras:s.extras.map(e => ({id:e.id, name:e.name, skills:{...e.skills}})), cpics:Object.fromEntries(Object.entries(s.cpics || {}).filter(([n]) => s.cast.includes(n))), t:N.now()};
+    if (old) Object.assign(old, x); else L.unshift(x);
+    ui.sheet = null; toast(v, `${old ? 'Draft updated' : 'Saved as a draft'}: ${title}. Open the scene changer to start it in any chat.`); renderAll(); return; }
+  case 'sdDraftLoad': { const s = ui.sd, x = (g.sdrafts || []).find(y => y.id === val); if (!x) break;
+    if (g.scenes[s.ch]) s.mode = 'new';
+    Object.assign(s, {draft:x.id, msg:null, title:x.title, where:x.where || '', date:x.date || '', art:x.art || null, place:x.place || null,
+      aspects:(x.aspects || []).map(a => ({...a, k:uid('a')})), share:x.share !== false,
+      cast:N.withSidekicks(s.ch, [...(x.cast || [])]), extras:(x.extras || []).map(e => ({...e, skills:{...e.skills}})), cpics:{...(x.cpics || {})}, picFor:null, touched:true, autoTitle:false, drafts:false});
+    s.loc = {...(x.loc || {c:'', t:'', n:''})};
+    toast(v, `Draft loaded: ${x.title}. Pick who it’s for, then start it.`); break; }
+  case 'sdDraftDel': { const L = g.sdrafts || [], i = L.findIndex(y => y.id === val); if (i < 0) break;
+    const [x] = L.splice(i, 1); if (ui.sd && ui.sd.draft === x.id) ui.sd.draft = null;
+    toast(v, `Draft deleted: ${x.title}`, () => { (g.sdrafts || (g.sdrafts = [])).splice(i, 0, x); N.renderAll(); }); renderAll(); return; }
+  case 'sdDrafts': ui.sd.drafts = !ui.sd.drafts; break;
+  case 'sdDraftNew': sdLoad(ui.sd, 'new'); break;
   /* the beacon: tap it to open the next map down */
   case 'locGo': { const loc = N.myLoc(v.role, ui.ch), o = loc && loc[val]; if (!o) break;
     const to = o.to && g.maps.find(m => m.id === o.to && seeMap(v, m));
@@ -3176,7 +3197,7 @@ N.wipeMatch = w => !!(w && w.ch) && (w.typed || '').trim().toLowerCase() === N.c
 /* the scene sheet edits the chat's scene in place (edit) or starts a fresh one (new) */
 function sdLoad(sd, mode){
   const g = G(), cur = g.scenes[sd.ch];
-  sd.mode = cur ? mode : 'new'; sd.touched = false; sd.autoTitle = false;
+  sd.mode = cur ? mode : 'new'; sd.touched = false; sd.autoTitle = false; sd.draft = null;
   /* the location: an edit shows the scene's own; a new scene starts where the last one was */
   const curLoc = cur ? cur.loc || g.hlocs[cur.msg] || null : null;
   sd.loc = N.locKeys(curLoc); sd.share = cur ? !!cur.loc || !curLoc : true;

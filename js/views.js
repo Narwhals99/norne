@@ -763,7 +763,7 @@ function gmScreen(v){
   const scenes = N.channelsFor('gm').filter(c => c !== 'gm' && g.scenes[c]).length;
   return `<div class="gs">
     ${fight}${shopBtns}${craftBtns}${pcs.filter(c => c.lvl && c.lvl.st === 'sent').map(c => `<button type="button" class="bigcta lvcta" data-a="sheet" data-v="lvlRev" data-c="${esc(c.id)}"><span class="ic">${IC('star')}</span><span><b>Level up to approve: ${esc(c.short || c.name)}</b><small>${esc(c.short || c.name)} spent ${c.lvl.pts} points. Review the picks and approve.</small></span></button>`).join('')}
-    <button type="button" class="bigcta scn" data-a="sheet" data-v="scene"><span class="ic">${IC('image')}</span><span><b>Scene changer</b><small>Pick who it’s for, Everyone or one player, then set the picture, name and aspects.${scenes ? ` ${scenes} chat${scenes > 1 ? 's have' : ' has'} a scene now.` : ''}</small></span></button>
+    <button type="button" class="bigcta scn" data-a="sheet" data-v="scene"><span class="ic">${IC('image')}</span><span><b>Scene changer</b><small>Pick who it’s for, Everyone, a party or one player, then set the picture, name and aspects, or save it as a draft for later.${scenes ? ` ${scenes} chat${scenes > 1 ? 's have' : ' has'} a scene now.` : ''}${(g.sdrafts || []).length ? ` ${g.sdrafts.length} scene draft${g.sdrafts.length > 1 ? 's' : ''} ready.` : ''}</small></span></button>
     <section class="gs-sec gs-tools"><div class="gs-h"><h3>GM tools</h3></div>
       <div class="tools">${tiles.map(([a, ic, l, x]) => `<button type="button" data-a="${a}" ${x}>${IC(ic)}${l}</button>`).join('')}</div>
     </section>
