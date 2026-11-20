@@ -1,0 +1,149 @@
+/* music (js/music.js, Jack 2026-11-20): the chat's music strip, the top bar button and the Music sheet with the library.
+   Colours come from each style's own tokens, so every theme dresses it. */
+.app .mu-btn[aria-pressed="true"]{color:var(--gold)}
+.app .mu-btn.playing{color:var(--gold-tx)}
+.app .mu-btn.playing::after{content:"";position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px var(--bg-1,transparent)}
+.app .fightbar.mubar{gap:8px;padding:5px 6px 5px 6px;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 16%,var(--raise)),var(--raise));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 34%,transparent)}
+.app .mubar .mu-t{display:block;text-align:left;color:var(--ink);padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:0;cursor:pointer}
+.app .mubar .mu-t b{font-weight:800}
+.app .mubar .mu-t .mu-a{font-weight:600;color:var(--ink-2)}
+.app .mubar .mu-t span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .mubar .btn{flex:none}
+.app .mu-c{width:36px;height:36px}
+.app .mu-c svg{width:18px;height:18px}
+.app .mu-warn{color:var(--ember-ink,var(--ember));font-weight:800}
+.app .mu-art{width:38px;height:38px;border-radius:9px;object-fit:cover;flex:none;display:grid;place-items:center;background:var(--sunk,var(--raise));color:var(--ink-3)}
+.app .mu-art svg{width:18px;height:18px}
+.app .mu-art.big{width:64px;height:64px;border-radius:12px}
+.app .mu-art.big svg{width:28px;height:28px}
+.app .mubar.on .mu-art.none{color:var(--gold-tx)}
+.app .mu-sheet .sh-b{display:flex;flex-direction:column;gap:16px}
+.app .mu-lead{margin:0;font:600 14.5px/1.45 var(--f-ui);color:var(--ink)}
+.app .mu-p{margin:0;font:600 12.5px/1.45 var(--f-ui)}
+.app .mu-note{margin:0}
+.app .mu-now{display:flex;align-items:center;gap:12px;padding:10px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .mu-now > span{min-width:0;font:700 14.5px/1.3 var(--f-ui)}
+.app .mu-now .mu-a{font-weight:600;color:var(--ink-2)}
+.app .mu-now small{display:block;margin-top:3px;font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .mu-gm{display:flex;flex-direction:column;gap:12px}
+.app .mu-gm h4{margin-bottom:0}
+.app .mu-ctl{display:flex;align-items:center;justify-content:center;gap:18px}
+.app .mu-ctl .mu-c{width:44px;height:44px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .mu-ctl .mu-c[style*="--s"]{width:var(--s);height:var(--s);background:var(--gold);color:var(--on-gold,#1a1206)}
+.app .mu-ctl .mu-c[style*="--s"] svg{width:22px;height:22px}
+.app .mu-vol{display:flex;align-items:center;gap:10px;font:700 12.5px/1.2 var(--f-ui);color:var(--ink-2)}
+.app .mu-vol input{flex:1;min-width:0;accent-color:var(--gold)}
+.app .mu-vol b{width:30px;text-align:right;color:var(--ink)}
+.app .mu-lists{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto;padding:2px}
+.app .mu-pl{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px;text-align:left;color:var(--ink);background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .mu-pl.on{box-shadow:inset 0 0 0 2px var(--gold)}
+.app .mu-pl img,.app .mu-pl .none{width:40px;height:40px;border-radius:8px;object-fit:cover;flex:none;display:grid;place-items:center;background:var(--sunk,var(--raise));color:var(--ink-3)}
+.app .mu-pl > span{flex:1;min-width:0;font:700 13.5px/1.25 var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .mu-pl small{display:block;font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .mu-pl > svg{width:16px;height:16px;flex:none;color:var(--gold-tx)}
+.app .mu-devs{display:flex;flex-direction:column;gap:6px}
+.app .mu-dev{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;text-align:left;color:var(--ink);background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 13.5px/1.25 var(--f-ui)}
+.app .mu-dev svg{width:18px;height:18px;flex:none;color:var(--ink-3)}
+.app .mu-dev small{display:block;font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .mu-dev[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--gold)}
+.app .mu-dev[aria-pressed="true"] svg{color:var(--gold-tx)}
+.app .mu-acct{display:flex;align-items:center;justify-content:space-between;gap:10px;font:600 13px/1.35 var(--f-ui);color:var(--ink-2)}
+.app .mu-acct b{color:var(--ink)}
+.app .mu-err{color:var(--ember-ink,var(--ember));font-weight:800}
+.app .mu-setup{display:flex;flex-direction:column;gap:10px}
+.app .mu-id{gap:10px;align-items:center;font:700 13px/1.3 var(--f-ui)}
+.app .mu-id span{flex:1}
+.app .mu-setup code,.app .mu-uri{font:600 12px/1.4 ui-monospace,Menlo,monospace;padding:2px 6px;border-radius:6px;background:var(--raise);word-break:break-all;color:var(--ink)}
+.app .mu-more summary{cursor:pointer;font:800 10.5px/1.2 var(--f-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+.app .mu-more[open] summary{margin-bottom:10px}
+@container dev (max-width: 520px){
+  .app .mubar .mu-t span{font-size:11px}
+  .app .mubar .mu-c{width:34px;height:34px}
+}
+.app .mubar .mu-t .mu-a{display:inline}
+.app .mu-paste,.app .mu-setup .row{flex-wrap:nowrap}
+.app .mu-paste .inp,.app .mu-setup .inp{width:auto}
+.app .mu-paste .btn,.app .mu-setup .row .btn{flex:none}
+
+.app .mubar.tap{box-shadow:inset 0 0 0 2px var(--gold)}
+.app .mubar .mu-art{width:34px;height:34px}
+.app .mubar.on .mu-art{color:var(--gold-tx)}
+.app .mu-c.sm{width:30px;height:30px}
+.app .mu-c.sm svg{width:15px;height:15px}
+.app .mu-c[aria-pressed="true"]{color:var(--ember-ink,var(--ember))}
+.app .mu-sheet .seg{width:100%}
+.app .mu-sheet .seg button{flex:1;justify-content:center}
+.app .mu-up{display:flex;flex-direction:column;gap:6px;font:700 12.5px/1.3 var(--f-ui);color:var(--ink-2)}
+.app .mu-up i{display:block;height:6px;border-radius:9px;background:linear-gradient(90deg,var(--gold) var(--p),var(--raise) var(--p))}
+.app .mu-lib{display:flex;flex-direction:column;gap:10px}
+.app .mu-dir{border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);padding:6px}
+.app .mu-dh{display:flex;align-items:center;gap:8px}
+.app .mu-dt{flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:6px;text-align:left;color:var(--ink);font:800 14px/1.2 var(--f-ui);background:none;border:0}
+.app .mu-dt b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .mu-dt small{font:600 11.5px/1.2 var(--f-ui);color:var(--ink-3);white-space:nowrap}
+.app .mu-dt svg{width:18px;height:18px;flex:none;color:var(--gold-tx)}
+.app .mu-dt svg:last-child{width:14px;height:14px;margin-left:auto;color:var(--ink-3);transition:transform .15s}
+.app .mu-dt[aria-expanded="false"] svg:last-child{transform:rotate(-90deg)}
+.app .mu-songs{display:flex;flex-direction:column;gap:2px;padding:2px 2px 4px}
+.app .mu-song{display:flex;align-items:center;gap:8px;padding:3px 4px;border-radius:10px;flex-wrap:wrap}
+.app .mu-song.on{background:color-mix(in srgb,var(--gold) 14%,transparent)}
+.app .mu-song > .mu-c{flex:none;display:grid;place-items:center}
+.app .mu-song.on > .mu-c{color:var(--gold-tx)}
+.app .mu-sn{flex:1;min-width:0;font:700 13.5px/1.25 var(--f-ui)}
+.app .mu-sn b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .mu-sn small{font:600 11.5px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .mu-move{width:auto;min-height:32px;padding:2px 8px;font-size:13px}
+.app .mu-dirbtns{gap:6px;flex-wrap:wrap;padding-top:4px}
+.app .mu-new{gap:8px;flex-wrap:nowrap}
+.app .mu-new .inp{flex:1;min-width:0;width:auto}
+.app .mu-new .btn{flex:none}
+.app .mu-mine{display:flex;flex-direction:column;gap:8px}
+.app .mu-mine h4{margin:0}
+.app button.fightbar.mubar.tap{width:calc(100% - 20px);text-align:left;color:var(--ink);cursor:pointer;border:0;font:inherit;padding:6px 12px 6px 6px}
+.app .mubar.tap .mu-art{background:var(--gold);color:var(--on-gold,#1a1206)}
+.app .mubar.tap .mu-t span{color:var(--gold-tx);font-weight:800}
+@container dev (min-width: 760px){ .app button.fightbar.mubar.tap{width:calc(100% - 24px)} }
+.app .mu-mrow{display:flex;align-items:center;gap:12px}
+.app .mu-mrow .btn{flex:none}
+.app .mu-who{display:flex;flex-direction:column;gap:8px}
+.app .mu-who h4{margin:0}
+.app .mu-who .forwho button{position:relative}
+.app .mu-own{width:8px;height:8px;border-radius:50%;background:var(--gold);margin-left:2px}
+.app .mu-who .forwho button > svg{width:18px;height:18px;margin-left:8px}
+
+/* "Introducing the Minstrel Tool" card and its tour (js/minstrel-tour.js). The layer sits outside .app, so it reads the
+   app's colours from variables the script copies over, with fallbacks. */
+.mtour{position:fixed;inset:0;z-index:9000;pointer-events:none;display:none;font-family:var(--f-ui,system-ui,sans-serif);color:var(--ink,#efecff)}
+.mtour.on{display:block}
+.mtour .mt-dim{position:absolute;inset:0;background:rgba(4,5,18,.6);opacity:0;transition:opacity .2s}
+.mtour.intro .mt-dim{opacity:1;pointer-events:auto}
+.mtour .mt-card{display:none}
+.mtour.intro .mt-card{display:flex;flex-direction:column;align-items:center;gap:10px;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(380px,calc(100vw - 32px));padding:24px 20px 18px;border-radius:22px;text-align:center;pointer-events:auto;
+  background:var(--raise,#1a1e4d);box-shadow:0 24px 60px rgba(0,0,0,.5),inset 0 0 0 1px var(--line-2,rgba(178,170,255,.24));animation:mt-pop .25s ease-out}
+.mtour .mt-ic{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--gold,#f2c46d);color:var(--on-gold,#1a1206)}
+.mtour .mt-ic svg{width:28px;height:28px}
+.mtour .mt-card h2{margin:4px 0 0;font:700 21px/1.2 var(--f-title,Georgia,serif)}
+.mtour .mt-card p{margin:0;font-size:14.5px;line-height:1.45;font-weight:600;color:var(--ink-2,#cfcaf5)}
+.mtour .mt-btns{display:flex;gap:10px;width:100%;margin-top:8px}
+.mtour .mt-b{flex:1;min-height:44px;border-radius:999px;border:0;font:800 14.5px/1 var(--f-ui,system-ui,sans-serif);cursor:pointer;pointer-events:auto}
+.mtour .mt-b.gold{background:var(--gold,#f2c46d);color:var(--on-gold,#1a1206)}
+.mtour .mt-b.ghost{background:transparent;color:var(--ink,#efecff);box-shadow:inset 0 0 0 1.5px var(--line-2,rgba(178,170,255,.3))}
+.mtour .mt-b.sm{flex:none;min-height:34px;padding:0 18px;font-size:13.5px}
+.mtour .mt-ring,.mtour .mt-arrow,.mtour .mt-tip{display:none;position:absolute}
+.mtour.has .mt-ring,.mtour.has .mt-arrow,.mtour.has .mt-tip{display:block}
+/* the ring dims everything around it with its own shadow and lets taps through */
+.mtour .mt-ring{box-shadow:0 0 0 3px var(--gold,#f2c46d),0 0 0 9999px rgba(4,5,18,.55);transition:left .25s,top .25s,width .25s,height .25s;animation:mt-pulse 1.4s ease-in-out infinite}
+.mtour .mt-arrow{width:44px;height:44px;color:var(--gold,#f2c46d);filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));animation:mt-bob 1s ease-in-out infinite}
+.mtour .mt-tip{box-sizing:border-box;padding:12px 14px;border-radius:16px;pointer-events:auto;background:var(--raise,#1a1e4d);box-shadow:0 14px 40px rgba(0,0,0,.45),inset 0 0 0 1.5px var(--gold,#f2c46d)}
+.mtour .mt-tip b{display:block;font-size:15.5px;font-weight:800;color:var(--gold-tx,var(--gold,#f2c46d))}
+.mtour .mt-tip p{margin:4px 0 0;font-size:13.5px;line-height:1.4;font-weight:600;color:var(--ink,#efecff)}
+.mtour .mt-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.mtour .mt-row small{font-size:12px;font-weight:700;color:var(--ink-2,#cfcaf5)}
+.mtour .mt-skip{display:none;position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;pointer-events:auto;cursor:pointer;
+  padding:5px 12px;border-radius:999px;border:0;font:700 11.5px/1 var(--f-ui,system-ui,sans-serif);color:var(--ink,#efecff);background:rgba(10,10,24,.75);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.mtour.touring .mt-skip{display:block}
+@keyframes mt-pulse{0%,100%{outline:0 solid transparent}50%{outline:6px solid color-mix(in srgb,var(--gold,#f2c46d) 35%,transparent)}}
+@keyframes mt-bob{0%,100%{translate:0 0}50%{translate:0 5px}}
+@keyframes mt-pop{from{opacity:0;transform:translate(-50%,-46%) scale(.96)}to{opacity:1;transform:translate(-50%,-50%)}}
+@media (prefers-reduced-motion:reduce){.mtour .mt-ring,.mtour .mt-arrow{animation:none}}
