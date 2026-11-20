@@ -2,17 +2,23 @@
    How one is made: the character is designed in the figure maker, ChatGPT draws an A-pose picture of it, Tripo turns that
    into a model, and a Blender script (tools/aimodel/) cleans it up, cuts it down to about 14k triangles with a 1024px
    texture so phones load it fast, gives it a skeleton and the moves below, and writes models/<id>.glb.
-   Which figure uses one: a saved figure (c.fig, n.fig, t.fig) with model:'<id>' from MODELS. The figure maker still makes
+   Which figure uses one: a saved figure (c.fig, n.fig, t.fig) with model:'<id>' from MODELS, or the character a model
+   was made for (its `who`: that character stands as it without picking anything, and only they are offered it;
+   model:'none' on their figure turns it off). The figure maker still makes
    and saves the rest of the look, and that look is what shows wherever the model can't (it hasn't loaded, or failed to).
    The moves in every model: idle, walk, attack (the blow lands 0.72 s in), hit (struck at 0.2 s) and down (struck at
    0.2 s, lying still from about 1.1 s). The fight board's other moves are made from those (see animate).
    Only loaded when a figure with a model is about to be drawn: three.js's glTF loader (vendor/three-addons/) comes
    with the first one. Each model file loads once; every fighter using it gets its own copy of the skeleton. */
 export const MODELS = [
-  {id:'elf-traveller', n:'Elf traveller', file:'models/elf-traveller.glb'},
+  {id:'caelis', n:'Caelis', file:'models/caelis.glb', who:'Caelis Rethvael'},
 ];
 const BY = new Map(MODELS.map(m => [m.id, m]));
 export const isModel = id => BY.has(id);
+/* the model made for a character, by its full name or the first word of it ("Caelis Rethvael", "Caelis"), or null */
+const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
+export const modelFor = (...names) => { const ns = names.map(norm).filter(Boolean);
+  const m = MODELS.find(m => m.who && ns.some(n => n === norm(m.who) || n === norm(m.who).split(' ')[0])); return m ? m.id : null; };
 
 export function makeAI(THREE, H){
   const loads = new Map(), done = new Map();

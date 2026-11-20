@@ -6,7 +6,7 @@
    spec.model ('<id>', js/aikit.js) swaps the figure for an AI-made model once that has loaded (loadFor(spec) loads both).
    Loaded as a module by js/figures.js, only when the maker opens. */
 import {makeBeasts} from './beastkit.js';
-import {makeAI, isModel} from './aikit.js';
+import {makeAI, isModel, modelFor} from './aikit.js';
 import {makeArmory} from './armory.js';
 export function makeKit(THREE){
 const V3 = THREE.Vector3, TAU = Math.PI * 2, PI = Math.PI, DEG = PI / 180;
@@ -1914,7 +1914,7 @@ const okSpec = s => !!(s && (s.beast ? BK.isBeast(s) : RACES[s.race]));
 const API = {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS, randomSpec,
   defaultSpec, faceFix, buildFigure, animate, pose, flash, addFx, dispose, faceIcon, ANIMS, pick, hoodOf, loadHair, hairId, setHairBase,
   WEAPONS:AR.W, WEAPON_LIST:AR.LIST, METALS:AR.METALS, WOODS:AR.WOODS, hold:AR.hold, okWeapon:AR.okLook, offWeapon:AR.offOk, DUAL_MOVES:AR.DUAL,
-  MODELS:AI.MODELS, isModel, loadFor, loadModel:AI.load, modelReady:AI.ready,
+  MODELS:AI.MODELS, isModel, modelFor, loadFor, loadModel:AI.load, modelReady:AI.ready,
   BEASTS:BK.BEASTS, BEAST_LIST:BK.LIST, beastOf:BK.beastOf, beastSpec:BK.defaultSpec, isBeast:BK.isBeast, okSpec};
 return API;
 }

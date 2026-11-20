@@ -12,11 +12,12 @@ the figure maker still builds the look it was made from, and that look shows whe
    ```powershell
    .\tools\aimodel\make.ps1 -Src C:\Users\jackh\Downloads\norne\<tripo>.glb -Id <id>
    ```
-5. Copy `elf-traveller.json` to `<id>.json` and move the joints to match the pictures (metres, feet at 0, the
+5. Copy `caelis.json` to `<id>.json` and move the joints to match the pictures (metres, feet at 0, the
    character faces -Y and its left is +X; the pictures are 800 px wide over 1.05 m, centred on x = 0, z = 0.49).
    Only the middle and the left side are listed; the right side is mirrored.
 6. Run the same command again. It rigs and animates the model, writes `models/<id>.glb`, and pictures of the poses.
-7. Add `{id, n, file}` to `MODELS` in `js/aikit.js`, and check it next to its toy figure with
+7. Add `{id, n, file, who}` to `MODELS` in `js/aikit.js` (`who` is the character's name: they stand as the model
+   without picking anything, and only they are offered it; leave it out for a model anyone may pick), and check it next to its toy figure with
    `tools/aimodel/preview.html?model=<id>` (serve the repo with `python -m http.server`).
 8. In the figure maker, pick it under **Body > AI model** and save the figure.
 
@@ -30,7 +31,7 @@ What the scripts do:
 | `export.py` | Keeps only the colour texture (1024 px JPEG), writes the GLB with each move as its own animation |
 | `preview.py` | Pictures of the poses, to check the moves before trying them in the app |
 
-The test model (Tripo's elf traveller) went from 2 million triangles, three 4K textures and 62 MB to 14k triangles,
+The first model (Caelis, from Tripo) went from 2 million triangles, three 4K textures and 62 MB to 14k triangles,
 one 1024 px texture and 0.8 MB.
 
 The moves are written a frame at a time from timing curves in `rig.py`, the same for every model: the feet stay

@@ -263,7 +263,9 @@ function start(box, THREE, K){
   /* whose figure this is (targetOf); with none (the GM from Profile) there is nothing to save */
   const T = openT, mine = () => T ? T.get() : null, who = mine(), cname = T ? T.name : '', pc = T && T.kind === 'pc';
   const DRAFT = 'norne-fig-test', copy = s => JSON.parse(JSON.stringify(s));
-  const fix = s => { if (!K.okSpec(s)) return null; const o = K.faceFix(copy(s)); o.hair = K.hairId(o.hair || 'bald'); return o; };
+  /* the AI model made for this character, if there is one (js/aikit.js): theirs unless the figure says model:'none' */
+  const own = who ? K.modelFor(who.name, who.short) : null;
+  const fix = s => { if (!K.okSpec(s)) return null; const o = K.faceFix(copy(s)); o.hair = K.hairId(o.hair || 'bald'); if (own && o.model == null && !o.beast) o.model = own; return o; };
   const canon = s => s ? JSON.stringify(Object.keys(s).sort().map(k => [k, s[k]])) : '';
   const race0 = K.RACE_LIST.find(r => r.toLowerCase() === String(T && T.race || '').trim().toLowerCase()) || 'Human';
   /* only a player's own figure keeps a draft on the device; NPCs and fighters start from what is saved on them */
@@ -273,7 +275,7 @@ function start(box, THREE, K){
   else if (draft && (!draft.char || (who && draft.char === who.id))) spec = fix(draft.spec);
   const notGm = !(openV && openV.role === 'gm'), beast0 = notGm ? null : K.beastOf(T && T.race);
   if (spec && spec.beast && notGm) spec = null;
-  if (!spec) spec = beast0 ? K.beastSpec(beast0) : K.defaultSpec(race0, 'm');
+  if (!spec) { spec = beast0 ? K.beastSpec(beast0) : K.defaultSpec(race0, 'm'); if (own && !spec.beast) spec.model = own; }
   const saveDraft = () => { if (T && !pc) return; try { const c = mine(); localStorage.setItem(DRAFT, JSON.stringify({spec, char:c ? c.id : null, base:c && c.figAt || 0})); } catch (e) {} };
   const savedNow = () => { const c = mine(); return c && c.fig ? fix(c.fig) : null; };
   const dirty = () => canon(spec) !== canon(savedNow());
@@ -322,7 +324,7 @@ function start(box, THREE, K){
       /* the AI model made from this look (js/aikit.js), shown under AI model; it is what stands in fights */
       if (aiRig) { scene.remove(aiRig.root); K.dispose(aiRig); aiRig = null; }
       if (spec.model && !spec.beast && K.modelReady(spec.model)) { aiRig = K.buildFigure(spec); scene.add(aiRig.root); K.hold(aiRig, wpnLook()); }
-      else if (spec.model && !spec.beast) toast('The AI model could not load. Check the connection and pick it again.');
+      else if (K.isModel(spec.model) && !spec.beast) toast('The AI model could not load. Check the connection and pick it again.');
       $('views').querySelector('[data-v="ai"]').hidden = !aiRig;
       if (view === 'ai' && !aiRig) { setView('one'); return; }
       rig.root.visible = view === 'one'; if (aiRig) aiRig.root.visible = view === 'ai';
@@ -417,9 +419,11 @@ function start(box, THREE, K){
     if (tab === 'body') {
       grp('Race', spec.race, K.RACE_LIST.map(x => opt(x, x, x === spec.race, 'race')).join(''));
       /* an AI-made model of this look (js/aikit.js): in fights the figure stands as it */
-      if (K.MODELS.length) {
-        const mo = K.MODELS.find(m => m.id === spec.model);
-        grp('AI model', mo ? mo.n : 'None', opt('', 'None', !mo, 'model') + K.MODELS.map(m => opt(m.id, m.n, m === mo, 'model')).join(''));
+      /* a model made for one character is only offered for that character */
+      const models = K.MODELS.filter(m => !m.who || m.id === own || m.id === spec.model);
+      if (models.length) {
+        const mo = models.find(m => m.id === spec.model);
+        grp('AI model', mo ? mo.n : 'None', opt('', 'None', !mo, 'model') + models.map(m => opt(m.id, m.n, m === mo, 'model')).join(''));
         o.push(`<p class="note">${mo ? `<b>In fights this figure stands as the ${esc(mo.n)} model.</b> See it under <b>AI model</b> below the picture. The look you build here is what it was made from, and shows if the model can’t load.`
           : 'An AI model is made from a look built here (picture, then Tripo, then Blender). Pick one to stand as it in fights.'}</p>`);
       }
@@ -468,12 +472,12 @@ function start(box, THREE, K){
     const k = b.dataset.k, val = b.dataset.v;
     if (k === 'beast') spec = K.beastSpec(val);
     else if (k === 'coat') spec = K.beastSpec(spec.beast, +val);
-    else if (k === 'race') spec = K.defaultSpec(val, spec.body || 'm');
+    else if (k === 'race') { const mo = spec.model; spec = K.defaultSpec(val, spec.body || 'm'); if (mo) spec.model = mo; }
     else if (k === 'body') { spec.body = val; if (val === 'f') spec.beard = 'none'; }
     else if (k === 'skin') { spec.skin = +val; const p = R().skins[+val]; if (p.eye) spec.eyes = p.eye; if (p.hair) spec.hairCol = p.hair; }
     else if (k === 'outfit') { spec.outfit = val; spec.cloth = K.pick(K.OUTFITS, val)[2].cloth; delete spec.hood; }
     else if (k === 'len') spec.len = +val;
-    else if (k === 'model') { if (val) spec.model = val; else delete spec.model; if (val) setView('ai'); }
+    else if (k === 'model') { if (val) spec.model = val; else if (own) spec.model = 'none'; else delete spec.model; if (val) setView('ai'); }
     else if (k === 'mark') { const m = new Set(spec.marks || []); m.has(val) ? m.delete(val) : m.add(val); spec.marks = K.MARKS.map(x => x[0]).filter(x => m.has(x)); }
     else spec[k] = val;
     rebuild(); opts();
