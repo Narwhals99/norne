@@ -153,19 +153,25 @@ I0 = lambda: idle(0)
 # ---------- walk: two steps in 0.8 s, on the spot (the board moves the figure) ----------
 def walk(t):
   p = relaxed(Pose()); u = (t / .8) % 1; ph = u * TWO_PI
-  def step(v):   # v 0..1: 0-.5 on the ground sliding back, .5-1 in the air coming forward
-    if v < .5: w = v / .5; return (.075 - .15 * w, 0, lerp(-10, 14, w) if w > .6 else lerp(-8, 0, min(1, w / .25)) if w < .25 else 0)
-    w = (v - .5) / .5; e = w * w * (3 - 2 * w)
-    return (-.075 + .15 * e, .042 * math.sin(w * math.pi) ** .9, lerp(26, -12, e))
+  # each foot: half the time on the ground sliding straight back, half in the air coming forward. The boots are stiff,
+  # so the foot only tips a little (heel up as it leaves the ground); the knee does the lifting.
+  def step(v):
+    if v < .5: y = lerp(.055, -.055, v / .5); z = 0
+    else: w = (v - .5) / .5; y = lerp(-.055, .055, .5 - .5 * math.cos(math.pi * w)); z = .034 * math.sin(math.pi * w) ** 1.2
+    pt = 9 * max(0, math.sin(TWO_PI * (v - .38) / 1.1)) if .38 < v < .93 else 0
+    return y, z + .0005 * pt, pt
   for sd, off in (('L', 0), ('R', .5)):
-    y, z, pt = step((u + off) % 1); p.foot(sd, y=-y, z=z + (abs(pt) * .0006 if pt > 0 else 0), pitch=pt, yaw=4)
-  s = math.sin(ph); c2 = math.cos(ph * 2)
-  p.move('hips', x=-.012 * math.sin(ph + .4), z=-.016 + .010 * c2, y=-.008).rot('hips', ('z', 7 * math.cos(ph)), ('y', 2.5 * math.sin(ph + .4)), ('x', 3))
-  p.rot('spine', ('z', -5 * math.cos(ph)), ('x', 2)).rot('chest', ('z', -8 * math.cos(ph)), ('y', -2 * math.sin(ph + .4)), ('x', 2 + 1.2 * c2))
-  p.rot('head', ('z', 6 * math.cos(ph)), ('x', -3 - 1.2 * math.cos(ph * 2 - .5)))
+    y, z, pt = step((u + off) % 1); p.foot(sd, y=-y, z=z, pitch=pt, yaw=4)
+    # knees always a little bent and pointing forward, so the legs never lock straight and pop
+    p.rot('thigh.' + sd, ('x', -18)).rot('shin.' + sd, ('x', 34))
+  c = math.cos(ph); sn = math.sin(ph); c2 = math.cos(ph * 2)
+  # hips: lowest as each foot lands, over the standing leg, turning with the leading leg; the chest turns against them
+  p.move('hips', x=.007 * sn, z=-.03 - .005 * c2, y=-.006).rot('hips', ('z', -5 * c), ('y', -1.5 * sn), ('x', 3))
+  p.rot('spine', ('z', 3 * c), ('x', 2)).rot('chest', ('z', 6 * c), ('y', 1.5 * sn), ('x', 2 - c2))
+  p.rot('head', ('z', -4 * c), ('x', -3))
   for sd, m in (('L', 1), ('R', -1)):
-    sw = math.cos(ph - .25) * m; sw2 = math.cos(ph - .6) * m
-    p.arm(sd, 'upperarm', ('x', -24 * sw + 2)); p.arm(sd, 'forearm', ('x', -16 - 16 * max(-.2, sw2))); p.arm(sd, 'hand', ('x', -8 * sw2))
+    sw = math.cos(ph - .2) * m; sw2 = math.cos(ph - .55) * m      # each arm swings against its own leg, the forearm a beat late
+    p.arm(sd, 'upperarm', ('x', 20 * sw + 2)); p.arm(sd, 'forearm', ('x', -14 + 12 * min(.3, sw2))); p.arm(sd, 'hand', ('x', 5 * sw2))
   return p
 key(walk, .8, 'walk', loop=True)
 
