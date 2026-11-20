@@ -26,12 +26,18 @@ What the scripts do:
 |---|---|
 | `prep.py` | Imports the GLB, merges doubled points, drops loose bits, decimates to 14k triangles, stands it on the floor |
 | `views.py` | Front and side pictures, for finding the joints |
-| `rig.py` | 19-bone skeleton from `<id>.json`, automatic skin weights, and the moves: idle, walk, attack, hit, down |
+| `rig.py` | Skeleton from `<id>.json` (19 bones, plus two for a cape if the file lists `cape1` and `cape2`), automatic skin weights, and the moves: idle, walk, attack, hit, down |
 | `export.py` | Keeps only the colour texture (1024 px JPEG), writes the GLB with each move as its own animation |
 | `preview.py` | Pictures of the poses, to check the moves before trying them in the app |
 
 The test model (Tripo's elf traveller) went from 2 million triangles, three 4K textures and 62 MB to 14k triangles,
 one 1024 px texture and 0.8 MB.
+
+The moves are written a frame at a time from timing curves in `rig.py`, the same for every model: the feet stay
+planted (the legs reach for a handle at each ankle, baked into plain bone turns on export), the arm follows the body
+a beat late, and the cape swings on a spring. Leave `cape1` and `cape2` out of `<id>.json` for a character with no cape.
+`_palmTwist` is how far the arms turn so the palms face the legs (Tripo's A-pose has them facing forward).
+To watch a move, open `preview.html?model=<id>&solo=1`.
 
 Tripo's own rig wasn't used: its export had no skeleton. If a later export has one, the moves in `rig.py` still
 need our bone names, so it's simpler to keep using this skeleton.

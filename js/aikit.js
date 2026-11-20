@@ -51,8 +51,9 @@ export function makeAI(THREE, H){
     rig.body = body; rig.h = body.position.y + L.y0 * s + tall; rig.k = s;
     rig.joints = []; body.traverse(o => { if (o.isBone) rig.joints.push(o); });
     const bone = n => rig.joints.find(b => b.name === n || b.name === n.replace('.', ''));
-    /* the hands hold weapons (js/armory.js) in toy-figure units: a holder undoes the model's scale */
-    const holder = b => { const g = new THREE.Group(); if (b) { b.add(g); g.scale.setScalar(1 / s); g.position.y = .45; } return g; };
+    /* the hands hold weapons (js/armory.js) in toy-figure units: a holder undoes the model's scale, and tips the
+       weapon forward of square to the forearm, the way a gripped sword sits */
+    const holder = b => { const g = new THREE.Group(); if (b) { b.add(g); g.scale.setScalar(1 / s); g.position.y = .45; g.rotation.x = -.6; } return g; };
     rig.armR = {hand:holder(bone("hand.R"))}; rig.armL = {hand:holder(bone("hand.L"))};
     rig.w.sword = H.sword(); rig.w.sword.rotation.x = Math.PI / 2; rig.w.sword.visible = false; rig.armR.hand.add(rig.w.sword);
     rig.mixer = new THREE.AnimationMixer(body);

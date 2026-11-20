@@ -16,7 +16,7 @@ mat.name = 'skin'
 for o in bpy.data.objects: o.select_set(o.name in ('Body', 'Rig'))
 bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True,
   export_image_format='JPEG', export_image_quality=82, export_animations=True, export_animation_mode='ACTIONS',
-  export_force_sampling=True, export_optimize_animation_size=True, export_skins=True, export_all_influences=False,
+  export_force_sampling=True, export_def_bones=True, export_optimize_animation_size=True, export_skins=True, export_all_influences=False,
   export_morph=False, export_yup=True, export_apply=False, export_texcoords=True, export_normals=True,
   export_tangents=False, export_materials='EXPORT')
 print('EXPORTED', out)
