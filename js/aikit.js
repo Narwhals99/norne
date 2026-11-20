@@ -3,7 +3,8 @@
    into a model, and a Blender script (tools/aimodel/) cleans it up, cuts it down to about 14k triangles with a 1024px
    texture so phones load it fast, gives it a skeleton and the moves below, and writes models/<id>.glb.
    Which figure uses one: a saved figure (c.fig, n.fig, t.fig) with model:'<id>' from MODELS, or the character a model
-   was made for (its `who`: that character stands as it without picking anything, and only they are offered it;
+   was made for (its `who`: that player's character stands as it without picking anything, and only the account
+   that plays them is offered it, in their own figure maker;
    model:'none' on their figure turns it off). The figure maker still makes
    and saves the rest of the look, and that look is what shows wherever the model can't (it hasn't loaded, or failed to).
    The moves in every model (tools/aimodel/rig.py writes them, the same for each): idle, walk, hit, down, block and

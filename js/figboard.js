@@ -44,13 +44,14 @@ function wantOf(t){
   const g = N.G, K = kit.K, copy = s => JSON.parse(JSON.stringify(s));
   let fig = null, race = '', who = null;
   if (t.kind === 'pc') { const c = g.chars[t.ref]; fig = c && c.fig; race = c && c.race; who = c; }
-  else { const n = g.npcs.find(x => x.id === t.ref); fig = (n && n.fig) || t.fig; race = (n && n.race) || (t.fig && t.fig.race); who = n; }
+  else { const n = g.npcs.find(x => x.id === t.ref); fig = (n && n.fig) || t.fig; race = (n && n.race) || (t.fig && t.fig.race); }
   const side = t.kind === 'pc' ? 'pc' : N.sideOf(t) === 'ally' ? 'ally' : 'foe';
   let spec = K.okSpec(fig) ? copy(fig) : null;
   /* no figure yet: a look made from the fighter's id, of its race, or of the animal its race names ("Wolf") */
   if (!spec) { const r = K.beastOf(race) || K.RACE_LIST.find(x => x.toLowerCase() === String(race || '').trim().toLowerCase()) || 'Human'; spec = K.randomSpec(r, rng(hash(t.id))); }
   spec = K.faceFix(spec); spec.hair = K.hairId(spec.hair || 'bald');
-  /* a character an AI model was made for stands as it, unless their saved figure says otherwise (js/aikit.js) */
+  /* a player's character an AI model was made for stands as it, unless their saved figure says otherwise (js/aikit.js);
+     an NPC that happens to share the name doesn't */
   if (spec.model == null && !spec.beast && who) { const own = K.modelFor(who.name, who.short); if (own) spec.model = own; }
   return {spec, base:BASES[side], key:side + '|' + JSON.stringify(spec)};
 }

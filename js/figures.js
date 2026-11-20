@@ -240,13 +240,13 @@ N.figRows = v => {
   if (!N.figOk() || !v || v.role !== 'gm') return '';
   const g = N.G, toks = (g.combat.tokens || []).filter(t => t.kind === 'npc'); if (!toks.length) return '';
   const IC = N.IC || (() => '');
-  const pic = (f, card) => { const src = f && N.figPic(f, false, card); return `<span class="figpic" aria-hidden="true">${src ? `<img src="${src}" alt="">` : f ? '<i class="wait"></i>' : '<i></i>'}</span>`; };
+  const pic = f => { const src = f && N.figPic(f); return `<span class="figpic" aria-hidden="true">${src ? `<img src="${src}" alt="">` : f ? '<i class="wait"></i>' : '<i></i>'}</span>`; };
   const rows = toks.map(t => {
     const card = g.npcs.find(n => n.id === t.ref), f = card ? card.fig : t.fig, busy = RAND.has(t.id);
     const sub = card ? (f ? 'Figure from the card' : 'No figure on the card yet') : busy ? 'Making a look…' : f ? 'Random look · this fight only' : 'No card, so no figure yet';
     const btns = card ? `<span class="figbtns"><button type="button" class="btn sm" data-a="figOpen" data-v="npc:${esc(card.id)}" style="--h:30px">${IC('hero')}${f ? 'Change' : 'Make figure'}</button></span>`
       : `<span class="figbtns"><button type="button" class="btn sm" data-a="figRand" data-v="${esc(t.id)}" style="--h:30px"${busy ? ' disabled' : ''}>${IC('sparkle')}${f ? 'Another look' : 'Random look'}</button>${f ? `<button type="button" class="btn sm ghost" data-a="figOpen" data-v="tok:${esc(t.id)}" style="--h:30px">Change</button>` : ''}</span>`;
-    return `<div class="zi figrow">${pic(f, card)}<span>${esc(t.name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span>${btns}</div>`;
+    return `<div class="zi figrow">${pic(f)}<span>${esc(t.name)}<small style="font-style:normal;font-family:var(--f-ui)">${esc(sub)}</small></span>${btns}</div>`;
   }).join('');
   return `<div class="figrows"><small class="foe-sc">${IC('hero')}Figures</small><div class="zlist">${rows}</div><small>Each fighter stands on the board as their figure. A card NPC’s figure is made from its card.</small></div>`;
 };
@@ -269,7 +269,8 @@ function start(box, THREE, K){
   const T = openT, mine = () => T ? T.get() : null, who = mine(), cname = T ? T.name : '', pc = T && T.kind === 'pc';
   const DRAFT = 'norne-fig-test', copy = s => JSON.parse(JSON.stringify(s));
   /* the AI model made for this character, if there is one (js/aikit.js): theirs unless the figure says model:'none' */
-  const own = who ? K.modelFor(who.name, who.short) : null;
+  /* (only a player's own character: the maker opens it for the account that plays them, nobody else is offered it) */
+  const own = who && pc ? K.modelFor(who.name, who.short) : null;
   const fix = s => { if (!K.okSpec(s)) return null; const o = K.faceFix(copy(s)); o.hair = K.hairId(o.hair || 'bald'); if (own && o.model == null && !o.beast) o.model = own; return o; };
   const canon = s => s ? JSON.stringify(Object.keys(s).sort().map(k => [k, s[k]])) : '';
   const race0 = K.RACE_LIST.find(r => r.toLowerCase() === String(T && T.race || '').trim().toLowerCase()) || 'Human';
