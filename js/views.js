@@ -55,7 +55,7 @@ N.appHtml = function(v){
   const tabs = nl ? [['chat','Chat','chat'],['map','Map','map'],['world','World','world'], gm ? ['cast','Cast','cast'] : ['hero','Character','hero']]
     : [['chat','Chat','chat'],['map','Map','map'],['world','World','world'],['news','News','newsL'], ...(gm ? [['cast','Cast','cast'], ['gm','GM','crown']] : [['hero','Character','hero'], ...(ph ? [] : [['inv','Inventory','bag']])])];
   const cur = id => v.ui.tab === id || (nl && ((id === 'world' && v.ui.tab === 'news') || (id === 'hero' && v.ui.tab === 'inv')));
-  const otherUnread = N.channelsFor(v.role).some(c => !(v.ui.tab === 'chat' && v.ui.ch === c) && N.unread(v.role, c));
+  const otherUnread = N.channelsFor(v.role).some(c => !(v.ui.tab === 'chat' && v.ui.ch === c) && !N.chArchived(c) && N.unread(v.role, c));
   const fightLive = Object.values(N.allFights()).some(f => f.state === 'live');
   const newsNew = gm ? 0 : N.newsUnseen(v.role).length;
   /* Level Up (Jack): +1 on Character when a player has points to spend, and on Cast for the GM per level up waiting for approval */
@@ -68,7 +68,7 @@ N.appHtml = function(v){
     <div class="navl scroll">
       ${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? `<button type="button" class="ni shopen" data-a="shelfDt" title="Show the chat list" aria-label="Show the chat list">${IC('list')}<span>Chats</span></button>` : ''}
       ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${cur(id)?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&!nl&&otherUnread?'<span class="dot"></span>':''}${(id==='news'||(nl&&id==='world'))&&newsNew?`<span class="badge gold">${newsNew}</span>`:''}${id===lvlTab&&lvlN?`<span class="badge gold" title="Level up">${lvlN}</span>`:''}</span></button>
-        ${id==='chat' && !shelfOn && (!gm || nl) ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
+        ${id==='chat' && !shelfOn && (!gm || nl) ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).filter(c => !N.chArchived(c) || c === v.ui.ch).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
     </div>
     <div class="art" aria-hidden="true"></div>
     <button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>
@@ -158,15 +158,22 @@ function shelfHtml(v){
       ${gm ? group('Parties', chs.filter(c => N.grpOf(c)?.party)) : ''}
       ${group(gm ? 'Private chats' : 'Just you and the GM', chs.filter(c => c.startsWith('dm-')))}
       ${gm && N.seats().length ? `<button type="button" class="shr shnew" data-a="sheet" data-v="dms" title="Private chats"><span class="cic">${IC('whisper')}</span><span class="t"><b>Private chats</b><small>${N.seats().some(s => !N.dmOn(s)) ? 'Open one with a player' : 'Pick who has one with you'}</small></span></button>` : ''}
-      ${grpGroup(v, chs.filter(c => c.startsWith('grp-') && !N.grpOf(c)?.party))}
+      ${grpGroup(v, chs.filter(c => c.startsWith('grp-') && !N.grpOf(c)?.party && !N.chArchived(c)))}
       ${gm ? `<button type="button" class="shr shnew" data-a="grpNew" title="New group chat"><span class="cic">${IC('plus')}</span><span class="t"><b>New group chat</b><small>A few players in one chat, or a party</small></span></button>` : ''}
       ${group('Only you', chs.filter(c => c === 'gm'))}
+      ${archShelf(v, chs.filter(c => N.chArchived(c)))}
     </div>
     ${ph ? `<button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>` : mini ? '' : '<div class="shelfgrip" role="separator" aria-orientation="vertical" aria-label="Drag to resize the chat list" title="Drag to resize"></div>'}
   </aside>`;
 }
+/* Jake: archived group chats wait at the bottom of the list behind one button; open it to read one again */
+function archShelf(v, list){
+  if (!list.length) return '';
+  const open = !!v.ui.shArch || list.includes(v.ui.ch);
+  return `<div class="shg sharch" role="group" aria-label="Archived chats"><button type="button" class="shr sharch-b" data-a="shArch" aria-expanded="${open}"><span class="cic">${IC('archive')}</span><span class="t"><b>Archived chats</b><small>${list.length} ${list.length === 1 ? 'chat' : 'chats'} · ${open ? 'tap to hide' : 'tap to see'}</small></span>${IC(open ? 'caret' : 'right')}</button>${open ? list.map(c => shelfRow(v, c)).join('') : ''}</div>`;
+}
 function shelfBtn(v){
-  const other = N.channelsFor(v.role).some(c => c !== v.ui.ch && N.unread(v.role, c));
+  const other = N.channelsFor(v.role).some(c => c !== v.ui.ch && !N.chArchived(c) && N.unread(v.role, c));
   return `<button type="button" class="ibtn shelfb" data-a="shelf" aria-label="All chats">${IC('list')}${other?'<span class="dot"></span>':''}</button>`;
 }
 function meBtn(v){
@@ -688,7 +695,7 @@ function composer(v){
   if (ooc) { chip = `<span class="ooc-ic">${IC('chatL')}</span><b>Meta</b>`; ph = 'Rules talk, questions, snacks…'; }
   else if (gm) {
     const n = g.npcs.find(x => x.name === v.ui.voice);
-    chip = (v.ui.voice === 'Narrator' ? N.narrAv(30) : N.av({name:v.ui.voice, portrait:n?.portrait, color:'var(--c-npc)'},30)) + `<b class="only-dt">${esc(v.ui.voice)}</b>`;
+    chip = (v.ui.voice === 'Narrator' ? N.narrAv(30) : N.av({name:v.ui.voice, portrait:n ? N.npcFace(v.ui.voice, v.ui.ch) : null, color:'var(--c-npc)'},30)) + `<b class="only-dt">${esc(v.ui.voice)}</b>`;
     ph = v.ui.voice === 'Narrator' ? 'Narrate what happens…' : `As ${v.ui.voice}…`;
   } else {
     const c = N.charOf(v.role);
@@ -699,8 +706,9 @@ function composer(v){
   const re = v.ui.reply && g.msgs.find(x => x.id === v.ui.reply);
   /* a party chat the GM paused: players read along but can't send; the GM sees why it's quiet and can resume */
   const paused = N.chPaused(v.ui.ch), grp = paused && v.ui.ch.slice(4);
-  if (paused && !gm) return `<div class="composer paused" role="status">${IC('lock')}<span><b>The GM paused this chat</b><small>You can read along. Sending opens again when they resume it.</small></span></div>`;
-  return `${paused ? `<div class="pausebar" role="status">${IC('lock')}<span><b>Chat paused</b><small>Players can read but not send.</small></span><button type="button" class="btn sm gold" data-a="grpPause" data-v="${esc(grp)}">${IC('play')}Resume</button></div>` : ''}<form class="composer${ooc?' ooc':''}" data-f="send" onsubmit="return false">
+  const arch = N.chArchived(v.ui.ch);
+  if (paused && !gm) return `<div class="composer paused" role="status">${IC(arch ? 'archive' : 'lock')}<span><b>${arch ? 'The GM archived this chat' : 'The GM paused this chat'}</b><small>${arch ? 'It’s kept under Archived chats. You can read it, but not send anything.' : 'You can read along. Sending opens again when they resume it.'}</small></span></div>`;
+  return `${paused ? `<div class="pausebar" role="status">${IC(arch ? 'archive' : 'lock')}<span><b>${arch ? 'Chat archived' : 'Chat paused'}</b><small>${arch ? 'Hidden from the chat list, kept under Archived chats. Players can read it there.' : 'Players can read but not send.'}</small></span>${arch ? `<button type="button" class="btn sm" data-a="grpArchive" data-v="${esc(grp)}">${IC('archive')}Un-archive</button>` : N.canArchive(v.ui.ch) ? `<button type="button" class="btn sm" data-a="grpArchive" data-v="${esc(grp)}" title="Hide it from the chat list. Nothing is deleted.">${IC('archive')}Archive</button>` : ''}<button type="button" class="btn sm gold" data-a="grpPause" data-v="${esc(grp)}">${IC('play')}Resume</button></div>` : ''}<form class="composer${ooc?' ooc':''}" data-f="send" onsubmit="return false">
     ${(t => `<div class="typing${t ? ' on' : ''}" id="ty-${v.id}" role="status" aria-live="polite">${t}</div>`)(v.ui.ch === 'gm' ? '' : typingHtml(v))}
     ${re ? `<div class="replying">${IC('reply')}<span>Replying to <b>${esc(N.msgWho(re))}</b><small>${N.emoText(esc(N.plainText(N.msgSnip(re))))}</small></span><button type="button" class="ibtn sm" data-a="replyOff" aria-label="Stop replying">${IC('x')}</button></div>` : ''}
     <div class="box">
@@ -762,7 +770,7 @@ function gmScreen(v){
       ${partyRows(v)}
     </section>
     <section class="gs-sec"><div class="gs-h"><h3>Speak as</h3><button type="button" class="btn sm" data-a="castNpcs">NPCs</button></div>
-      ${(() => { const vf = N.voicesFor(v.ui.ch === 'gm' ? 'table' : v.ui.ch, v.ui.voice); return `<div class="voices">${['Narrator', ...vf.here].map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="voice" data-v="${esc(n)}" ${v.ui.voice===n&&v.ui.mode==='rp'?'style="background:var(--accent-soft)"':''}>${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text':esc(N.npcSub(npc))}</small></span>${v.ui.voice===n&&v.ui.mode==='rp'?`<span class="go" style="color:var(--gold-tx)">${IC('check')}</span>`:''}</button>`; }).join('')}</div>${vf.rest.length ? `<p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${vf.here.length ? 'Only this scene’s NPCs are listed.' : 'No NPCs picked for this scene.'} The other ${vf.rest.length} are in Speak as under Everyone else.</p>` : ''}`; })()}
+      ${(() => { const vf = N.voicesFor(v.ui.ch === 'gm' ? 'table' : v.ui.ch, v.ui.voice); return `<div class="voices">${['Narrator', ...vf.here].map(n => { const npc = N.npcByName(n); return `<button type="button" data-a="voice" data-v="${esc(n)}" ${v.ui.voice===n&&v.ui.mode==='rp'?'style="background:var(--accent-soft)"':''}>${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc ? N.npcFace(n, v.ui.ch) : null,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text':esc(N.npcSub(npc))}</small></span>${v.ui.voice===n&&v.ui.mode==='rp'?`<span class="go" style="color:var(--gold-tx)">${IC('check')}</span>`:''}</button>`; }).join('')}</div>${vf.rest.length ? `<p class="muted" style="margin:6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${vf.here.length ? 'Only this scene’s NPCs are listed.' : 'No NPCs picked for this scene.'} The other ${vf.rest.length} are in Speak as under Everyone else.</p>` : ''}`; })()}
     </section>
     ${picShelf(v)}
   </div>`;
@@ -860,7 +868,7 @@ function popHtml(v){
       /* a chat whose scene names its NPCs lists only them (and the fight's NPCs); everyone else is one tap or a search away */
       const vch = v.ui.ch === 'gm' ? 'table' : v.ui.ch, vf = N.voicesFor(vch, v.ui.voice), vq = (v.ui.voiceQ || '').trim().toLowerCase();
       const all = ['Narrator', ...vf.here, ...(vf.rest || [])];
-      const one = n => { const npc = N.npcByName(n); const sel = v.ui.mode==='rp' && v.ui.voice===n; return `<button type="button" class="opt" data-a="voice" data-v="${esc(n)}" aria-selected="${sel}">${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc?.portrait,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text, shown as the book':!npc && N.extraByName(vch, n)?'One-off, only in this scene':esc(N.npcSub(npc))}</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`; };
+      const one = n => { const npc = N.npcByName(n); const sel = v.ui.mode==='rp' && v.ui.voice===n; return `<button type="button" class="opt" data-a="voice" data-v="${esc(n)}" aria-selected="${sel}">${n==='Narrator'?N.narrAv(30):N.av({name:n,portrait:npc ? N.npcFace(n, v.ui.ch) : null,color:'var(--c-npc)'},30)}<span>${esc(n)}<small>${n==='Narrator'?'Story text, shown as the book':!npc && N.extraByName(vch, n)?'One-off, only in this scene':esc(N.npcSub(npc))}</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`; };
       if (all.length > 5) opts += `<div class="pop-find">${IC('search')}<input class="inp" id="vq-${v.id}" data-i="voiceQ" placeholder="Find a voice" value="${esc(v.ui.voiceQ || '')}" autocomplete="off"></div>`;
       if (vq) opts += `<div class="lbl">In character</div>` + all.filter(n => n.toLowerCase().includes(vq)).map(one).join('');
       else if (!vf.rest) opts += `<div class="lbl">In character</div>` + all.map(one).join('');

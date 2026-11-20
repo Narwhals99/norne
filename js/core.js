@@ -447,7 +447,7 @@ const SEATCOL = 8;
 N.G = {
   me:null, role:'gm',
   P:{gm:{id:'gm', name:'GM', color:'var(--c-gm)'}},
-  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, rnotes:{}, rnMine:{}, shops:{}, crafts:{}, calDates:{}, calEv:[], calPub:[], calMine:[], calYear:'', calLabels:{},
+  chars:{}, npcs:[], quick:[], casts:{}, extras:{}, foes:[], recent:[], pics:[], msgs:[], combat:null, maps:[], wiki:[], cats:null, news:{issues:[], seen:{}}, seen:{}, emoji:[], groups:[], gifKey:'', gmPic:null, mapDirs:[], npcDirs:[], items:[], rev:{}, known:{}, wlinks:{}, hlocs:{}, rnotes:{}, rnMine:{}, shops:{}, crafts:{}, calDates:{}, calEv:[], cpics:{}, calPub:[], calMine:[], calYear:'', calLabels:{},
 };
 /* ---------- emoji: reactions on messages, and the GM's own pictures (custom emoji, written :name:) ---------- */
 N.EMO_QUICK = ['👍','❤️','😂','😮','😢','🔥'];
@@ -640,6 +640,11 @@ N.metaOnly = ch => ch === 'table' || !!N.grpOf(ch)?.meta;
 N.gmWorkChans = () => N.channelsFor('gm').filter(c => c === 'gm' || !N.metaOnly(c));
 /* a party or group chat the GM paused: players read it but can't send (Jake) */
 N.chPaused = ch => { const gr = N.grpOf(ch); return !!(gr && gr.paused); };
+/* Jake (2026-11-19): the GM archives a paused roleplay group chat. Nothing is deleted: it only leaves the chat list
+   and waits under "Archived chats" at the bottom of it, for the GM and its players, until the GM brings it back.
+   Parties and Meta-only group chats can't be archived. */
+N.canArchive = ch => { const gr = N.grpOf(ch); return !!(gr && !gr.party && !gr.meta); };
+N.chArchived = ch => { const gr = N.grpOf(ch); return !!(gr && gr.archived && !gr.party && !gr.meta); };
 /* Jake's calendar (Calendar_Seasons_Weather): the week's days and the months with their lengths, for the GM's Next day line */
 N.WEEKDAYS = ['First Market', 'Second Market', 'Third Market', 'Fourth Market', 'Freeday', 'Restday', 'Readyday'];
 N.MONTHS = [['First Rain', 30], ['Seed Sow', 29], ['Sun’s Show', 30], ['First Heat', 31], ['High Shine', 31], ['Last Heat', 31],
@@ -778,6 +783,12 @@ N.av = (o, s, extra='') => {
 };
 N.narrAv = s => `<span class="av narrav" style="--s:${s||32}px">${STAR}</span>`;
 N.npcByName = name => N.G.npcs.find(x => x.name === name);
+/* Jake (2026-11-19): an NPC card can hold other pictures (n.pics) besides its portrait. When the GM puts the NPC in a
+   scene they pick which one is theirs there (G.cpics[chat][name], GM-only data); what they say in that chat, their rolls
+   and their fight token use it. Messages carry the picture they were sent with (m.pt), so older lines keep theirs. */
+N.npcPics = n => n ? [...new Set([n.portrait, ...(n.pics || [])].filter(Boolean))] : [];
+N.npcFace = (name, ch) => { const n = N.npcByName(name); if (!n) return null; const c = ch === 'gm' ? 'table' : ch, pk = N.G.cpics && N.G.cpics[c] && N.G.cpics[c][name];
+  return pk && N.npcPics(n).includes(pk) ? pk : n.portrait || null; };
 N.speakerObj = (m) => {
   const G = N.G;
   if (m.by === 'gm') {
@@ -1160,7 +1171,22 @@ N.targetsOf = t => { if (!t.zone) return []; const all = N.G.combat.tokens.filte
   const foe = o => N.sideOf(o) !== N.sideOf(t); return [...near.filter(foe), ...near.filter(o => !foe(o)), ...far.filter(foe), ...far.filter(o => !foe(o))]; };
 /* true when a fight roll from a aims at d standing in another zone: the GM can put a distance debuff on it */
 N.isFar = (a, d) => !!(a && d && a.zone && d.zone && a.zone !== d.zone);
-N.tokSkills = t => t.kind === 'pc' ? (N.G.chars[t.ref]?.skills || {}) : (t.skills || {});
+N.tokSkills = t => t.kind === 'pc' ? (N.G.chars[t.ref]?.skills || {}) : t.crowd > 1 ? N.crowdSkills(t) : (t.skills || {});
+/* ---------------- crowds (Jake, 2026-11-19) ----------------
+   A crowd is one fighter made of mechanically identical people. t.skills hold ONE member's skills and t.crowd how many
+   are left: each member past the first adds +1 to every skill, so a crowd of 1 is just the base stats. Weapons and
+   armor stay one member's (a hit lands as one of them). Unsoaked shifts on a crowd are members killed (N.crowdHit). */
+N.crowdSkills = t => { const n = Math.max(0, (t.crowd | 0) - 1), b = t.skills || {}, out = {};
+  for (const k of new Set([...MUNDANE, ...Object.keys(b)])) out[k] = (+b[k] || 0) + n; return out; };
+N.isCrowd = t => !!(t && t.kind === 'npc' && t.crowd0);
+N.CROWD_MAX = 40;
+/* d = {name, n, skills, gear..., ref, portrait}: the crowd token, ready to drop into the fight */
+N.tokFromCrowd = (d, side) => {
+  const n = Math.max(1, Math.min(N.CROWD_MAX, d.n | 0));
+  const t = N.tokFromNpc({id:d.ref || 'crowd:' + uid('c'), name:d.name || 'Crowd', portrait:d.portrait || null, type:'nameless', skills:{...(d.skills || {})}, aspects:d.aspects || [],
+    gearAtk:d.gearAtk, gearRng:d.gearRng, gearAmmo:d.gearAmmo, gearDef:d.gearDef}, side);
+  return Object.assign(t, {crowd:n, crowd0:n, stressV:[], stress:[]});
+};
 N.tokNotice = t => N.tokSkills(t).Notice || 0;
 /* turn order: the Notice roll made when the fight started (t.init), Notice itself breaks ties.
    Fights saved before Notice was rolled have no t.init and fall back to plain Notice.
