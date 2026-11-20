@@ -27,12 +27,28 @@ What the scripts do:
 |---|---|
 | `prep.py` | Imports the GLB, merges doubled points, drops loose bits, decimates to 14k triangles, stands it on the floor |
 | `views.py` | Front and side pictures, for finding the joints |
-| `rig.py` | Skeleton from `<id>.json` (19 bones, plus two for a cape if the file lists `cape1` and `cape2`), automatic skin weights, and the moves: idle, walk, attack, hit, down |
+| `rig.py` | Skeleton from `<id>.json` (19 bones, plus two for a cape if the file lists `cape1` and `cape2`), automatic skin weights, and every move (below) |
 | `export.py` | Keeps only the colour texture (1024 px JPEG), writes the GLB with each move as its own animation |
 | `preview.py` | Pictures of the poses, to check the moves before trying them in the app |
 
 The first model (Caelis, from Tripo) went from 2 million triangles, three 4K textures and 62 MB to 14k triangles,
 one 1024 px texture and 0.8 MB.
+
+Every model gets the same moves, so a new figure can use any weapon the toy figures can (`js/armory.js`):
+
+| For | Moves |
+|---|---|
+| Standing, moving, being hit | idle, walk, hit, down, block, dodge |
+| Swords, daggers, axes, clubs | chop, cut, poke |
+| Two-handed weapons | slam, sweep, thrust |
+| Fists | jabs, hook |
+| A weapon in each hand | twin, flurry, scissor |
+| From a distance | bow, xbow, sling, throw |
+| Magic | cast |
+
+`js/aikit.js` picks the move for the weapon in hand, the same way a toy figure does; with no weapon it is the plain
+sword (chop), bow or staff. Each hand has a grip bone the weapon hangs on, and each pose says which way that weapon
+points (`p.aim`), so a weapon never depends on how the wrist happens to be turned.
 
 The moves are written a frame at a time from timing curves in `rig.py`, the same for every model: the feet stay
 planted (the legs reach for a handle at each ankle, baked into plain bone turns on export), the arm follows the body

@@ -328,7 +328,7 @@ function start(box, THREE, K){
       K.hold(rig, wpnLook()); $('wpnRow').hidden = !!spec.beast;
       /* the AI model made from this look (js/aikit.js), shown under AI model; it is what stands in fights */
       if (aiRig) { scene.remove(aiRig.root); K.dispose(aiRig); aiRig = null; }
-      if (spec.model && !spec.beast && K.modelReady(spec.model)) { aiRig = K.buildFigure(spec); scene.add(aiRig.root); K.hold(aiRig, wpnLook()); }
+      if (spec.model && !spec.beast && K.modelReady(spec.model)) { aiRig = K.buildFigure(spec); K.addFx(scene, aiRig); scene.add(aiRig.root); K.hold(aiRig, wpnLook()); }
       else if (K.isModel(spec.model) && !spec.beast) toast('The new version could not load. Check the connection and pick it again.');
       $('views').querySelector('[data-v="ai"]').hidden = !aiRig; $('views').querySelector('[data-v="one"]').textContent = aiRig ? 'Old figure' : 'My figure';
       if (view === 'ai' && !aiRig) { setView('one'); return; }
