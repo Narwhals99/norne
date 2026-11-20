@@ -675,19 +675,21 @@ function fightCard(v, m){
     <div class="row">${gm ? `<button type="button" class="btn gold" data-a="openFight">${IC(K.ic)}Open the ${K.w}</button>` : mine ? `<button type="button" class="btn gold" data-a="watch">${IC(K.ic)}Watch the ${K.w}</button>` : `<button type="button" class="btn" data-a="watch">Watch</button>`}</div>` : `<span class="muted" style="font-weight:600">This ${K.w} is over.</span>`}
   </div></div>`;
 }
-/* who is typing in the open chat: three dots per person in their own colour (their bubble's edge), then their names.
-   Not this tab's own seat. In Everyone and Meta they show as the person, in character as the voice they type in */
+/* who is typing in the open chat (Jack, 2026-11-20): no card, just each name followed by three dots in their colour
+   (their bubble's edge), "Jake . . .  Egrot . . .", on a line of its own at the bottom of the chat like a message.
+   Not this tab's own seat. In Everyone and Meta they show as the person, in character as the voice they type in.
+   A mark is left out once that person's message has landed (hush), so their line hands its space to the message. */
 function typingHtml(v){
   const ch = v.ui.ch, T = (N.TYPING || {})[ch]; if (!T || ch === 'gm') return '';
-  const now = Date.now();
-  const all = Object.entries(T).filter(([s, e]) => s !== v.role && e.until > now && (s === 'gm' || G().P[s]));
-  const xs = all.slice(0, 3).map(([s, e]) =>
-    N.metaOnly(ch) ? N.metaPerson(s) : e.k === 'meta' ? N.personObj(s) : N.speakerObj({by:s, as:e.as}));
-  if (!xs.length) return '';
-  const n = xs.map(o => `<b>${esc(o.name)}</b>`), more = all.length > 3;
-  const words = more ? 'Several people are typing' : n.length === 1 ? `${n[0]} is typing` : n.length === 2 ? `${n[0]} and ${n[1]} are typing` : `${n[0]}, ${n[1]} and ${n[2]} are typing`;
-  return `<span class="tyset">${xs.map(o => `<span class="tydots" style="--ty:${o.color}" aria-hidden="true"><i></i><i></i><i></i></span>`).join('')}</span><span class="tyw">${words}</span>`;
+  const now = Date.now(), hush = (v._tyHush || {})[ch] || {};
+  const all = Object.entries(T).filter(([s, e]) => s !== v.role && e.until > now && hush[s] !== e && (s === 'gm' || G().P[s]));
+  if (!all.length) return '';
+  if (all.length > 3) return `<span class="ty1" style="--ty:var(--ink-3)"><b>Several people</b>${tyDots}</span><span class="vh"> are typing</span>`;
+  const xs = all.map(([s, e]) => N.metaOnly(ch) ? N.metaPerson(s) : e.k === 'meta' ? N.personObj(s) : N.speakerObj({by:s, as:e.as}));
+  return xs.map(o => `<span class="ty1" style="--ty:${o.color}"><b>${esc(o.name)}</b>${tyDots}</span>`).join('') + `<span class="vh"> ${xs.length === 1 ? 'is' : 'are'} typing</span>`;
 }
+const tyDots = '<span class="tydots" aria-hidden="true"><i></i><i></i><i></i></span>';
+N.typingSeats = v => { const ch = v.ui.ch, T = (N.TYPING || {})[ch] || {}, now = Date.now(); return Object.entries(T).filter(([s, e]) => s !== v.role && e.until > now); };
 N.typingHtml = typingHtml;
 function composer(v){
   const g = G(), gm = isGM(v), meta = N.metaOnly(v.ui.ch), ooc = v.ui.mode === 'ooc' || meta;
@@ -709,7 +711,6 @@ function composer(v){
   const arch = N.chArchived(v.ui.ch);
   if (paused && !gm) return `<div class="composer paused" role="status">${IC(arch ? 'archive' : 'lock')}<span><b>${arch ? 'The GM archived this chat' : 'The GM paused this chat'}</b><small>${arch ? 'It’s kept under Archived chats. You can read it, but not send anything.' : 'You can read along. Sending opens again when they resume it.'}</small></span></div>`;
   return `${paused ? `<div class="pausebar" role="status">${IC(arch ? 'archive' : 'lock')}<span><b>${arch ? 'Chat archived' : 'Chat paused'}</b><small>${arch ? 'Hidden from the chat list, kept under Archived chats. Players can read it there.' : 'Players can read but not send.'}</small></span>${arch ? `<button type="button" class="btn sm" data-a="grpArchive" data-v="${esc(grp)}">${IC('archive')}Un-archive</button>` : N.canArchive(v.ui.ch) ? `<button type="button" class="btn sm" data-a="grpArchive" data-v="${esc(grp)}" title="Hide it from the chat list. Nothing is deleted.">${IC('archive')}Archive</button>` : ''}<button type="button" class="btn sm gold" data-a="grpPause" data-v="${esc(grp)}">${IC('play')}Resume</button></div>` : ''}<form class="composer${ooc?' ooc':''}" data-f="send" onsubmit="return false">
-    ${(t => `<div class="typing${t ? ' on' : ''}" id="ty-${v.id}" role="status" aria-live="polite">${t}</div>`)(v.ui.ch === 'gm' ? '' : typingHtml(v))}
     ${re ? `<div class="replying">${IC('reply')}<span>Replying to <b>${esc(N.msgWho(re))}</b><small>${N.emoText(esc(N.plainText(N.msgSnip(re))))}</small></span><button type="button" class="ibtn sm" data-a="replyOff" aria-label="Stop replying">${IC('x')}</button></div>` : ''}
     <div class="box">
       ${gm && N.nlOn(v) ? `<button type="button" class="emob nlplus" data-a="sheet" data-v="actions" aria-label="Actions" title="Actions (Ctrl K)">${IC('plus')}</button>` : ''}

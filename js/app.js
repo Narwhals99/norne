@@ -313,6 +313,7 @@ function render(v){
   if (v.ui.tab === 'map' || paneShows(v, 'map')) { root.querySelectorAll('.mapst').forEach(e => { e._k = null; }); applyMap(v); }
   if (v.ui.fresh) setTimeout(() => { v.ui.fresh = null; }, 900);
   if (N.onRender) N.onRender(v);
+  tyPaintV(v);
   typingWatch();
   syncBack();
 }
@@ -336,11 +337,66 @@ function typingWatch(){
   if (k === _tyw || N.typingWatch(chs) === false) return; _tyw = k;
   N.typingStopAll(document.hidden ? [] : views.map(v => v.ui.ch + '|' + v.role));
 }
-N.typingPaint = () => views.forEach(v => {
-  const el = v.root.querySelector('#ty-' + v.id); if (!el) return;
-  const h = N.typingHtml(v); if (el._h === h) return; el._h = h;
-  el.innerHTML = h; el.classList.toggle('on', !!h);
-});
+/* The typing line sits at the bottom of the chat list like a message (Jack, 2026-11-20). Coming in, it first opens its
+   space slowly, shoving the newest messages up (the list stays on its newest line while it grows), and only then do the
+   name and dots fade in. Going away it fades first, then closes its space just as slowly. When the typer's message
+   lands, the line gives its space to the message at once, so the chat moves only by the difference.
+   It is a data-keep element: redraws leave it (and its moving height) alone, and it is only ever changed here. */
+const TY_OPEN = 520, TY_SHUT = 420, TY_FADE = 200;
+const tyEase = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const tyCalm = matchMedia('(prefers-reduced-motion: reduce)');
+function tyRow(v){
+  const l = v.root.querySelector('.chat > .msgs[data-sk="msgs"]'); if (!l) return null;
+  let r = l.querySelector(':scope > .tyrow');
+  if (!r) {
+    r = document.createElement('div'); r.className = 'tyrow'; r.id = 'tyr-' + v.id; r.setAttribute('data-keep', '');
+    r.setAttribute('role', 'status'); r.setAttribute('aria-live', 'polite'); r.style.height = '0px';
+    r.innerHTML = '<div class="tyin"></div>'; r._h = ''; r._hgt = 0;
+  }
+  if (r.parentNode !== l || r !== l.lastElementChild) l.appendChild(r);
+  return r;
+}
+function tyGrow(v, r, to, done){
+  cancelAnimationFrame(r._raf); clearTimeout(r._tm);
+  const l = r.parentNode, from = r._hgt, sb = v._sb || {};
+  const pin = l.scrollHeight - l.scrollTop - l.clientHeight < 60 || !!sb.msgs;
+  const set = h => { r._hgt = h; r.style.height = h + 'px'; if (pin && l.isConnected) l.scrollTop = l.scrollHeight; };
+  if (from === to || tyCalm.matches || document.hidden) { set(to); if (done) done(); return; }
+  const t0 = performance.now(), dur = to > from ? TY_OPEN : TY_SHUT;
+  const step = now => { const k = Math.min(1, (now - t0) / dur); set(from + (to - from) * tyEase(k));
+    if (k < 1) r._raf = requestAnimationFrame(step); else { r._raf = 0; set(to); if (done) done(); } };
+  r._raf = requestAnimationFrame(step);
+}
+function tyPaintV(v){
+  const r = tyRow(v); if (!r) return;
+  const ch = v.ui.ch, g = G();
+  /* a message from someone shown typing: their mark is passed over until they type again */
+  const last = g.msgs.findLast(m => m.ch === ch), lk = (v._tyLast || (v._tyLast = {}));
+  let landed = false;
+  if (last && lk[ch] && lk[ch] !== last.id) {
+    const T = (N.TYPING || {})[ch] || {}, e = T[last.by];
+    if (e && r._seats && r._seats.includes(last.by)) { ((v._tyHush || (v._tyHush = {}))[ch] || (v._tyHush[ch] = {}))[last.by] = e; landed = true; }
+  }
+  if (last) lk[ch] = last.id;
+  const h = ch === 'gm' ? '' : N.typingHtml(v), moved = r._ch !== ch; r._ch = ch;
+  r._seats = N.typingSeats(v).map(([s]) => s);
+  if (moved) { cancelAnimationFrame(r._raf); clearTimeout(r._tm); r._h = ''; r.classList.remove('on'); r.firstChild.innerHTML = ''; r._hgt = 0; r.style.height = '0px'; }
+  if (h === r._h) return;
+  const was = r._h; r._h = h; const inn = r.firstChild;
+  if (h) {
+    inn.innerHTML = h;
+    const full = inn.offsetHeight;
+    if (was && r.classList.contains('on') && r._hgt === full) return; /* only the names changed */
+    r.classList.remove('on');
+    tyGrow(v, r, full, () => { if (r._h) r.classList.add('on'); });
+  } else if (landed || moved || tyCalm.matches) {
+    cancelAnimationFrame(r._raf); clearTimeout(r._tm); r.classList.remove('on'); inn.innerHTML = ''; r._hgt = 0; r.style.height = '0px';
+  } else {
+    r.classList.remove('on');
+    r._tm = setTimeout(() => { if (r._h) return; tyGrow(v, r, 0, () => { if (!r._h) inn.innerHTML = ''; }); }, TY_FADE);
+  }
+}
+N.typingPaint = () => views.forEach(v => { if (v.root.isConnected) tyPaintV(v); });
 document.addEventListener('visibilitychange', typingWatch);
 function grow(ta){ ta.style.height = 'auto'; if (ta.value) ta.style.height = Math.min(ta.scrollHeight, 140) + 'px'; }
 
