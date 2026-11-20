@@ -34,10 +34,18 @@ for n,(h,t,p) in B.items():
   if p: e.parent = arm_d.edit_bones[p]
 for e in arm_d.edit_bones:
   e.align_roll((0,-1,0) if abs(e.vector.normalized().y) < .9 else (0,0,1))
-# what the feet stand on: a handle at each ankle, shaped like the foot, that the leg reaches for (not part of the skin)
+# the legs: each knee sits a touch forward of the line from hip to ankle, so the leg has a front to bend toward
+for s in 'LR':
+  th = arm_d.edit_bones['thigh.' + s]; sh = arm_d.edit_bones['shin.' + s]
+  u = (th.tail.z - sh.tail.z) / (th.head.z - sh.tail.z); knee = sh.tail.lerp(th.head, u) + Vector((0, -.012 * K, 0))
+  th.tail = knee; sh.head = knee
+# what the feet stand on: a handle at each ankle, shaped like the foot, that the leg reaches for (not part of the skin),
+# and a mark out in front of each knee that the knee always points at, so the legs can't bow outward
 for s in 'LR':
   f = arm_d.edit_bones['foot.' + s]; e = arm_d.edit_bones.new('ik.foot.' + s)
   e.head = f.head; e.tail = f.tail; e.roll = f.roll; e.use_deform = False
+  kn = arm_d.edit_bones['shin.' + s].head; e = arm_d.edit_bones.new('pole.' + s)
+  e.head = kn + Vector((0, -.4 * K, 0)); e.tail = e.head + Vector((0, 0, .05 * K)); e.use_deform = False
 # what the hands hold: a grip in each palm that js/aikit.js hangs the weapon on (the weapon's length runs along it),
 # and a free handle that says which way the weapon points whatever the arm is doing (upright at rest, its front forward)
 for s in 'LR':
@@ -58,6 +66,14 @@ bpy.ops.object.vertex_group_normalize_all(lock_active=False)
 pb = arm.pose.bones
 for s in 'LR':
   c = pb['shin.' + s].constraints.new('IK'); c.target = arm; c.subtarget = 'ik.foot.' + s; c.chain_count = 2; c.use_stretch = False
+  c.pole_target = arm; c.pole_subtarget = 'pole.' + s
+  # the pole's angle depends on how the bones happen to be rolled: take the one that leaves the resting knee where it is
+  rest_knee = arm_d.bones['shin.' + s].head_local.copy(); best = None
+  for ang in (0, 90, 180, -90):
+    c.pole_angle = math.radians(ang); bpy.context.view_layer.update()
+    d = (pb['shin.' + s].head - rest_knee).length
+    if best is None or d < best[0]: best = (d, ang)
+  c.pole_angle = math.radians(best[1]); print('POLE', s, best[1], round(best[0], 4))
   c = pb['foot.' + s].constraints.new('COPY_ROTATION'); c.target = arm; c.subtarget = 'ik.foot.' + s
   c = pb['grip.' + s].constraints.new('COPY_ROTATION'); c.target = arm; c.subtarget = 'aim.' + s
   arm_d.bones['grip.' + s].use_deform = True    # so the export keeps it (it moves no skin)
@@ -104,7 +120,7 @@ class Pose:
   def foot(s, side, x=0, y=0, z=0, pitch=0, yaw=0):
     """where the ankle is (metres from where it stands at rest); pitch + lifts the heel, yaw + turns the toes out"""
     m = 1 if side == 'L' else -1
-    s.move('ik.foot.' + side, x * m, y, z); return s.rot('ik.foot.' + side, ('x', pitch), ('z', yaw * m))
+    s.move('ik.foot.' + side, (x - FEET_IN) * m, y, z); return s.rot('ik.foot.' + side, ('x', pitch), ('z', yaw * m))
 TWO_PI = 2 * math.pi
 def relaxed(p, sway=0):
   """arms hanging by the sides with soft elbows and the palms turned in (the model is built in an A-pose, palms forward)"""
@@ -118,6 +134,8 @@ TWIST = float(J.get('_palmTwist', 80))   # how far the arms turn to bring the pa
 # figure's arms by its sides; a stout one, or one in a thick coat, needs less or the hands sink into the body).
 # BACK tips the hanging arms backward (+) or forward (-).
 HANG = float(J.get('_armHang', 31)); BACK = float(J.get('_armBack', 3))
+# Tripo's figures stand with their feet a little wide; every pose brings each foot in by this much (metres)
+FEET_IN = float(J.get('_feetIn', .012))
 
 FPS = 30
 bpy.context.scene.render.fps = FPS
@@ -163,7 +181,7 @@ def idle(t, p=None):
     lag = math.sin(u - .5)
     p.arm(sd, 'upperarm', ('y', -1.6 * br + 1.2 * lag * m), ('x', 1.5 * math.sin(u * 2 - .6)))
     p.arm(sd, 'forearm', ('x', -2 - 2 * math.sin(u * 2 - 1.1)))
-  p.foot('L', yaw=7).foot('R', yaw=7)
+  p.foot('L', yaw=4).foot('R', yaw=4)
   return p
 key(idle, 4.0, 'idle', loop=True)
 I0 = lambda: idle(0)
@@ -205,8 +223,8 @@ def stance(p, t, yaw=0, lean=0, fwd=0, sink=0, step=.11, heel=0, tin=(.10, .34),
   ready = tr(t, [(tin[0], 0), (tin[1] - .12, 1), (tout[0] - .02, 1), (tout[1] + .1, 0)])
   sy = tr(t, [(tin[0], 0), (tin[1], step, 'io'), (tout[0], step), (tout[1], 0, 'io')])
   sz = .035 * math.sin(math.pi * tr(t, [(tin[0], 0), (tin[1], 1, 'lin')])) * (t < tin[1]) + .03 * math.sin(math.pi * tr(t, [(tout[0], 0), (tout[1], 1, 'lin')])) * (t > tout[0])
-  p.foot('L', y=-sy, z=sz, pitch=tr(t, [(tin[0], 0), (tin[0] + .1, 10), (tin[1], 0)]), yaw=7 - 5 * ready)
-  p.foot('R', pitch=24 * heel, z=.022 * heel, y=-.012 * heel, yaw=7 + 16 * ready)
+  p.foot('L', y=-sy, z=sz, pitch=tr(t, [(tin[0], 0), (tin[0] + .1, 10), (tin[1], 0)]), yaw=4 - 3 * ready)
+  p.foot('R', pitch=24 * heel, z=.022 * heel, y=-.012 * heel, yaw=4 + 9 * ready)
   p.move('hips', y=-.4 * step * ready + fwd, z=-.006 - .016 * ready - sink, x=-.01 * ready + side)
   p.rot('hips', ('z', .3 * yaw - 6 * ready), ('x', 2 * ready + .3 * lean))
   p.rot('spine', ('z', .3 * yaw), ('x', 3 * ready + .32 * lean)).rot('chest', ('z', .4 * yaw), ('x', .38 * lean))
@@ -308,9 +326,9 @@ def hit(t, big=1.0, back=True, fade=1.0):
     # the right foot is knocked back a step to catch the weight, and comes home once it is steady again
     sy = tr(t, [(.24, 0), (.42, .12, 'out'), (.8, .12), (1.12, 0, 'io')]) * big
     sz = .03 * (math.sin(math.pi * tr(t, [(.24, 0), (.42, 1, 'lin')])) * (t < .42) + math.sin(math.pi * tr(t, [(.8, 0), (1.12, 1, 'lin')])) * (t > .8)) * big
-    p.foot('R', y=sy, z=sz, pitch=tr(t, [(.24, 0), (.32, 14), (.42, 0), (.8, 0), (.95, 12), (1.12, 0)]) * big, yaw=7 + 8 * abs(k))
-    p.foot('L', yaw=7)
-  else: p.foot('L', yaw=7).foot('R', yaw=7)
+    p.foot('R', y=sy, z=sz, pitch=tr(t, [(.24, 0), (.32, 14), (.42, 0), (.8, 0), (.95, 12), (1.12, 0)]) * big, yaw=4 + 5 * abs(k))
+    p.foot('L', yaw=4)
+  else: p.foot('L', yaw=4).foot('R', yaw=4)
   return p
 key(hit, 1.3, 'hit')
 
@@ -403,7 +421,7 @@ def block(t):
   p.arm('L', 'upperarm', ('x', -64 * u + 8 * k), ('z', -30 * u)); p.arm('L', 'forearm', ('x', -104 * u - 8 * k))
   sy = tr(t, [(.33, 0), (.46, .07, 'out'), (.85, .07), (1.12, 0, 'io')])
   sz = .02 * (math.sin(math.pi * tr(t, [(.33, 0), (.46, 1, 'lin')])) * (t < .46) + math.sin(math.pi * tr(t, [(.85, 0), (1.12, 1, 'lin')])) * (t > .85))
-  p.foot('R', y=sy, z=sz, yaw=7 + 10 * u).foot('L', yaw=7)
+  p.foot('R', y=sy, z=sz, yaw=4 + 6 * u).foot('L', yaw=7)
   p.aim('R', pitch=lerp(100, 20, u), yaw=40 * u); return p
 key(block, 1.3, 'block')
 def dodge(t):
@@ -414,7 +432,7 @@ def dodge(t):
   for sd, m in (('L', 1), ('R', -1)):
     p.arm(sd, 'upperarm', ('y', -18 * d), ('x', (-16 if sd == 'R' else 10) * d)); p.arm(sd, 'forearm', ('x', -34 * d))
   sx = tr(t, [(.08, 0), (.28, .075, 'out'), (.7, .075), (1.0, 0, 'io')]); up = lambda a, b: math.sin(math.pi * tr(t, [(a, 0), (b, 1, 'lin')])) * (a < t < b)
-  p.foot('L', x=sx, y=.6 * sx, z=.028 * (up(.08, .28) + up(.7, 1.0)), yaw=7 + 10 * d).foot('R', yaw=7, pitch=10 * d, z=.008 * d)
+  p.foot('L', x=sx, y=.6 * sx, z=.028 * (up(.08, .28) + up(.7, 1.0)), yaw=4 + 6 * d).foot('R', yaw=4, pitch=10 * d, z=.008 * d)
   return p
 key(dodge, 1.3, 'dodge')
 bpy.context.scene.frame_set(1)
