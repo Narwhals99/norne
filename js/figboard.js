@@ -5,6 +5,7 @@
    Shown to everyone at the table since 2026-11-11 (before that only Jack and the GM), unless Profile > Figures in fights
    is turned off on that device (localStorage norne-figs); a device without 3D keeps the round tokens.
    Whose figure: a character's saved figure (c.fig), an NPC card's (n.fig) or the fighter's own random look (t.fig).
+   A look with an AI-made model (fig.model, js/aikit.js, since 2026-11-20) stands as that model instead of the toy figure.
    A fighter with none gets a look made from their id, so it is the same on every screen and a crowd isn't clones.
    How it is drawn: one WebGL canvas inside the board's camera layer (.cam), under the names, stress boxes and effects,
    so it zooms with the attack camera. The tokens stay where they are (they are still what you tap and drag); each
@@ -173,7 +174,8 @@ function pump(S){
     if (!job) { S.pumping = false; if (S.built) { S.built = false; N.render(S.v); } return; }
     const [F, w] = job;
     if (F.want !== w.key || S.figs.get(F.id) !== F) { next(); return; }
-    kit.K.loadHair(w.spec.hair).catch(() => {}).then(() => {
+    /* the hairstyle and, for a look with one, its AI-made model (js/aikit.js); without the model the toy figure stands in */
+    kit.K.loadFor(w.spec).catch(() => {}).then(() => {
       if (S.dead) return;
       if (F.want === w.key && S.figs.get(F.id) === F) { build(S, F, w); S.built = true; }
       setTimeout(next, 0);

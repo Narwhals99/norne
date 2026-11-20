@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI model check</title>
+<style>
+  body{margin:0;background:#0d1030;color:#efecff;font:600 14px/1.4 system-ui,sans-serif}
+  #bar{display:flex;flex-wrap:wrap;gap:6px;padding:10px}
+  button,select{min-height:36px;padding:0 12px;border:0;border-radius:10px;background:#262b6a;color:#efecff;font:inherit}
+  button[aria-pressed=true]{background:#f4c46e;color:#341f06}
+  canvas{display:block;width:100vw;height:calc(100vh - 60px)}
+</style></head>
+<body>
+<!-- A check for a new AI model (js/aikit.js) before it goes in a fight: it stands next to the toy figure of the same look,
+     on the same base, and plays each of the fight board's moves. Serve the repo (python -m http.server) and open
+     /tools/aimodel/preview.html?model=<id>&t=<ms> (t freezes the move at that time, for screenshots). -->
+<div id="bar"></div><canvas id="cv"></canvas>
+<script type="module">
+import * as THREE from '../../vendor/three.module.min.js';
+import {makeKit} from '../../js/figkit.js';
+const K = makeKit(THREE), q = new URLSearchParams(location.search);
+const id = q.get('model') || K.MODELS[0].id, freeze = q.has('t') ? +q.get('t') : null;
+let move = q.get('move') || 'idle', t0 = performance.now();
+const cv = document.getElementById('cv'), r = new THREE.WebGLRenderer({canvas:cv, antialias:true});
+r.outputColorSpace = THREE.SRGBColorSpace; r.setClearColor(0x1a1e4d);
+const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(28, 1, 1, 5000);
+scene.add(new THREE.HemisphereLight(0xfff0dc, 0x40386a, 1.9));
+const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(-300, 700, 600); scene.add(sun);
+const spec = Object.assign(K.defaultSpec(q.get('race') || 'Elf', 'm'), {model:id});
+await K.loadFor(spec);
+const toy = K.buildFigure(spec, {noModel:true}), ai = K.buildFigure(spec);
+toy.root.position.x = -32; ai.root.position.x = 32; scene.add(toy.root, ai.root);
+window.rigs = {toy, ai};
+const bar = document.getElementById('bar');
+bar.innerHTML = ['idle', 'walk', 'sword', 'bow', 'magic', 'hit', 'block', 'dodge', 'down'].map(m => `<button data-m="${m}" aria-pressed="${m === move}">${m}</button>`).join('');
+bar.onclick = e => { const b = e.target.closest('[data-m]'); if (!b) return; move = b.dataset.m; t0 = performance.now(); bar.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); };
+function size(){ const W = cv.clientWidth, H = cv.clientHeight; r.setPixelRatio(devicePixelRatio); r.setSize(W, H, false); cam.aspect = W / H; cam.updateProjectionMatrix();
+  const h = Math.max(toy.h, ai.h) + 10, d = h * 1.1 / Math.tan(THREE.MathUtils.degToRad(14)) / Math.min(1, cam.aspect * 1.1); cam.position.set(0, h * .55 + d * .22, d); cam.lookAt(0, h * .45, 0); }
+addEventListener('resize', size); size();
+function tick(now){ requestAnimationFrame(tick); const t = freeze != null ? freeze : now - t0;
+  for (const g of [toy, ai]) { K.animate(g, move, t); g.root.rotation.y = .45; }
+  r.render(scene, cam); }
+requestAnimationFrame(tick);
+document.title = 'AI model check: ' + id; window.ready = true;
+</script>
+</body></html>

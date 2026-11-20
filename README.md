@@ -21,6 +21,8 @@ It runs on GitHub Pages and keeps everything in Firebase (Google sign-in + Fires
 - `js/figures.js` is the toy figure maker test (one account only, from Character > Figure or Profile): it loads
   `vendor/three.module.min.js` (three.js r160) and `js/figkit.js` (the figures, built from shapes in code) only when opened.
   Nothing is saved to Firestore yet and fights are unchanged.
+- `js/aikit.js` swaps a figure for an AI-made model (Tripo, cleaned up and rigged by the Blender scripts in `tools/aimodel/`)
+  when its look names one; the models are `models/*.glb`, loaded with three.js's glTF loader (`vendor/three-addons/`).
 - `vendor/firebase.js` is the Firebase SDK (13.0.0) bundled into one file; `vendor/firebase-entry.js` lists what it exports and how to rebuild it.
 - Each device keeps a copy of the campaign (Firestore's offline cache), so a start shows that copy at once and only fetches what changed.
   Nothing but chat messages is saved until the server has answered every read, so an old copy never overwrites newer work. Signing out deletes the copy.
