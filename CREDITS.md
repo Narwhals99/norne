@@ -16,6 +16,7 @@ Everything in `art/` and `img/` is free to use. Some licenses ask for credit, so
 | Paper, pencil frames, charcoal and pastel blocks, hatching (`art/ui/sketch/`) | Sketchbook style | Made for Norne (generated in greys, no outside art) |
 | Flowers, sparkles, hearts, bow and the backdrop pattern (`art/ui/gerleez/`), from [Twemoji](https://github.com/jdecked/twemoji) by Twitter and contributors, recoloured to the palette | 4-the-gerleez style | CC BY 4.0 |
 | [three.js](https://threejs.org/) r160 (`vendor/three.module.min.js`), by the three.js authors | 3D toy figures in the figure maker test | MIT |
+| three.js r160 add-ons GLTFLoader, SkeletonUtils, BufferGeometryUtils (`vendor/three-addons/`), by the three.js authors | Loading AI-made figure models | MIT |
 | Toy figures (`js/figkit.js`) | Figure maker test | Made for Norne (built from shapes in code, no outside art), except the hair below |
 | Animal and monster figures (`js/beastkit.js`) | Figure maker and fight board | Made for Norne (built from shapes in code, no outside art) |
 | Weapons the figures hold (`js/armory.js`) | Figure maker and fight board | Made for Norne (built from shapes in code, no outside art) |

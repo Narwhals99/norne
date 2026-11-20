@@ -118,6 +118,7 @@ const HTML = `
       <label class="wpn" data-r="wpnRow"><span>Try a weapon</span><select data-r="wpn" aria-label="Weapon to try"></select></label>
       <div class="bar" data-r="views" role="group" aria-label="View">
         <button type="button" class="chip" data-v="one" aria-pressed="true">My figure</button>
+        <button type="button" class="chip" data-v="ai" aria-pressed="false" hidden>AI model</button>
         <button type="button" class="chip" data-v="all" aria-pressed="false">Every race's default</button>
         <button type="button" class="chip" data-v="beasts" aria-pressed="false">Every animal</button>
       </div>
@@ -258,11 +259,13 @@ function start(box, THREE, K){
   const sun = new THREE.DirectionalLight(0xffffff, 2.5); sun.position.set(-300, 700, 600); scene.add(sun);
 
   const ANIM_NAMES = [['idle', 'Stand'], ['walk', 'Walk'], ['sword', 'Attack'], ['bow', 'Shoot'], ['magic', 'Magic'], ['hit', 'Hit'], ['block', 'Block'], ['dodge', 'Dodge'], ['down', 'Knocked down']];
-  let spec = null, rig = null, all = [], view = 'one', tab = 'body', anim = 'idle', wpn = '', t0 = performance.now(), spin = .35, frozen = null, running = true;
+  let spec = null, rig = null, aiRig = null, all = [], view = 'one', tab = 'body', anim = 'idle', wpn = '', t0 = performance.now(), spin = .35, frozen = null, running = true;
   /* whose figure this is (targetOf); with none (the GM from Profile) there is nothing to save */
   const T = openT, mine = () => T ? T.get() : null, who = mine(), cname = T ? T.name : '', pc = T && T.kind === 'pc';
   const DRAFT = 'norne-fig-test', copy = s => JSON.parse(JSON.stringify(s));
-  const fix = s => { if (!K.okSpec(s)) return null; const o = K.faceFix(copy(s)); o.hair = K.hairId(o.hair || 'bald'); return o; };
+  /* the AI model made for this character, if there is one (js/aikit.js): theirs unless the figure says model:'none' */
+  const own = who ? K.modelFor(who.name, who.short) : null;
+  const fix = s => { if (!K.okSpec(s)) return null; const o = K.faceFix(copy(s)); o.hair = K.hairId(o.hair || 'bald'); if (own && o.model == null && !o.beast) o.model = own; return o; };
   const canon = s => s ? JSON.stringify(Object.keys(s).sort().map(k => [k, s[k]])) : '';
   const race0 = K.RACE_LIST.find(r => r.toLowerCase() === String(T && T.race || '').trim().toLowerCase()) || 'Human';
   /* only a player's own figure keeps a draft on the device; NPCs and fighters start from what is saved on them */
@@ -272,7 +275,7 @@ function start(box, THREE, K){
   else if (draft && (!draft.char || (who && draft.char === who.id))) spec = fix(draft.spec);
   const notGm = !(openV && openV.role === 'gm'), beast0 = notGm ? null : K.beastOf(T && T.race);
   if (spec && spec.beast && notGm) spec = null;
-  if (!spec) spec = beast0 ? K.beastSpec(beast0) : K.defaultSpec(race0, 'm');
+  if (!spec) { spec = beast0 ? K.beastSpec(beast0) : K.defaultSpec(race0, 'm'); if (own && !spec.beast) spec.model = own; }
   const saveDraft = () => { if (T && !pc) return; try { const c = mine(); localStorage.setItem(DRAFT, JSON.stringify({spec, char:c ? c.id : null, base:c && c.figAt || 0})); } catch (e) {} };
   const savedNow = () => { const c = mine(); return c && c.fig ? fix(c.fig) : null; };
   const dirty = () => canon(spec) !== canon(savedNow());
@@ -313,12 +316,18 @@ function start(box, THREE, K){
   const toast = msg => { $('toast').textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => { $('toast').textContent = ''; }, 2600); };
   function rebuild(){
     const my = ++want; saveDraft(); mark();
-    return ready = K.loadHair(spec.hair).catch(() => { toast('That hairstyle could not load. Check the connection and pick it again.'); }).then(() => {
+    return ready = K.loadFor(spec).catch(() => { toast('That hairstyle could not load. Check the connection and pick it again.'); }).then(() => {
       if (my !== want || !running) return;
       if (rig) { scene.remove(rig.root); K.dispose(rig); }
-      rig = K.buildFigure(spec, {fine:true}); K.addFx(scene, rig); scene.add(rig.root);
+      rig = K.buildFigure(spec, {fine:true, noModel:true}); K.addFx(scene, rig); scene.add(rig.root);
       K.hold(rig, wpnLook()); $('wpnRow').hidden = !!spec.beast;
-      rig.root.visible = view === 'one';
+      /* the AI model made from this look (js/aikit.js), shown under AI model; it is what stands in fights */
+      if (aiRig) { scene.remove(aiRig.root); K.dispose(aiRig); aiRig = null; }
+      if (spec.model && !spec.beast && K.modelReady(spec.model)) { aiRig = K.buildFigure(spec); scene.add(aiRig.root); K.hold(aiRig, wpnLook()); }
+      else if (K.isModel(spec.model) && !spec.beast) toast('The AI model could not load. Check the connection and pick it again.');
+      $('views').querySelector('[data-v="ai"]').hidden = !aiRig;
+      if (view === 'ai' && !aiRig) { setView('one'); return; }
+      rig.root.visible = view === 'one'; if (aiRig) aiRig.root.visible = view === 'ai';
       frame();
     });
   }
@@ -335,18 +344,19 @@ function start(box, THREE, K){
   function layoutAll(){
     const W = stage.clientWidth, cols = W < 560 ? 4 : 8, gap = allKind === 'beasts' ? 72 : 62, rows = Math.ceil(all.length / cols);
     all.forEach((r, i) => { const c = i % cols, ro = Math.floor(i / cols);
-      r.root.position.set((c - (cols - 1) / 2) * gap, 0, (ro - (rows - 1) / 2) * ZG); r.root.rotation.y = allKind === 'beasts' ? .75 : 0; r.root.visible = view !== 'one'; });
-    labels.innerHTML = view !== 'one' ? all.map(r => `<span>${esc(r.race)}</span>`).join('') : '';
+      r.root.position.set((c - (cols - 1) / 2) * gap, 0, (ro - (rows - 1) / 2) * ZG); r.root.rotation.y = allKind === 'beasts' ? .75 : 0; r.root.visible = view === 'all' || view === 'beasts'; });
+    labels.innerHTML = view === 'all' || view === 'beasts' ? all.map(r => `<span>${esc(r.race)}</span>`).join('') : '';
     frame();
   }
   function frame(){
     const W = stage.clientWidth, H = stage.clientHeight; if (!W || !H) return;
     renderer.setSize(W, H, false);
     camera.aspect = W / H;
-    if (view === 'one') {
-      const h = rig ? Math.max(rig.h, (rig.len || 0) * (rig.beast ? .9 : .62)) + 8 : 90, tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+    if (view === 'one' || view === 'ai') {
+      const fr = view === 'ai' && aiRig ? aiRig : rig;
+      const h = fr ? Math.max(fr.h, (fr.len || 0) * (fr.beast ? .9 : .62)) + 8 : 90, tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
       let d = (h * .62) / tan; if (camera.aspect < .8) d /= camera.aspect / .8;
-      const hy = rig ? Math.min(h, rig.h + 8) : h; camera.position.set(0, hy * .5 + d * .22, d); camera.lookAt(0, hy * .44, 0);
+      const hy = fr ? Math.min(h, fr.h + 8) : h; camera.position.set(0, hy * .5 + d * .22, d); camera.lookAt(0, hy * .44, 0);
     } else {
       const cols = W < 560 ? 4 : 8, rows = Math.ceil(all.length / cols), A = THREE.MathUtils.degToRad(22);
       const needW = cols * (allKind === 'beasts' ? 72 : 62) + 24, needH = (rows - 1) * ZG * Math.sin(A) + 118;
@@ -362,20 +372,21 @@ function start(box, THREE, K){
     requestAnimationFrame(tick);
     if (document.hidden) return;
     const t = frozen != null ? frozen : now - t0;
-    if (view === 'one' && rig) {
-      K.animate(rig, anim, t);
-      rig.root.rotation.y = spin + (['sword', 'bow', 'magic'].includes(anim) ? .55 : 0);
-    } else {
+    const shown = view === 'ai' ? aiRig : view === 'one' ? rig : null;
+    if (shown) {
+      K.animate(shown, anim, t);
+      shown.root.rotation.y = spin + (['sword', 'bow', 'magic'].includes(anim) ? .55 : 0);
+    } else if (view !== 'one' && view !== 'ai') {
       all.forEach(r => K.animate(r, anim, t + r.root.position.x * 3));
       const W = stage.clientWidth, H = stage.clientHeight, sp = labels.children;
       all.forEach((r, i) => { if (!sp[i]) return; v3.set(r.root.position.x, 0, r.root.position.z + (allKind === 'beasts' ? 31 : 24)).project(ortho);
         sp[i].style.left = ((v3.x + 1) / 2 * W).toFixed(1) + 'px'; sp[i].style.top = ((1 - v3.y) / 2 * H + 2).toFixed(1) + 'px'; });
     }
-    renderer.render(scene, view !== 'one' ? ortho : camera);
+    renderer.render(scene, view === 'all' || view === 'beasts' ? ortho : camera);
   }
   /* drag sideways to turn the figure; up and down still scroll the page */
   let drag = null;
-  stage.addEventListener('pointerdown', e => { if (view !== 'one') return; drag = {x:e.clientX, s:spin}; try { stage.setPointerCapture(e.pointerId); } catch (x) {} stage.style.cursor = 'grabbing'; });
+  stage.addEventListener('pointerdown', e => { if (view !== 'one' && view !== 'ai') return; drag = {x:e.clientX, s:spin}; try { stage.setPointerCapture(e.pointerId); } catch (x) {} stage.style.cursor = 'grabbing'; });
   stage.addEventListener('pointermove', e => { if (drag) spin = drag.s + (e.clientX - drag.x) * .012; });
   const endDrag = () => { drag = null; stage.style.cursor = ''; };
   stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', endDrag);
@@ -407,6 +418,15 @@ function start(box, THREE, K){
     }
     if (tab === 'body') {
       grp('Race', spec.race, K.RACE_LIST.map(x => opt(x, x, x === spec.race, 'race')).join(''));
+      /* an AI-made model of this look (js/aikit.js): in fights the figure stands as it */
+      /* a model made for one character is only offered for that character */
+      const models = K.MODELS.filter(m => !m.who || m.id === own || m.id === spec.model);
+      if (models.length) {
+        const mo = models.find(m => m.id === spec.model);
+        grp('AI model', mo ? mo.n : 'None', opt('', 'None', !mo, 'model') + models.map(m => opt(m.id, m.n, m === mo, 'model')).join(''));
+        o.push(`<p class="note">${mo ? `<b>In fights this figure stands as the ${esc(mo.n)} model.</b> See it under <b>AI model</b> below the picture. The look you build here is what it was made from, and shows if the model can’t load.`
+          : 'An AI model is made from a look built here (picture, then Tripo, then Blender). Pick one to stand as it in fights.'}</p>`);
+      }
       grp('Body shape', '', opt('f', 'Female', spec.body === 'f', 'body') + opt('m', 'Male', spec.body === 'm', 'body'));
       grp(spec.race === 'Human' ? 'People' : r.beast === 'bird' ? 'Feathers' : r.beast ? 'Skin, scales or fur' : 'Skin', r.skins[spec.skin].n, r.skins.map((s, i) => sw(i, s.n, s.c, i === +spec.skin, 'skin')).join(''), 'sws');
       if (spec.race === 'Human') o.push(`<p class="note">Picking a people also sets the hair and eye colour the lore gives them. You can still change both.</p>`);
@@ -452,11 +472,12 @@ function start(box, THREE, K){
     const k = b.dataset.k, val = b.dataset.v;
     if (k === 'beast') spec = K.beastSpec(val);
     else if (k === 'coat') spec = K.beastSpec(spec.beast, +val);
-    else if (k === 'race') spec = K.defaultSpec(val, spec.body || 'm');
+    else if (k === 'race') { const mo = spec.model; spec = K.defaultSpec(val, spec.body || 'm'); if (mo) spec.model = mo; }
     else if (k === 'body') { spec.body = val; if (val === 'f') spec.beard = 'none'; }
     else if (k === 'skin') { spec.skin = +val; const p = R().skins[+val]; if (p.eye) spec.eyes = p.eye; if (p.hair) spec.hairCol = p.hair; }
     else if (k === 'outfit') { spec.outfit = val; spec.cloth = K.pick(K.OUTFITS, val)[2].cloth; delete spec.hood; }
     else if (k === 'len') spec.len = +val;
+    else if (k === 'model') { if (val) spec.model = val; else if (own) spec.model = 'none'; else delete spec.model; if (val) setView('ai'); }
     else if (k === 'mark') { const m = new Set(spec.marks || []); m.has(val) ? m.delete(val) : m.add(val); spec.marks = K.MARKS.map(x => x[0]).filter(x => m.has(x)); }
     else spec[k] = val;
     rebuild(); opts();
@@ -468,7 +489,7 @@ function start(box, THREE, K){
     rebuild(); opts(); });
   $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-t]'); if (!b) return; tab = b.dataset.t; opts(); });
   $('reset').addEventListener('click', () => { if (spec.beast) { spec = K.beastSpec(spec.beast); rebuild(); opts(); toast(`Back to the first ${K.BEASTS[spec.beast].n.toLowerCase()} coat`); return; }
-    spec = K.defaultSpec(spec.race, spec.body); rebuild(); opts(); toast(`Back to the ${spec.race} default`); });
+    const mo = spec.model; spec = K.defaultSpec(spec.race, spec.body); if (mo) spec.model = mo; rebuild(); opts(); toast(`Back to the ${spec.race} default`); });
   const animBar = $('anims');
   animBar.innerHTML = ANIM_NAMES.map(([id, n]) => `<button type="button" class="chip" data-a="${id}" aria-pressed="${id === anim}">${n}</button>`).join('');
   const markAnim = () => animBar.querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.a === anim)));
@@ -477,20 +498,20 @@ function start(box, THREE, K){
   const wpnLook = () => !wpn ? null : wpn === '2' ? {w:'dagger', o:{w:'dagger', m:'obsidian'}} : {w:wpn};
   const wpnSel = $('wpn');
   wpnSel.innerHTML = '<option value="">Plain sword and bow</option>' + K.WEAPON_LIST.filter(id => id !== 'sword').map(id => `<option value="${id}">${K.WEAPONS[id].n}</option>`).join('') + '<option value="2">Two daggers</option>';
-  wpnSel.addEventListener('change', () => { wpn = wpnSel.value; if (rig) K.hold(rig, wpnLook());
+  wpnSel.addEventListener('change', () => { wpn = wpnSel.value; if (rig) K.hold(rig, wpnLook()); if (aiRig) K.hold(aiRig, wpnLook());
     if (wpn) anim = wpn === '2' || K.WEAPONS[wpn].cat === 'melee' ? 'sword' : 'bow'; t0 = performance.now(); frozen = null; markAnim(); });
   $('views').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) setView(b.dataset.v); });
   function setView(w){
     view = w;
     $('views').querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', String(c.dataset.v === w)));
-    const many = w !== 'one'; stage.classList.toggle('all', many);
-    $('tag').textContent = w === 'all' ? 'Every race, default look' : w === 'beasts' ? 'Every animal and monster' : tagText; $('spin').hidden = many;
+    const many = w === 'all' || w === 'beasts'; stage.classList.toggle('all', many);
+    $('tag').textContent = w === 'all' ? 'Every race, default look' : w === 'beasts' ? 'Every animal and monster' : w === 'ai' ? tagText + ' · AI model' : tagText; $('spin').hidden = many;
     if (many && allKind !== w) { all.forEach(r => { scene.remove(r.root); K.dispose(r); }); all = []; labels.innerHTML = ''; buildAll(w); }
-    if (rig) rig.root.visible = !many; all.forEach(r => { r.root.visible = many; });
+    if (rig) rig.root.visible = w === 'one'; if (aiRig) aiRig.root.visible = w === 'ai'; all.forEach(r => { r.root.visible = many; });
     requestAnimationFrame(() => { layoutAll(); frame(); });
   }
   const bar = box.querySelector('.fx-bar'), barH = () => box.style.setProperty('--barh', bar.offsetHeight + 'px');
-  const ro = new ResizeObserver(() => { barH(); if (view !== 'one') layoutAll(); else frame(); }); ro.observe(stage); ro.observe(bar); barH();
+  const ro = new ResizeObserver(() => { barH(); if (view === 'all' || view === 'beasts') layoutAll(); else frame(); }); ro.observe(stage); ro.observe(bar); barH();
   rebuild(); opts(); requestAnimationFrame(tick);
   /* test hook for screenshots: set a look, freeze a move */
   N.figTest = {dirty, set(s, o){ spec = s.beast ? K.beastSpec(s.beast, s.skin || 0) : Object.assign(K.defaultSpec(s.race || spec.race, s.body || spec.body || 'm'), s); const p = rebuild(); if (o && o.tab) tab = o.tab; opts(); return p; }, ready:() => ready,
@@ -498,6 +519,7 @@ function start(box, THREE, K){
   return () => {
     running = false; ro.disconnect(); N.figTest = null;
     if (rig) { scene.remove(rig.root); K.dispose(rig); rig = null; }
+    if (aiRig) { scene.remove(aiRig.root); K.dispose(aiRig); aiRig = null; }
     all.forEach(r => { scene.remove(r.root); K.dispose(r); }); all = [];
     renderer.dispose(); try { renderer.forceContextLoss(); } catch (e) {}
   };

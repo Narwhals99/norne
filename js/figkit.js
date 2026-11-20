@@ -3,8 +3,10 @@
    A spec is small JSON {race, body, skin, eyes, hair, hairCol, beard, outfit, cloth, hood?, len?} plus the head's parts
    {headSize, headShape, jaw, eyeShape, eyeSize, brows, nose, mouth, expr, marks[]} (faceFix fills any left out).
    (len 0..1 = Short / Medium / Long, see HAIR_LEN). Load the hairstyle first (loadHair(spec.hair)), then build.
+   spec.model ('<id>', js/aikit.js) swaps the figure for an AI-made model once that has loaded (loadFor(spec) loads both).
    Loaded as a module by js/figures.js, only when the maker opens. */
 import {makeBeasts} from './beastkit.js';
+import {makeAI, isModel, modelFor} from './aikit.js';
 import {makeArmory} from './armory.js';
 export function makeKit(THREE){
 const V3 = THREE.Vector3, TAU = Math.PI * 2, PI = Math.PI, DEG = PI / 180;
@@ -849,7 +851,18 @@ function boltMesh(){
 }
 
 /* ---------- the figure ---------- */
+/* the round base a figure stands on: its shadow, the coloured disc, the gold rim and the ring that shows whose turn it is */
+function addBase(root, rig, opt, baseR = 21){
+  const sh = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), new THREE.MeshBasicMaterial({map:SHADOW, transparent:true, depthWrite:false}));
+  sh.rotation.x = -PI / 2; sh.position.y = .3; root.add(sh);
+  root.add(at(inked(new THREE.CylinderGeometry(baseR, baseR + 1.5, 6, 40), toon(opt.baseColor || 0x2a2f55), .8), 0, 3, 0));
+  root.add(at(rot(new THREE.Mesh(new THREE.TorusGeometry(baseR + .3, 1.2, 8, 48), toon(0xf4c46e)), PI / 2, 0, 0), 0, 6, 0));
+  const ring = rot(new THREE.Mesh(new THREE.TorusGeometry(baseR + 7, 1.8, 6, 40), new THREE.MeshBasicMaterial({color:0xf4c46e})), PI / 2, 0, 0);
+  ring.position.y = 1; ring.visible = false; root.add(ring); rig.ring = ring;
+}
+/* opt.noModel: the maker's own figure even when the look has an AI model */
 function buildFigure(spec, opt = {}){
+  if (spec.model && !opt.noModel && !spec.beast && AI.ready(spec.model)) return AI.build(spec, opt);
   if (spec.beast) return BK.build(spec, opt, API);
   const R = RACES[spec.race] || RACES.Human;
   const fem = spec.body === 'f', H = R.h, Wd = R.w, D = .76;
@@ -858,15 +871,7 @@ function buildFigure(spec, opt = {}){
   const MM = (hex, map) => { const m = new THREE.MeshMatcapMaterial({matcap:metalCap(hex), map:map || null}); m.userData.base = m.color.clone(); mats.push(m); return m; };
   const mSkin = M(skinHex), mHair = M(hairHex), coatM = R.coat ? mHair : mSkin;
   const root = new THREE.Group(), rig = {root, spec, mats, fx:{}};
-  if (opt.base !== false) {
-    const sh = new THREE.Mesh(new THREE.PlaneGeometry(70, 70), new THREE.MeshBasicMaterial({map:SHADOW, transparent:true, depthWrite:false}));
-    sh.rotation.x = -PI / 2; sh.position.y = .3; root.add(sh);
-    const baseR = R.lower === 'horse' ? 25 : 21;
-    root.add(at(inked(new THREE.CylinderGeometry(baseR, baseR + 1.5, 6, 40), toon(opt.baseColor || 0x2a2f55), .8), 0, 3, 0));
-    root.add(at(rot(new THREE.Mesh(new THREE.TorusGeometry(baseR + .3, 1.2, 8, 48), toon(0xf4c46e)), PI / 2, 0, 0), 0, 6, 0));
-    const ring = rot(new THREE.Mesh(new THREE.TorusGeometry(baseR + 7, 1.8, 6, 40), new THREE.MeshBasicMaterial({color:0xf4c46e})), PI / 2, 0, 0);
-    ring.position.y = 1; ring.visible = false; root.add(ring); rig.ring = ring;
-  }
+  if (opt.base !== false) addBase(root, rig, opt, R.lower === 'horse' ? 25 : 21);
   const body = new THREE.Group(); body.position.y = 6; root.add(body); rig.body = body;
 
   /* torso shape: a lathe profile, plus a bust or a breastplate keel, so clothes can follow it */
@@ -1701,7 +1706,7 @@ function rest(rig){
 }
 const _fc = new THREE.Color();
 function flash(rig, k, hex){ _fc.setHex(hex); rig.mats.forEach(m => { if (m.emissive) m.emissive.setHex(hex).multiplyScalar(k * .7); else if (m.userData.base) m.color.copy(m.userData.base).lerp(_fc, k * .55); }); }
-function animate(rig, name, t){ if (rig.beast) return BK.pose(rig, name, t); pose(rig, name, t); faceFor(rig, name === 'hit' || name === 'down' ? 'hurt' : null); softHair(rig); }
+function animate(rig, name, t){ if (rig.ai) return AI.animate(rig, name, t); if (rig.beast) return BK.pose(rig, name, t); pose(rig, name, t); faceFor(rig, name === 'hit' || name === 'down' ? 'hurt' : null); softHair(rig); }
 /* the face sheet's picture for a move (made the first time it is needed) */
 function faceFor(rig, expr){
   const F=rig.faceParts; if(!F) return;
@@ -1797,6 +1802,7 @@ function softHair(rig){
       for (const [G, list] of g.refs) { const P = G.geo.attributes.position.array; for (const i of list) { P[i * 3] += dx; P[i * 3 + 1] += dy; P[i * 3 + 2] += dz; } G.dirty = true; } } }
 }
 function pose(rig, name, t){
+  if (rig.ai) return AI.pose(rig, name, t);
   if (rig.beast) return BK.pose(rig, name, t);
   rest(rig);
   const {body, torso, head, armL, armR, legs} = rig, D = ANIMS[name] || 2000, u = (t % D) / D, ms = t % D;
@@ -1880,6 +1886,7 @@ function addFx(scene, rig){
   Object.values(rig.fx).forEach(o => { o.visible = false; rig.root.add(o); });
 }
 function dispose(rig){
+  if (rig.ai) return AI.dispose(rig);
   const seen = new Set();
   rig.root.traverse(o => { if (o.geometry && !seen.has(o.geometry)) { seen.add(o.geometry); o.geometry.dispose(); }
     if (o.material && o.material !== INK) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (seen.has(m)) return; seen.add(m);
@@ -1895,11 +1902,19 @@ function dispose(rig){
 const BK = makeBeasts(THREE, {inked, toon, tube, at, rot, SHADOW, GLOW, mix, shade, canvas, ctex, metalCap, merge});
 /* the weapons the figures hold (js/armory.js) */
 const AR = makeArmory(THREE, {inked, toon, at, rot});
+/* AI-made models (js/aikit.js): as tall as the toy figure of the look's race would be (a Human's is HUMAN_H, less the 6 its base adds) */
+let HUMAN_H = 0;
+const figH = spec => { if (!HUMAN_H) { const r = buildFigure(defaultSpec('Human', 'm'), {base:false}); HUMAN_H = r.h; dispose(r); }
+  return (HUMAN_H - 6) * ((RACES[spec.race] || RACES.Human).h); };
+const AI = makeAI(THREE, {addBase, sword, figH, INK});
+/* everything a look needs before it can be built: its hairstyle and, with one, its AI model (null if that can't load) */
+const loadFor = spec => Promise.all([loadHair(spec && spec.hair), spec && isModel(spec.model) && !spec.beast ? AI.load(spec.model).catch(() => null) : null]);
 /* a look figkit can build: a person of a known race, or a known beast */
 const okSpec = s => !!(s && (s.beast ? BK.isBeast(s) : RACES[s.race]));
 const API = {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS, randomSpec,
   defaultSpec, faceFix, buildFigure, animate, pose, flash, addFx, dispose, faceIcon, ANIMS, pick, hoodOf, loadHair, hairId, setHairBase,
   WEAPONS:AR.W, WEAPON_LIST:AR.LIST, METALS:AR.METALS, WOODS:AR.WOODS, hold:AR.hold, okWeapon:AR.okLook, offWeapon:AR.offOk, DUAL_MOVES:AR.DUAL,
+  MODELS:AI.MODELS, isModel, modelFor, loadFor, loadModel:AI.load, modelReady:AI.ready,
   BEASTS:BK.BEASTS, BEAST_LIST:BK.LIST, beastOf:BK.beastOf, beastSpec:BK.defaultSpec, isBeast:BK.isBeast, okSpec};
 return API;
 }
