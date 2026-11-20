@@ -109,11 +109,15 @@ TWO_PI = 2 * math.pi
 def relaxed(p, sway=0):
   """arms hanging by the sides with soft elbows and the palms turned in (the model is built in an A-pose, palms forward)"""
   for sd in 'LR':
-    p.arm(sd, 'upperarm', ('y', 31), ('x', 3), ('t', TWIST * .4))
+    p.arm(sd, 'upperarm', ('y', HANG), ('x', BACK), ('t', TWIST * .4))
     p.arm(sd, 'forearm', ('x', -14), ('t', TWIST * .6))
     p.arm(sd, 'hand', ('y', 6), ('x', -6))
   return p
 TWIST = float(J.get('_palmTwist', 80))   # how far the arms turn to bring the palms in
+# how the arms hang: the model stands in an A-pose, and HANG brings each arm in by that many degrees (31 puts a slim
+# figure's arms by its sides; a stout one, or one in a thick coat, needs less or the hands sink into the body).
+# BACK tips the hanging arms backward (+) or forward (-).
+HANG = float(J.get('_armHang', 31)); BACK = float(J.get('_armBack', 3))
 
 FPS = 30
 bpy.context.scene.render.fps = FPS
@@ -194,7 +198,7 @@ def hang(p, t, sides='LR', t0=.12, t1=.4, t2=1.3, t3=1.62):
   """the arms as in idle; the ones named in `sides` let go of that pose while they work"""
   for sd in 'LR':
     k = 1 - tr(t, [(t0, 0), (t1, 1), (t2, 1), (t3, 0)]) if sd in sides else 1
-    p.arm(sd, 'upperarm', ('y', 31), ('x', 3 * k), ('t', TWIST * .4)); p.arm(sd, 'forearm', ('x', -14 * k), ('t', TWIST * .6)); p.arm(sd, 'hand', ('y', 6), ('x', -6 * k))
+    p.arm(sd, 'upperarm', ('y', HANG), ('x', BACK * k), ('t', TWIST * .4)); p.arm(sd, 'forearm', ('x', -14 * k), ('t', TWIST * .6)); p.arm(sd, 'hand', ('y', 6), ('x', -6 * k))
 def stance(p, t, yaw=0, lean=0, fwd=0, sink=0, step=.11, heel=0, tin=(.10, .34), tout=(1.24, 1.52), side=0):
   """feet and body for an attack: the left foot steps in and later back, the hips carry the weight (fwd in metres,
   + is back), the turn and the lean are spread up the spine, and the head keeps looking at the target"""
@@ -295,7 +299,7 @@ def hit(t, big=1.0, back=True, fade=1.0):
   kh = tr(t, [(.23, 0), (.34, 1, 'snap'), (.56, .5, 'io'), (.84, -.15, 'io'), (1.1, .03), (1.3, 0)]) * big * fade    # the head a beat later
   ka = tr(t, [(.22, 0), (.36, 1, 'out'), (.62, .55, 'io'), (.95, -.08, 'io'), (1.3, 0)]) * big * fade                # the arms later still
   for sd in 'LR':
-    p.arm(sd, 'upperarm', ('y', 31 - 20 * ka), ('x', 3 - 14 * ka), ('t', TWIST * .4)); p.arm(sd, 'forearm', ('x', -14 - 30 * ka), ('t', TWIST * .6)); p.arm(sd, 'hand', ('y', 6), ('x', -6 - 14 * ka))
+    p.arm(sd, 'upperarm', ('y', HANG - 20 * ka), ('x', BACK - 14 * ka), ('t', TWIST * .4)); p.arm(sd, 'forearm', ('x', -14 - 30 * ka), ('t', TWIST * .6)); p.arm(sd, 'hand', ('y', 6), ('x', -6 - 14 * ka))
   p.arm('L', 'upperarm', ('x', -10 * ka)); p.arm('R', 'upperarm', ('x', 12 * ka))
   p.move('hips', y=.07 * k, z=-.006 - .03 * abs(k), x=.012 * k).rot('hips', ('x', -7 * k), ('z', 9 * k))
   p.rot('spine', ('x', -10 * k), ('z', 5 * k)).rot('chest', ('x', -14 * k), ('z', 8 * k), ('y', 4 * k))

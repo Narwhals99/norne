@@ -54,6 +54,8 @@ The moves are written a frame at a time from timing curves in `rig.py`, the same
 planted (the legs reach for a handle at each ankle, baked into plain bone turns on export), the arm follows the body
 a beat late, and the cape swings on a spring. Leave `cape1` and `cape2` out of `<id>.json` for a character with no cape.
 `_palmTwist` is how far the arms turn so the palms face the legs (Tripo's A-pose has them facing forward).
+`_armHang` is how far the arms come in from the A-pose to hang (31 by default; Egrot, who is stout and wears a
+thick coat, has 12 so his hands clear his body), and `_armBack` tips the hanging arms back (+) or forward (-).
 To watch a move, open `preview.html?model=<id>&solo=1`.
 
 Tripo's own rig wasn't used: its export had no skeleton. If a later export has one, the moves in `rig.py` still
