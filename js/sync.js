@@ -866,6 +866,8 @@ async function startTest(u, email){
   await new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'js/testtable.js'; s.onload = res; s.onerror = () => rej(new Error('test table')); document.head.appendChild(s); });
   N.testTable(ME);
   const g = G(); g.role = 'gm'; g.me = ME; V.role = 'gm'; V.ui = N.newUi('gm'); V.ui.ch = 'grp-road';
+  /* test mode shows the Minstrel Tool card on every load, so Jack can try it */
+  if (N.mtour) setTimeout(() => N.mtour.load(false), 600);
   GROUPS_OK = GROUPS_DONE = true;
   gate(null); N.renderAll();
 }
@@ -947,6 +949,11 @@ function listenMusic(){
     }, e => denied('music ' + c, e)));
     return true;
   };
+  /* "Introducing the Minstrel Tool" (js/minstrel-tour.js) shows once for the GM's account: gm/intro remembers it */
+  if (isGM()) {
+    N.introMark = () => F.setDoc(dref('gm/intro'), {minstrel:Date.now()}, {merge:true});
+    F.getDoc(dref('gm/intro')).then(s => { if (N.mtour) N.mtour.load(s.exists() && !!s.data().minstrel); }).catch(e => console.warn('intro', e?.code));
+  }
   try { F.onSnapshot(dref('music/lib'), snap => { if (N.mu) N.mu.libLoad(snap.exists() ? snap.data() : null); }, e => denied('music lib', e)); } catch(e) { console.warn('music', e); }
 }
 /* a new player waits for the GM's device to lay out their character card */

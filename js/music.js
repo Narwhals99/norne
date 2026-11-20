@@ -248,7 +248,7 @@ mu.bar = v => {
 function libHtml(v){
   const t = mu.tgt(v), gm = isGM(v), canPlay = gm, d = S.docs[t], open = v.ui.muOpen || {};
   const cur = d && d.on ? d.list[spot(d).i] : null;
-  const dirs = [...S.lib.dirs, {id:'', name:'No folder'}].filter(x => x.id || inDir('').length);
+  const dirs = [...S.lib.dirs, {id:'', name:'No folder'}].filter(x => x.id || inDir('').length || !S.lib.dirs.length);
   const row = s => `<div class="mu-song${s.id === cur ? ' on' : ''}">${canPlay ? `<button type="button" class="ibtn mu-c" data-a="mu" data-v="playSong" data-k="${s.id}" aria-label="Loop “${esc(s.name)}”" title="Loop this song for ${esc(tgtName(t))}">${IC(s.id === cur ? 'speaker' : 'play')}</button>` : `<span class="mu-c">${IC('music')}</span>`}
     <span class="mu-sn"><b>${esc(s.name)}</b><small>${mmss(s.dur)}</small></span>
     ${v.ui.muEdit === s.id ? `<select class="inp mu-move" data-i="muMove" data-k="${s.id}" aria-label="Move to folder"><option value="">No folder</option>${S.lib.dirs.map(x => `<option value="${x.id}"${x.id === (s.dir || '') ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>

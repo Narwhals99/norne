@@ -110,3 +110,40 @@
 .app .mu-who .forwho button{position:relative}
 .app .mu-own{width:8px;height:8px;border-radius:50%;background:var(--gold);margin-left:2px}
 .app .mu-who .forwho button > svg{width:18px;height:18px;margin-left:8px}
+
+/* "Introducing the Minstrel Tool" card and its tour (js/minstrel-tour.js). The layer sits outside .app, so it reads the
+   app's colours from variables the script copies over, with fallbacks. */
+.mtour{position:fixed;inset:0;z-index:9000;pointer-events:none;display:none;font-family:var(--f-ui,system-ui,sans-serif);color:var(--ink,#efecff)}
+.mtour.on{display:block}
+.mtour .mt-dim{position:absolute;inset:0;background:rgba(4,5,18,.6);opacity:0;transition:opacity .2s}
+.mtour.intro .mt-dim{opacity:1;pointer-events:auto}
+.mtour .mt-card{display:none}
+.mtour.intro .mt-card{display:flex;flex-direction:column;align-items:center;gap:10px;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:min(380px,calc(100vw - 32px));padding:24px 20px 18px;border-radius:22px;text-align:center;pointer-events:auto;
+  background:var(--raise,#1a1e4d);box-shadow:0 24px 60px rgba(0,0,0,.5),inset 0 0 0 1px var(--line-2,rgba(178,170,255,.24));animation:mt-pop .25s ease-out}
+.mtour .mt-ic{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--gold,#f2c46d);color:var(--on-gold,#1a1206)}
+.mtour .mt-ic svg{width:28px;height:28px}
+.mtour .mt-card h2{margin:4px 0 0;font:700 21px/1.2 var(--f-title,Georgia,serif)}
+.mtour .mt-card p{margin:0;font-size:14.5px;line-height:1.45;font-weight:600;color:var(--ink-2,#cfcaf5)}
+.mtour .mt-btns{display:flex;gap:10px;width:100%;margin-top:8px}
+.mtour .mt-b{flex:1;min-height:44px;border-radius:999px;border:0;font:800 14.5px/1 var(--f-ui,system-ui,sans-serif);cursor:pointer;pointer-events:auto}
+.mtour .mt-b.gold{background:var(--gold,#f2c46d);color:var(--on-gold,#1a1206)}
+.mtour .mt-b.ghost{background:transparent;color:var(--ink,#efecff);box-shadow:inset 0 0 0 1.5px var(--line-2,rgba(178,170,255,.3))}
+.mtour .mt-b.sm{flex:none;min-height:34px;padding:0 18px;font-size:13.5px}
+.mtour .mt-ring,.mtour .mt-arrow,.mtour .mt-tip{display:none;position:absolute}
+.mtour.has .mt-ring,.mtour.has .mt-arrow,.mtour.has .mt-tip{display:block}
+/* the ring dims everything around it with its own shadow and lets taps through */
+.mtour .mt-ring{box-shadow:0 0 0 3px var(--gold,#f2c46d),0 0 0 9999px rgba(4,5,18,.55);transition:left .25s,top .25s,width .25s,height .25s;animation:mt-pulse 1.4s ease-in-out infinite}
+.mtour .mt-arrow{width:44px;height:44px;color:var(--gold,#f2c46d);filter:drop-shadow(0 2px 6px rgba(0,0,0,.5));animation:mt-bob 1s ease-in-out infinite}
+.mtour .mt-tip{box-sizing:border-box;padding:12px 14px;border-radius:16px;pointer-events:auto;background:var(--raise,#1a1e4d);box-shadow:0 14px 40px rgba(0,0,0,.45),inset 0 0 0 1.5px var(--gold,#f2c46d)}
+.mtour .mt-tip b{display:block;font-size:15.5px;font-weight:800;color:var(--gold-tx,var(--gold,#f2c46d))}
+.mtour .mt-tip p{margin:4px 0 0;font-size:13.5px;line-height:1.4;font-weight:600;color:var(--ink,#efecff)}
+.mtour .mt-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px}
+.mtour .mt-row small{font-size:12px;font-weight:700;color:var(--ink-2,#cfcaf5)}
+.mtour .mt-skip{display:none;position:absolute;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;pointer-events:auto;cursor:pointer;
+  padding:5px 12px;border-radius:999px;border:0;font:700 11.5px/1 var(--f-ui,system-ui,sans-serif);color:var(--ink,#efecff);background:rgba(10,10,24,.75);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.mtour.touring .mt-skip{display:block}
+@keyframes mt-pulse{0%,100%{outline:0 solid transparent}50%{outline:6px solid color-mix(in srgb,var(--gold,#f2c46d) 35%,transparent)}}
+@keyframes mt-bob{0%,100%{translate:0 0}50%{translate:0 5px}}
+@keyframes mt-pop{from{opacity:0;transform:translate(-50%,-46%) scale(.96)}to{opacity:1;transform:translate(-50%,-50%)}}
+@media (prefers-reduced-motion:reduce){.mtour .mt-ring,.mtour .mt-arrow{animation:none}}
