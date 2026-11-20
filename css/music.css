@@ -1,0 +1,66 @@
+/* music from Spotify (js/music.js, Jack 2026-11-20): the chat's music strip, the top bar button and the Music sheet.
+   Colours come from each style's own tokens, so every theme dresses it. */
+.app .mu-btn[aria-pressed="true"]{color:var(--gold)}
+.app .mu-btn.playing{color:var(--gold-tx)}
+.app .mu-btn.playing::after{content:"";position:absolute;top:7px;right:7px;width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 2px var(--bg-1,transparent)}
+.app .fightbar.mubar{gap:8px;padding:5px 6px 5px 6px;background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 16%,var(--raise)),var(--raise));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 34%,transparent)}
+.app .mubar .mu-t{display:block;text-align:left;color:var(--ink);padding:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:0;cursor:pointer}
+.app .mubar .mu-t b{font-weight:800}
+.app .mubar .mu-t .mu-a{font-weight:600;color:var(--ink-2)}
+.app .mubar .mu-t span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .mubar .btn{flex:none}
+.app .mu-c{width:36px;height:36px}
+.app .mu-c svg{width:18px;height:18px}
+.app .mu-warn{color:var(--ember-ink,var(--ember));font-weight:800}
+.app .mu-art{width:38px;height:38px;border-radius:9px;object-fit:cover;flex:none;display:grid;place-items:center;background:var(--sunk,var(--raise));color:var(--ink-3)}
+.app .mu-art svg{width:18px;height:18px}
+.app .mu-art.big{width:64px;height:64px;border-radius:12px}
+.app .mu-art.big svg{width:28px;height:28px}
+.app .mubar.on .mu-art.none{color:var(--gold-tx)}
+.app .mu-sheet .sh-b{display:flex;flex-direction:column;gap:16px}
+.app .mu-lead{margin:0;font:600 14.5px/1.45 var(--f-ui);color:var(--ink)}
+.app .mu-p{margin:0;font:600 12.5px/1.45 var(--f-ui)}
+.app .mu-note{margin:0}
+.app .mu-now{display:flex;align-items:center;gap:12px;padding:10px;border-radius:16px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .mu-now > span{min-width:0;font:700 14.5px/1.3 var(--f-ui)}
+.app .mu-now .mu-a{font-weight:600;color:var(--ink-2)}
+.app .mu-now small{display:block;margin-top:3px;font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .mu-gm{display:flex;flex-direction:column;gap:12px}
+.app .mu-gm h4{margin-bottom:0}
+.app .mu-ctl{display:flex;align-items:center;justify-content:center;gap:18px}
+.app .mu-ctl .mu-c{width:44px;height:44px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .mu-ctl .mu-c[style*="--s"]{width:var(--s);height:var(--s);background:var(--gold);color:var(--on-gold,#1a1206)}
+.app .mu-ctl .mu-c[style*="--s"] svg{width:22px;height:22px}
+.app .mu-vol{display:flex;align-items:center;gap:10px;font:700 12.5px/1.2 var(--f-ui);color:var(--ink-2)}
+.app .mu-vol input{flex:1;min-width:0;accent-color:var(--gold)}
+.app .mu-vol b{width:30px;text-align:right;color:var(--ink)}
+.app .mu-lists{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto;padding:2px}
+.app .mu-pl{display:flex;align-items:center;gap:10px;padding:6px 10px 6px 6px;border-radius:12px;text-align:left;color:var(--ink);background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .mu-pl.on{box-shadow:inset 0 0 0 2px var(--gold)}
+.app .mu-pl img,.app .mu-pl .none{width:40px;height:40px;border-radius:8px;object-fit:cover;flex:none;display:grid;place-items:center;background:var(--sunk,var(--raise));color:var(--ink-3)}
+.app .mu-pl > span{flex:1;min-width:0;font:700 13.5px/1.25 var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .mu-pl small{display:block;font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .mu-pl > svg{width:16px;height:16px;flex:none;color:var(--gold-tx)}
+.app .mu-devs{display:flex;flex-direction:column;gap:6px}
+.app .mu-dev{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;text-align:left;color:var(--ink);background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 13.5px/1.25 var(--f-ui)}
+.app .mu-dev svg{width:18px;height:18px;flex:none;color:var(--ink-3)}
+.app .mu-dev small{display:block;font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3)}
+.app .mu-dev[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--gold)}
+.app .mu-dev[aria-pressed="true"] svg{color:var(--gold-tx)}
+.app .mu-acct{display:flex;align-items:center;justify-content:space-between;gap:10px;font:600 13px/1.35 var(--f-ui);color:var(--ink-2)}
+.app .mu-acct b{color:var(--ink)}
+.app .mu-err{color:var(--ember-ink,var(--ember));font-weight:800}
+.app .mu-setup{display:flex;flex-direction:column;gap:10px}
+.app .mu-id{gap:10px;align-items:center;font:700 13px/1.3 var(--f-ui)}
+.app .mu-id span{flex:1}
+.app .mu-setup code,.app .mu-uri{font:600 12px/1.4 ui-monospace,Menlo,monospace;padding:2px 6px;border-radius:6px;background:var(--raise);word-break:break-all;color:var(--ink)}
+.app .mu-more summary{cursor:pointer;font:800 10.5px/1.2 var(--f-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+.app .mu-more[open] summary{margin-bottom:10px}
+@container dev (max-width: 520px){
+  .app .mubar .mu-t span{font-size:11px}
+  .app .mubar .mu-c{width:34px;height:34px}
+}
+.app .mubar .mu-t .mu-a{display:inline}
+.app .mu-paste,.app .mu-setup .row{flex-wrap:nowrap}
+.app .mu-paste .inp,.app .mu-setup .inp{width:auto}
+.app .mu-paste .btn,.app .mu-setup .row .btn{flex:none}

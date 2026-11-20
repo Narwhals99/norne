@@ -176,6 +176,12 @@ service cloud.firestore {
       allow create: if inChat(ch) && request.resource.data.keys().hasOnly(ownKeys());
       allow update: if inChat(ch) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(ownKeys());
     }
+    // Music from Spotify (js/music.js). music/cfg: the Spotify app's Client ID(s), public by design; the GM or Jack sets them.
+    // music/<chat>: the song the GM is playing in that chat. Only people in the chat read it; only the GM writes it.
+    match /music/{ch} {
+      allow read: if ch == 'cfg' ? (isGM() || isPlayer()) : inChat(ch);
+      allow write: if ch == 'cfg' ? (isGM() || isDeveloper()) : isGM();
+    }
     // What each person has read (chat by chat, and news issues), so a chat read on the phone stops showing as unread
     // on the computer too. seen/<uid> belongs to that signed-in person alone.
     match /seen/{uid} {

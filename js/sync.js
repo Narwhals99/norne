@@ -907,6 +907,7 @@ async function start(role){
   }, err => { fail(err); res(); }));
   await Promise.all([members.then(() => Promise.all((isGM() ? N.seats() : [role]).map(listenFight))), ...docs.map(p => listenDoc(p, APPLY[p])), listenMsgs(), listenGroups(), isGM() ? null : listenDoc('only/' + role, setMine, true)]);
   if (!isGM()) listenNotes(role);
+  listenMusic();
   ensureChars();
   for (const t of ['click','change','input','submit','keydown','pointerup']) document.addEventListener(t, queueSync);
   window.addEventListener('pagehide', syncNow);
@@ -927,6 +928,23 @@ function listenNotes(seat){
     if (snap.metadata.fromCache && !snap.exists()) return;
     if (N.pn) N.pn.load(seat, snap.exists() ? snap.data() : null, !snap.metadata.fromCache);
   }, e => { console.warn('notes', e?.code); if (N.pn) N.pn.denied(seat); }); } catch(e) { console.warn('notes', e); }
+}
+/* music (js/music.js): music/cfg holds the Spotify Client IDs, music/<chat> what the GM plays in that chat.
+   Only the chats this person is in are listened to (N.mu.tick hands the list over on each draw) */
+const MU_ON = new Map();
+function listenMusic(){
+  N.muWrite = (ch, d) => d ? F.setDoc(dref('music/' + ch), d) : F.deleteDoc(dref('music/' + ch));
+  N.muCfgWrite = d => F.setDoc(dref('music/cfg'), d);
+  N.muWatch = chs => {
+    const want = new Set(chs.filter(c => c && c !== 'gm' && c !== 'cfg'));
+    for (const [c, off] of MU_ON) if (!want.has(c)) { off(); MU_ON.delete(c); N.mu && N.mu.load(c, null); }
+    for (const c of want) if (!MU_ON.has(c)) MU_ON.set(c, F.onSnapshot(dref('music/' + c), snap => {
+      if (N.mu) N.mu.load(c, snap.exists() ? snap.data() : null);
+    }, e => { console.warn('music', c, e?.code); if (e?.code === 'permission-denied' && N.mu) N.mu.denied(); }));
+    return true;
+  };
+  try { F.onSnapshot(dref('music/cfg'), snap => { if (N.mu) N.mu.cfgLoad(snap.exists() ? snap.data() : null); },
+    e => { console.warn('music cfg', e?.code); if (e?.code === 'permission-denied' && N.mu) N.mu.denied(); }); } catch(e) { console.warn('music', e); }
 }
 /* a new player waits for the GM's device to lay out their character card */
 function readyCheck(){

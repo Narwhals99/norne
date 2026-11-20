@@ -359,6 +359,7 @@ N.sheetHtml = function(v){
         <button type="button" data-a="sheet" data-v="export">${IC('export')}<span>Export the log<small>Copy or save chats as text</small></span><span class="end">${IC('right')}</span></button>`
         : `<button type="button" data-a="tab" data-v="hero">${IC('hero')}<span>My character<small>${c && c.built?N.emoText(N.marks(esc(N.pcTag(c)))):'Not made yet'}</small></span><span class="end">${IC('right')}</span></button>`}
         ${!gm && N.figOk && N.figOk() ? `<button type="button" data-a="figOpen">${IC('hero')}<span>Toy figure maker<small>Your character’s figure in fights</small></span><span class="end">${IC('right')}</span></button>` : ''}
+        ${N.mu ? `<button type="button" data-a="sheet" data-v="music">${IC('music')}<span>Spotify music<small>${N.mu.linked() ? 'Linked on this device' : 'Link your Spotify to hear the GM’s music'}</small></span><span class="end">${IC('right')}</span></button>` : ''}
         <button type="button" data-a="sheet" data-v="credits">${IC('heart')}<span>Art credits<small>Free art used in this app</small></span><span class="end">${IC('right')}</span></button>
         <button type="button" data-a="signOut">${IC('signout')}<span>Sign out</span></button>
       </div>
@@ -392,6 +393,8 @@ N.sheetHtml = function(v){
     return sheet('Private chats', body, `<button type="button" class="btn primary lg" data-a="closeSheet">${IC('check')}Done</button>`);
   }
   /* personal notes (js/notes.js): the player's own folders and notes, private to them */
+  /* music from Spotify (js/music.js) */
+  case 'music': return N.mu ? sheet(N.mu.title(v), N.mu.html(v), '', {cls:'mu-sheet'}) : '';
   case 'notes': return N.pn ? sheet(N.pn.title(v), N.pn.html(v, v.dev === 'desktop'), '', {wide:true, cls:'pn-sheet'}) : '';
   case 'search': {
     const q = v.ui.cq || '', all = v.ui.cqAll !== false;
