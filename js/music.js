@@ -1,14 +1,16 @@
 /* =====================================================================
    NORNE — music (Jack, 2026-11-20)
-   The GM (or Jack) uploads songs (mp3) into folders. In any chat the GM plays one song on a loop, or a whole folder
-   one song after another (round again at the end). Everyone in that chat hears the same song at the same spot, inside
+   The GM (or Jack) uploads songs (mp3) into folders. The GM sets the music everyone hears: one song on a loop, or a
+   whole folder one song after another (round again at the end). When the party splits up he can give any player their
+   own music instead, and later send them back to everyone's. Everyone hears the same song at the same spot, inside
    Norne: no accounts, nothing to install, and it stops when Norne is closed or put away.
 
    Where things live:
    - music/lib: the library. dirs = JSON [{id,name}], songs = JSON [{id,name,dir,dur,n,size,t}].
    - songparts/<song id>_<i>: the song file in pieces of 700 KB (base64 text), since one database document holds at most 1 MB.
      A device downloads a song once and keeps it in its own cache (Cache Storage 'norne-music').
-   - music/<chat>: what plays in that chat: {list:[song ids], durs:[ms], mode:'song'|'dir', dir, t0, pos, on, vol}.
+   - music/all: the music everyone hears. music/<seat> (p1, p2…): a player's own music, which they hear instead of
+     everyone's until the GM sends them back. Each holds: {list:[song ids], durs:[ms], mode:'song'|'dir', dir, t0, pos, on, vol}.
      No device has to stay open to keep it going: where the music is comes from the clock. While playing, the spot is
      (now - t0) run through the list's lengths, round and round. Paused, it is pos. Only the GM writes it (firestore.rules).
    Browsers only let a page make sound after the person has touched it once, so the first tap anywhere in Norne
@@ -27,8 +29,8 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 
 /* ---------- state on this device ---------- */
 const S = mu.S = {
   lib:{dirs:[], songs:[]}, libReady:false,
-  docs:{},                     // chat -> music/<chat>
-  hear:null,                   // the chat whose music this device plays
+  docs:{},                     // 'all' or a seat -> music/<that>
+  hear:null,                   // whose music this device plays ('all' or a seat)
   muted:ls.get('norne-music-mute') === '1',
   myVol:+(ls.get('norne-music-vol') || 100),
   locked:true,                 // no tap yet: the browser won't let sound start
@@ -36,7 +38,11 @@ const S = mu.S = {
   denied:false, note:'',
 };
 mu.canLib = v => isGM(v) || !!(N.isJack && N.isJack());
-mu.on = ch => !!ch && ch !== 'gm';
+/* whose music: 'all' (everyone's) or a seat (that player's own) */
+const tgtName = t => t === 'all' ? 'Everyone' : (G().P[t] && G().P[t].name) || 'A player';
+/* what this screen hears and controls: a player hears their own music when the GM set one, else everyone's.
+   The GM hears whichever he has picked in the Music window (everyone's to start with) */
+mu.tgt = v => isGM(v) ? (v.ui.muT && (v.ui.muT === 'all' || N.seats().includes(v.ui.muT)) ? v.ui.muT : 'all') : (S.docs[v.role] ? v.role : 'all');
 const song = id => S.lib.songs.find(s => s.id === id);
 const dirName = id => (S.lib.dirs.find(d => d.id === id) || {}).name || 'No folder';
 const inDir = id => S.lib.songs.filter(s => (s.dir || '') === (id || '')).sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
@@ -96,7 +102,7 @@ async function blobOf(id){
   return p;
 }
 
-/* make the audio match the chat this device hears: the right song, the right spot, playing or not */
+/* make the audio match the music this device hears: the right song, the right spot, playing or not */
 let SYNCING = false, AGAIN = false;
 async function sync(){
   if (SYNCING) { AGAIN = true; return; }
@@ -129,17 +135,9 @@ setInterval(() => { if (!document.hidden && S.hear) sync(); }, 5000);
 document.addEventListener('visibilitychange', () => { if (document.hidden) A.pause(); else sync(); });
 window.addEventListener('pagehide', () => A.pause());
 
-/* which chat this device hears: the open chat if it has music; otherwise keep the last one while it plays;
-   otherwise any of this person's chats where music is on */
-function pickHear(v){
-  const ch = v.ui.ch, chs = N.channelsFor ? N.channelsFor(v.role).filter(mu.on) : [];
-  let h = S.hear;
-  if (mu.on(ch) && S.docs[ch]) h = ch;
-  else if (!h || !S.docs[h] || !chs.includes(h)) h = chs.filter(c => S.docs[c] && S.docs[c].on).sort((a, b) => (S.docs[b].at || 0) - (S.docs[a].at || 0))[0] || null;
-  if (h !== S.hear) { S.hear = h; sync(); }
-}
+function pickHear(v){ const t = mu.tgt(v), h = S.docs[t] ? t : 'all'; if (h !== S.hear) { S.hear = h; sync(); } }
 
-/* ---------- the GM's controls: each writes music/<chat> ---------- */
+/* ---------- the GM's controls: each writes music/all or music/<seat> ---------- */
 const W = (ch, d) => { if (d) S.docs[ch] = d; else delete S.docs[ch]; rerender(); sync(); return N.muWrite ? N.muWrite(ch, d).catch(e => { S.note = 'Norne couldn’t save the music (' + (e.code || e.message) + ').'; rerender(); }) : Promise.resolve(); };
 const at = (d, el) => ({...d, t0:Date.now() - el, pos:el, at:Date.now()});
 mu.playSong = (ch, id) => { const s = song(id); if (!s) return; const old = S.docs[ch]; W(ch, {mode:'song', dir:s.dir || '', list:[id], durs:[s.dur], on:true, t0:Date.now(), pos:0, vol:old ? old.vol : 80, at:Date.now()}); S.hear = ch; };
@@ -222,7 +220,8 @@ const prevRender = N.onRender;
 N.onRender = v => {
   if (prevRender) prevRender(v);
   try {
-    if (N.muWatch && N.channelsFor) { const chs = N.channelsFor(v.role).filter(mu.on), k = v.role + '|' + chs.join(','); if (k !== WKEY && N.muWatch(chs) !== false) WKEY = k; }
+    /* the GM listens to everyone's music and each player's own; a player to everyone's and their own */
+    if (N.muWatch) { const ts = ['all', ...(isGM(v) ? N.seats() : /^p\d+$/.test(v.role || '') ? [v.role] : [])], k = ts.join(','); if (k !== WKEY && N.muWatch(ts) !== false) WKEY = k; }
     pickHear(v);
   } catch(e) { console.warn('music', e); }
 };
@@ -230,28 +229,27 @@ N.onRender = v => {
 /* ---------- drawing ---------- */
 const B = (c, label, ic, extra = '') => `<button type="button" class="ibtn mu-c" data-a="mu" data-v="${c}" aria-label="${label}" title="${label}"${extra}>${IC(ic)}</button>`;
 mu.topBtn = v => {
-  const ch = v.ui.ch; if (!mu.on(ch)) return '';
-  const d = S.docs[ch]; if (!isGM(v) && !d) return '';
+  const d = S.docs[mu.tgt(v)]; if (!isGM(v) && !d) return '';
   return `<button type="button" class="ibtn mu-btn${d && d.on ? ' playing' : ''}" data-a="mu" data-v="toggle" aria-pressed="${v.ui.sheet === 'music'}" aria-label="Music" title="Music">${IC('music')}</button>`;
 };
 const muteBtn = () => B('mute', S.muted ? 'Turn the music on' : 'Mute the music', S.muted ? 'mute' : 'speaker', ` aria-pressed="${S.muted}"`);
-/* the strip above the chat while music is set for it */
+/* the strip above the chat while music plays for this person */
 mu.bar = v => {
-  const ch = v.ui.ch, n = mu.on(ch) && mu.now(ch); if (!n) return '';
-  const {d, song:s} = n, gm = isGM(v);
+  const t = mu.tgt(v), n = mu.now(t); if (!n) return '';
+  const {d, song:s} = n, gm = isGM(v), who = gm ? (t === 'all' ? 'Everyone' : tgtName(t) + ' only') + ' · ' : t !== 'all' ? 'Just for you · ' : '';
   const where = d.mode === 'dir' ? `${esc(dirName(d.dir))} · song ${n.i + 1} of ${d.list.length}` : 'On a loop';
-  const tap = S.locked && d.on && !S.muted && S.hear === ch;
-  const sub = tap ? 'Tap to hear the music' : !d.on ? 'Paused' : S.muted ? 'Muted on this device' : where;
-  const ctl = gm ? `${B('prev', 'Back', 'prev')}${d.on ? B('pause', 'Pause for everyone', 'pause') : B('play', 'Play for everyone', 'play')}${B('next', 'Next song', 'next')}` : '';
+  const tap = S.locked && d.on && !S.muted && S.hear === t;
+  const sub = who + (!d.on ? 'Paused' : S.muted ? 'Muted on this device' : where);
+  const ctl = gm ? `${B('prev', 'Back', 'prev')}${d.on ? B('pause', 'Pause', 'pause') : B('play', 'Play', 'play')}${B('next', 'Next song', 'next')}` : '';
   /* before the first tap the whole strip is the button that turns the sound on */
   if (tap) return `<button type="button" class="fightbar mubar on tap" data-a="mu" data-v="tap"><span class="mu-art">${IC('speaker')}</span><span class="t mu-t"><b>${esc(s.name)}</b><span>Tap here to hear the music</span></span></button>`;
   return `<div class="fightbar mubar${d.on ? ' on' : ''}"><span class="mu-art">${IC('music')}</span><button type="button" class="t mu-t" data-a="mu" data-v="toggle"><b>${esc(s.name)}</b><span>${sub}</span></button>${ctl}${muteBtn()}</div>`;
 };
 function libHtml(v){
-  const ch = v.ui.ch, gm = isGM(v), canPlay = gm && mu.on(ch), d = S.docs[ch], open = v.ui.muOpen || {};
+  const t = mu.tgt(v), gm = isGM(v), canPlay = gm, d = S.docs[t], open = v.ui.muOpen || {};
   const cur = d && d.on ? d.list[spot(d).i] : null;
   const dirs = [...S.lib.dirs, {id:'', name:'No folder'}].filter(x => x.id || inDir('').length);
-  const row = s => `<div class="mu-song${s.id === cur ? ' on' : ''}">${canPlay ? `<button type="button" class="ibtn mu-c" data-a="mu" data-v="playSong" data-k="${s.id}" aria-label="Loop “${esc(s.name)}” here" title="Loop this song here">${IC(s.id === cur ? 'speaker' : 'play')}</button>` : `<span class="mu-c">${IC('music')}</span>`}
+  const row = s => `<div class="mu-song${s.id === cur ? ' on' : ''}">${canPlay ? `<button type="button" class="ibtn mu-c" data-a="mu" data-v="playSong" data-k="${s.id}" aria-label="Loop “${esc(s.name)}”" title="Loop this song for ${esc(tgtName(t))}">${IC(s.id === cur ? 'speaker' : 'play')}</button>` : `<span class="mu-c">${IC('music')}</span>`}
     <span class="mu-sn"><b>${esc(s.name)}</b><small>${mmss(s.dur)}</small></span>
     ${v.ui.muEdit === s.id ? `<select class="inp mu-move" data-i="muMove" data-k="${s.id}" aria-label="Move to folder"><option value="">No folder</option>${S.lib.dirs.map(x => `<option value="${x.id}"${x.id === (s.dir || '') ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
       <button type="button" class="btn sm ghost" data-a="mu" data-v="${v.ui.muArm === s.id ? 'delSongGo' : 'delSong'}" data-k="${s.id}">${IC('trash')}${v.ui.muArm === s.id ? 'Delete it' : ''}</button>`
@@ -259,7 +257,7 @@ function libHtml(v){
   return `<div class="mu-lib">
     ${dirs.map(x => { const l = inDir(x.id), op = open[x.id || '_'] !== false;
       return `<div class="mu-dir"><div class="mu-dh"><button type="button" class="mu-dt" data-a="mu" data-v="fold" data-k="${x.id || '_'}" aria-expanded="${op}">${IC('folder')}<b>${esc(x.name)}</b><small>${l.length} song${l.length === 1 ? '' : 's'}</small>${IC('caret')}</button>
-        ${canPlay && l.length ? `<button type="button" class="btn sm" data-a="mu" data-v="playDir" data-k="${x.id}" title="Play the whole folder here, one song after another">${IC('play')}Play folder</button>` : ''}</div>
+        ${canPlay && l.length ? `<button type="button" class="btn sm" data-a="mu" data-v="playDir" data-k="${x.id}" title="Play the whole folder for ${esc(tgtName(t))}, one song after another">${IC('play')}Play folder</button>` : ''}</div>
         ${op ? `<div class="mu-songs">${l.map(row).join('') || '<p class="muted mu-p">Empty folder.</p>'}
           ${v.ui.muRen === x.id && x.id ? `<div class="row mu-new"><input class="inp" id="muren-${v.id}" data-i="muRen" value="${esc(v.ui.muRenName ?? x.name)}" aria-label="Folder name"><button type="button" class="btn sm" data-a="mu" data-v="renGo" data-k="${x.id}">Save</button></div>` : ''}
           <div class="row mu-dirbtns"><button type="button" class="btn sm ghost" data-a="mu" data-v="up" data-k="${x.id}"${S.up ? ' disabled' : ''}>${IC('upload')}Add songs</button>
@@ -269,32 +267,36 @@ function libHtml(v){
 }
 mu.title = () => 'Music';
 mu.html = v => {
-  const gm = isGM(v), ch = v.ui.ch, n = mu.on(ch) && mu.now(ch);
+  const gm = isGM(v), t = mu.tgt(v), n = mu.now(t);
   if (S.denied) return `<div class="note">${IC('warn')}<span>Music needs the new Firebase rules. Jack: paste the new firestore.rules into Firebase and press Publish.</span></div>`;
   const note = S.note ? `<div class="note mu-note">${IC('info')}<span>${esc(S.note)}</span></div>` : '';
   const up = S.up ? `<div class="mu-up"><span>Uploading ${S.up.done + 1} of ${S.up.all}: ${esc(S.up.name)}</span><i style="--p:${Math.round(((S.up.done + (S.up.part || 0)) / Math.max(1, S.up.all)) * 100)}%"></i></div>` : '';
+  /* the GM picks whose music he is setting: everyone's, or one player's own (a dot marks players who have their own) */
+  const who = gm ? `<div class="mu-who"><h4>Whose music</h4><div class="forwho">${['all', ...N.seats()].map(x => `<button type="button" data-a="mu" data-v="tgt" data-k="${x}" aria-pressed="${x === t}">${x === 'all' ? IC('users') : N.av(N.personObj(x), 24)}${esc(tgtName(x))}${x !== 'all' && S.docs[x] ? '<span class="mu-own" title="Has their own music"></span>' : ''}</button>`).join('')}</div>
+    <p class="muted mu-p">${t === 'all' ? `Everyone hears this${N.seats().some(x => S.docs[x]) ? `, except ${N.seats().filter(x => S.docs[x]).map(tgtName).map(esc).join(', ')}, who ${N.seats().filter(x => S.docs[x]).length > 1 ? 'have' : 'has'} their own` : ''}.` : S.docs[t] ? `${esc(tgtName(t))} hears this instead of everyone’s music.` : `${esc(tgtName(t))} hears everyone’s music. Pick a song or folder to give them their own.`}</p></div>` : '';
   let now = '';
   if (n) {
     const {d, song:s} = n;
     now = `<div class="mu-now"><span class="mu-art big">${IC('music')}</span><span><b>${esc(s.name)}</b><small>${d.on ? 'Playing' : 'Paused'} · ${d.mode === 'dir' ? `${esc(dirName(d.dir))}, song ${n.i + 1} of ${d.list.length}` : 'on a loop'}</small></span></div>
       ${gm ? `<div class="mu-ctl">${B('prev', 'Back', 'prev')}${d.on ? B('pause', 'Pause for everyone', 'pause', ' style="--s:52px"') : B('play', 'Play for everyone', 'play', ' style="--s:52px"')}${B('next', 'Next song', 'next')}</div>
         ${inDir(d.dir).length > 1 ? `<div class="seg" role="group" aria-label="Repeat"><button type="button" data-a="mu" data-v="loop" aria-pressed="${d.mode === 'song'}">Loop this song</button><button type="button" data-a="mu" data-v="through" aria-pressed="${d.mode === 'dir'}">Play the folder</button></div>` : ''}
-        <label class="mu-vol"><span>Volume for everyone</span><input type="range" min="0" max="100" step="5" value="${d.vol ?? 80}" data-i="muVol" aria-label="Volume for everyone"><b>${d.vol ?? 80}</b></label>
-        <button type="button" class="btn sm ghost" data-a="mu" data-v="stop">${IC('mstop')}Stop the music in this chat</button>` : ''}`;
-  } else if (gm && mu.on(ch)) now = `<p class="mu-lead">No music in ${esc(N.chName(ch, v.role))}. Pick a song to loop, or play a whole folder.</p>`;
-  else if (!gm) now = `<p class="mu-lead">No music in this chat right now.</p>`;
-  const mine = `<div class="mu-mine"><h4>On this device</h4><div class="row" style="gap:10px;align-items:center;flex-wrap:nowrap"><button type="button" class="btn sm${S.muted ? ' gold' : ''}" data-a="mu" data-v="mute" aria-pressed="${S.muted}">${IC(S.muted ? 'mute' : 'speaker')}${S.muted ? 'Muted' : 'Mute'}</button><label class="mu-vol" style="flex:1"><span>My volume</span><input type="range" min="0" max="100" step="5" value="${S.myVol}" data-i="muMyVol" aria-label="My volume"><b>${S.myVol}</b></label></div>
+        <label class="mu-vol"><span>Volume</span><input type="range" min="0" max="100" step="5" value="${d.vol ?? 80}" data-i="muVol" aria-label="Volume"><b>${d.vol ?? 80}</b></label>
+        <button type="button" class="btn sm ghost" data-a="mu" data-v="stop">${t === 'all' ? `${IC('mstop')}Stop everyone’s music` : `${IC('users')}Back to everyone’s music`}</button>` : ''}`;
+  } else if (gm) now = t === 'all' ? `<p class="mu-lead">No music playing. Pick a song to loop, or play a whole folder.</p>` : '';
+  else now = `<p class="mu-lead">No music right now.</p>`;
+  const mine = `<div class="mu-mine"><h4>On this device</h4><div class="mu-mrow"><button type="button" class="btn sm${S.muted ? ' gold' : ''}" data-a="mu" data-v="mute" aria-pressed="${S.muted}">${IC(S.muted ? 'mute' : 'speaker')}${S.muted ? 'Muted' : 'Mute'}</button><label class="mu-vol" style="flex:1"><span>My volume</span><input type="range" min="0" max="100" step="5" value="${S.myVol}" data-i="muMyVol" aria-label="My volume"><b>${S.myVol}</b></label></div>
     <p class="muted mu-p">${N.mu.IOS ? 'iPhones set the loudness with their side buttons; mute works here.' : 'Only changes it for you.'} The music stops when you leave Norne.</p></div>`;
-  return `${note}${up}${now}${mine}${mu.canLib(v) ? `<div><h4>Music library<small>${gm ? 'Your songs, in folders' : 'Only you and the GM can change it'}</small></h4>${S.libReady || !N.muWatch ? libHtml(v) : '<p class="muted mu-p">Loading…</p>'}</div>` : ''}`;
+  return `${note}${up}${who}${now}${mine}${mu.canLib(v) ? `<div><h4>Music library<small>${gm ? 'Your songs, in folders' : 'Only you and the GM can change it'}</small></h4>${S.libReady || !N.muWatch ? libHtml(v) : '<p class="muted mu-p">Loading…</p>'}</div>` : ''}`;
 };
 mu.IOS = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 /* ---------- taps and typing ---------- */
 mu.act = (v, el) => {
-  const ui = v.ui, c = el.dataset.v, k = el.dataset.k, ch = ui.ch;
+  const ui = v.ui, c = el.dataset.v, k = el.dataset.k, ch = mu.tgt(v);
   switch (c) {
     case 'toggle': ui.pop = null; ui.sheet = ui.sheet === 'music' ? null : 'music'; S.note = ''; break;
     case 'tap': unlock(); sync(); return;
+    case 'tgt': ui.muT = k; S.hear = null; break;
     case 'mute': S.muted = !S.muted; ls.set('norne-music-mute', S.muted ? '1' : null); sync(); break;
     case 'play': case 'pause': case 'next': case 'prev': case 'stop': case 'loop': case 'through': cmd(ch, c); return;
     case 'playSong': mu.playSong(ch, k); return;
@@ -318,7 +320,7 @@ mu.input = (v, el, i) => {
   else if (i === 'muVol' || i === 'muMyVol') { const b = el.parentNode.querySelector('b'); if (b) b.textContent = el.value; if (i === 'muMyVol') { S.myVol = +el.value; const d = S.hear && S.docs[S.hear]; if (d) A.volume = Math.max(0, Math.min(1, (d.vol ?? 80) / 100 * S.myVol / 100)); } }
 };
 mu.change = (v, el, i) => {
-  if (i === 'muVol') cmd(v.ui.ch, 'vol', +el.value);
+  if (i === 'muVol') cmd(mu.tgt(v), 'vol', +el.value);
   else if (i === 'muMyVol') { S.myVol = +el.value; ls.set('norne-music-vol', String(S.myVol)); sync(); }
   else if (i === 'muMove') { const s = song(el.dataset.k); if (s) { s.dir = el.value; saveLib(); v.ui.muEdit = null; N.render(v); } }
 };

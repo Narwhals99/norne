@@ -930,7 +930,8 @@ function listenNotes(seat){
   }, e => { console.warn('notes', e?.code); if (N.pn) N.pn.denied(seat); }); } catch(e) { console.warn('notes', e); }
 }
 /* music (js/music.js): music/lib is the GM's song library (folders and song list), songparts/<id>_<i> the song files in
-   pieces, music/<chat> what plays in that chat. Only the chats this person is in are listened to (handed over on each draw) */
+   pieces, music/all the music everyone hears and music/<seat> a player's own. A player listens to all and their seat,
+   the GM to all and every seat (the list is handed over on each draw) */
 const MU_ON = new Map();
 function listenMusic(){
   N.muWrite = (ch, d) => d ? F.setDoc(dref('music/' + ch), d) : F.deleteDoc(dref('music/' + ch));

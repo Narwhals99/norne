@@ -178,9 +178,10 @@ service cloud.firestore {
     }
     // Music (js/music.js). music/lib: the song library (folders and the song list); songparts/<song>_<n>: the song files
     // in pieces. Everyone at the table can play them; the GM and Jack add and remove songs.
-    // music/<chat>: what plays in that chat. Only people in the chat read it; only the GM changes it.
+    // music/all: the music everyone hears. music/<seat>: one player's own music, heard instead of everyone's.
+    // Players read everyone's and their own; only the GM changes them.
     match /music/{ch} {
-      allow read: if ch == 'lib' ? (isGM() || isPlayer()) : inChat(ch);
+      allow read: if isGM() || (isPlayer() && (ch == 'lib' || ch == 'all' || mine(ch)));
       allow write: if ch == 'lib' ? (isGM() || isDeveloper()) : isGM();
     }
     match /songparts/{id} {

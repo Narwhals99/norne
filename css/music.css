@@ -103,3 +103,10 @@
 .app .mubar.tap .mu-art{background:var(--gold);color:var(--on-gold,#1a1206)}
 .app .mubar.tap .mu-t span{color:var(--gold-tx);font-weight:800}
 @container dev (min-width: 760px){ .app button.fightbar.mubar.tap{width:calc(100% - 24px)} }
+.app .mu-mrow{display:flex;align-items:center;gap:12px}
+.app .mu-mrow .btn{flex:none}
+.app .mu-who{display:flex;flex-direction:column;gap:8px}
+.app .mu-who h4{margin:0}
+.app .mu-who .forwho button{position:relative}
+.app .mu-own{width:8px;height:8px;border-radius:50%;background:var(--gold);margin-left:2px}
+.app .mu-who .forwho button > svg{width:18px;height:18px;margin-left:8px}
