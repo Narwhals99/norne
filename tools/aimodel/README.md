@@ -31,7 +31,7 @@ What the scripts do:
 | `export.py` | Keeps only the colour texture (1024 px JPEG), writes the GLB with each move as its own animation |
 | `preview.py` | Pictures of the poses, to check the moves before trying them in the app |
 
-The first model (Caelis, from Tripo) went from 2 million triangles, three 4K textures and 62 MB to 14k triangles,
+Xira's model has no cape, so `xira.json` leaves the cape bones out. The first model (Caelis, from Tripo) went from 2 million triangles, three 4K textures and 62 MB to 14k triangles,
 one 1024 px texture and 0.8 MB.
 
 Every model gets the same moves, so a new figure can use any weapon the toy figures can (`js/armory.js`):

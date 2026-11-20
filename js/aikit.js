@@ -14,13 +14,14 @@
    with the first one. Each model file loads once; every fighter using it gets its own copy of the skeleton. */
 export const MODELS = [
   {id:'caelis', n:'Caelis', file:'models/caelis.glb', who:'Caelis Rethvael'},
+  {id:'xira', n:'Xira', file:'models/xira.glb', who:'Xira'},
 ];
 const BY = new Map(MODELS.map(m => [m.id, m]));
 export const isModel = id => BY.has(id);
-/* the model made for a character, by its full name or the first word of it ("Caelis Rethvael", "Caelis"), or null */
+/* the model made for a character, or null: the names match, or their first words do ("Caelis Rethvael", "Caelis") */
 const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 export const modelFor = (...names) => { const ns = names.map(norm).filter(Boolean);
-  const m = MODELS.find(m => m.who && ns.some(n => n === norm(m.who) || n === norm(m.who).split(' ')[0])); return m ? m.id : null; };
+  const m = MODELS.find(m => m.who && ns.some(n => n === norm(m.who) || n.split(' ')[0] === norm(m.who).split(' ')[0])); return m ? m.id : null; };
 
 export function makeAI(THREE, H){
   const loads = new Map(), done = new Map();

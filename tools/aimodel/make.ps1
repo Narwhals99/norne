@@ -31,6 +31,6 @@ $rig = Join-Path $work 'rig.blend'
 & $Blender -b $prep --python (Join-Path $here 'rig.py') -- $rig $joints
 $out = Join-Path $repo "models\$Id.glb"
 & $Blender -b $rig --python (Join-Path $here 'export.py') -- $out $Tex
-& $Blender -b $rig --python (Join-Path $here 'preview.py') -- (Join-Path $work 'pose') 'idle:0,walk:.2,attack:.5,attack:.72,attack:.9,hit:.35,down:.6,down:1.5'
+& $Blender -b $rig --python (Join-Path $here 'preview.py') -- (Join-Path $work 'pose') 'idle:0,walk:.2,chop:.5,chop:.72,bow:.9,cast:.9,hit:.35,down:1.5'
 Write-Host "Wrote $out ($([math]::Round((Get-Item $out).Length / 1MB, 2)) MB). Pose pictures: $work\pose_*.png"
 Write-Host "Add it to MODELS in js\aikit.js, then check it with tools/aimodel/preview.html?model=$Id"
