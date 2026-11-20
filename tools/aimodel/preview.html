@@ -43,7 +43,8 @@ function tick(now){ requestAnimationFrame(tick); const t = freeze != null ? free
   r.render(scene, cam); }
 requestAnimationFrame(tick);
 /* for scripted pictures: pv.set('sword', 720) holds a move at a time */
-window.pv = {set(m, t){ move = m; freeze = t; }, yaw(y){ yaw = y; }};
+window.pv = {set(m, t){ move = m; freeze = t; }, yaw(y){ yaw = y; }, hold(look, i){ for (const g of [toy, ai]) { K.hold(g, look); g.var = i; } }};
+for (const g of [toy, ai]) K.addFx(scene, g);
 document.title = 'AI model check: ' + id; window.ready = true;
 </script>
 </body></html>

@@ -1906,7 +1906,7 @@ const AR = makeArmory(THREE, {inked, toon, at, rot});
 let HUMAN_H = 0;
 const figH = spec => { if (!HUMAN_H) { const r = buildFigure(defaultSpec('Human', 'm'), {base:false}); HUMAN_H = r.h; dispose(r); }
   return (HUMAN_H - 6) * ((RACES[spec.race] || RACES.Human).h); };
-const AI = makeAI(THREE, {addBase, sword, figH, INK});
+const AI = makeAI(THREE, {addBase, sword, bow, staff, figH, INK, ANIMS, DUAL:AR.DUAL});
 /* everything a look needs before it can be built: its hairstyle and, with one, its AI model (null if that can't load) */
 const loadFor = spec => Promise.all([loadHair(spec && spec.hair), spec && isModel(spec.model) && !spec.beast ? AI.load(spec.model).catch(() => null) : null]);
 /* a look figkit can build: a person of a known race, or a known beast */

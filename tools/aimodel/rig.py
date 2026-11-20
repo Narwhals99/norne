@@ -38,6 +38,12 @@ for e in arm_d.edit_bones:
 for s in 'LR':
   f = arm_d.edit_bones['foot.' + s]; e = arm_d.edit_bones.new('ik.foot.' + s)
   e.head = f.head; e.tail = f.tail; e.roll = f.roll; e.use_deform = False
+# what the hands hold: a grip in each palm that js/aikit.js hangs the weapon on (the weapon's length runs along it),
+# and a free handle that says which way the weapon points whatever the arm is doing (upright at rest, its front forward)
+for s in 'LR':
+  hd = arm_d.edit_bones['hand.' + s]
+  g = arm_d.edit_bones.new('grip.' + s); g.head = hd.head + (hd.tail - hd.head) * .45; g.tail = g.head + Vector((0, 0, .06 * K)); g.roll = 0; g.parent = hd; g.use_deform = False
+  a = arm_d.edit_bones.new('aim.' + s); a.head = Vector(((.3 if s == 'L' else -.3) * K, 0, 1.2 * K)); a.tail = a.head + Vector((0, 0, .06 * K)); a.roll = 0; a.use_deform = False
 bpy.ops.object.mode_set(mode='OBJECT')
 # ---------- skin ----------
 bpy.ops.object.select_all(action='DESELECT')
@@ -53,6 +59,9 @@ pb = arm.pose.bones
 for s in 'LR':
   c = pb['shin.' + s].constraints.new('IK'); c.target = arm; c.subtarget = 'ik.foot.' + s; c.chain_count = 2; c.use_stretch = False
   c = pb['foot.' + s].constraints.new('COPY_ROTATION'); c.target = arm; c.subtarget = 'ik.foot.' + s
+  c = pb['grip.' + s].constraints.new('COPY_ROTATION'); c.target = arm; c.subtarget = 'aim.' + s
+  arm_d.bones['grip.' + s].use_deform = True    # so the export keeps it (it moves no skin)
+print('AIM FRONT', tuple(round(x, 2) for x in arm_d.bones['aim.L'].z_axis))
 
 # ---------- how a pose is written ----------
 # Turns are in degrees about the world's axes as the character stands at rest, whatever way the bone points:
@@ -88,6 +97,10 @@ class Pose:
     m = 1 if side == 'L' else -1
     return s.rot(part + '.' + side, *[(a, d if a == 'x' else d * m) for a, d in ops])
   def move(s, bone, x=0, y=0, z=0): o = s.l.get(bone, (0,0,0)); s.l[bone] = (o[0]+x, o[1]+y, o[2]+z); return s
+  def aim(s, side, pitch=0, yaw=0, roll=0):
+    """which way the weapon in that hand points: pitch 0 is straight up, 90 level and forward, more is downward;
+    yaw + swings it to the character's left; roll tips it sideways (a bow canted)"""
+    s.r['aim.' + side] = [('y', roll), ('x', pitch), ('z', yaw)]; return s
   def foot(s, side, x=0, y=0, z=0, pitch=0, yaw=0):
     """where the ankle is (metres from where it stands at rest); pitch + lifts the heel, yaw + turns the toes out"""
     m = 1 if side == 'L' else -1
@@ -123,6 +136,7 @@ def key(fn, dur, name, loop=False):
     if f < 0: continue
     if HAS_CAPE: p.rot('cape1', ('x', a)); p.rot('cape2', ('x', clamp(a2 - a, -30, 40)))
     fr = f
+    for sd in 'LR': p.r.setdefault('aim.' + sd, [('x', 100)])
     for b in pb:
       b.rotation_quaternion = quat(b.name, p.r.get(b.name, [])); b.location = loc(b.name, p.l.get(b.name, (0,0,0)))
       b.keyframe_insert('rotation_quaternion', frame=fr); b.keyframe_insert('location', frame=fr)
@@ -175,43 +189,104 @@ def walk(t):
   return p
 key(walk, .8, 'walk', loop=True)
 
-# ---------- attack: a step in, a wind-up over the shoulder, a chop that lands 0.72 s in, and back (1.7 s) ----------
-def attack(t):
-  p = Pose()
-  ready = tr(t, [(0, 0), (.22, 1), (1.22, 1), (1.62, 0)])
-  wind = tr(t, [(.10, 0), (.52, 1, 'out'), (.60, 1.06), (.70, 0, 'in'), (1.7, 0)])           # torso coiled back
-  hit = tr(t, [(.58, 0), (.70, .92, 'in'), (.79, 1.08, 'out'), (.95, 1, 'io'), (1.22, 1), (1.6, 0)])  # weight thrown in
-  # the arms hang as in idle, minus the sword arm once it is up
+# ---------- close attacks: every one lands 0.72 s in and is over by 1.7 s, like the toy figures' (js/armory.js) ----------
+def hang(p, t, sides='LR', t0=.12, t1=.4, t2=1.3, t3=1.62):
+  """the arms as in idle; the ones named in `sides` let go of that pose while they work"""
   for sd in 'LR':
-    k = 1 if sd == 'L' else 1 - tr(t, [(.12, 0), (.4, 1), (1.3, 1), (1.62, 0)])
+    k = 1 - tr(t, [(t0, 0), (t1, 1), (t2, 1), (t3, 0)]) if sd in sides else 1
     p.arm(sd, 'upperarm', ('y', 31), ('x', 3 * k), ('t', TWIST * .4)); p.arm(sd, 'forearm', ('x', -14 * k), ('t', TWIST * .6)); p.arm(sd, 'hand', ('y', 6), ('x', -6 * k))
-  # feet: the left steps in before the blow and back after it; the right heel comes up as the weight goes over
-  sy = tr(t, [(.10, 0), (.34, .11, 'io'), (1.24, .11), (1.52, 0, 'io')])
-  sz = .035 * math.sin(math.pi * tr(t, [(.10, 0), (.34, 1, 'lin')])) * (t < .34) + .03 * math.sin(math.pi * tr(t, [(1.24, 0), (1.52, 1, 'lin')])) * (t > 1.24)
-  p.foot('L', y=-sy, z=sz, pitch=tr(t, [(.10, 0), (.2, 10), (.34, 0)]), yaw=7 - 5 * ready)
-  p.foot('R', pitch=24 * hit, z=.022 * hit, y=-.012 * hit, yaw=7 + 16 * ready)
-  # hips and spine: sink back while winding, drive forward and down into the blow, a little bounce, then up
-  p.move('hips', y=-.045 * ready + .03 * wind - .06 * hit, z=-.02 * ready - .012 * wind - .024 * hit, x=-.01 * ready)
-  p.rot('hips', ('z', -10 * wind + 12 * hit - 6 * ready), ('x', 2 * ready - 3 * wind + 6 * hit))
-  p.rot('spine', ('z', -11 * wind + 9 * hit), ('x', 3 * ready - 5 * wind + 6 * hit), ('y', -3 * wind))
-  p.rot('chest', ('z', -15 * wind + 12 * hit), ('x', -6 * wind + 7 * hit), ('y', -4 * wind + 3 * hit))
-  p.rot('neck', ('z', 9 * wind - 8 * hit)).rot('head', ('z', 22 * wind - 14 * hit + 5 * ready), ('x', -3 * wind - 9 * hit))
-  # the sword arm: up and back with the elbow bent, then the shoulder leads, the elbow opens and the wrist snaps
-  up = tr(t, [(.12, 0), (.50, -160, 'io'), (.61, -168), (.72, -86, 'in'), (.80, -62, 'out'), (.98, -66), (1.25, -62), (1.62, 0)])
-  out = tr(t, [(.12, 0), (.5, 48), (.61, 44), (.72, 6, 'in'), (1.25, 2), (1.62, 0)])
-  el = tr(t, [(.12, 0), (.5, -30), (.63, -42), (.74, -16, 'in'), (.83, -6, 'out'), (1.25, -18), (1.62, 0)])
-  wr = tr(t, [(.3, 0), (.58, -22), (.65, -26), (.72, 16, 'in'), (.8, 24, 'out'), (.95, 10), (1.25, 2), (1.62, 0)])
-  p.arm('R', 'shoulder', ('y', tr(t, [(.12, 0), (.5, -14), (.72, 0), (1.7, 0)])))
-  p.arm('R', 'upperarm', ('x', up), ('y', out)); p.arm('R', 'forearm', ('x', el)); p.arm('R', 'hand', ('x', wr))
-  # the other arm: forward for balance in the wind-up, thrown back as the blow lands
-  la = tr(t, [(.12, 0), (.5, -28), (.62, -32), (.74, 30, 'in'), (.92, 22), (1.25, 14), (1.62, 0)])
-  p.arm('L', 'upperarm', ('x', la), ('y', tr(t, [(.12, 0), (.5, -14), (.76, -10), (1.62, 0)])))
-  p.arm('L', 'forearm', ('x', tr(t, [(.12, 0), (.5, -62), (.8, -34), (1.62, 0)])))
-  # ease out of and back into the idle's first frame
-  if t > 1.5: p.move('hips', z=-.006 * tr(t, [(1.5, 0), (1.7, 1)]))
-  elif t < .15: p.move('hips', z=-.006 * (1 - t / .15))
+def stance(p, t, yaw=0, lean=0, fwd=0, sink=0, step=.11, heel=0, tin=(.10, .34), tout=(1.24, 1.52), side=0):
+  """feet and body for an attack: the left foot steps in and later back, the hips carry the weight (fwd in metres,
+  + is back), the turn and the lean are spread up the spine, and the head keeps looking at the target"""
+  ready = tr(t, [(tin[0], 0), (tin[1] - .12, 1), (tout[0] - .02, 1), (tout[1] + .1, 0)])
+  sy = tr(t, [(tin[0], 0), (tin[1], step, 'io'), (tout[0], step), (tout[1], 0, 'io')])
+  sz = .035 * math.sin(math.pi * tr(t, [(tin[0], 0), (tin[1], 1, 'lin')])) * (t < tin[1]) + .03 * math.sin(math.pi * tr(t, [(tout[0], 0), (tout[1], 1, 'lin')])) * (t > tout[0])
+  p.foot('L', y=-sy, z=sz, pitch=tr(t, [(tin[0], 0), (tin[0] + .1, 10), (tin[1], 0)]), yaw=7 - 5 * ready)
+  p.foot('R', pitch=24 * heel, z=.022 * heel, y=-.012 * heel, yaw=7 + 16 * ready)
+  p.move('hips', y=-.4 * step * ready + fwd, z=-.006 - .016 * ready - sink, x=-.01 * ready + side)
+  p.rot('hips', ('z', .3 * yaw - 6 * ready), ('x', 2 * ready + .3 * lean))
+  p.rot('spine', ('z', .3 * yaw), ('x', 3 * ready + .32 * lean)).rot('chest', ('z', .4 * yaw), ('x', .38 * lean))
+  p.rot('neck', ('z', -.25 * yaw)).rot('head', ('z', -.45 * yaw + 5 * ready), ('x', -.45 * lean))
+  return ready
+def W3(t, w, h, f, rest=0):
+  """one number through an attack: rest, the wind-up, the blow (0.72 s), the follow-through, and back"""
+  return tr(t, [(.12, rest), (.50, w, 'io'), (.60, w + (w - h) * .05), (.72, h, 'in'), (.80, f, 'out'), (1.22, f * .96 + h * .04), (1.62, rest)])
+def swing(t, R, L, yaw, lean, fwd, sink, aimR, aimL=None, step=.11, both=False):
+  """a one-blow attack. R and L are each arm's (up, out, sweep, elbow, wrist), every one given as (wind-up, blow,
+  follow-through): up - is forward and up, out + is away from the body with the arm raised, sweep + swings a raised arm
+  outward, elbow - bends it. yaw, lean, fwd and sink are (wind-up, blow). aimR/aimL: (pitch, yaw) of the weapon at each."""
+  p = Pose(); hang(p, t, 'LR')
+  hit = tr(t, [(.58, 0), (.70, .92, 'in'), (.79, 1.08, 'out'), (.95, 1), (1.22, 1), (1.6, 0)])
+  two = lambda v: W3(t, v[0], v[1], v[1] * 1.05)
+  stance(p, t, yaw=two(yaw), lean=two(lean), fwd=two(fwd), sink=two(sink), step=step, heel=hit)
+  for sd, A, lagt in (('R', R, 0), ('L', L, .0)):
+    up, out, sw, el, wr = [W3(t - lagt, *A[k]) for k in range(5)]
+    el = W3(t - .025, *A[3]); wr = W3(t - .04, *A[4])        # the elbow opens a beat after the shoulder, the wrist after that
+    p.arm(sd, 'upperarm', ('x', up), ('y', out), ('z', sw)); p.arm(sd, 'forearm', ('x', el)); p.arm(sd, 'hand', ('x', wr))
+  p.aim('R', W3(t - .03, aimR[0][0], aimR[1][0], aimR[2][0], 100), W3(t - .03, aimR[0][1], aimR[1][1], aimR[2][1]))
+  if aimL: p.aim('L', W3(t - .03, aimL[0][0], aimL[1][0], aimL[2][0], 100), W3(t - .03, aimL[0][1], aimL[1][1], aimL[2][1]))
   return p
-key(attack, 1.7, 'attack')
+Z3 = (0, 0, 0)
+FREE = ((-30, 30, 22), Z3, Z3, (-62, -34, -34), Z3)          # the empty hand: forward for balance, thrown back with the blow
+MELEE = {
+  # an overhead cut, the plain sword's swing (also the one-handed bash of a club or mace)
+  'chop': dict(R=((-164, -86, -62), (46, 6, 2), Z3, (-38, -16, -10), (-28, 16, 22)), L=FREE, yaw=(-36, 33), lean=(-14, 19), fwd=(.03, -.06), sink=(.012, .024),
+               aimR=((-35, 0), (78, 0), (104, 0))),
+  # a flat cut across the body
+  'cut': dict(R=((-88, -84, -78), Z3, (72, -28, -52), (-58, -12, -22), Z3), L=((-40, 20, 14), Z3, Z3, (-70, -40, -40), Z3), yaw=(-42, 40), lean=(-4, 10), fwd=(.02, -.05), sink=(.02, .03),
+              aimR=((88, -115), (92, 25), (96, 75))),
+  # a straight stab
+  'poke': dict(R=((28, -82, -80), Z3, (10, -6, -6), (-100, -6, -10), Z3), L=((-50, 24, 18), Z3, Z3, (-60, -40, -40), Z3), yaw=(-24, 20), lean=(-4, 12), fwd=(.03, -.08), sink=(.02, .035),
+               aimR=((86, 0), (90, 0), (92, 0)), step=.13),
+  # both hands, up over the head and down hard
+  'slam': dict(R=((-168, -78, -50), (18, 0, 0), (-12, -14, -14), (-40, -14, -8), (-20, 14, 20)), L=((-168, -78, -50), (18, 0, 0), (-12, -14, -14), (-40, -14, -8), Z3), yaw=(0, 0), lean=(-16, 26), fwd=(.03, -.06), sink=(-.01, .04),
+               aimR=((-42, 0), (84, 0), (112, 0))),
+  # both hands, a wide flat swing from the hip
+  'sweep': dict(R=((-82, -80, -76), Z3, (64, -30, -55), (-50, -14, -20), Z3), L=((-78, -80, -74), Z3, (-62, 10, 45), (-30, -20, -40), Z3), yaw=(-46, 42), lean=(-2, 10), fwd=(.02, -.05), sink=(.022, .03),
+                aimR=((90, -110), (92, 20), (96, 80))),
+  # both hands on the shaft, a long thrust with a step
+  'thrust': dict(R=((24, -72, -70), Z3, (8, -10, -10), (-96, -10, -14), Z3), L=((-58, -86, -84), Z3, (-22, -12, -12), (-46, -6, -8), Z3), yaw=(-30, 16), lean=(-2, 14), fwd=(.035, -.09), sink=(.02, .04),
+                 aimR=((88, 6), (90, 0), (91, 0)), step=.14),
+  # fists: the right hand comes round in a hook
+  'hook': dict(R=((-78, -84, -80), Z3, (66, -42, -60), (-84, -78, -70), Z3), L=((-58, -50, -52), Z3, (-10, -10, -10), (-104, -100, -100), Z3), yaw=(-34, 46), lean=(2, 10), fwd=(.02, -.05), sink=(.02, .03),
+               aimR=((90, 0), (90, 30), (90, 50)), aimL=((90, 0), (90, 0), (90, 0))),
+  # a weapon in each hand: both arms flung wide, then both cut inwards together
+  'scissor': dict(R=((-84, -82, -80), Z3, (74, -30, -36), (-30, -20, -24), Z3), L=((-84, -82, -80), Z3, (74, -30, -36), (-30, -20, -24), Z3), yaw=(0, 0), lean=(-10, 16), fwd=(.02, -.06), sink=(-.012, .035),
+                  aimR=((90, -80), (90, 28), (92, 36)), aimL=((90, 80), (90, -28), (92, -36))),
+}
+for name, m in MELEE.items(): key(lambda t, m=m: swing(t, **m), 1.7, name)
+
+def blows(t, hits, kind):
+  """several quick blows: hits are (which hand, when it lands); the last lands at 0.72 s. kind: 'jab' (straight
+  punches or stabs from a guard) or 'chop' (each arm lifts and cuts down in turn)"""
+  p = Pose(); hang(p, t, 'LR', .0, .18, 1.12, 1.5)
+  g = tr(t, [(0, 0), (.18, 1, 'out'), (1.1, 1), (1.5, 0)])
+  P = {'L': 0, 'R': 0}; C = {'L': (0, 0, 0), 'R': (0, 0, 0)}; last = hits[-1][1]
+  for sd, a in hits:
+    fin = a == last
+    if kind == 'jab':
+      P[sd] = max(P[sd], tr(t, [(a - .1, 0), (a, 1, 'snap'), (a + (.28 if fin else .03), 1), (a + (.5 if fin else .2), 0)]))
+    elif a - .32 <= t:
+      C[sd] = (tr(t, [(a - .32, 0), (a - .1, -160, 'io'), (a, -80, 'in'), (a + .08, -56, 'out'), (1.1, -56), (1.5, 0)]),
+               tr(t, [(a - .32, 0), (a - .1, 40), (a, 4), (1.5, 0)]), tr(t, [(a - .3, 0), (a - .08, -44), (a + .02, -14, 'in'), (1.1, -12), (1.5, 0)]))
+  sR = max((tr(t, [(a - .1, 0), (a, 1, 'snap'), (a + .25, 1), (a + .5, 0)]) for sd, a in hits if sd == 'R'), default=0)
+  sL = max((tr(t, [(a - .1, 0), (a, 1, 'snap'), (a + .12, 0)]) for sd, a in hits if sd == 'L'), default=0)
+  fin = tr(t, [(last - .1, 0), (last, 1, 'in'), (last + .08, 1.08, 'out'), (1.1, 1), (1.5, 0)])
+  stance(p, t, yaw=(-12 * g + 26 * sR - 22 * sL) if kind == 'jab' else (30 * sR - 26 * sL), lean=6 * g + 8 * fin, fwd=-.02 * (sR + sL) - .04 * fin, sink=.014 * g + .016 * fin,
+         step=.10, heel=fin, tin=(.02, .22), tout=(1.14, 1.42))
+  for sd in 'LR':
+    if kind == 'jab':
+      p.arm(sd, 'upperarm', ('x', lerp(-56, -88, P[sd]) * g), ('z', -8 * g)); p.arm(sd, 'forearm', ('x', lerp(-104, -8, P[sd]) * g)); p.aim(sd, 90, 0)
+    else:
+      up, out, el = C[sd]; p.arm(sd, 'upperarm', ('x', up), ('y', out)); p.arm(sd, 'forearm', ('x', el))
+      p.aim(sd, lerp(-35, 100, clamp((up + 160) / 100, 0, 1)) if up < -1 else 100, 0)
+  return p
+# fists: a quick left, then the right hand through the target
+key(lambda t: blows(t, [('L', .46), ('R', .72)], 'jab'), 1.7, 'jabs')
+# two weapons: quick stabs, left, right, left, and the right again to finish
+key(lambda t: blows(t, [('L', .33), ('R', .45), ('L', .57), ('R', .72)], 'jab'), 1.7, 'flurry')
+# two weapons: the off hand cuts first, the main hand follows through the target
+key(lambda t: blows(t, [('L', .46), ('R', .72)], 'chop'), 1.7, 'twin')
 
 # ---------- hit: struck at 0.2 s, knocked back onto the back foot, and back up (1.3 s) ----------
 def hit(t, big=1.0, back=True, fade=1.0):
@@ -259,5 +334,84 @@ def down(t):
   p.arm('L', 'forearm', ('x', -24 * reach + 12 * open_)); p.arm('R', 'forearm', ('x', -30 * reach + 4 * open_))
   return p
 key(down, 1.5, 'down')
+# ---------- from a distance: loosed or thrown 1.05 s in, over by 1.9 s; magic lets go at 0.96 s ----------
+FAR = dict(tin=(.10, .40), tout=(1.46, 1.74))
+def bow(t):
+  p = Pose(); hang(p, t, 'LR', .1, .42, 1.45, 1.85)
+  r = tr(t, [(.1, 0), (.45, 1, 'io'), (1.42, 1), (1.85, 0)])                       # turned side-on, the bow up
+  d = tr(t, [(.45, 0), (.95, 1, 'out'), (1.05, 1.03), (1.09, 0, 'snap')])           # the string drawn to the cheek
+  rl = tr(t, [(1.05, 0), (1.12, 1, 'snap'), (1.4, 1), (1.8, 0)])                    # the hand flying back off the string
+  stance(p, t, yaw=-52 * r - 6 * d, lean=-5 * d + 3 * rl, fwd=.012 * d, sink=.006 * r, step=.08, **FAR)
+  p.rot('head', ('z', 30 * r))
+  p.arm('L', 'upperarm', ('x', -88 * r), ('z', 54 * r + 5 * d)); p.arm('L', 'forearm', ('x', -4 * r))
+  p.arm('R', 'upperarm', ('x', -84 * r), ('z', (-50 + 78 * d + 26 * rl) * r)); p.arm('R', 'forearm', ('x', -10 * r), ('y', (112 * d + 128 * rl * (1 - d)) * r))   # the elbow folds level, the hand coming back to the cheek
+  p.aim('L', pitch=lerp(100, -2 * d, r), roll=7 * r); return p
+key(bow, 1.9, 'bow')
+def xbow(t):
+  p = Pose(); hang(p, t, 'LR', .1, .42, 1.45, 1.85)
+  r = tr(t, [(.1, 0), (.45, 1, 'out'), (1.42, 1), (1.85, 0)])
+  k = tr(t, [(1.05, 0), (1.1, 1, 'snap'), (1.3, 0, 'io')])                          # the kick as it shoots
+  stance(p, t, yaw=-18 * r, lean=8 * r - 9 * k, fwd=.02 * k, sink=.012 * r, step=.09, **FAR)
+  p.rot('head', ('y', -7 * r), ('x', 5 * r))
+  p.arm('R', 'upperarm', ('x', -62 * r + 6 * k), ('z', -12 * r)); p.arm('R', 'forearm', ('x', -72 * r))
+  p.arm('L', 'upperarm', ('x', -74 * r + 5 * k), ('z', -26 * r)); p.arm('L', 'forearm', ('x', -34 * r))
+  p.aim('R', pitch=lerp(100, 90 - 9 * k, r)); return p
+key(xbow, 1.9, 'xbow')
+def sling(t):
+  p = Pose(); hang(p, t, 'R', .08, .36, 1.4, 1.8)
+  r = tr(t, [(.08, 0), (.4, 1, 'out'), (1.02, 1), (1.08, 0, 'snap')])               # the arm up, the sling going round
+  u = clamp((t - .3) / .74, 0, 1); th = TWO_PI * 3 * u * u                         # three turns, faster and faster
+  s = tr(t, [(1.0, 0), (1.07, 1, 'snap'), (1.4, 1), (1.8, 0)])                      # let go
+  stance(p, t, yaw=-16 * r + 22 * s + 5 * math.sin(th) * r, lean=-6 * r + 12 * s, fwd=.02 * r - .05 * s, sink=.012 * s, step=.10, heel=s, **FAR)
+  p.arm('R', 'upperarm', ('x', -158 * r - 64 * s + 12 * math.sin(th) * r), ('y', (26 + 14 * math.cos(th)) * r)); p.arm('R', 'forearm', ('x', -28 * r - 8 * s))
+  p.arm('L', 'upperarm', ('x', -34 * r + 22 * s)); p.arm('L', 'forearm', ('x', -40 * r))
+  p.aim('R', pitch=tr(t, [(.08, 100), (.4, 96), (1.0, 96), (1.07, 68, 'snap'), (1.8, 100)]), yaw=math.degrees(th) * (1 - s)); return p
+key(sling, 1.9, 'sling')
+def throw(t):
+  p = Pose(); hang(p, t, 'LR', .12, .5, 1.42, 1.82)
+  w = tr(t, [(.15, 0), (.78, 1, 'io'), (.86, 1.05), (1.05, 0, 'in')])               # drawn back over the shoulder
+  s = tr(t, [(.86, 0), (1.05, .95, 'in'), (1.13, 1.08, 'out'), (1.4, 1), (1.8, 0)]) # thrown
+  stance(p, t, yaw=-34 * w + 30 * s, lean=-10 * w + 16 * s, fwd=.03 * w - .06 * s, sink=.01 * w + .022 * s, step=.12, heel=s, tin=(.5, .8), tout=(1.46, 1.74))
+  p.arm('R', 'upperarm', ('x', tr(t, [(.15, 0), (.6, -150), (.84, -172), (1.05, -80, 'in'), (1.14, -38, 'out'), (1.4, -32), (1.8, 0)])), ('y', tr(t, [(.15, 0), (.84, 36), (1.05, 4), (1.8, 0)])))
+  p.arm('R', 'forearm', ('x', tr(t, [(.15, 0), (.84, -78), (1.04, -8, 'in'), (1.4, -14), (1.8, 0)]))); p.arm('R', 'hand', ('x', tr(t, [(.5, 0), (.86, -30), (1.06, 26, 'in'), (1.4, 6), (1.8, 0)])))
+  p.arm('L', 'upperarm', ('x', -66 * w + 26 * s)); p.arm('L', 'forearm', ('x', -30 * w - 24 * s))
+  p.aim('R', pitch=tr(t, [(.15, 100), (.84, -50), (1.05, 72, 'in'), (1.8, 100)])); return p
+key(throw, 1.9, 'throw')
+def cast(t):
+  p = Pose(); hang(p, t, 'LR', .1, .4, 1.45, 1.85)
+  r = tr(t, [(.1, 0), (.4, 1, 'out'), (1.42, 1), (1.85, 0)])                        # the staff planted in front
+  g = tr(t, [(.14, 0), (.8, 1, 'io'), (.86, 1.04), (.96, 0, 'in')])                 # gathering: up on the toes, the free hand raised
+  s = tr(t, [(.86, 0), (.96, .95, 'in'), (1.04, 1.08, 'out'), (1.4, 1), (1.82, 0)]) # the push that lets it go
+  stance(p, t, yaw=-14 * g + 10 * s, lean=-10 * g + 14 * s, fwd=.025 * g - .05 * s, sink=-.01 * g + .02 * s, step=.10, heel=s, **FAR)
+  p.arm('R', 'upperarm', ('x', -50 * r - 62 * g - 40 * s), ('z', 10 * g)); p.arm('R', 'forearm', ('x', -44 * r - 24 * g + 52 * s))
+  p.arm('L', 'upperarm', ('x', -30 * r - 110 * g - 56 * s), ('y', 30 * g)); p.arm('L', 'forearm', ('x', -52 * g - 10 * r)); p.arm('L', 'hand', ('x', -20 * g + 24 * s))
+  p.aim('R', pitch=lerp(100, 6 - 22 * g + 52 * s, r)); return p
+key(cast, 1.9, 'cast')
+
+# ---------- defending: the blow comes 0.33 s in (1.3 s) ----------
+def block(t):
+  p = Pose(); hang(p, t, 'LR', .06, .28, .9, 1.25)
+  u = tr(t, [(.06, 0), (.3, 1, 'out'), (.9, 1), (1.25, 0)])                         # the guard up
+  k = tr(t, [(.33, 0), (.39, 1, 'snap'), (.72, 0, 'io')])                           # shoved back as it lands
+  p.move('hips', y=.035 * k, z=-.006 - .028 * u - .01 * k, x=-.008 * u).rot('hips', ('z', 6 * u), ('x', 3 * u - 4 * k))
+  p.rot('spine', ('z', 5 * u), ('x', 5 * u - 6 * k)).rot('chest', ('z', 7 * u), ('x', 4 * u - 8 * k)).rot('head', ('z', -14 * u), ('x', 9 * u - 6 * k))
+  p.arm('R', 'upperarm', ('x', -80 * u + 8 * k), ('z', -36 * u)); p.arm('R', 'forearm', ('x', -98 * u - 8 * k))
+  p.arm('L', 'upperarm', ('x', -64 * u + 8 * k), ('z', -30 * u)); p.arm('L', 'forearm', ('x', -104 * u - 8 * k))
+  sy = tr(t, [(.33, 0), (.46, .07, 'out'), (.85, .07), (1.12, 0, 'io')])
+  sz = .02 * (math.sin(math.pi * tr(t, [(.33, 0), (.46, 1, 'lin')])) * (t < .46) + math.sin(math.pi * tr(t, [(.85, 0), (1.12, 1, 'lin')])) * (t > .85))
+  p.foot('R', y=sy, z=sz, yaw=7 + 10 * u).foot('L', yaw=7)
+  p.aim('R', pitch=lerp(100, 20, u), yaw=40 * u); return p
+key(block, 1.3, 'block')
+def dodge(t):
+  p = Pose(); hang(p, t, '', 0, 0, 0, 0)
+  d = tr(t, [(.08, 0), (.3, 1, 'out'), (.36, 1.06), (.62, 1, 'io'), (1.02, 0, 'io'), (1.3, 0)])   # out of the way, to its left and back
+  p.move('hips', x=.06 * d, y=.05 * d, z=-.006 - .034 * d).rot('hips', ('y', 9 * d), ('x', -4 * d), ('z', 8 * d))
+  p.rot('spine', ('y', 8 * d), ('x', -5 * d)).rot('chest', ('y', 9 * d), ('x', -7 * d), ('z', 6 * d)).rot('neck', ('y', -8 * d)).rot('head', ('y', -12 * d), ('z', -12 * d), ('x', 6 * d))
+  for sd, m in (('L', 1), ('R', -1)):
+    p.arm(sd, 'upperarm', ('y', -18 * d), ('x', (-16 if sd == 'R' else 10) * d)); p.arm(sd, 'forearm', ('x', -34 * d))
+  sx = tr(t, [(.08, 0), (.28, .075, 'out'), (.7, .075), (1.0, 0, 'io')]); up = lambda a, b: math.sin(math.pi * tr(t, [(a, 0), (b, 1, 'lin')])) * (a < t < b)
+  p.foot('L', x=sx, y=.6 * sx, z=.028 * (up(.08, .28) + up(.7, 1.0)), yaw=7 + 10 * d).foot('R', yaw=7, pitch=10 * d, z=.008 * d)
+  return p
+key(dodge, 1.3, 'dodge')
 bpy.context.scene.frame_set(1)
 bpy.ops.wm.save_as_mainfile(filepath=out_blend)

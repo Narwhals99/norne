@@ -6,8 +6,10 @@
    was made for (its `who`: that character stands as it without picking anything, and only they are offered it;
    model:'none' on their figure turns it off). The figure maker still makes
    and saves the rest of the look, and that look is what shows wherever the model can't (it hasn't loaded, or failed to).
-   The moves in every model: idle, walk, attack (the blow lands 0.72 s in), hit (struck at 0.2 s) and down (struck at
-   0.2 s, lying still from about 1.1 s). The fight board's other moves are made from those (see animate).
+   The moves in every model (tools/aimodel/rig.py writes them, the same for each): idle, walk, hit, down, block and
+   dodge; a move for each way the toy figures use a weapon (chop, cut, poke, slam, sweep, thrust, jabs, hook, twin,
+   flurry, scissor: the blow lands 0.72 s in; bow, xbow, sling, throw: let go at 1.05 s) and cast for magic (0.96 s).
+   moveOf picks the one for the weapon in hand, as js/armory.js does for a toy figure.
    Only loaded when a figure with a model is about to be drawn: three.js's glTF loader (vendor/three-addons/) comes
    with the first one. Each model file loads once; every fighter using it gets its own copy of the skeleton. */
 export const MODELS = [
@@ -57,38 +59,60 @@ export function makeAI(THREE, H){
     rig.body = body; rig.h = body.position.y + L.y0 * s + tall; rig.k = s;
     rig.joints = []; body.traverse(o => { if (o.isBone) rig.joints.push(o); });
     const bone = n => rig.joints.find(b => b.name === n || b.name === n.replace('.', ''));
-    /* the hands hold weapons (js/armory.js) in toy-figure units: a holder undoes the model's scale, and tips the
-       weapon forward of square to the forearm, the way a gripped sword sits */
-    const holder = b => { const g = new THREE.Group(); if (b) { b.add(g); g.scale.setScalar(1 / s); g.position.y = .45; g.rotation.x = -.6; } return g; };
-    rig.armR = {hand:holder(bone("hand.R"))}; rig.armL = {hand:holder(bone("hand.L"))};
-    rig.w.sword = H.sword(); rig.w.sword.rotation.x = Math.PI / 2; rig.w.sword.visible = false; rig.armR.hand.add(rig.w.sword);
+    /* the hands hold weapons (js/armory.js) in toy-figure units, on the model's grip bones: a holder undoes the
+       model's scale. A weapon's length runs along the grip, and the model's moves say which way each grip points. */
+    const holder = b => { const g = new THREE.Group(); if (b) { b.add(g); g.scale.setScalar(1 / s); } return g; };
+    rig.armR = {hand:holder(bone('grip.R') || bone('hand.R'))}; rig.armL = {hand:holder(bone('grip.L') || bone('hand.L'))};
+    /* the plain sword, bow and staff, for a fighter with no weapon of their own */
+    rig.w.sword = H.sword(); rig.armR.hand.add(rig.w.sword);
+    rig.w.bow = H.bow(); rig.w.bow.rotation.y = -Math.PI / 2; rig.armL.hand.add(rig.w.bow);
+    rig.w.staff = H.staff(); rig.armR.hand.add(rig.w.staff);
+    for (const k in rig.w) rig.w[k].visible = false;
     rig.mixer = new THREE.AnimationMixer(body);
     rig.acts = {}; for (const k in L.clips) { const a = rig.mixer.clipAction(L.clips[k]); a.play(); a.enabled = false; rig.acts[k] = a; }
     if (opt.scale) root.scale.setScalar(opt.scale);
     return rig;
   }
-  /* the board's moves from the model's five: list of [clip, seconds into it, weight] */
-  function mixOf(rig, name, t){
-    const dur = k => rig.acts[k] ? rig.acts[k].getClip().duration : 1, cap = (k, x) => Math.max(0, Math.min(dur(k) - 1e-4, x));
-    const loop = (k, x) => ((x % dur(k)) + dur(k)) % dur(k);
-    if (name === 'walk') return [['walk', loop('walk', t / 1000), 1]];
-    /* the blow lands at 0.72 s in the model; the board's sword lands at 720 ms, the bow lets go at 1050, magic at 960 */
-    if (name === 'sword' || name === 'bow' || name === 'magic') { const at = {sword:720, bow:1050, magic:960}[name], x = t < at ? t * 720 / at : t - at + 720; return [['attack', cap('attack', x / 1000), 1]]; }
-    if (name === 'hit') return [['hit', cap('hit', t / 1000), 1]];
-    /* a block or a dodge is half a flinch */
-    if (name === 'block' || name === 'dodge') return [['idle', 0, .5], ['hit', cap('hit', t / 1000), .5]];
+  /* which of the model's moves plays for each of the toy figures' weapon moves (js/armory.js MOVES) */
+  const MOVE = {chop:'chop', bash:'chop', cut:'cut', poke:'poke', slam:'slam', sweep:'sweep', thrust:'thrust', jabs:'jabs', hook:'hook',
+    twin:'twin', flurry:'flurry', scissor:'scissor', bow:'bow', xbow:'xbow', sling:'sling', throw:'throw', flick:'throw', hurl:'throw'};
+  /* what the board asks for -> {clip, seconds into it, the weapons to show}. An attack is acted with the weapon in hand,
+     like the toy figures: its moves in turn (rig.var picks one on the fight board, so every device shows the same),
+     or the plain sword, bow or staff with none. */
+  function moveOf(rig, name, t){
+    const has = k => !!rig.acts[k], dur = k => rig.acts[k].getClip().duration, cap = (k, x) => Math.max(0, Math.min(dur(k) - 1e-4, x));
+    const loop = (k, x) => ((x % dur(k)) + dur(k)) % dur(k), one = (k, show) => ({clip:k, at:cap(k, (t % (H.ANIMS[name] || 1e9)) / 1000), show:show || []});
+    if (name === 'walk') return {clip:'walk', at:loop('walk', t / 1000), show:[]};
+    if (name === 'sword' || name === 'bow') {
+      const h = rig.held, D = H.ANIMS[name], ms = t % D;
+      if (h && (name === 'sword') === (h.def.cat === 'melee')) {
+        const mv = h.two ? H.DUAL : h.def.moves, i = rig.var != null ? rig.var : Math.floor(t / D), k = MOVE[mv[i % mv.length]];
+        /* something thrown has left the hand by 1050 ms */
+        const gone = h.def.cat === 'thrown' && ms >= 1050;
+        if (has(k)) return one(k, gone ? [] : [h.m, h.l].filter(Boolean));
+      }
+      return name === 'sword' ? one(has('chop') ? 'chop' : 'attack', [rig.w.sword]) : one(has('bow') ? 'bow' : 'attack', [rig.w.bow]);
+    }
+    if (name === 'magic') return one(has('cast') ? 'cast' : 'attack', [rig.w.staff]);
+    if (name === 'hit') return one('hit');
+    if ((name === 'block' || name === 'dodge') && has(name)) return one(name);
     /* knocked down; past 1900 ms it gets back up (the board plays 1900..2600 when someone is put back in) */
-    if (name === 'down') { if (t <= 1900) return [['down', cap('down', t / 1000), 1]]; const u = Math.min(1, (t - 1900) / 700); return [['down', cap('down', (1 - u) * 1.5), 1]]; }
-    return [['idle', loop('idle', t / 1000), 1]];
+    if (name === 'down') { if (t <= 1900) return {clip:'down', at:cap('down', t / 1000), show:[]}; const u = Math.min(1, (t - 1900) / 700); return {clip:'down', at:cap('down', (1 - u) * 1.5), show:[]}; }
+    return {clip:'idle', at:loop('idle', t / 1000), show:[]};
   }
   function animate(rig, name, t){
+    const m = moveOf(rig, name, t);
     for (const k in rig.acts) rig.acts[k].enabled = false;
-    for (const [k, x, wt] of mixOf(rig, name, t)) { const a = rig.acts[k]; if (!a) continue; a.enabled = true; a.setEffectiveWeight(wt); a.time = x; }
+    const a = rig.acts[m.clip]; if (a) { a.enabled = true; a.setEffectiveWeight(1); a.time = m.at; }
     rig.mixer.update(0);
-    /* the plain sword shows in the attack unless the fighter holds a weapon of their own (js/armory.js) */
-    const atk = name === 'sword' || name === 'bow' || name === 'magic';
     for (const k in rig.w) rig.w[k].visible = false;
-    if (atk) { const h = rig.held; if (h) { h.m.visible = true; if (h.l) h.l.visible = true; } else rig.w.sword.visible = true; }
+    for (const w of m.show) { w.visible = true;
+      /* a weapon of the fighter's own was built for a toy figure's hand: stand it along the grip (a bow with its belly forward) */
+      if (rig.held && (w === rig.held.m || w === rig.held.l)) w.rotation.set(0, rig.held.def.moves[0] === 'bow' ? -Math.PI / 2 : 0, 0); }
+    /* the maker shows the arrow or the bolt flying off; on the fight board js/fx.js draws what flies */
+    const fx = rig.fx, ms = t % (H.ANIMS[name] || 1e9); for (const k in fx) fx[k].visible = false;
+    if (name === 'bow' && fx.arrow && ms > 1050 && ms < 1700 && (m.clip === 'bow' || m.clip === 'xbow')) { const k = (ms - 1050) / 650; fx.arrow.visible = true; fx.arrow.position.set(0, rig.h * .64, 18 + k * 160); fx.arrow.rotation.set(0, 0, 0); }
+    if (name === 'magic' && fx.bolt && ms > 960 && ms < 1500) { const k = (ms - 960) / 540; fx.bolt.visible = true; fx.bolt.position.set(-4, rig.h * .8 - k * 16, 22 + k * 170); }
   }
   function dispose(rig){
     rig.mixer.stopAllAction(); rig.mixer.uncacheRoot(rig.body);
