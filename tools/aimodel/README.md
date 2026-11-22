@@ -25,7 +25,7 @@ What the scripts do:
 
 | Script | Does |
 |---|---|
-| `prep.py` | Imports the GLB, merges doubled points, drops loose bits, decimates to 14k triangles, stands it on the floor |
+| `prep.py` | Imports the GLB, merges doubled points, drops loose bits, decimates to 14k triangles (the face keeps about a fifth of them, or the chin and mouth turn into flat facets), copies the full model's smooth shading onto the result, stands it on the floor |
 | `views.py` | Front and side pictures, for finding the joints |
 | `rig.py` | Skeleton from `<id>.json` (19 bones, plus two for a cape if the file lists `cape1` and `cape2`), automatic skin weights, and every move (below) |
 | `export.py` | Keeps only the colour texture (1024 px JPEG), writes the GLB with each move as its own animation |
