@@ -17,6 +17,8 @@ export const MODELS = [
   {id:'caelis', n:'Caelis', file:'models/caelis.glb', who:'Caelis Rethvael'},
   {id:'xira', n:'Xira', file:'models/xira.glb', who:'Xira'},
   {id:'egrot', n:'Egrot', file:'models/egrot.glb', who:'Egrot'},
+  /* a test of Mixamo's skeleton and idle on Egrot (2026-11-23); not offered to anyone */
+  {id:'egrot-mx', n:'Egrot (Mixamo test)', file:'models/egrot-mx.glb', who:'~nobody~'},
 ];
 const BY = new Map(MODELS.map(m => [m.id, m]));
 export const isModel = id => BY.has(id);
