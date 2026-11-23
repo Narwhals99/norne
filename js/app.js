@@ -1803,6 +1803,7 @@ function act(v, a, el, e){
     else if (val !== 'gm' && ui.gmBack) { if (ui.ch === ui.gmBack.to) ui.ch = ui.gmBack.from; ui.gmBack = null; }
     ui.tab = val; if (val === 'cast') ui.castSel = null; if (val === 'hero') { ui.charSel = null; ui.heroInv = false; ui.heroStats = null; } if (val === 'world' && v.dev === 'phone') { ui.wikiSel = null; ui.wikiPrev = []; } if (val === 'news') newsTab(v); break;
   case 'heroInv': ui.heroInv = !!val; break;
+  case 'sk0': ui.sk0 = {...(ui.sk0 || {}), [val]:!(ui.sk0 || {})[val]}; break;
   case 'invCat': ui.invOpen = {...(ui.invOpen || {}), [val]:!(ui.invOpen || {})[val]}; break;
   /* the toy figure maker test (js/figures.js): one player account, and the GM for NPC cards and fighters (val npc:<id> / tok:<id>) */
   case 'figOpen': close(); if (N.figOk && N.figOk()) { ui.figs = true; N.figOpen(v, val); } break;
