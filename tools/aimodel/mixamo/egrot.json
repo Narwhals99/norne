@@ -1,0 +1,4 @@
+{
+  "_about": "Egrot's own moves and settings; the rest come from moves.json.",
+  "idle": {"file": "Orc Idle", "loop": true}
+}

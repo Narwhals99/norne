@@ -37,6 +37,30 @@ k = float((a1[2] - a0[2]) / (b1[2] - b0[2])); body.scale = (k, k, k); bpy.contex
 body.location = Vector(((a0[0] + a1[0]) / 2 - (b0[0] + b1[0]) / 2, (a0[1] + a1[1]) / 2 - (b0[1] + b1[1]) / 2, a0[2] - b0[2])); bpy.context.view_layer.update()
 print('FIT', 'scale', round(k, 4), 'model size', np.round(a1 - a0, 3), 'verts', len(ob.data.vertices), len(body.data.vertices))
 bpy.context.view_layer.objects.active = ob; ob.select_set(True)
+# a model that went to Mixamo at full size (Egrot, before the small upload files) is cut down here the way prep.py does it:
+# doubled points merged first (left apart, the seams tear open into dark cracks), then everything but the face, then the
+# face, which keeps about a fifth of the triangles. The skin weights come along.
+TARGET = 14000
+if len(ob.data.polygons) > TARGET * 1.5:
+  def face_of(o):
+    co = np.empty(len(o.data.vertices) * 3, dtype=np.float32); o.data.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+    M = np.array(o.matrix_world); w = co @ M[:3, :3].T + M[:3, 3]; lo = w.min(axis=0); hi = w.max(axis=0); Hh = hi[2] - lo[2]
+    return (w[:, 2] - lo[2] > .69 * Hh) & (w[:, 2] - lo[2] < .90 * Hh) & (w[:, 1] - (lo[1] + hi[1]) / 2 < -.03 * Hh) & (np.abs(w[:, 0] - (lo[0] + hi[0]) / 2) < .11 * Hh)
+  v0 = len(ob.data.vertices)
+  bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
+  bpy.ops.mesh.remove_doubles(threshold=1e-4 * (a1[2] - a0[2]) / max(ob.matrix_world.to_scale()[2], 1e-9)); bpy.ops.object.mode_set(mode='OBJECT')
+  n0 = len(ob.data.polygons); face = face_of(ob)
+  vg = ob.vertex_groups.new(name='_face'); vg.add([int(i) for i in np.nonzero(face)[0]], 1.0, 'REPLACE')
+  pv = np.empty(len(ob.data.loops), dtype=np.int32); ob.data.loops.foreach_get('vertex_index', pv)
+  ls = np.empty(n0, dtype=np.int32); ob.data.polygons.foreach_get('loop_total', ls)
+  face_tris = int(face[pv].reshape(-1, 3).all(axis=1).sum()) if (ls == 3).all() else int(face.sum() * 2)
+  m = ob.modifiers.new('dec', 'DECIMATE'); m.vertex_group = '_face'; m.invert_vertex_group = True; m.use_collapse_triangulate = True; m.ratio = (face_tris + TARGET * .78) / n0
+  bpy.ops.object.modifier_move_to_index(modifier='dec', index=0); bpy.ops.object.modifier_apply(modifier='dec')
+  m = ob.modifiers.new('dec', 'DECIMATE'); m.vertex_group = '_face'; m.use_collapse_triangulate = True; m.ratio = TARGET / len(ob.data.polygons)
+  bpy.ops.object.modifier_move_to_index(modifier='dec', index=0); bpy.ops.object.modifier_apply(modifier='dec')
+  ob.vertex_groups.remove(ob.vertex_groups['_face'])
+  print('CUT DOWN', n0, '->', len(ob.data.polygons), 'points merged', v0 - len(ob.data.vertices) if False else v0)
+SWAP = False
 bpy.ops.object.shade_smooth()
 dt = ob.modifiers.new('nrm', 'DATA_TRANSFER'); dt.object = body; dt.use_loop_data = True; dt.data_types_loops = {'CUSTOM_NORMAL'}; dt.loop_mapping = 'POLYINTERP_NEAREST'
 bpy.ops.object.modifier_move_to_index(modifier='nrm', index=0); bpy.ops.object.modifier_apply(modifier='nrm')
@@ -46,7 +70,7 @@ mat = bpy.data.materials.new('skin'); mat.use_nodes = True; nt = mat.node_tree; 
 tex = nt.nodes.new('ShaderNodeTexImage'); tex.image = img; nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
 bsdf.inputs['Metallic'].default_value = 0; bsdf.inputs['Roughness'].default_value = .72
 ob.data.materials.clear(); ob.data.materials.append(mat)
-bpy.data.objects.remove(body, do_unlink=True)
+if not SWAP: bpy.data.objects.remove(body, do_unlink=True)
 bpy.ops.object.vertex_group_limit_total(limit=4); bpy.ops.object.vertex_group_normalize_all(lock_active=False)
 print('SKIN', 'unweighted', sum(1 for v in ob.data.vertices if not v.groups), 'custom normals', ob.data.has_custom_normals)
 
