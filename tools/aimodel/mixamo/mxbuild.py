@@ -1,0 +1,138 @@
+# A character rigged by Mixamo + the shared Mixamo moves -> models/<id>.glb for js/aikit.js.
+# blender -b --factory-startup --python mxbuild.py -- <with skin.fbx> <moves dir> <moves.json> <prep.blend> <out.glb> [tex px]
+#   with skin.fbx: the cut-down model (tools/aimodel/prep.py's, uploaded to Mixamo) as Mixamo hands it back, rigged
+#   moves dir:     Mixamo's moves, downloaded once Without Skin (file names as moves.json lists them)
+#   prep.blend:    the same cut-down model before Mixamo, for its colour picture and its smooth shading
+import bpy, sys, os, json, glob, re, time
+import numpy as np
+from mathutils import Vector, Matrix, Quaternion
+argv = sys.argv[sys.argv.index('--')+1:]
+skin, mdir, mjson, prep, out = argv[:5]; TEX = int(argv[5]) if len(argv) > 5 else 1024
+MOVES = {k: v for k, v in json.load(open(mjson)).items() if not k.startswith('_')}
+FPS = 30; t0 = time.time()
+bpy.ops.wm.read_factory_settings(use_empty=True)
+bpy.ops.import_scene.fbx(filepath=skin)
+arm = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]; ob = [o for o in bpy.data.objects if o.type == 'MESH'][0]
+for o in list(bpy.data.objects):
+  if o not in (arm, ob): bpy.data.objects.remove(o, do_unlink=True)
+for a in list(bpy.data.actions): bpy.data.actions.remove(a)
+sc = bpy.context.scene; sc.render.fps = FPS
+P = 'mixamorig:'
+
+# ---------- the colour picture and the smooth shading, from the model as it was before Mixamo ----------
+with bpy.data.libraries.load(prep) as (src, dst): dst.objects = [n for n in src.objects if n == 'Body']
+body = dst.objects[0]; sc.collection.objects.link(body)
+arm.data.pose_position = 'REST'; bpy.context.view_layer.update()
+def wbox(o):
+  co = np.empty(len(o.data.vertices) * 3, dtype=np.float32); o.data.vertices.foreach_get('co', co); co = co.reshape(-1, 3)
+  M = np.array(o.matrix_world); w = co @ M[:3, :3].T + M[:3, 3]; return w.min(axis=0), w.max(axis=0)
+(a0, a1), (b0, b1) = wbox(ob), wbox(body)
+k = float((a1[2] - a0[2]) / (b1[2] - b0[2])); body.scale = (k, k, k); bpy.context.view_layer.update(); b0, b1 = wbox(body)
+body.location = Vector(((a0[0] + a1[0]) / 2 - (b0[0] + b1[0]) / 2, (a0[1] + a1[1]) / 2 - (b0[1] + b1[1]) / 2, a0[2] - b0[2])); bpy.context.view_layer.update()
+print('FIT', 'scale', round(k, 4), 'model size', np.round(a1 - a0, 3), 'verts', len(ob.data.vertices), len(body.data.vertices))
+bpy.context.view_layer.objects.active = ob; ob.select_set(True)
+bpy.ops.object.shade_smooth()
+dt = ob.modifiers.new('nrm', 'DATA_TRANSFER'); dt.object = body; dt.use_loop_data = True; dt.data_types_loops = {'CUSTOM_NORMAL'}; dt.loop_mapping = 'POLYINTERP_NEAREST'
+bpy.ops.object.modifier_move_to_index(modifier='nrm', index=0); bpy.ops.object.modifier_apply(modifier='nrm')
+bmat = body.data.materials[0]; img = [n for n in bmat.node_tree.nodes if n.type == 'BSDF_PRINCIPLED'][0].inputs['Base Color'].links[0].from_node.image
+img.scale(TEX, TEX); img.pack()
+mat = bpy.data.materials.new('skin'); mat.use_nodes = True; nt = mat.node_tree; bsdf = [n for n in nt.nodes if n.type == 'BSDF_PRINCIPLED'][0]
+tex = nt.nodes.new('ShaderNodeTexImage'); tex.image = img; nt.links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
+bsdf.inputs['Metallic'].default_value = 0; bsdf.inputs['Roughness'].default_value = .72
+ob.data.materials.clear(); ob.data.materials.append(mat)
+bpy.data.objects.remove(body, do_unlink=True)
+bpy.ops.object.vertex_group_limit_total(limit=4); bpy.ops.object.vertex_group_normalize_all(lock_active=False)
+print('SKIN', 'unweighted', sum(1 for v in ob.data.vertices if not v.groups), 'custom normals', ob.data.has_custom_normals)
+
+# ---------- a grip in each hand for js/aikit.js to hang weapons on ----------
+# A held weapon's length runs out of the thumb side of the fist, square to the hand; the grip's front (its local Z) is the
+# way the fingers point, which is the way a bow in that hand shoots.
+bpy.context.view_layer.objects.active = arm; ob.select_set(False); arm.select_set(True)
+bpy.ops.object.mode_set(mode='EDIT')
+eb = arm.data.edit_bones
+for side, s in (('Right', 'R'), ('Left', 'L')):
+  hand = eb[P + side + 'Hand']; idx = eb.get(P + side + 'HandIndex1') or eb.get(P + side + 'HandMiddle1'); th = eb.get(P + side + 'HandThumb1')
+  along = (hand.tail - hand.head).normalized()
+  if idx is not None: along = (idx.head - hand.head).normalized()
+  palm = hand.head + along * ((idx.head - hand.head).length * .75 if idx is not None else hand.length * .5)
+  if th is not None: rad = (th.head - hand.head); rad = (rad - along * rad.dot(along)).normalized()
+  else: rad = hand.x_axis.copy()
+  g = eb.new('grip.' + s); g.head = palm; g.tail = palm + rad * hand.length * .6; g.parent = hand; g.align_roll(along); g.use_deform = True
+bpy.ops.object.mode_set(mode='OBJECT')
+arm.data.pose_position = 'POSE'
+
+# ---------- the moves ----------
+pb = arm.pose.bones; hips = pb[P + 'Hips']; rest_hips = arm.data.bones[P + 'Hips'].matrix_local.copy()
+for b in pb: b.rotation_mode = 'QUATERNION'
+arm.animation_data_create()
+def norm(s): return re.sub(r'[^a-z0-9]', '', s.lower())
+FILES = {norm(os.path.basename(f)[:-4]): f for f in glob.glob(mdir + '/*.fbx')}
+SRC = {}
+def source(name):
+  if name in SRC: return SRC[name]
+  f = FILES.get(norm(name))
+  if not f: return None
+  before = set(bpy.data.objects); acts = set(bpy.data.actions)
+  bpy.ops.import_scene.fbx(filepath=f)
+  act = [x for x in bpy.data.actions if x not in acts][0]
+  for o in [o for o in bpy.data.objects if o not in before]: bpy.data.objects.remove(o, do_unlink=True)
+  SRC[name] = act; return act
+def src_frame(m, t):
+  for (ta, fa), (tb, fb) in zip(m, m[1:]):
+    if t <= tb: return fa + (fb - fa) * ((t - ta) / (tb - ta) if tb > ta else 0)
+  return m[-1][1]
+LIMIT = .28   # how far a move may carry the figure off its base, as a share of its height
+made = []
+for name, spec in MOVES.items():
+  act = source(spec['file'])
+  if act is None: print('MISSING', name, spec['file']); continue
+  f0, f1 = act.frame_range
+  if spec.get('loop'): n = int(round(f1 - f0)); frames = [f0 + i for i in range(n + 1)]
+  else: dur = spec['map'][-1][0]; n = int(round(dur * FPS)); frames = [f0 + src_frame(spec['map'], i / FPS) for i in range(n + 1)]
+  arm.animation_data.action = act
+  try: arm.animation_data.action_slot = act.slots[0]
+  except Exception: pass
+  S = []
+  for fr in frames:
+    sc.frame_set(int(fr), subframe=fr - int(fr))
+    S.append((hips.matrix.copy(), {b.name: b.matrix_basis.to_quaternion() for b in pb if b is not hips}))
+  # where the hips go, measured across the floor (the armature stands Y-up: x and z are the floor)
+  H = [m.translation.copy() for m, _ in S]; h0 = H[0].copy(); drift = spec.get('drift', 'none'); tall = (a1[2] - a0[2]) / max(arm.scale[2], 1e-9)
+  D = [Vector((h.x - h0.x, 0, h.z - h0.z)) for h in H]
+  if drift == 'strip': D2 = [Vector((0, 0, 0)) for d in D]
+  else:
+    D2 = [d.copy() for d in D]
+    if drift == 'ramp': D2 = [d - D[-1] * (i / n) for i, d in enumerate(D)]
+    far = max(d.length for d in D2) or 1e-9; lim = LIMIT * tall
+    if far > lim: D2 = [d * (lim / far) for d in D2]
+    if drift == 'back':
+      back = max(1, int(.3 * FPS)); D2 = [d * (1 if i <= n - back else (n - i) / back) for i, d in enumerate(D2)]
+    if drift == 'none': D2 = [d - D2[0] for d in D2]
+  new = bpy.data.actions.new(name); arm.animation_data.action = new
+  try: arm.animation_data.action_slot = new.slots[0]
+  except Exception: pass
+  prev = {}
+  for i, (m, rots) in enumerate(S):
+    m2 = m.copy(); m2.translation = Vector((h0.x + D2[i].x, m.translation.y, h0.z + D2[i].z))
+    hips.matrix_basis = rest_hips.inverted() @ m2
+    q = hips.rotation_quaternion.copy()
+    if 'h' in prev and prev['h'].dot(q) < 0: q.negate(); hips.rotation_quaternion = q
+    prev['h'] = q
+    hips.keyframe_insert('location', frame=i); hips.keyframe_insert('rotation_quaternion', frame=i)
+    for b in pb:
+      if b is hips or b.name.startswith('grip.'): continue
+      q = rots[b.name]
+      if b.name in prev and prev[b.name].dot(q) < 0: q = -q
+      prev[b.name] = q; b.rotation_quaternion = q; b.keyframe_insert('rotation_quaternion', frame=i)
+  new.use_fake_user = True; made.append(name)
+  tr = arm.animation_data.nla_tracks.new(); tr.name = name; tr.strips.new(name, 0, new); tr.mute = True
+  arm.animation_data.action = None
+  print('MOVE %-6s %-36s %3d frames  travel %.2f -> %.2f of height' % (name, spec['file'], n, max(d.length for d in D) / tall, max(d.length for d in D2) / tall))
+for a in list(SRC.values()): bpy.data.actions.remove(a)
+for b in pb: b.matrix_basis = Matrix()
+sc.frame_set(0)
+for o in bpy.data.objects: o.select_set(o in (arm, ob))
+bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', use_selection=True, export_image_format='JPEG', export_image_quality=82,
+  export_animations=True, export_animation_mode='ACTIONS', export_force_sampling=True, export_optimize_animation_size=True,
+  export_skins=True, export_all_influences=False, export_morph=False, export_yup=True, export_normals=True, export_tangents=False, export_materials='EXPORT')
+print('EXPORTED', out, round(os.path.getsize(out) / 1e6, 2), 'MB', len(made), 'moves', round(time.time() - t0, 1), 's')

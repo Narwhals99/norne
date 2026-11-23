@@ -7,6 +7,9 @@
    that plays them is offered it, in their own figure maker;
    model:'none' on their figure turns it off). The figure maker still makes
    and saves the rest of the look, and that look is what shows wherever the model can't (it hasn't loaded, or failed to).
+   Two kinds of skeleton: tools/aimodel/rig.py's own, with moves written by hand (Caelis, Egrot), and Mixamo's, with
+   moves recorded from people (tools/aimodel/mixamo/, Xira since 2026-11-23). Both use the move names below; a model
+   without one plays the nearest it has (ALT).
    The moves in every model (tools/aimodel/rig.py writes them, the same for each): idle, walk, hit, down, block and
    dodge; a move for each way the toy figures use a weapon (chop, cut, poke, slam, sweep, thrust, jabs, hook, twin,
    flurry, scissor: the blow lands 0.72 s in; bow, xbow, sling, throw: let go at 1.05 s) and cast for magic (0.96 s).
@@ -17,8 +20,6 @@ export const MODELS = [
   {id:'caelis', n:'Caelis', file:'models/caelis.glb', who:'Caelis Rethvael'},
   {id:'xira', n:'Xira', file:'models/xira.glb', who:'Xira'},
   {id:'egrot', n:'Egrot', file:'models/egrot.glb', who:'Egrot'},
-  /* a test of Mixamo's skeleton and idle on Egrot (2026-11-23); not offered to anyone */
-  {id:'egrot-mx', n:'Egrot (Mixamo test)', file:'models/egrot-mx.glb', who:'~nobody~'},
 ];
 const BY = new Map(MODELS.map(m => [m.id, m]));
 export const isModel = id => BY.has(id);
@@ -64,9 +65,12 @@ export function makeAI(THREE, H){
     rig.body = body; rig.h = body.position.y + L.y0 * s + tall; rig.k = s;
     rig.joints = []; body.traverse(o => { if (o.isBone) rig.joints.push(o); });
     const bone = n => rig.joints.find(b => b.name === n || b.name === n.replace('.', ''));
+    /* rigged by Mixamo (tools/aimodel/mixamo/), not by tools/aimodel/rig.py */
+    rig.mx = rig.joints.some(b => /^mixamorig/.test(b.name));
     /* the hands hold weapons (js/armory.js) in toy-figure units, on the model's grip bones: a holder undoes the
        model's scale. A weapon's length runs along the grip, and the model's moves say which way each grip points. */
-    const holder = b => { const g = new THREE.Group(); if (b) { b.add(g); g.scale.setScalar(1 / s); } return g; };
+    body.updateMatrixWorld(true); const ws = new THREE.Vector3();
+    const holder = b => { const g = new THREE.Group(); if (b) { b.add(g); g.scale.setScalar(1 / (b.getWorldScale(ws).x || s)); } return g; };
     rig.armR = {hand:holder(bone('grip.R') || bone('hand.R'))}; rig.armL = {hand:holder(bone('grip.L') || bone('hand.L'))};
     /* the plain sword, bow and staff, for a fighter with no weapon of their own */
     rig.w.sword = H.sword(); rig.armR.hand.add(rig.w.sword);
@@ -78,9 +82,14 @@ export function makeAI(THREE, H){
     if (opt.scale) root.scale.setScalar(opt.scale);
     return rig;
   }
+  const _q1 = new THREE.Quaternion(), _q2 = new THREE.Quaternion(), _bow = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, -Math.PI / 2, -.12)),
+    _bowOwn = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, Math.PI / 2, .12));
   /* which of the model's moves plays for each of the toy figures' weapon moves (js/armory.js MOVES) */
   const MOVE = {chop:'chop', bash:'chop', cut:'cut', poke:'poke', slam:'slam', sweep:'sweep', thrust:'thrust', jabs:'jabs', hook:'hook',
     twin:'twin', flurry:'flurry', scissor:'scissor', bow:'bow', xbow:'xbow', sling:'sling', throw:'throw', flick:'throw', hurl:'throw'};
+  /* a model need not have every one (Mixamo's set is whatever was downloaded): the nearest it does have stands in */
+  const ALT = {thrust:['poke', 'chop'], poke:['thrust', 'chop'], sweep:['cut', 'slam', 'chop'], slam:['chop'], cut:['chop'], jabs:['hook', 'chop'], hook:['jabs', 'chop'],
+    flurry:['twin', 'chop'], scissor:['twin', 'chop'], twin:['chop'], xbow:['bow'], sling:['throw', 'chop'], throw:['chop']};
   /* what the board asks for -> {clip, seconds into it, the weapons to show}. An attack is acted with the weapon in hand,
      like the toy figures: its moves in turn (rig.var picks one on the fight board, so every device shows the same),
      or the plain sword, bow or staff with none. */
@@ -94,11 +103,12 @@ export function makeAI(THREE, H){
         const mv = h.two ? H.DUAL : h.def.moves, i = rig.var != null ? rig.var : Math.floor(t / D), k = MOVE[mv[i % mv.length]];
         /* something thrown has left the hand by 1050 ms */
         const gone = h.def.cat === 'thrown' && ms >= 1050;
-        if (has(k)) return one(k, gone ? [] : [h.m, h.l].filter(Boolean));
+        const k2 = has(k) ? k : (ALT[k] || []).find(has);
+        if (k2) return one(k2, gone ? [] : [h.m, h.l].filter(Boolean));
       }
       return name === 'sword' ? one(has('chop') ? 'chop' : 'attack', [rig.w.sword]) : one(has('bow') ? 'bow' : 'attack', [rig.w.bow]);
     }
-    if (name === 'magic') return one(has('cast') ? 'cast' : 'attack', [rig.w.staff]);
+    if (name === 'magic') return one(['cast', 'slam', 'chop', 'attack'].find(has), [rig.w.staff]);
     if (name === 'hit') return one('hit');
     if ((name === 'block' || name === 'dodge') && has(name)) return one(name);
     /* knocked down; past 1900 ms it gets back up (the board plays 1900..2600 when someone is put back in) */
@@ -113,7 +123,12 @@ export function makeAI(THREE, H){
     for (const k in rig.w) rig.w[k].visible = false;
     for (const w of m.show) { w.visible = true;
       /* a weapon of the fighter's own was built for a toy figure's hand: stand it along the grip (a bow with its belly forward) */
-      if (rig.held && (w === rig.held.m || w === rig.held.l)) w.rotation.set(0, rig.held.def.moves[0] === 'bow' ? -Math.PI / 2 : 0, 0); }
+      const own = rig.held && (w === rig.held.m || w === rig.held.l), isBow = w === rig.w.bow || (own && rig.held.def.moves[0] === 'bow');
+      if (own) w.rotation.set(0, isBow ? -Math.PI / 2 : 0, 0);
+      /* a Mixamo skeleton's moves don't say which way a weapon points, and its bow hand is tilted: a bow is stood upright
+         with its belly to the front whatever the hand is doing */
+      if (rig.mx && isBow) { rig.root.updateMatrixWorld(true); w.parent.getWorldQuaternion(_q1).invert(); rig.root.getWorldQuaternion(_q2);
+        w.quaternion.copy(_q1).multiply(_q2).multiply(own ? _bowOwn : _bow); } }
     /* the maker shows the arrow or the bolt flying off; on the fight board js/fx.js draws what flies */
     const fx = rig.fx, ms = t % (H.ANIMS[name] || 1e9); for (const k in fx) fx[k].visible = false;
     if (name === 'bow' && fx.arrow && ms > 1050 && ms < 1700 && (m.clip === 'bow' || m.clip === 'xbow')) { const k = (ms - 1050) / 650; fx.arrow.visible = true; fx.arrow.position.set(0, rig.h * .64, 18 + k * 160); fx.arrow.rotation.set(0, 0, 0); }

@@ -1,0 +1,19 @@
+{
+  "_about": "Which Mixamo download plays for each of the app's moves (js/aikit.js), and how it is fitted to the fight board's clock. 'map' is a list of [seconds into the app's move, frame of the Mixamo file]: the frames between are played evenly. The blow must land where the board expects it: 0.72 s for close attacks, 1.05 s for a shot, 0.96 s for magic; a hit lands at 0.2 s, a block or dodge meets the blow at 0.33 s. 'drift' says what to do with a move that walks off its spot: 'ramp' takes out the steady travel so it ends where it began, 'strip' takes out all forward travel (walking on the spot), 'back' lets it go a little way and brings it home, 'keep' lets it go a little way and stay (falling down).",
+  "idle":  {"file": "Idle (1)", "loop": true},
+  "walk":  {"file": "Walking", "loop": true, "drift": "strip"},
+  "hit":   {"file": "Rib Hit", "map": [[0, 0], [0.2, 0], [1.2, 30], [1.3, 30]]},
+  "down":  {"file": "Knocked Out", "map": [[0, 26], [0.2, 31], [1.15, 67], [1.5, 78]], "drift": "keep"},
+  "block": {"file": "Sword And Shield Block", "map": [[0, 0], [0.2, 0], [0.87, 20], [1.3, 20]], "drift": "back"},
+  "dodge": {"file": "Standing Dodge Backward", "map": [[0, 0], [0.45, 25], [1.0, 49], [1.3, 49]], "drift": "back"},
+  "chop":  {"file": "Standing Melee Attack Downward", "map": [[0, 2], [0.72, 26], [1.7, 62]], "drift": "ramp"},
+  "cut":   {"file": "Standing Melee Combo Attack Ver. 3", "map": [[0, 6], [0.72, 32], [1.7, 68]], "drift": "ramp"},
+  "poke":  {"file": "Thrust Slash", "map": [[0, 2], [0.72, 24], [1.7, 60]], "drift": "ramp"},
+  "slam":  {"file": "Great Sword Casting", "map": [[0, 46], [0.72, 71], [1.0, 82], [1.7, 128]], "drift": "ramp"},
+  "sweep": {"file": "Great Sword Slash", "map": [[0, 0], [0.72, 24], [1.7, 58]], "drift": "ramp"},
+  "jabs":  {"file": "Jab Cross", "map": [[0, 0], [0.25, 0], [0.72, 14], [1.62, 41], [1.7, 41]], "drift": "ramp"},
+  "hook":  {"file": "Right Hook", "map": [[0, 0], [0.39, 0], [0.72, 10], [1.49, 33], [1.7, 33]], "drift": "ramp"},
+  "twin":  {"file": "Dual Weapon Combo", "map": [[0, 10], [0.72, 36], [1.7, 74]], "drift": "ramp"},
+  "bow":   {"file": "Shooting Arrow", "map": [[0, 52], [1.05, 97], [1.9, 128]], "drift": "ramp"},
+  "cast":  {"file": "Great Sword Casting", "map": [[0, 40], [0.96, 71], [1.25, 82], [1.9, 130]], "drift": "ramp"}
+}
