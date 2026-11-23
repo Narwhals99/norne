@@ -1,5 +1,6 @@
 # A character rigged by Mixamo + the shared Mixamo moves -> models/<id>.glb for js/aikit.js.
-# blender -b --factory-startup --python mxbuild.py -- <with skin.fbx> <moves dir> <moves.json> <prep.blend> <out.glb> [tex px]
+# blender -b --factory-startup --python mxbuild.py -- <with skin.fbx> <moves dir> <moves.json> <prep.blend> <out.glb> [own.json] [own moves dir]
+#   own.json / own moves dir: moves this character has of its own (an idle, say), in the same form as moves.json; they win
 #   with skin.fbx: the cut-down model (tools/aimodel/prep.py's, uploaded to Mixamo) as Mixamo hands it back, rigged
 #   moves dir:     Mixamo's moves, downloaded once Without Skin (file names as moves.json lists them)
 #   prep.blend:    the same cut-down model before Mixamo, for its colour picture and its smooth shading
@@ -7,8 +8,9 @@ import bpy, sys, os, json, glob, re, time
 import numpy as np
 from mathutils import Vector, Matrix, Quaternion
 argv = sys.argv[sys.argv.index('--')+1:]
-skin, mdir, mjson, prep, out = argv[:5]; TEX = int(argv[5]) if len(argv) > 5 else 1024
+skin, mdir, mjson, prep, out = argv[:5]; TEX = 1024
 MOVES = {k: v for k, v in json.load(open(mjson)).items() if not k.startswith('_')}
+if len(argv) > 5: MOVES.update({k: v for k, v in json.load(open(argv[5])).items() if not k.startswith('_')})
 FPS = 30; t0 = time.time()
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=skin)
@@ -67,6 +69,7 @@ for b in pb: b.rotation_mode = 'QUATERNION'
 arm.animation_data_create()
 def norm(s): return re.sub(r'[^a-z0-9]', '', s.lower())
 FILES = {norm(os.path.basename(f)[:-4]): f for f in glob.glob(mdir + '/*.fbx')}
+if len(argv) > 6: FILES.update({norm(os.path.basename(f)[:-4]): f for f in glob.glob(argv[6] + '/*.fbx') if os.path.abspath(f) != os.path.abspath(skin)})
 SRC = {}
 def source(name):
   if name in SRC: return SRC[name]
