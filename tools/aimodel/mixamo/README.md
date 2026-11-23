@@ -27,5 +27,10 @@ poke, flurry and scissor use twin, a crossbow uses bow, a sling or a thrown weap
 `mxbuild.py` also gives each hand a `grip` bone for weapons (out of the thumb side of the fist), takes the colours and
 the smooth shading from `prep.blend` (Mixamo's file carries neither), and keeps Mixamo's finger bones.
 
-Not yet tried: playing moves downloaded on one character's skeleton on another character. The bones have the same
-names, and `mxbuild.py` copies each bone's turn as it is, so it should be close, but it is unproven.
+Moves downloaded on one character play on any other. Mixamo's Without Skin files rest in a T-pose, while the rigged
+model rests in the pose it was uploaded in (Tripo's A-pose), so a bone's turn can't be copied across as it is: that put
+the arms through the body. `mxbuild.py` reads each bone's direction from the move's own skeleton and lays this model's
+bone along it (`fit`).
+
+A character's own file (`<id>.json`) can name moves of its own, an idle say, and `_armSpace` (degrees) to hold the upper
+arms a little further out on a stocky figure.

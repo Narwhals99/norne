@@ -4,13 +4,17 @@
 #   with skin.fbx: the cut-down model (tools/aimodel/prep.py's, uploaded to Mixamo) as Mixamo hands it back, rigged
 #   moves dir:     Mixamo's moves, downloaded once Without Skin (file names as moves.json lists them)
 #   prep.blend:    the same cut-down model before Mixamo, for its colour picture and its smooth shading
-import bpy, sys, os, json, glob, re, time
+import bpy, sys, os, json, glob, re, time, math
 import numpy as np
 from mathutils import Vector, Matrix, Quaternion
 argv = sys.argv[sys.argv.index('--')+1:]
 skin, mdir, mjson, prep, out = argv[:5]; TEX = 1024
 MOVES = {k: v for k, v in json.load(open(mjson)).items() if not k.startswith('_')}
-if len(argv) > 5: MOVES.update({k: v for k, v in json.load(open(argv[5])).items() if not k.startswith('_')})
+OWN = json.load(open(argv[5])) if len(argv) > 5 else {}
+MOVES.update({k: v for k, v in OWN.items() if not k.startswith('_')})
+# Mixamo's moves are recorded on a slim adult: on a stocky toy figure the hanging arms sink into the body. _armSpace
+# swings each upper arm out by up to that many degrees, most when it hangs straight down, not at all when it is raised.
+SPACE = float(OWN.get('_armSpace', 0))
 FPS = 30; t0 = time.time()
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=skin)
@@ -72,14 +76,33 @@ FILES = {norm(os.path.basename(f)[:-4]): f for f in glob.glob(mdir + '/*.fbx')}
 if len(argv) > 6: FILES.update({norm(os.path.basename(f)[:-4]): f for f in glob.glob(argv[6] + '/*.fbx') if os.path.abspath(f) != os.path.abspath(skin)})
 SRC = {}
 def source(name):
+  """a move's file: its own skeleton, kept to read the move from (Mixamo's Without Skin files rest in a T-pose, the rigged
+  model in the pose it was uploaded in, so a bone's turn can't be copied across as it is: see fit)"""
   if name in SRC: return SRC[name]
   f = FILES.get(norm(name))
   if not f: return None
   before = set(bpy.data.objects); acts = set(bpy.data.actions)
   bpy.ops.import_scene.fbx(filepath=f)
   act = [x for x in bpy.data.actions if x not in acts][0]
-  for o in [o for o in bpy.data.objects if o not in before]: bpy.data.objects.remove(o, do_unlink=True)
-  SRC[name] = act; return act
+  sarm = None
+  for o in [o for o in bpy.data.objects if o not in before]:
+    if o.type == 'ARMATURE' and sarm is None: sarm = o
+    else: bpy.data.objects.remove(o, do_unlink=True)
+  sarm.animation_data.action = act
+  SRC[name] = (sarm, act, fit(sarm)); return SRC[name]
+ORDER = [b for b in arm.data.bones if not b.name.startswith('grip.')]     # parents come before their children
+TREST = {b.name: b.matrix_local.to_quaternion() for b in arm.data.bones}
+def fit(sarm):
+  """for each bone, what turns the move's skeleton's pose into this one's: undo its rest, swing this model's resting bone
+  onto the direction the move's bone rests in, then this model's rest. Same body, different resting pose."""
+  C = {}
+  for b in ORDER:
+    sb = sarm.data.bones.get(b.name)
+    if sb is None: continue
+    ds = (sb.tail_local - sb.head_local).normalized(); dtv = (b.tail_local - b.head_local).normalized()
+    C[b.name] = sb.matrix_local.to_quaternion().inverted() @ dtv.rotation_difference(ds) @ TREST[b.name]
+  k = arm.data.bones[P + 'Hips'].head_local.y / max(sarm.data.bones[P + 'Hips'].head_local.y, 1e-9)
+  return C, k
 def src_frame(m, t):
   for (ta, fa), (tb, fb) in zip(m, m[1:]):
     if t <= tb: return fa + (fb - fa) * ((t - ta) / (tb - ta) if tb > ta else 0)
@@ -89,16 +112,26 @@ made = []
 for name, spec in MOVES.items():
   act = source(spec['file'])
   if act is None: print('MISSING', name, spec['file']); continue
+  sarm, act, (C, kh) = act
   f0, f1 = act.frame_range
   if spec.get('loop'): n = int(round(f1 - f0)); frames = [f0 + i for i in range(n + 1)]
   else: dur = spec['map'][-1][0]; n = int(round(dur * FPS)); frames = [f0 + src_frame(spec['map'], i / FPS) for i in range(n + 1)]
-  arm.animation_data.action = act
-  try: arm.animation_data.action_slot = act.slots[0]
-  except Exception: pass
+  spb = sarm.pose.bones; ships = spb[P + 'Hips']
   S = []
   for fr in frames:
     sc.frame_set(int(fr), subframe=fr - int(fr))
-    S.append((hips.matrix.copy(), {b.name: b.matrix_basis.to_quaternion() for b in pb if b is not hips}))
+    W = {}; L = {}
+    for b in ORDER:
+      if b.name not in C: continue
+      w = spb[b.name].matrix.to_quaternion() @ C[b.name]
+      if SPACE and b.name in (P + 'LeftArm', P + 'RightArm'):
+        d = w @ Vector((0, 1, 0)); k = max(0.0, -d.y) ** 1.5      # the armature stands Y-up: -y is straight down
+        w = Quaternion((0, 0, 1), math.radians(SPACE * k * (1 if 'Left' in b.name else -1))) @ w
+      W[b.name] = w
+      if b.parent is None or b.parent.name not in W: L[b.name] = TREST[b.name].inverted() @ w
+      else: L[b.name] = (W[b.parent.name] @ TREST[b.parent.name].inverted() @ TREST[b.name]).inverted() @ w
+    m = W[P + 'Hips'].to_matrix().to_4x4(); m.translation = ships.matrix.translation * kh
+    S.append((m, L))
   # where the hips go, measured across the floor (the armature stands Y-up: x and z are the floor)
   H = [m.translation.copy() for m, _ in S]; h0 = H[0].copy(); drift = spec.get('drift', 'none'); tall = (a1[2] - a0[2]) / max(arm.scale[2], 1e-9)
   D = [Vector((h.x - h0.x, 0, h.z - h0.z)) for h in H]
@@ -123,7 +156,7 @@ for name, spec in MOVES.items():
     prev['h'] = q
     hips.keyframe_insert('location', frame=i); hips.keyframe_insert('rotation_quaternion', frame=i)
     for b in pb:
-      if b is hips or b.name.startswith('grip.'): continue
+      if b is hips or b.name not in rots: continue
       q = rots[b.name]
       if b.name in prev and prev[b.name].dot(q) < 0: q = -q
       prev[b.name] = q; b.rotation_quaternion = q; b.keyframe_insert('rotation_quaternion', frame=i)
@@ -131,7 +164,7 @@ for name, spec in MOVES.items():
   tr = arm.animation_data.nla_tracks.new(); tr.name = name; tr.strips.new(name, 0, new); tr.mute = True
   arm.animation_data.action = None
   print('MOVE %-6s %-36s %3d frames  travel %.2f -> %.2f of height' % (name, spec['file'], n, max(d.length for d in D) / tall, max(d.length for d in D2) / tall))
-for a in list(SRC.values()): bpy.data.actions.remove(a)
+for sarm, a, _ in list(SRC.values()): bpy.data.objects.remove(sarm, do_unlink=True); bpy.data.actions.remove(a)
 for b in pb: b.matrix_basis = Matrix()
 sc.frame_set(0)
 for o in bpy.data.objects: o.select_set(o in (arm, ob))

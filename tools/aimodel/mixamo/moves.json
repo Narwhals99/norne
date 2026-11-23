@@ -1,6 +1,6 @@
 {
   "_about": "Which Mixamo download plays for each of the app's moves (js/aikit.js), and how it is fitted to the fight board's clock. 'map' is a list of [seconds into the app's move, frame of the Mixamo file]: the frames between are played evenly. The blow must land where the board expects it: 0.72 s for close attacks, 1.05 s for a shot, 0.96 s for magic; a hit lands at 0.2 s, a block or dodge meets the blow at 0.33 s. 'drift' says what to do with a move that walks off its spot: 'ramp' takes out the steady travel so it ends where it began, 'strip' takes out all forward travel (walking on the spot), 'back' lets it go a little way and brings it home, 'keep' lets it go a little way and stay (falling down).",
-  "idle":  {"file": "Idle (1)", "loop": true},
+  "idle":  {"file": "Breathing Idle", "loop": true},
   "walk":  {"file": "Walking", "loop": true, "drift": "strip"},
   "hit":   {"file": "Rib Hit", "map": [[0, 0], [0.2, 0], [1.2, 30], [1.3, 30]]},
   "down":  {"file": "Knocked Out", "map": [[0, 26], [0.2, 31], [1.15, 67], [1.5, 78]], "drift": "keep"},
