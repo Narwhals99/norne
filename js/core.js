@@ -1083,6 +1083,10 @@ N.aliases = (c, f) => (c && c.al && c.al[f]) || [];
 N.notPart = k => /^(met|as):/.test(k);
 N.asOf = (keys, f) => { const k = (keys || []).find(x => x.startsWith('as:' + f + ':')); return k ? k.slice(4 + f.length) : ''; };
 /* the value a player is told for one field: the truth, the alias the GM picked, or null when that alias is gone */
+/* Jake: an NPC with other pictures (N.npcPics) can show each player a different one: reveal key as:pic:<picture key>.
+   The key is a short hash of the picture (pictures can be long data). A picture that was removed later sends no picture */
+N.picKey = s => { let h = 5381; s = String(s || ''); for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0; return h.toString(36) + s.length.toString(36); };
+N.picVal = (c, keys) => { const id = N.asOf(keys, 'pic'); if (!id) return c.portrait || null; return N.npcPics(c).find(p => N.picKey(p) === id) || null; };
 N.alVal = (c, keys, f) => { const id = N.asOf(keys, f); if (!id) return c[f]; const a = N.aliases(c, f).find(x => x.id === id); return a ? a.v : null; };
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 N.revParts = (c, pc) => {
@@ -1111,7 +1115,7 @@ N.revealed = (c, pc, keys0) => {
   if (!has('name')) return null;
   const nm = pc ? c.name || c.short || '' : val('name'); if (nm == null) return null;
   const r = {id:c.id, name:nm || c.short || ''};
-  if (has('pic') && c.portrait) r.portrait = c.portrait;
+  if (has('pic')) { const pt = pc ? c.portrait : N.picVal(c, keys); if (pt) r.portrait = pt; }
   for (const f of ['race', 'nat', ...(pc ? [] : ['job']), 'age']) { const x = has(f) && val(f); if (x) r[f] = x; }
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
   const sk = N.revSkills(c).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;

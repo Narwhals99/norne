@@ -3408,3 +3408,9 @@
 .app .pincap[aria-pressed="true"] .rck{background:#c8231b;box-shadow:none;color:#fff}
 .app .pincard .capst{display:inline-grid;place-items:center;width:14px;height:14px;margin-right:5px;vertical-align:-2px;border-radius:50%;background:#c8231b}
 .app .pincard .capst svg{width:9px;height:9px;color:#fff3c4}
+/* which NPC picture a player is shown (Reveal sheet) */
+.app .revpics{display:flex;flex-wrap:wrap;gap:8px;margin-left:32px}
+.app .revpics button{display:grid;justify-items:center;gap:4px;padding:6px 8px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .revpics button small{font:700 11.5px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .revpics button[aria-pressed="true"]{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--gold-tx)}
+.app .revpics button[aria-pressed="true"] small{color:var(--ink)}

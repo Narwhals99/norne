@@ -2483,8 +2483,8 @@ function act(v, a, el, e){
     let mt = keys.filter(k => N.notPart(k)); keys = keys.filter(k => !N.notPart(k));
     /* Met / Heard of: the GM decides how this player's character knows them (tap again to clear) */
     if (a === 'revMet') { const was = mt.find(k => k.startsWith('met:')); mt = mt.filter(k => !k.startsWith('met:')); if (val && was !== 'met:' + val) mt.push('met:' + val); }
-    /* an NPC's alias (Jake): this player is told the truth (no id) or one alias for that field; picking an alias reveals the field */
-    else if (a === 'revAs') { const f = val; mt = mt.filter(k => !k.startsWith('as:' + f + ':')); if (d.n) { mt.push('as:' + f + ':' + d.n); if (!keys.includes(f)) keys.push(f); } }
+    /* an NPC's alias or other picture (Jake): this player is told the truth (no id) or one alias for that field; picking either reveals the field */
+    else if (a === 'revAs') { const f = val; mt = mt.filter(k => !k.startsWith('as:' + f + ':')); if (d.n) mt.push('as:' + f + ':' + d.n); if (!keys.includes(f)) keys.push(f); }
     else if (a === 'revAll') keys = val ? N.revParts(card, !!c).map(p => p.k) : [];
     else keys = keys.includes(val) ? keys.filter(k => k !== val) : [...keys, val];
     keys = [...keys, ...mt];
