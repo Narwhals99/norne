@@ -1132,7 +1132,8 @@ function aspMarks(text, ch, cast, extras){
     return {raw, t:(hit ? raw.slice(0, i) : raw).trim().slice(0, 80), on:hit ? hit[1] : ''}; }).filter(a => a.t);
 }
 const aspText = (text, ch, cast, extras) => { const l = aspMarks(text, ch, cast, extras); let i = 0; return text.replace(ASP_RE, () => { const a = l[i++]; return a ? `"${a.t}"` : ''; }); };
-const meetNames = text => [...new Set([...text.matchAll(/<<([^<>]+)>>/g)].map(x => x[1].trim().replace(/\s+/g, ' ').slice(0, 60)).filter(Boolean))];
+/* the people << >> names: the one-off NPC it makes always starts with a capital (<<barkeeper>> -> "Barkeeper", Jake), the line keeps the words as typed */
+const meetNames = text => [...new Set([...text.matchAll(/<<([^<>]+)>>/g)].map(x => x[1].trim().replace(/\s+/g, ' ').slice(0, 60)).filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)))];
 /* Jake: a Narrator line with scene marks (<<NPC>>, [[Location]], {{Map pin}}) in a chat with no scene yet opens the scene
    window filled in from the marks. The line waits in the box and is sent once the GM starts the scene (sd.pend). */
 function sceneFirst(v, ch, text){
