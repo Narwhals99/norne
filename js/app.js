@@ -555,14 +555,15 @@ function bind(v){
   /* Jake: a chat portrait seen bigger. Phone: press and hold the little picture, it shows while the finger stays down.
      Computer: click it, it stays until a click anywhere else. Only pictures, not the letter circles. The big one sits in the
      .app root (data-keep, so redraws leave it alone), fixed on the screen next to the little one. */
-  const PEEK = '.msgs .m > .av';
+  /* Jake (Nov 24): the big portrait on a character sheet (PC, NPC or a card you know) opens the same way */
+  const PEEK = '.msgs .m > .av, .pc-hero > .av';
   const peekAv = t => { const a = t?.closest?.(PEEK); return a && a.querySelector('img') ? a : null; };
   let pk = null, pkTouch = 0;
   const peekHide = () => { if (!pk) return; clearTimeout(pk.tm); pk.el?.remove(); document.removeEventListener('touchmove', pkHold, {passive:false}); pk = null; };
   const pkHold = e => { if (pk?.el && e.cancelable) e.preventDefault(); };
   const peekShow = a => {
     const r = a.getBoundingClientRect(), W = innerWidth, H = innerHeight, S = Math.min(TOUCH.matches ? 220 : 260, W - 32);
-    const who = a.parentElement.querySelector('.who')?.firstChild, name = (who && who.nodeType === 3 ? who.nodeValue : a.parentElement.querySelector('.who')?.textContent || '').trim();
+    const who = a.parentElement.querySelector('.who')?.firstChild, name = (who && who.nodeType === 3 ? who.nodeValue : a.parentElement.querySelector('.who, h2')?.textContent || '').trim();
     const el = document.createElement('div'); el.className = 'avpeek'; el.setAttribute('data-keep', ''); el.setAttribute('aria-hidden', 'true');
     const big = a.cloneNode(true); big.classList.add('big'); big.style.setProperty('--s', S + 'px'); el.appendChild(big);
     if (name) { const b = document.createElement('b'); b.textContent = name; el.appendChild(b); }
@@ -594,7 +595,7 @@ function bind(v){
   root.addEventListener('click', e => { if (Date.now() - pkTouch < 700) return; const a = peekAv(e.target); if (!a) return;
     const same = pk?.av === a; peekHide(); if (!same) { pk = {}; peekShow(a); } }, true);
   document.addEventListener('pointerdown', e => { if (pk?.el && !TOUCH.matches && !peekAv(e.target) && !e.target.closest?.('.avpeek')) peekHide(); }, true);
-  root.addEventListener('scroll', e => { if (pk?.el && e.target.matches?.('.msgs')) peekHide(); }, true);
+  root.addEventListener('scroll', e => { if (pk?.el && e.target.matches?.('.msgs, .scroll, .page, .sheet-b')) peekHide(); }, true);
   addEventListener('keydown', e => { if (e.key === 'Escape') peekHide(); });
   addEventListener('resize', peekHide);
   /* long-press a message on a phone to react, reply or (GM) edit it; a right-click does the same on a computer */

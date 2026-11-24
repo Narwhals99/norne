@@ -2865,7 +2865,7 @@
 .app .ct-goal small{font:700 12.5px/1 var(--f-ui);color:var(--ink-2)}
 .app .ct-goal .seg button{min-width:44px;justify-content:center}
 /* Jake: a chat portrait seen bigger (hold on a phone, click on a computer) */
-.app .msgs .m > .av:has(img){cursor:zoom-in;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.app .msgs .m > .av:has(img),.app .pc-hero > .av:has(img){cursor:zoom-in;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .app .msgs .m > .av img{-webkit-touch-callout:none;pointer-events:none}
 .app .avpeek{position:fixed;z-index:90;display:grid;justify-items:center;gap:8px;pointer-events:none;animation:avpeek .16s cubic-bezier(.2,.9,.3,1.2) both}
 .app .avpeek .av.big{border-radius:22px;margin:0;visibility:visible;display:grid;
