@@ -1122,6 +1122,16 @@ function placeOf(v, mark){
     toast(v, `More than one “${name.trim()}”. Add a comma and where it is: ${ins.map(x => `{{${name.trim()}, ${x}}}`).join(' or ')}`); render(v); return null; }
   return hits[0];
 }
+/* $$Wind knocked out, Xira$$ (Jake): a situation aspect for the scene. After the last ", " the name of someone in the scene
+   (a player character, an NPC in the cast or a one-off) puts it on them; the line shows it as "Wind knocked out" */
+const ASP_RE = /\$\$([^$\n]+)\$\$/g;
+function aspMarks(text, ch, cast, extras){
+  const who = [...N.chPcs(ch).flatMap(c => [[c.short || c.name, c.short || c.name], [c.name, c.short || c.name]]), ...(cast || []).map(n => [n, n]), ...(extras || []).map(x => [x.name, x.name])].filter(([n]) => n);
+  return [...text.matchAll(ASP_RE)].map(x => { const raw = x[1].trim().replace(/\s+/g, ' '), i = raw.lastIndexOf(', ');
+    const hit = i > 0 && who.find(([n]) => n.toLowerCase() === raw.slice(i + 2).trim().toLowerCase());
+    return {raw, t:(hit ? raw.slice(0, i) : raw).trim().slice(0, 80), on:hit ? hit[1] : ''}; }).filter(a => a.t);
+}
+const aspText = (text, ch, cast, extras) => { const l = aspMarks(text, ch, cast, extras); let i = 0; return text.replace(ASP_RE, () => { const a = l[i++]; return a ? `"${a.t}"` : ''; }); };
 const meetNames = text => [...new Set([...text.matchAll(/<<([^<>]+)>>/g)].map(x => x[1].trim().replace(/\s+/g, ' ').slice(0, 60)).filter(Boolean))];
 /* Jake: a Narrator line with scene marks (<<NPC>>, [[Location]], {{Map pin}}) in a chat with no scene yet opens the scene
    window filled in from the marks. The line waits in the box and is sent once the GM starts the scene (sd.pend). */
@@ -1137,6 +1147,7 @@ function sceneFirst(v, ch, text){
   for (const name of meetNames(text)) { const n = g.npcs.find(x => x.name.toLowerCase() === name.toLowerCase());
     if (n) { if (!sd.cast.includes(n.name)) sd.cast = N.withSidekicks(ch, [...sd.cast, n.name]); }
     else if (!sd.extras.some(e => e.name.toLowerCase() === name.toLowerCase())) sd.extras.push({id:uid('o'), name, skills:{}}); }
+  for (const a of aspMarks(text, ch, sd.cast, sd.extras)) if (!sd.aspects.some(x => x.t.toLowerCase() === a.t.toLowerCase() && (x.on || '') === a.on)) sd.aspects.push({t:a.t, free:0, k:uid('a'), ...(a.on ? {on:a.on} : {})});
   sd.touched = true; sd.pend = {ch, text:v.ui.draft};
   render(v);
 }
@@ -1163,9 +1174,10 @@ function send(v, opt = {}){
   else m = {kind:'rp', as:c && c.built ? c.short : g.P[v.role].name};
   if (!devCommand && v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
   const narr = gm && m.kind === 'rp' && m.as === 'Narrator';
-  if (narr && !g.scenes[ch] && !opt.again && (/\{\{[^{}]+\}\}|<<[^<>]+>>/.test(text) || [...text.matchAll(WHERE_RE)].length)) { sceneFirst(v, ch, text); return; }
+  if (narr && !g.scenes[ch] && !opt.again && (/\{\{[^{}]+\}\}|<<[^<>]+>>|\$\$[^$\n]+\$\$/.test(text) || [...text.matchAll(WHERE_RE)].length)) { sceneFirst(v, ch, text); return; }
   /* sent again after the scene window started the scene: the marks only read as words, the scene already holds what they said */
   if (opt.again) {
+    text = aspText(text, ch, N.castOf(ch) || [], N.extrasOf(ch));
     text = text.replace(/\{\{([^{}]+)\}\}/g, (x, w) => w.split(',')[0].trim()).replace(WHERE_RE, (x, t) => { t = t.trim().replace(/\s+/g, ' '); const e = g.wiki.find(y => y.title.toLowerCase() === t.toLowerCase()); return e ? `[[wiki:${e.id}|${t}]]` : t; });
     text = text.replace(/<<([^<>]+)>>/g, (x, w, at, all) => { w = w.trim().replace(/\s+/g, ' '); const start = !all.slice(0, at).trim() || /[.!?:"“]\s*$/.test(all.slice(0, at));
       const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && !N.properWord(words[0], w) && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
@@ -1180,7 +1192,13 @@ function send(v, opt = {}){
   /* Jake: [[General store]] in a Narrator line changes the scene's shown location (its "where" line, not the map pin).
      The line reads without the marks; a wiki title in it stays a link to that article. Links the Link button makes
      ([[wiki:id|…]], [[npc:…]]) and lines outside a scene are left as they were. */
-  let where = null;
+  let where = null, asps = [];
+  /* $$Situation aspect, Name$$ (Jake): added to the scene, on that person when they're named */
+  if (narr && g.scenes[ch] && !opt.again && /\$\$[^$\n]+\$\$/.test(text)) {
+    const cast = [...(N.castOf(ch) || []), ...meetNames(text).filter(n => g.npcs.some(x => x.name.toLowerCase() === n.toLowerCase())).map(n => g.npcs.find(x => x.name.toLowerCase() === n.toLowerCase()).name)];
+    const extras = [...N.extrasOf(ch), ...meetNames(text).filter(n => !g.npcs.some(x => x.name.toLowerCase() === n.toLowerCase())).map(name => ({name}))];
+    asps = aspMarks(text, ch, cast, extras); text = aspText(text, ch, cast, extras);
+  }
   const wheres = gm && m.kind === 'rp' && m.as === 'Narrator' && g.scenes[ch] ? [...text.matchAll(WHERE_RE)] : [];
   if (wheres.length) {
     const all = wheres.map(x => x[1].trim().replace(/\s+/g, ' ')).filter(Boolean), w = all[all.length - 1];
@@ -1202,6 +1220,7 @@ function send(v, opt = {}){
   push(Object.assign(m, {ch, by:v.role, text}));
   if (move) sceneMove(v, ch, move);
   if (where) sceneWhere(v, ch, where);
+  if (asps.length) sceneAsp(v, ch, asps);
   if (meet.length) {
     const added = [];
     for (const name of meet) { const n = g.npcs.find(x => x.name.toLowerCase() === name.toLowerCase());
@@ -3299,6 +3318,14 @@ function sceneWhere(v, ch, w){
   const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene || m.scene.where === w) return;
   m.scene = {...m.scene, where:w}; N.invalidateScenes();
   toast(v, `Scene location is now ${w}.`);
+}
+/* $$Aspect, Name$$ from the Narrator: new situation aspects on the scene (one already there with the same words and person is kept) */
+function sceneAsp(v, ch, list){
+  const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene) return;
+  const have = m.scene.aspects || [], add = list.filter((a, i) => !have.some(x => x.t.toLowerCase() === a.t.toLowerCase() && (x.on || '') === a.on) && list.findIndex(y => y.t === a.t && y.on === a.on) === i);
+  if (!add.length) return;
+  m.scene = {...m.scene, aspects:[...have, ...add.map(a => ({t:a.t, free:0, k:uid('a'), ...(a.on ? {on:a.on} : {})}))]}; N.invalidateScenes();
+  toast(v, add.length === 1 ? `Situation aspect added: ${add[0].t}${add[0].on ? ` (on ${add[0].on})` : ''}.` : `${add.length} situation aspects added to the scene.`);
 }
 function sceneMove(v, ch, loc){
   const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene) return;
