@@ -1721,7 +1721,7 @@ function applyMap(v){
   /* first time this map shows in this style: make its copy with the colours painted in (js/mappic.js), so the big
      picture needs no CSS filter, which on a phone took a full-size extra copy in memory and crashed the page */
   const im = st.querySelector('img:not(.eimg)');
-  if (im && !im._bk && !im.classList.contains('baked')) { im._bk = 1; const f = getComputedStyle(im).filter; if (N.earthFilter) N.earthFilter(v.style + '/' + v.theme, f); N.mapBake(m.src, v.style + '/' + v.theme, f, im); }
+  if (im && im._bk !== m.src && !im.classList.contains('baked')) { im._bk = m.src; const f = getComputedStyle(im).filter; if (N.earthFilter) N.earthFilter(v.style + '/' + v.theme, f); N.mapBake(m.src, v.style + '/' + v.theme, f, im); }
   if (st._k !== T.k) { st._k = T.k; const s = `scale(${1 / T.k})`; for (const el of st.querySelectorAll('.pin,.beacon')) el.style.transform = s; }
 }
 /* smooth zooming: a pinch or wheel sends many moves per frame. Each one used to restyle every pin and redraw the whole
@@ -2365,6 +2365,17 @@ function act(v, a, el, e){
       g.maps.push({id, name:f.name.replace(/\.[^.]+$/, ''), src, w:img.naturalWidth, h:img.naturalHeight, vis:false, pins:[], ...(N.dirById(ui.mapDir) ? {dir:ui.mapDir} : {})});
       ui.mapId = id; ui.mapT = null; ui.mapEdit = true; ui.sheet = 'mapSet'; ui.sheetArg = id; toast(v, 'Map added. It stays hidden until you pick who sees it.'); renderAll();
     }); return;
+  /* Jake: swap a map's picture for an edited one. Pins are kept as fractions of the picture (rx, ry), so they stay put;
+     a picture of another shape stretches them with it, so the GM is told to check */
+  case 'mapReplace': { const m = g.maps.find(x => x.id === val); if (!m) break; N.pickImage(img => {
+      const w = img.naturalWidth, h = img.naturalHeight, was = {src:m.src, w:m.w, h:m.h};
+      m.src = N.storeImg(N.shrink(img, 2400), false); m.w = w; m.h = h; ui.mapT = null;
+      const same = w === was.w && h === was.h, shape = Math.abs(w / h - was.w / was.h) < .01, n = m.pins.length;
+      const drop = setTimeout(() => N.dropImg(was.src), 6000);
+      toast(v, same || shape ? `Picture replaced. ${n ? `All ${n} place${n === 1 ? '' : 's'} stayed where they were.` : ''}`.trim()
+        : `Picture replaced, but it’s a different shape (${w} × ${h}, was ${was.w} × ${was.h}). The places moved with it, so check them.`,
+        () => { clearTimeout(drop); Object.assign(m, was); ui.mapT = null; renderAll(); });
+      renderAll(); }); return; }
   case 'findParty': ui.mapId = g.party.map; ui.mapT = null; ui.pinSel = '__party'; render(v); return;
   case 'pinClose': ui.pinSel = null; break;
   case 'pinMap': pinGo(v, val, true); return;
@@ -2525,7 +2536,7 @@ function act(v, a, el, e){
   /* sheet reveals (GM) */
   case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; ui.askRev = {id:val, base:JSON.parse(JSON.stringify((g.rev || {})[val] || {}))}; break;
   case 'revSeat': ui.revSeat = val; break;
-  case 'revTog': case 'revAll': case 'revMet': case 'revAs': {
+  case 'revTog': case 'revAll': case 'revMet': case 'revAs': case 'revPic': {
     const id = ui.sheetArg, st = ui.revSeat; if (!id || !st) break;
     g.rev = g.rev || {}; const by = g.rev[id] = g.rev[id] || {};
     const c = g.chars[id], card = c || g.npcs.find(x => x.id === id); if (!card) break;
@@ -2535,6 +2546,13 @@ function act(v, a, el, e){
     if (a === 'revMet') { const was = mt.find(k => k.startsWith('met:')); mt = mt.filter(k => !k.startsWith('met:')); if (val && was !== 'met:' + val) mt.push('met:' + val); }
     /* an NPC's alias or other picture (Jake): this player is told the truth (no id) or one alias for that field; picking either reveals the field */
     else if (a === 'revAs') { const f = val; mt = mt.filter(k => !k.startsWith('as:' + f + ':')); if (d.n) mt.push('as:' + f + ':' + d.n); if (!keys.includes(f)) keys.push(f); }
+    /* NPC pictures (Jake): tick or untick one; at least one stays ticked (untick Picture to hide them all).
+       Just the main portrait is stored as no as:pic: key, like before */
+    else if (a === 'revPic') { const all = N.npcPics(card).map(N.picKey), main = card.portrait ? N.picKey(card.portrait) : '';
+      let on = N.picIds(mt).filter(x => all.includes(x)); if (!on.length && main && keys.includes('pic')) on = [main];
+      on = on.includes(val) ? (on.length > 1 ? on.filter(x => x !== val) : on) : [...on, val];
+      mt = mt.filter(k => !k.startsWith('as:pic:')); if (!(on.length === 1 && on[0] === main)) mt.push(...on.map(x => 'as:pic:' + x));
+      if (!keys.includes('pic')) keys.push('pic'); }
     else if (a === 'revAll') keys = val ? N.revParts(card, !!c).map(p => p.k) : [];
     else keys = keys.includes(val) ? keys.filter(k => k !== val) : [...keys, val];
     keys = [...keys, ...mt];
@@ -2542,6 +2560,7 @@ function act(v, a, el, e){
     if (!Object.keys(by).length) delete g.rev[id];
     renderAll(); return;
   }
+  case 'kPic': ui.kPic = {...(ui.kPic || {}), [val]:+d.n || 0}; break;
   case 'castSeg': ui.castSeg = val; ui.castSel = null; break;
   case 'castSel': ui.castSel = val; ui.heroStats = null; ui.statEd = false; break;
   case 'castBack': ui.castSel = null; ui.heroStats = null; ui.statEd = false; break;

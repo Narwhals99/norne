@@ -1090,7 +1090,11 @@ N.asOf = (keys, f) => { const k = (keys || []).find(x => x.startsWith('as:' + f 
 /* Jake: an NPC with other pictures (N.npcPics) can show each player a different one: reveal key as:pic:<picture key>.
    The key is a short hash of the picture (pictures can be long data). A picture that was removed later sends no picture */
 N.picKey = s => { let h = 5381; s = String(s || ''); for (let i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0; return h.toString(36) + s.length.toString(36); };
-N.picVal = (c, keys) => { const id = N.asOf(keys, 'pic'); if (!id) return c.portrait || null; return N.npcPics(c).find(p => N.picKey(p) === id) || null; };
+/* Jake (Nov 23): a player can be shown several of them, one as:pic:<key> each. The first (in the NPC's own order) is the
+   portrait they see; the rest show as other pictures on the card. No as:pic: key at all means the main portrait */
+N.picIds = keys => (keys || []).filter(k => k.startsWith('as:pic:')).map(k => k.slice(7));
+N.picVals = (c, keys) => { const ids = N.picIds(keys); if (!ids.length) return c.portrait ? [c.portrait] : []; return N.npcPics(c).filter(p => ids.includes(N.picKey(p))); };
+N.picVal = (c, keys) => N.picVals(c, keys)[0] || null;
 N.alVal = (c, keys, f) => { const id = N.asOf(keys, f); if (!id) return c[f]; const a = N.aliases(c, f).find(x => x.id === id); return a ? a.v : null; };
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 N.revParts = (c, pc) => {
@@ -1119,7 +1123,7 @@ N.revealed = (c, pc, keys0) => {
   if (!has('name')) return null;
   const nm = pc ? c.name || c.short || '' : val('name'); if (nm == null) return null;
   const r = {id:c.id, name:nm || c.short || ''};
-  if (has('pic')) { const pt = pc ? c.portrait : N.picVal(c, keys); if (pt) r.portrait = pt; }
+  if (has('pic')) { const ps = pc ? [c.portrait].filter(Boolean) : N.picVals(c, keys); if (ps[0]) r.portrait = ps[0]; if (ps.length > 1) r.pics = ps.slice(1); }
   for (const f of ['race', 'nat', ...(pc ? [] : ['job']), 'age']) { const x = has(f) && val(f); if (x) r[f] = x; }
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
   const sk = N.revSkills(c).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;

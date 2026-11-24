@@ -3414,3 +3414,17 @@
 .app .revpics button small{font:700 11.5px/1.2 var(--f-ui);color:var(--ink-3)}
 .app .revpics button[aria-pressed="true"]{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--gold-tx)}
 .app .revpics button[aria-pressed="true"] small{color:var(--ink)}
+/* Map settings: replace the map's picture (Jake) */
+.mprep h4 small{display:block;margin-top:2px}
+.mprep-r{display:flex;align-items:center;gap:12px;padding:10px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-1)}
+.mprep-r img,.mprep-ph{width:72px;height:54px;object-fit:cover;border-radius:9px;flex:0 0 auto;display:grid;place-items:center;color:var(--ink-3);background:var(--panel-2)}
+.mprep-t{flex:1;min-width:0;display:flex;flex-direction:column;font:600 13px/1.3 var(--f-ui)}
+.mprep-t small{color:var(--ink-3)}
+/* several NPC pictures (Jake): star on the portrait pick in Reveal, picture strip on the player's card */
+.revpics button{position:relative}
+.revpics .pfirst{position:absolute;top:-2px;right:2px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:var(--bg-1,#111)}
+.revpics .pfirst svg{width:11px;height:11px}
+.revpics-n{display:block;margin:6px 2px 0;color:var(--ink-3);font:600 12px/1.35 var(--f-ui)}
+.kpics{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.kpics button{padding:2px;border-radius:50%;border:0;background:none;cursor:pointer;opacity:.7}
+.kpics button[aria-pressed="true"]{opacity:1;box-shadow:0 0 0 2px var(--gold)}

@@ -1289,8 +1289,11 @@ function heroPage(v){
 /* someone else's card as a player sees it: only the parts the GM revealed. PCs and NPCs look exactly alike here */
 function knownBody(v, k){
   const sub = [k.race, k.nat, k.job, k.age ? `Age ${k.age}` : ''].filter(Boolean).map(esc).join(' · ');
-  const hero = `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:k.name, portrait:k.portrait || null, color:'var(--c-npc)'}, 84)}<div style="min-width:0"><h2>${esc(k.name)}</h2>${sub ? `<div class="by">${sub}</div>` : ''}
-    ${k.met ? `<div class="metbadge">${IC(k.met === 'met' ? 'hand' : 'chat')}${N.MET[k.met]}</div>` : ''}</div></section>`;
+  /* the GM can show a player more than one picture of an NPC (Jake): tap one to see it big */
+  const all = [k.portrait, ...(k.pics || [])].filter(Boolean), pi = Math.min(((v.ui.kPic || {})[k.id]) || 0, Math.max(all.length - 1, 0));
+  const strip = all.length > 1 ? `<div class="kpics" role="group" aria-label="Pictures of ${esc(k.name)}">${all.map((p, i) => `<button type="button" data-a="kPic" data-v="${esc(k.id)}" data-n="${i}" aria-pressed="${i === pi}" aria-label="Picture ${i + 1}">${N.av({name:k.name, portrait:p, color:'var(--c-npc)'}, 40)}</button>`).join('')}</div>` : '';
+  const hero = `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:k.name, portrait:all[pi] || null, color:'var(--c-npc)'}, 84)}<div style="min-width:0"><h2>${esc(k.name)}</h2>${sub ? `<div class="by">${sub}</div>` : ''}
+    ${k.met ? `<div class="metbadge">${IC(k.met === 'met' ? 'hand' : 'chat')}${N.MET[k.met]}</div>` : ''}${strip}</div></section>`;
   const sec = (h, body, full) => `<section class="sec${full ? ' full' : ''}"><h3>${h}</h3>${body}</section>`;
   const tx = t => N.emoText(N.linkText(t));
   const rungs = k.skills ? [...new Set(k.skills.map(x => x[1]))].sort((a, b) => b - a).map(x => [x, k.skills.filter(y => y[1] === x)]) : [];
