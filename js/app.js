@@ -2317,6 +2317,7 @@ function act(v, a, el, e){
     N.audSet(p, 'pin', val);
     renderAll(); return;
   }
+  case 'pinCap': { const p = curMap(v).pins.find(x => x.id === ui.pinSel); if (p) { if (p.cap) delete p.cap; else p.cap = true; } renderAll(); return; }
   case 'pinDel': { const m = curMap(v), i = m.pins.findIndex(x => x.id === ui.pinSel), p = m.pins[i]; if (!p) break; m.pins.splice(i, 1); ui.pinSel = null; toast(v, `Removed ${p.label}.`, () => m.pins.splice(i, 0, p)); renderAll(); return; }
   /* world */
   case 'wiki': { const en = g.wiki.find(x => x.id === val); if (!en || (!gm && en.gm)) break; close();
