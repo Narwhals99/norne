@@ -1146,6 +1146,17 @@ function send(v){
     move = hits[0];
     text = text.replace(/\{\{([^{}]+)\}\}/g, (x, w) => w.split(',')[0].trim());
   }
+  /* Jake: [[General store]] in a Narrator line changes the scene's shown location (its "where" line, not the map pin).
+     The line reads without the marks; a wiki title in it stays a link to that article. Links the Link button makes
+     ([[wiki:id|…]], [[npc:…]]) and lines outside a scene are left as they were. */
+  let where = null;
+  const WHERE_RE = /\[\[(?!(?:pc|npc|wiki):)([^\[\]|\n]+)\]\]/g;
+  const wheres = gm && m.kind === 'rp' && m.as === 'Narrator' && g.scenes[ch] ? [...text.matchAll(WHERE_RE)] : [];
+  if (wheres.length) {
+    const all = wheres.map(x => x[1].trim().replace(/\s+/g, ' ')).filter(Boolean), w = all[all.length - 1];
+    if (w) where = (w[0].toUpperCase() + w.slice(1)).slice(0, 80);
+    text = text.replace(WHERE_RE, (x, t) => { t = t.trim().replace(/\s+/g, ' '); const e = g.wiki.find(y => y.title.toLowerCase() === t.toLowerCase()); return e ? `[[wiki:${e.id}|${t}]]` : t; });
+  }
   /* Jake: <<Elderly goblin>> in a Narrator line puts them in the scene as a one-off NPC (an NPC with a card joins the scene's
      cast instead). The line reads without the marks; a several-word phrase that starts mid-sentence with one capital reads in
      lower case ("an elderly goblin"), names like Gorm or Captain Vel, NPCs with a card, and a first word that is a race, nation, place or other
@@ -1160,6 +1171,7 @@ function send(v){
   }
   push(Object.assign(m, {ch, by:v.role, text}));
   if (move) sceneMove(v, ch, move);
+  if (where) sceneWhere(v, ch, where);
   if (meet.length) {
     const added = [];
     for (const name of meet) { const n = g.npcs.find(x => x.name.toLowerCase() === name.toLowerCase());
@@ -3249,6 +3261,12 @@ function editScene(v, s){
   return true;
 }
 /* a narrator line moved the scene: same scene message, new place (kept from the players if the scene's place was) */
+/* [[Location]] from the Narrator (Jake): the scene's shown location becomes this, the map pin stays */
+function sceneWhere(v, ch, w){
+  const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene || m.scene.where === w) return;
+  m.scene = {...m.scene, where:w}; N.invalidateScenes();
+  toast(v, `Scene location is now ${w}.`);
+}
 function sceneMove(v, ch, loc){
   const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene) return;
   const old = m.scene.loc || g.hlocs[m.id] || null, hidden = !m.scene.loc && !!g.hlocs[m.id];
