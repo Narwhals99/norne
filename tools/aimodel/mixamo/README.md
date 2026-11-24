@@ -43,3 +43,7 @@ attacks with the hand-to-hand moves. The dreadape came from Tripo already on a s
 began at the crown of the skull and stuck out above it; the lower pair of arms had no bones), so it did not go through
 Mixamo: `apeprep.py` refits the neck and head, adds bones for the lower arms and redoes the skin, and `dreadape.json`
 (`_follow`) makes each lower arm copy the arm above it in every move.
+
+His standing, running and attacking moves are his own, written by hand for four arms in `apemoves.py` (`_script`), which
+`mxbuild.py` runs after the shared moves; `_drop` lists the shared moves he does without. Being hit, blocking, dodging
+and falling are still the shared ones. His lower hands have no finger bones, so they stay open.

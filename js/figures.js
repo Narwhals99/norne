@@ -420,7 +420,7 @@ function start(box, THREE, K){
       grp('Animal or monster', B.n, K.BEAST_LIST.map(id => opt(id, K.BEASTS[id].n, id === spec.beast, 'beast', beastPic(id))).join(''), 'grid beasts');
       /* one that stands as an AI-made model (js/aikit.js) has that model's own colours */
       if (!K.beastModel(spec.beast)) grp(spec.beast === 'giant' ? 'Kind of giant' : 'Coat, scales or shell', B.coats[spec.skin] ? B.coats[spec.skin].n : '', B.coats.map((c, i) => sw(i, c.n, c.c, i === +spec.skin, 'coat')).join(''), 'sws');
-      o.push(spec.beast === 'dreadape' ? `<p class="note">The dreadape fights with its fists only. <b>Sword</b> is one of four attacks (a hook, an overhand smash, a jab and cross, a wide swing); leave it playing to see them all. A fight picks one each attack. <b>Bow</b> and <b>Magic</b> are a two-fisted slam.</p>`
+      o.push(spec.beast === 'dreadape' ? `<p class="note">The dreadape fights with its four fists only. <b>Attack</b> is one of three (a double fist pound, a punch, a four-fist flurry); leave it playing to see them all. A fight picks one each attack. <b>Shoot</b> and <b>Magic</b> are a chest-drumming roar.</p>`
         : `<p class="note">Animals and monsters come as they are: pick one and its colours. In a fight, <b>Sword</b> is its bite, pounce or smash, and <b>Bow</b> and <b>Magic</b> are a roar or a breath from a distance.</p>`);
       $('opts').innerHTML = o.join('');
       return;

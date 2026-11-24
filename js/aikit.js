@@ -105,7 +105,7 @@ export function makeAI(THREE, H){
     const loop = (k, x) => ((x % dur(k)) + dur(k)) % dur(k), one = (k, show) => ({clip:k, at:cap(k, (t % (H.ANIMS[name] || 1e9)) / 1000), show:show || []});
     if (name === 'walk') return {clip:'walk', at:loop('walk', t / 1000), show:[]};
     if (rig.fists && (name === 'sword' || name === 'bow' || name === 'magic')) {
-      const D = H.ANIMS[name], ks = (name === 'sword' ? ['hook', 'chop', 'jabs', 'sweep'] : name === 'bow' ? ['slam'] : ['cast']).filter(has);
+      const D = H.ANIMS[name], ks = (name === 'sword' ? (has('pound') ? ['pound', 'punch', 'flurry'] : ['hook', 'chop', 'jabs', 'sweep']) : has('drum') ? ['drum'] : name === 'bow' ? ['slam'] : ['cast']).filter(has);
       if (ks.length) return one(ks[(rig.var != null ? rig.var : Math.floor(t / D)) % ks.length]);
     }
     if (name === 'sword' || name === 'bow') {

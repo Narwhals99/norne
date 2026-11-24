@@ -12,6 +12,7 @@ skin, mdir, mjson, prep, out = argv[:5]; TEX = 1024
 MOVES = {k: v for k, v in json.load(open(mjson)).items() if not k.startswith('_')}
 OWN = json.load(open(argv[5])) if len(argv) > 5 else {}
 MOVES.update({k: v for k, v in OWN.items() if not k.startswith('_')})
+for k in OWN.get('_drop', []): MOVES.pop(k, None)     # the shared moves this one does without (it has its own: _script)
 # Mixamo's moves are recorded on a slim adult: on a stocky toy figure the hanging arms sink into the body. _armSpace
 # swings each upper arm out by up to that many degrees, most when it hangs straight down, not at all when it is raised.
 SPACE = float(OWN.get('_armSpace', 0))
@@ -205,6 +206,9 @@ for name, spec in MOVES.items():
   tr = arm.animation_data.nla_tracks.new(); tr.name = name; tr.strips.new(name, 0, new); tr.mute = True
   arm.animation_data.action = None
   print('MOVE %-6s %-36s %3d frames  travel %.2f -> %.2f of height' % (name, spec['file'], n, max(d.length for d in D) / tall, max(d.length for d in D2) / tall))
+# moves written by hand for this one alone (the dreadape's four arms: apemoves.py), run here with everything above to hand
+if OWN.get('_script'):
+  sp = os.path.join(os.path.dirname(os.path.abspath(argv[5])), OWN['_script']); exec(compile(open(sp, encoding='utf8').read(), sp, 'exec'), globals())
 for sarm, a, _ in list(SRC.values()): bpy.data.objects.remove(sarm, do_unlink=True); bpy.data.actions.remove(a)
 for b in pb: b.matrix_basis = Matrix()
 sc.frame_set(0)
