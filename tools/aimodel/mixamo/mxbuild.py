@@ -15,6 +15,7 @@ MOVES.update({k: v for k, v in OWN.items() if not k.startswith('_')})
 # Mixamo's moves are recorded on a slim adult: on a stocky toy figure the hanging arms sink into the body. _armSpace
 # swings each upper arm out by up to that many degrees, most when it hangs straight down, not at all when it is raised.
 SPACE = float(OWN.get('_armSpace', 0))
+FOLLOW = {'mixamorig:' + k: 'mixamorig:' + v for k, v in OWN.get('_follow', {}).items()}
 FPS = 30; t0 = time.time()
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=skin)
@@ -22,6 +23,15 @@ arm = [o for o in bpy.data.objects if o.type == 'ARMATURE'][0]; ob = [o for o in
 for o in list(bpy.data.objects):
   if o not in (arm, ob): bpy.data.objects.remove(o, do_unlink=True)
 for a in list(bpy.data.actions): bpy.data.actions.remove(a)
+# Everything below takes the skeleton as Mixamo's files have it: lying in its own space with Y up, stood upright by its
+# object. A rig made in Blender (apeprep.py) has Z up in its own space: turn its bones over and its object back, so it
+# stands where it did.
+hb = arm.data.bones['mixamorig:Hips'].head_local
+if abs(hb.z) > abs(hb.y):
+  keep = ob.matrix_world.copy(); T = Matrix.Rotation(-math.pi / 2, 4, 'X')
+  arm.data.transform(T); arm.matrix_world = arm.matrix_world @ T.inverted()
+  bpy.context.view_layer.update(); ob.matrix_world = keep; bpy.context.view_layer.update()
+  print('STOOD UP', [round(x, 2) for x in arm.data.bones['mixamorig:Hips'].head_local])
 sc = bpy.context.scene; sc.render.fps = FPS
 P = 'mixamorig:'
 
@@ -152,6 +162,13 @@ for name, spec in MOVES.items():
         d = w @ Vector((0, 1, 0)); k = max(0.0, -d.y) ** 1.5      # the armature stands Y-up: -y is straight down
         w = Quaternion((0, 0, 1), math.radians(SPACE * k * (1 if 'Left' in b.name else -1))) @ w
       W[b.name] = w
+    # a bone the moves know nothing of (the dreadape's second pair of arms) turns as the bone it follows turns, keeping
+    # the angle it rests at from it
+    for nb, fb in FOLLOW.items():
+      if fb in W and nb in TREST: W[nb] = W[fb] @ TREST[fb].inverted() @ TREST[nb]
+    for b in ORDER:
+      if b.name not in W: continue
+      w = W[b.name]
       if b.parent is None or b.parent.name not in W: L[b.name] = TREST[b.name].inverted() @ w
       else: L[b.name] = (W[b.parent.name] @ TREST[b.parent.name].inverted() @ TREST[b.name]).inverted() @ w
     m = W[P + 'Hips'].to_matrix().to_4x4(); m.translation = ships.matrix.translation * kh

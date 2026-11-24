@@ -1,0 +1,5 @@
+{
+  "_about": "The dreadape (tools/aimodel/mixamo/apeprep.py makes its rigged file). Its lower pair of arms follows the upper pair.",
+  "_follow": {"LeftArm2": "LeftArm", "LeftForeArm2": "LeftForeArm", "LeftHand2": "LeftHand",
+              "RightArm2": "RightArm", "RightForeArm2": "RightForeArm", "RightHand2": "RightHand"}
+}
