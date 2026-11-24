@@ -871,10 +871,11 @@ function askTell(v){
   if (ui.sheet === 'reveal' && ui.askRev?.id === ui.sheetArg) {
     const id = ui.askRev.id, c = g.chars[id], card = c || g.npcs.find(x => x.id === id), base = ui.askRev.base; ui.askRev = null;
     if (card) {
-      const name = c ? c.short || c.name : card.name;
       for (const [st, l] of Object.entries((g.rev || {})[id] || {})) {
         const now = N.revKeys(card, l), was = N.revKeys(card, base[st] || []);
         if (!now.includes('name') || !now.some(k => !k.startsWith('met:') && !was.includes(k))) continue;
+        /* the name this player knows them by: an NPC's alias when the GM picked one */
+        const name = c ? c.short || c.name : N.revealed(card, false, now)?.name; if (!name) continue;
         add(st, was.includes('name') ? `${gm} revealed more about ${name}. Open Character to see it.` : `${gm} revealed ${name} to you. Open Character to see them.`);
       }
     }
@@ -1050,6 +1051,7 @@ function input(v, el, ev){
     }
     case 'nd': {
       const d = v.ui.nd, n = +el.dataset.n;
+      if (k === 'al') { const a = (d.al?.[el.dataset.f] || [])[n]; if (a) a.v = val; return; }
       if (k === 'asp') d.aspects[n] = val; else if (k === 'stn') d.stunts[n][0] = val; else if (k === 'std') d.stunts[n][1] = val; else d[k] = val;
       if (k === 'name') render(v); return;
     }
@@ -2453,16 +2455,19 @@ function act(v, a, el, e){
   /* sheet reveals (GM) */
   case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; ui.askRev = {id:val, base:JSON.parse(JSON.stringify((g.rev || {})[val] || {}))}; break;
   case 'revSeat': ui.revSeat = val; break;
-  case 'revTog': case 'revAll': case 'revMet': {
+  case 'revTog': case 'revAll': case 'revMet': case 'revAs': {
     const id = ui.sheetArg, st = ui.revSeat; if (!id || !st) break;
     g.rev = g.rev || {}; const by = g.rev[id] = g.rev[id] || {};
     const c = g.chars[id], card = c || g.npcs.find(x => x.id === id); if (!card) break;
     let keys = N.revKeys(card, by[st] || []);
-    const mt = keys.filter(k => k.startsWith('met:')); keys = keys.filter(k => !k.startsWith('met:'));
+    let mt = keys.filter(k => N.notPart(k)); keys = keys.filter(k => !N.notPart(k));
     /* Met / Heard of: the GM decides how this player's character knows them (tap again to clear) */
-    if (a === 'revMet') keys = [...keys, ...(val && mt[0] !== 'met:' + val ? ['met:' + val] : [])];
-    else if (a === 'revAll') keys = [...(val ? N.revParts(card, !!c).map(p => p.k) : []), ...mt];
-    else keys = [...(keys.includes(val) ? keys.filter(k => k !== val) : [...keys, val]), ...mt];
+    if (a === 'revMet') { const was = mt.find(k => k.startsWith('met:')); mt = mt.filter(k => !k.startsWith('met:')); if (val && was !== 'met:' + val) mt.push('met:' + val); }
+    /* an NPC's alias (Jake): this player is told the truth (no id) or one alias for that field; picking an alias reveals the field */
+    else if (a === 'revAs') { const f = val; mt = mt.filter(k => !k.startsWith('as:' + f + ':')); if (d.n) { mt.push('as:' + f + ':' + d.n); if (!keys.includes(f)) keys.push(f); } }
+    else if (a === 'revAll') keys = val ? N.revParts(card, !!c).map(p => p.k) : [];
+    else keys = keys.includes(val) ? keys.filter(k => k !== val) : [...keys, val];
+    keys = [...keys, ...mt];
     if (keys.length) by[st] = keys; else delete by[st];
     if (!Object.keys(by).length) delete g.rev[id];
     renderAll(); return;
@@ -2643,6 +2648,9 @@ function act(v, a, el, e){
   case 'ndUpload': uploadFace(v, src => { ui.nd.portrait = src; }); return;
   /* other pictures on an NPC card, picked per scene (Jake) */
   case 'ndAltAdd': if ((ui.nd.pics || []).length >= 8) { toast(v, 'Eight other pictures at most.'); break; } uploadFace(v, src => { ui.nd.pics = [...(ui.nd.pics || []), src]; }); return;
+  /* aliases on an NPC (Jake): false names and stories, picked per player in Reveal */
+  case 'ndAlAdd': { const al = ui.nd.al = ui.nd.al || {}; (al[val] = al[val] || []).push({id:Date.now().toString(36) + Math.random().toString(36).slice(2, 5), v:''}); break; }
+  case 'ndAlDel': if (ui.nd.al?.[val]) ui.nd.al[val].splice(+d.n, 1); break;
   case 'ndAltDel': ui.nd.pics = (ui.nd.pics || []).filter((_, i) => i !== +val); break;
   case 'ndAltMain': { const ps = ui.nd.pics || [], p = ps[+val]; if (!p) break; ps[+val] = ui.nd.portrait; ui.nd.pics = ps.filter(Boolean); ui.nd.portrait = p; break; }
   case 'ndFrame': if (ui.nd?.portrait) reframe(v, 'face', ui.nd.portrait, nu => { ui.nd.portrait = nu; render(v); }); return;
@@ -3412,7 +3420,8 @@ function saveNpc(v){
   if (bad) { v.ui.alertBox = {title:'WARNING: Character skills break Pyramid rule', body:`${d.name.trim() || 'This NPC'} would have ${bad.text} From +2 up, a level can’t have more skills than the level below it.`, btns:[['Continue editing', 'alertClose', ''], ['GM override', 'pyrOverride', 'primary']]}; render(v); return; }
   const base = {name:d.name.trim(), race:d.race.trim(), nat:(d.nat || '').trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
     skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0,
-    inv:(d.inv || []).map(x => [...x]), dir:N.nd.byId(d.dir) ? d.dir : null, side:!!(d.side && d.lead), lead:d.side && d.lead ? d.lead : '', pics:(d.pics || []).filter(p => p && p !== d.portrait).slice(0, 8)};
+    inv:(d.inv || []).map(x => [...x]), dir:N.nd.byId(d.dir) ? d.dir : null, side:!!(d.side && d.lead), lead:d.side && d.lead ? d.lead : '', pics:(d.pics || []).filter(p => p && p !== d.portrait).slice(0, 8),
+    al:Object.fromEntries(N.ALF.map(([f]) => [f, (d.al?.[f] || []).map(a => ({id:a.id, v:String(a.v || '').trim()})).filter(a => a.v)]).filter(([, l]) => l.length))};
   if (d.copyOf && !old) base.gold = +d.gold || 0;
   let n;
   if (old) {

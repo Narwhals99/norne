@@ -3375,3 +3375,22 @@
 .app .sdpic-o button{border-radius:50%;padding:2px;box-shadow:inset 0 0 0 2px transparent}
 .app .sdpic-o button[aria-checked="true"]{box-shadow:inset 0 0 0 2.5px var(--gold-tx)}
 .app .sdpic-o button[aria-checked="false"] .av{opacity:.75}
+/* NPC aliases (Jake, 2026-11-23): false names and stories in the NPC editor, and the truth-or-alias pick in Reveal */
+.app .alias-w h4 small{display:block;margin-top:3px;font:600 12px/1.35 var(--f-ui);color:var(--ink-3);text-transform:none;letter-spacing:0}
+.app .alias-l{display:grid;gap:8px}
+.app .alrow{display:grid;grid-template-columns:150px minmax(0,1fr);gap:10px;align-items:start;padding:8px 10px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
+.app .alf{font:700 13.5px/1.25 var(--f-ui);color:var(--ink);padding-top:7px;min-width:0}
+.app .alf small{display:block;margin-top:2px;font:500 12px/1.3 var(--f-ui);color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .alvals{display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-width:0}
+.app .alv{position:relative;flex:1 1 170px;min-width:0;max-width:100%}
+.app .alv .inp{width:100%;padding-right:34px}
+.app .alv .xb{position:absolute;top:50%;right:6px;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:var(--ink-3)}
+.app .alv .xb svg{width:12px;height:12px}
+.app .alvals>.btn{flex:none}
+@media (max-width:560px){.app .alrow{grid-template-columns:minmax(0,1fr)}.app .alf{padding-top:0}}
+.app .revas{display:grid;gap:6px;margin-bottom:2px}
+.app .asseg{justify-self:start;max-width:100%;flex-wrap:wrap;border-radius:16px;margin-left:32px}
+.app .asseg button{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .asseg button svg{width:14px;height:14px}
+.app .alsline{margin-top:4px;font:600 12.5px/1.35 var(--f-ui);color:var(--ink-3)}
+.app .alsline svg{width:13px;height:13px;vertical-align:-2px}
