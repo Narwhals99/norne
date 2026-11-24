@@ -2825,10 +2825,10 @@ function act(v, a, el, e){
   case 'rollBonus': ui.roll.otherBonus = clamp((+ui.roll.otherBonus || 0) + (+d.d), -4, 10); break;
   case 'doRoll': doRoll(v); return;
   /* scene sheet */
-  case 'sdFor': { const sd = ui.sd; sd.ch = val;
+  case 'sdFor': { const sd = ui.sd, autoDay = sd.date === N.sceneDay(sd.ch); sd.ch = val;
     /* another chat: open its scene to edit, unless the GM is already building a new one */
     if (g.scenes[val] && !(sd.mode === 'new' && sd.touched)) sdLoad(sd, 'edit');
-    else { const keep = {title:sd.title, where:sd.where, date:sd.date, art:sd.art, place:sd.place, aspects:sd.aspects, loc:sd.loc, share:sd.share, touched:sd.touched, ...(sd.draft ? {draft:sd.draft, cast:N.withSidekicks(val, sd.cast), extras:sd.extras, cpics:sd.cpics} : {})}; sdLoad(sd, 'new'); if (keep.touched) Object.assign(sd, keep); }
+    else { const keep = {title:sd.title, where:sd.where, date:sd.date, art:sd.art, place:sd.place, aspects:sd.aspects, loc:sd.loc, share:sd.share, touched:sd.touched, ...(sd.draft ? {draft:sd.draft, cast:N.withSidekicks(val, sd.cast), extras:sd.extras, cpics:sd.cpics} : {})}; if (autoDay) delete keep.date; /* the day filled in for the old chat follows the new chat's day */ sdLoad(sd, 'new'); if (keep.touched) Object.assign(sd, keep); }
     break; }
   case 'sdMode': sdLoad(ui.sd, val); break;
   case 'sdOneAdd': { const sd = ui.sd, name = (sd.oneName || '').trim(); if (!name) { toast(v, 'Give them a name first.'); break; }
@@ -3285,7 +3285,7 @@ function sdLoad(sd, mode){
   sd.loc = N.locKeys(curLoc); sd.share = cur ? !!cur.loc || !curLoc : true;
   if (sd.mode === 'edit') Object.assign(sd, {msg:cur.msg, title:cur.title, where:cur.where || '', date:cur.date || '', tod:cur.tod || '', art:cur.art || null, place:cur.place || null,
     aspects:(cur.aspects || []).map((a, i) => ({...a, k:a.k ?? String(i)})), cast:[...(N.castOf(sd.ch) || [])], extras:N.extrasOf(sd.ch).map(x => ({...x, skills:{...x.skills}})), cpics:{...((g.cpics || {})[sd.ch] || {})}});
-  else Object.assign(sd, {msg:null, title:'', where:'', date:'', tod:'', art:null, place:null, aspects:[], cast:cur ? [] : [...(N.castOf(sd.ch) || [])], extras:cur ? [] : N.extrasOf(sd.ch).map(x => ({...x, skills:{...x.skills}})), cpics:cur ? {} : {...((g.cpics || {})[sd.ch] || {})}});
+  else Object.assign(sd, {msg:null, title:'', where:'', date:N.sceneDay(sd.ch), tod:'', art:null, place:null, aspects:[], cast:cur ? [] : [...(N.castOf(sd.ch) || [])], extras:cur ? [] : N.extrasOf(sd.ch).map(x => ({...x, skills:{...x.skills}})), cpics:cur ? {} : {...((g.cpics || {})[sd.ch] || {})}});
   sd.picFor = null;
   /* Jake's sidekicks: a new scene starts with the sidekicks of the characters in it (the GM can untick them) */
   if (sd.mode === 'new') sd.cast = N.withSidekicks(sd.ch, sd.cast);
