@@ -30,10 +30,10 @@ nl.sceneLine = (v, sc, ch, past) => {
   return `<section class="nl-scene${past ? ' past' : ''}" aria-label="${past ? 'Scene at the time' : 'Scene'}" data-scn="${sc.msg || ''}">
     <button type="button" class="nl-sc-main" data-a="sceneMin" aria-label="Show the scene" title="Show the scene">
       <span class="nl-sc-pic" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</span>
-      <span class="nl-sc-t"><b>${esc(sc.title)}</b>${sc.where || sc.date ? `<small>${esc([sc.where, sc.date].filter(Boolean).join(' · '))}</small>` : ''}</span>
+      <span class="nl-sc-t"><b>${esc(sc.title)}</b>${sc.where || sc.date || N.todOf(sc.tod) ? `<small>${N.todLine(sc, 'nl-tod')}${esc([sc.where, sc.date].filter(Boolean).join(' · '))}</small>` : ''}</span>
       ${past ? '<span class="nl-chip">Earlier</span>' : ''}${n ? `<span class="nl-chip b">${n} aspect${n > 1 ? 's' : ''}</span>` : ''}
     </button>
-    ${past ? `<button type="button" class="nl-sc-btn" data-a="sceneLive">Now</button>` : gm ? `<button type="button" class="nl-sc-btn" data-a="sheet" data-v="scene">Change</button>` : ''}
+    ${past ? `<button type="button" class="nl-sc-btn" data-a="sceneLive">Now</button>` : gm ? `<button type="button" class="nl-sc-btn tbtn" data-a="sheet" data-v="tod" aria-label="Time of day" title="Time of day">${IC('clock')}</button><button type="button" class="nl-sc-btn" data-a="sheet" data-v="scene">Change</button>` : ''}
   </section>`;
 };
 
@@ -68,8 +68,9 @@ const runRows = (v, viaMenu) => running(v).map(([a, val, ic, l, sub, x]) => `<bu
 function sceneTab(v){
   const g = G(), ch = v.ui.ch, sc = g.scenes[ch];
   const card = sc ? `<div class="nl-card"><div class="nl-card-pic" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</div>
-      <div class="nl-card-b"><b>${esc(sc.title)}</b>${sc.where ? `<small>${esc(sc.where)}</small>` : ''}
+      <div class="nl-card-b"><b>${esc(sc.title)}</b>${N.todLine(sc)}${sc.where ? `<small>${esc(sc.where)}</small>` : ''}
       ${(sc.aspects || []).length ? `<div class="nl-asp">${sc.aspects.map((a, i) => { const f = N.sceneFreeLeft(sc, i); return `<span>${a.on ? `<i>On ${esc(a.on)}</i> ` : ''}${N.emoText(N.marks(esc(a.t)))}${f ? ` <em>${f} free</em>` : ''}</span>`; }).join('')}</div>` : ''}</div>
+      <button type="button" class="nl-btn" data-a="sheet" data-v="tod">${IC('clock')}${sc.tod && N.todOf(sc.tod) ? 'Change the time of day' : 'Set the time of day'}</button>
       <button type="button" class="nl-btn a" data-a="sheet" data-v="scene">Change the scene</button></div>`
     : ch === 'gm' ? '' : `<div class="nl-empty"><p>No scene in this chat yet.</p><button type="button" class="nl-btn a" data-a="sheet" data-v="scene">Set the scene</button></div>`;
   const run = runRows(v);

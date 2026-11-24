@@ -1308,4 +1308,10 @@ N.lvlLine = (c, p) => {
   }
   return '';
 };
+/* Scene time of day (Jack, 2026-11-24): the GM can pick one for a scene and change it while it runs.
+   It shows under the scene name and tints the screen of that chat (css/tod.css). A scene without one looks as before */
+N.TODS = [['dawn','Dawn','sun'],['morning','Morning','sun'],['latemorning','Late morning','sun'],['midday','Midday','sun'],['afternoon','Afternoon','sun'],
+  ['lateafternoon','Late afternoon','sun'],['earlyevening','Early evening','sun'],['evening','Evening','moon'],['night','Night','moon'],['latenight','Late night','moon']];
+N.todOf = k => N.TODS.find(t => t[0] === k) || null;
+N.todName = k => (N.todOf(k) || [])[1] || '';
 })();

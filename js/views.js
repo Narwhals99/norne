@@ -88,7 +88,7 @@ N.appHtml = function(v){
 
   const tip = nl ? N.nl.tipHtml(v, page) : '';
   return `<div class="stars" aria-hidden="true"></div>${glintsHtml()}${tip}${N.TEST ? `<div class="testbar" role="status"><b>GM test mode</b><span>A pretend table. Nothing here is saved or sent.</span><button type="button" data-a="gmTest" data-v="off">Leave</button></div>` : ''}
-    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? ' shelf-off' : ''}"${v.ui.shelfW ? ` style="--shelfw:${v.ui.shelfW}px"` : ''}>${nav}${shelfOn && v.dev === 'desktop' && !v.ui.shelfOff ? shelfHtml(v) : ''}${page}${tabbar}</div>
+    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? ' shelf-off' : ''}"${v.ui.shelfW ? ` style="--shelfw:${v.ui.shelfW}px"` : ''}>${nav}${shelfOn && v.dev === 'desktop' && !v.ui.shelfOff ? shelfHtml(v) : ''}${page}${tabbar}</div>${todGlow(v)}
     ${shelfOn && v.dev === 'phone' && v.ui.shelf ? `<div class="scrim shelf-scrim" data-a="shelf"></div>${shelfHtml(v)}` : ''}
     ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
     ${v.ui.pop ? `<div class="scrim" style="background:transparent;backdrop-filter:none" data-a="closePop"></div>${popHtml(v)}` : ''}
@@ -97,6 +97,14 @@ N.appHtml = function(v){
     ${v.ui.toast ? `<div class="toast" role="status"><span class="star4"></span><span>${esc(v.ui.toast.text)}</span>${v.ui.toast.undo?'<button type="button" data-a="undo">Undo</button>':''}</div>` : ''}`;
 };
 
+/* the scene's time of day tints the chat it is in (css/tod.css). Under sheets and pop-ups, never in the way of a tap.
+   Profile can turn it off on a device. The background is written inline so the Black and white look keeps its gradients */
+function todGlow(v){
+  const k = v.ui.tab === 'chat' && v.tod !== false ? (G().scenes[v.ui.ch] || {}).tod : null;
+  return k && N.todOf(k) ? `<div class="todglow" data-tod="${k}" aria-hidden="true" style="background:var(--todbg)"></div>` : '';
+}
+/* the time of day line under a scene's name: a sun or moon and the name */
+N.todLine = (sc, cls) => { const t = sc && N.todOf(sc.tod); return t ? `<span class="${cls || 'tod'}" data-tod="${t[0]}">${IC(t[2])}<span>${t[1]}</span></span>` : ''; };
 function chanIcon(v, c){
   const g = G();
   if (c === 'table') return `<span class="cic">${IC('users')}</span>`;
@@ -375,10 +383,11 @@ function sceneBanner(v, sc, ch, past){
     <div class="in">
       ${min ? `<span class="star4"></span>` : `<span class="eyebrow">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}<span>${priv ? onlyWho : 'Scene'}</span>${past ? `<span class="then">· Earlier</span>` : ''}${sc.date?`<span style="color:var(--ink-3);letter-spacing:.1em">· ${esc(sc.date)}</span>`:''}</span>`}
       <h2>${esc(sc.title)}</h2>
+      ${N.todLine(sc)}
       <span class="where">${esc(sc.where||'')}</span>
       ${sc.aspects?.length ? `<div class="icards">${sc.aspects.map((a,i)=>{ const f = N.sceneFreeLeft(sc, i); return `<span class="icard" style="--rot:${i%2?.8:-.9}deg">${a.on?`<span class="k">On ${esc(a.on)}</span>`:''}<span>${N.emoText(N.marks(esc(a.t)))}</span>${f?`<span class="fi">${'<i></i>'.repeat(f)}</span>`:''}</span>`; }).join('')}</div>` : ''}
     </div>
-    <div class="ctl">${past ? `<button type="button" class="btn sm" data-a="sceneLive" aria-label="Back to the newest messages and the scene now">${IC('caret')}<span>Now</span></button>` : gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Edit scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
+    <div class="ctl">${past ? `<button type="button" class="btn sm" data-a="sceneLive" aria-label="Back to the newest messages and the scene now">${IC('caret')}<span>Now</span></button>` : gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="tod" aria-label="Time of day" title="Time of day">${IC('clock')}<span class="only-dt">Time</span></button><button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Edit scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
   </section>`;
 }
 /* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */
