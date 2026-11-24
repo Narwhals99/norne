@@ -271,6 +271,7 @@ N.sheetHtml = function(v){
     const onNames = [...new Set([...N.chPcs(d.ch).map(c => c.short), ...d.cast, ...d.extras.map(x => x.name), ...d.aspects.map(a => a.on).filter(Boolean)])];
     const aspOn = (a, i) => onNames.length ? `<select class="aspon-sel" id="sdao-${v.id}-${i}" data-i="sdAspOn" data-n="${i}" aria-label="Who “${esc(a.t)}” is on"><option value="">Whole scene</option>${onNames.map(n => `<option value="${esc(n)}" ${a.on === n ? 'selected' : ''}>On ${esc(n)}</option>`).join('')}</select>` : '';
     const body = `
+      ${d.pend && d.pend.ch === d.ch && !has ? `<div class="note sdpend">${IC('scroll')}<span><b>This chat has no scene yet.</b> We filled in what your Narrator line says. Give the scene a name${d.art || d.place ? '' : ' and a picture'}, then start it: your line is sent right after.</span></div>` : ''}
       ${sdDraftsHtml(d)}
       ${has ? `<div class="seg sdmode" role="group" aria-label="Edit or start new"><button type="button" data-a="sdMode" data-v="edit" aria-pressed="${edit}">${IC('pen')}Edit this scene</button><button type="button" data-a="sdMode" data-v="new" aria-pressed="${!edit}">${IC('plus')}Start a new scene</button></div>
         <p class="muted" style="margin:-6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${edit ? `Changes fix up “${esc(has.title)}” in place. No new scene line in the chat, and free invokes already spent stay spent.` : `“${esc(has.title)}” ends and a fresh scene starts in this chat.`}</p>` : ''}
