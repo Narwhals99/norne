@@ -111,6 +111,7 @@ N.mount = function(root, o){
   try { v.pal = localStorage.getItem('norne-pal') || ''; } catch(e) { v.pal = ''; }
   try { v.vg = localStorage.getItem('norne-vg') !== '0'; v.dp = localStorage.getItem('norne-dp') !== '0'; } catch(e) { v.vg = v.dp = true; }
   /* Smooth mode (shadows, blur and moving stars all off) and the frame counter: per device, off unless switched on in Profile */
+  try { v.tod = localStorage.getItem('norne-tod') !== '0'; } catch(e) { v.tod = true; }
   try { v.lite = localStorage.getItem('norne-lite') === '1'; v.fps = localStorage.getItem('norne-fps') === '1'; } catch(e) { v.lite = v.fps = false; }
   fpsMeter(v.fps);
   try { v.lay = localStorage.getItem('norne-lay') === 'new' ? 'new' : 'classic';
@@ -1904,6 +1905,12 @@ function act(v, a, el, e){
   case 'notify': N.toggleNotify(v); return;
   case 'theme': v.theme = val; try { localStorage.setItem('norne-theme', val); } catch(e) {} if (N.onTheme) N.onTheme(v); break;
   case 'fz': v.fz = N.fzOk(val); try { localStorage.setItem('norne-fz', v.fz); } catch(e) {} break;
+  case 'todTint': v.tod = val === 'on'; try { localStorage.setItem('norne-tod', v.tod ? '1' : '0'); } catch(e) {} break;
+  /* the GM moves the scene's time of day on (or clears it): the scene's own message changes, like an edit, so nobody is pinged */
+  case 'todSet': { if (!gm) break; const ch = ui.ch === 'gm' ? 'table' : ui.ch, cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene) { ui.sheet = null; break; }
+    const sc = {...m.scene}; if (val && N.todOf(val)) sc.tod = val; else delete sc.tod;
+    m.scene = sc; N.invalidateScenes(); ui.sheet = null;
+    toast(v, sc.tod ? `Time of day: ${N.todName(sc.tod)}.` : 'Time of day cleared.'); renderAll(); return; }
   case 'vg': v.vg = val === 'on'; try { localStorage.setItem('norne-vg', v.vg ? '1' : '0'); } catch(e) {} break;
   case 'dp': v.dp = val === 'on'; try { localStorage.setItem('norne-dp', v.dp ? '1' : '0'); } catch(e) {} break;
   case 'lite': v.lite = val === 'on'; try { localStorage.setItem('norne-lite', v.lite ? '1' : '0'); } catch(e) {} break;
@@ -2819,14 +2826,14 @@ function act(v, a, el, e){
      and later loads it here and starts it in whichever chat, party or group they pick. A draft stays until deleted, so it can be used again */
   case 'sdDraftSave': { const s = ui.sd, title = (s.title || '').trim(); if (!title) { toast(v, 'Give the scene a name first.'); break; }
     const L = g.sdrafts || (g.sdrafts = []), old = s.draft && L.find(x => x.id === s.draft);
-    const x = {id:old ? old.id : uid('sdr'), title, where:(s.where || '').trim(), date:(s.date || '').trim(), art:s.art || null, place:s.place || null,
+    const x = {id:old ? old.id : uid('sdr'), title, where:(s.where || '').trim(), date:(s.date || '').trim(), tod:s.tod || '', art:s.art || null, place:s.place || null,
       aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})})), loc:{...(s.loc || {c:'', t:'', n:''})}, share:s.share !== false,
       cast:[...s.cast], extras:s.extras.map(e => ({id:e.id, name:e.name, skills:{...e.skills}})), cpics:Object.fromEntries(Object.entries(s.cpics || {}).filter(([n]) => s.cast.includes(n))), t:N.now()};
     if (old) Object.assign(old, x); else L.unshift(x);
     ui.sheet = null; toast(v, `${old ? 'Draft updated' : 'Saved as a draft'}: ${title}. Open the scene changer to start it in any chat.`); renderAll(); return; }
   case 'sdDraftLoad': { const s = ui.sd, x = (g.sdrafts || []).find(y => y.id === val); if (!x) break;
     if (g.scenes[s.ch]) s.mode = 'new';
-    Object.assign(s, {draft:x.id, msg:null, title:x.title, where:x.where || '', date:x.date || '', art:x.art || null, place:x.place || null,
+    Object.assign(s, {draft:x.id, msg:null, title:x.title, where:x.where || '', date:x.date || '', tod:x.tod || '', art:x.art || null, place:x.place || null,
       aspects:(x.aspects || []).map(a => ({...a, k:uid('a')})), share:x.share !== false,
       cast:N.withSidekicks(s.ch, [...(x.cast || [])]), extras:(x.extras || []).map(e => ({...e, skills:{...e.skills}})), cpics:{...(x.cpics || {})}, picFor:null, touched:true, autoTitle:false, drafts:false});
     s.loc = {...(x.loc || {c:'', t:'', n:''})};
@@ -2844,7 +2851,7 @@ function act(v, a, el, e){
   case 'locHere': { const loc = N.myLoc(v.role, ui.ch); if (!loc) break;
     const k = N.LOCK.find(k => loc[k] && g.maps.some(m => m.id === loc[k].m && seeMap(v, m))); if (!k) { toast(v, `You’re in ${N.locText(loc)}.`); return; }
     ui.mapId = loc[k].m; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
-  case 'sdApply': { const s = ui.sd; sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects, loc:s.loc, share:s.share}, s.post); ui.sheet = null; renderAll(); return; }
+  case 'sdApply': { const s = ui.sd; sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), tod:s.tod || '', art:s.art, place:s.place, aspects:s.aspects, loc:s.loc, share:s.share}, s.post); ui.sheet = null; renderAll(); return; }
   /* ending a scene takes its banner down and lets its one-off NPCs and NPC list go (Undo brings them back) */
   case 'sdEnd': { const ch = val || ui.sd?.ch; if (!ch || !g.scenes[ch]) { ui.sheet = null; break; }
     const undoStress = clearStress(ch);
@@ -3210,9 +3217,9 @@ function sdLoad(sd, mode){
   /* the location: an edit shows the scene's own; a new scene starts where the last one was */
   const curLoc = cur ? cur.loc || g.hlocs[cur.msg] || null : null;
   sd.loc = N.locKeys(curLoc); sd.share = cur ? !!cur.loc || !curLoc : true;
-  if (sd.mode === 'edit') Object.assign(sd, {msg:cur.msg, title:cur.title, where:cur.where || '', date:cur.date || '', art:cur.art || null, place:cur.place || null,
+  if (sd.mode === 'edit') Object.assign(sd, {msg:cur.msg, title:cur.title, where:cur.where || '', date:cur.date || '', tod:cur.tod || '', art:cur.art || null, place:cur.place || null,
     aspects:(cur.aspects || []).map((a, i) => ({...a, k:a.k ?? String(i)})), cast:[...(N.castOf(sd.ch) || [])], extras:N.extrasOf(sd.ch).map(x => ({...x, skills:{...x.skills}})), cpics:{...((g.cpics || {})[sd.ch] || {})}});
-  else Object.assign(sd, {msg:null, title:'', where:'', date:'', art:null, place:null, aspects:[], cast:cur ? [] : [...(N.castOf(sd.ch) || [])], extras:cur ? [] : N.extrasOf(sd.ch).map(x => ({...x, skills:{...x.skills}})), cpics:cur ? {} : {...((g.cpics || {})[sd.ch] || {})}});
+  else Object.assign(sd, {msg:null, title:'', where:'', date:'', tod:'', art:null, place:null, aspects:[], cast:cur ? [] : [...(N.castOf(sd.ch) || [])], extras:cur ? [] : N.extrasOf(sd.ch).map(x => ({...x, skills:{...x.skills}})), cpics:cur ? {} : {...((g.cpics || {})[sd.ch] || {})}});
   sd.picFor = null;
   /* Jake's sidekicks: a new scene starts with the sidekicks of the characters in it (the GM can untick them) */
   if (sd.mode === 'new') sd.cast = N.withSidekicks(sd.ch, sd.cast);
@@ -3235,7 +3242,7 @@ function editScene(v, s){
   const g = G(), m = g.msgs.find(x => x.id === s.msg && x.kind === 'scene'); if (!m) return false;
   const loc = N.locBuild(s.loc || {});
   if (loc && !s.share) G().hlocs[m.id] = loc; else delete G().hlocs[m.id];
-  m.scene = {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art || null, place:s.place || null, ...(loc && s.share ? {loc} : {}), aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, k:a.k ?? uid('a'), ...(a.on ? {on:a.on} : {})}))};
+  m.scene = {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), ...(N.todOf(s.tod) ? {tod:s.tod} : {}), art:s.art || null, place:s.place || null, ...(loc && s.share ? {loc} : {}), aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, k:a.k ?? uid('a'), ...(a.on ? {on:a.on} : {})}))};
   N.invalidateScenes(); sceneRecent(m.scene);
   toast(v, `Scene updated: ${m.scene.title}`);
   return true;
@@ -3310,7 +3317,7 @@ function setScene(v, ch, s, post){
   const g = G();
   /* a location the players aren't told stays in the GM's own data, so it never reaches their devices */
   const loc = s.loc ? N.locBuild(s.loc) : null, share = s.share !== false;
-  const sc = {title:s.title, where:s.where || '', date:s.date || '', art:s.art || null, place:s.place || null, ...(loc && share ? {loc} : {}), aspects:(s.aspects || []).map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})}))};
+  const sc = {title:s.title, where:s.where || '', date:s.date || '', ...(N.todOf(s.tod) ? {tod:s.tod} : {}), art:s.art || null, place:s.place || null, ...(loc && share ? {loc} : {}), aspects:(s.aspects || []).map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})}))};
   const m = push({ch, kind:'scene', by:'gm', scene:sc, quiet:!post});
   if (loc && !share) g.hlocs[m.id] = loc;
   sceneRecent(sc);

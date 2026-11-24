@@ -285,6 +285,7 @@ N.sheetHtml = function(v){
         <label class="field"><span>Scene name</span><input class="inp" id="sdt-${v.id}" data-i="sd" data-k="title" value="${esc(d.title)}" placeholder="e.g. A quiet back room"></label>
         <label class="field"><span>Where</span><input class="inp" id="sdw-${v.id}" data-i="sd" data-k="where" value="${esc(d.where)}" placeholder="Town or region"></label>
         <label class="field"><span>When (optional)</span><input class="inp" id="sdd-${v.id}" data-i="sd" data-k="date" value="${esc(d.date)}" placeholder="In-world day or time"></label>
+        <label class="field"><span>Time of day (optional)</span><select class="inp" id="sdtod-${v.id}" data-i="sd" data-k="tod"><option value="">Not set</option>${N.TODS.map(([k, l]) => `<option value="${k}" ${d.tod === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       </div>
       ${(() => { /* where the scene is: players who are told see a beacon on their maps that opens country, city, then neighborhood */
         const L = d.loc || (d.loc = {c:'', t:'', n:''}), sel = (k, opts, none) => `<label class="field"><span>${N.LOCNAME[k]}${k === 'n' ? ' (optional)' : ''}</span><select class="inp" id="sdl${k}-${v.id}" data-i="sdLoc" data-k="${k}" ${opts.length ? '' : 'disabled'}><option value="">${none}</option>${opts.map(o => `<option value="${esc(N.locKey(o))}" ${L[k] === N.locKey(o) ? 'selected' : ''}>${esc(o.l)}</option>`).join('')}</select></label>`;
@@ -329,6 +330,15 @@ N.sheetHtml = function(v){
       edit ? `<button type="button" class="btn danger" data-a="sheet" data-v="sceneEnd" style="flex:0 0 auto">${IC('stop')}End scene</button><button type="button" class="btn primary lg" data-a="sdSave" ${ok ? '' : 'disabled'}>${IC('check')}Save changes</button>`
            : `<button type="button" class="btn" data-a="sdDraftSave" ${d.title.trim() ? '' : 'disabled'} style="flex:0 0 auto">${IC('scroll')}${d.draft && (g.sdrafts || []).some(x => x.id === d.draft) ? '<span class="only-dt">Update draft</span><span class="only-ph">Update</span>' : '<span class="only-dt">Save as draft</span><span class="only-ph">Draft</span>'}</button><button type="button" class="btn primary lg sdgo" data-a="sdApply" ${ok ? '' : 'disabled'}>${IC('image')}<span>Start scene for ${forName}</span></button>`, {wide:true});
   }
+  /* the time of day of the scene in this chat, changed in one tap while the scene runs (Jack, 2026-11-24) */
+  case 'tod': {
+    const ch = v.ui.ch === 'gm' ? 'table' : v.ui.ch, sc = g.scenes[ch]; if (!sc) return '';
+    const cur = N.todOf(sc.tod) ? sc.tod : '';
+    const btn = ([k, l, ic]) => `<button type="button" class="todpick" data-tod="${k}" data-a="todSet" data-v="${k}" aria-pressed="${cur === k}"><span class="todsw" style="background:var(--todbg)" aria-hidden="true"></span>${IC(ic)}<span>${l}</span></button>`;
+    return sheet('Time of day', `<p class="muted" style="margin:0;font:600 13px/1.45 var(--f-ui)">For “${esc(sc.title)}” in ${ch === 'table' ? 'Everyone' : esc(N.chName(ch, 'gm'))}. It shows under the scene name and tints the screen for everyone in this chat. Change it whenever time moves on.</p>
+      <div class="todgrid" role="group" aria-label="Time of day">${N.TODS.map(btn).join('')}</div>`,
+      `<button type="button" class="btn ghost" data-a="todSet" data-v="" ${cur ? '' : 'disabled'}>${IC('x')}No time of day</button><button type="button" class="btn" data-a="closeSheet">Done</button>`);
+  }
   case 'sceneEnd': {
     const ch = v.ui.sd?.ch || (v.ui.ch === 'gm' ? 'table' : v.ui.ch), sc = g.scenes[ch]; if (!sc) return '';
     const n = N.extrasOf(ch).length;
@@ -361,6 +371,7 @@ N.sheetHtml = function(v){
       ${N.nlAny() && !N.nlLookOnly() ? `<div><h4>Layout<small>Where the buttons and panels sit. Any theme works with either. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="lay" data-v="classic" aria-pressed="${v.lay !== 'new'}">Classic</button><button type="button" style="flex:1;justify-content:center" data-a="lay" data-v="new" aria-pressed="${v.lay === 'new'}">New</button></div></div>` : ''}
       ${N.nlLook(v) ? '' : `<div><h4>Edge shading<small>Darkened section edges. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="vg" data-v="on" aria-pressed="${v.vg!==false}">On</button><button type="button" style="flex:1;justify-content:center" data-a="vg" data-v="off" aria-pressed="${v.vg===false}">Off</button></div></div>
       <div><h4>Depth<small>Raised panels, buttons and icons. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="dp" data-v="on" aria-pressed="${v.dp!==false}">On</button><button type="button" style="flex:1;justify-content:center" data-a="dp" data-v="off" aria-pressed="${v.dp===false}">Off</button></div></div>`}
+      <div><h4>Time of day tint<small>When the GM sets a time of day for a scene, the chat takes its colours. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="todTint" data-v="on" aria-pressed="${v.tod!==false}">On</button><button type="button" style="flex:1;justify-content:center" data-a="todTint" data-v="off" aria-pressed="${v.tod===false}">Off</button></div></div>
       <div><h4>Smooth mode<small>Turns off shadows, blur and the moving stars so the app runs lighter. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="lite" data-v="on" aria-pressed="${v.lite}">On</button><button type="button" style="flex:1;justify-content:center" data-a="lite" data-v="off" aria-pressed="${!v.lite}">Off</button></div></div>
       <div><h4>Frame counter<small>Shows how smoothly the screen is drawing, in the top corner. On this device only</small></h4><div class="seg" style="width:100%"><button type="button" style="flex:1;justify-content:center" data-a="fps" data-v="on" aria-pressed="${v.fps}">On</button><button type="button" style="flex:1;justify-content:center" data-a="fps" data-v="off" aria-pressed="${!v.fps}">Off</button></div></div>
       <div><h4>Text size<small>On this device only</small></h4>${fzPick(v)}</div>

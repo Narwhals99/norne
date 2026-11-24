@@ -1,0 +1,47 @@
+/* Scene time of day (Jack, 2026-11-24): the GM picks a time for a scene (Dawn ... Late night) and the chat takes its colours.
+   .todglow is one still layer over the app (under sheets, pop-ups and toasts, never catching a tap). Its background is
+   written inline as var(--todbg) so the Black and white look, which strips gradients from everything else, keeps it.
+   Each time sets: --t1 sky colour from the top, --t2 colour rising from the bottom, --t3 the sun (or moon) glow at --sx --sy,
+   --tw a light wash over everything, --todc a solid colour for the sun or moon icon under the scene name.
+   Colourful styles get the full wash. Black and white (plain) and Sketchbook get only a soft glow round the edges. */
+.app [data-tod]{--sx:50%;--sy:0%;--t1:transparent;--t2:transparent;--t3:transparent;--tw:transparent;--todc:var(--gold-tx);
+  --todbg:radial-gradient(90% 70% at var(--sx) var(--sy),var(--t3),transparent 70%),linear-gradient(180deg,var(--t1),transparent 42%,transparent 58%,var(--t2)),linear-gradient(var(--tw),var(--tw))}
+.app [data-tod="dawn"]{--sx:12%;--sy:100%;--t1:rgba(150,120,210,.24);--t2:rgba(255,150,130,.30);--t3:rgba(255,185,150,.34);--tw:rgba(255,175,165,.06);--todc:#e98a78}
+.app [data-tod="morning"]{--sx:10%;--sy:18%;--t1:rgba(165,205,255,.20);--t2:rgba(255,220,160,.18);--t3:rgba(255,222,140,.34);--tw:rgba(255,232,185,.05);--todc:#e0a83a}
+.app [data-tod="latemorning"]{--sx:28%;--sy:0%;--t1:rgba(175,215,255,.20);--t2:rgba(255,238,195,.12);--t3:rgba(255,242,190,.32);--tw:rgba(255,248,220,.045);--todc:#d6a92e}
+.app [data-tod="midday"]{--sx:50%;--sy:-8%;--t1:rgba(195,228,255,.20);--t2:rgba(255,248,225,.10);--t3:rgba(255,252,225,.34);--tw:rgba(255,255,238,.04);--todc:#d9b21f}
+.app [data-tod="afternoon"]{--sx:74%;--sy:4%;--t1:rgba(185,212,250,.17);--t2:rgba(255,212,145,.18);--t3:rgba(255,218,145,.30);--tw:rgba(255,228,175,.05);--todc:#e39b2d}
+.app [data-tod="lateafternoon"]{--sx:94%;--sy:30%;--t1:rgba(255,205,135,.18);--t2:rgba(255,165,75,.26);--t3:rgba(255,185,85,.38);--tw:rgba(255,185,105,.08);--todc:#ec8a24}
+.app [data-tod="earlyevening"]{--sx:96%;--sy:76%;--t1:rgba(235,135,125,.20);--t2:rgba(255,125,55,.32);--t3:rgba(255,135,65,.40);--tw:rgba(255,135,90,.09);--todc:#ee6f35}
+.app [data-tod="evening"]{--sx:84%;--sy:100%;--t1:rgba(85,65,170,.30);--t2:rgba(220,85,115,.28);--t3:rgba(232,98,122,.28);--tw:rgba(88,58,150,.10);--todc:#c0609a}
+.app [data-tod="night"]{--sx:80%;--sy:6%;--t1:rgba(20,40,115,.36);--t2:rgba(28,48,122,.28);--t3:rgba(165,192,255,.20);--tw:rgba(15,30,92,.14);--todc:#7f9cf0}
+.app [data-tod="latenight"]{--sx:18%;--sy:4%;--t1:rgba(10,14,62,.44);--t2:rgba(24,18,72,.34);--t3:rgba(125,132,225,.16);--tw:rgba(6,10,46,.20);--todc:#8b88e6}
+
+.app .todglow{position:absolute;inset:0;z-index:30;pointer-events:none;opacity:.85;animation:todin .9s ease both}
+@keyframes todin{from{opacity:0}}
+/* Black and white and Sketchbook: no wash, only the colours glowing in softly from the edges; the middle stays clear */
+.app:is([data-style="plain"],[data-style="sketch"]) .todglow{opacity:1;--tw:transparent;
+  -webkit-mask-image:radial-gradient(ellipse 72% 66% at 50% 50%,transparent 28%,#000 88%);mask-image:radial-gradient(ellipse 72% 66% at 50% 50%,transparent 28%,#000 88%)}
+/* by day the page is light, so the same colours read stronger: a little less of them */
+.app[data-theme="day"] .todglow{opacity:.7}
+.app[data-theme="day"]:is([data-style="plain"],[data-style="sketch"]) .todglow{opacity:1}
+@media (prefers-reduced-motion: reduce){ .app .todglow{animation:none} }
+
+/* the line under the scene name */
+.app .scene .tod,.app .nl-card .tod{display:inline-flex;align-items:center;gap:6px;margin-top:2px;font:700 12.5px/1.3 var(--f-ui);letter-spacing:.04em;color:var(--ink-2)}
+.app .scene .tod svg,.app .nl-card .tod svg{width:14px;height:14px;color:var(--todc)}
+.app .nl-card .tod{margin:2px 0}
+.app .scene.min .tod{display:none}
+.app .nl-tod{display:inline-flex;align-items:center;gap:4px;margin-right:6px;font-weight:700;color:var(--ink-2)}
+.app .nl-tod svg{width:12px;height:12px;color:var(--todc)}
+.app .nl-tod:not(:last-child)::after{content:"·";margin-left:4px;color:var(--ink-3);font-weight:400}
+.app .nl-sc-btn.tbtn{display:grid;place-items:center;padding:0 10px}
+.app .nl-sc-btn.tbtn svg{width:16px;height:16px}
+
+/* the GM's picker: one tile per time, each with a swatch of its colours */
+.app .todgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:12px}
+.app .todpick{position:relative;display:flex;align-items:center;gap:8px;min-height:48px;padding:8px 12px;border-radius:14px;border:1px solid var(--line);background:var(--sunk);color:var(--ink);font:700 14px/1.2 var(--f-ui);text-align:left;overflow:hidden;isolation:isolate}
+.app .todpick .todsw{position:absolute;inset:0;z-index:-1;opacity:.9}
+.app .todpick svg{width:17px;height:17px;color:var(--todc);flex:none}
+.app .todpick[aria-pressed="true"]{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold) inset}
+.app .todpick > span:last-child{flex:1}
