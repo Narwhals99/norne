@@ -1112,7 +1112,35 @@ function conOwner(d){ const g = G(); return d.c ? g.chars[d.c] : d.n ? g.npcs.fi
 /* ---------------- chat ---------------- */
 /* a paused party or group chat (Jake) takes nothing from its players: no messages, pictures, GIFs or rolls */
 function hushed(v, ch){ if (isGM(v) || !N.chPaused(ch)) return false; toast(v, 'The GM paused this chat. You can read it, but not send anything until they resume it.'); render(v); return true; }
-function send(v){
+/* [[Location]] marks in a Narrator line; links made with the Link button ([[wiki:id|…]], [[npc:…]]) are not marks */
+const WHERE_RE = /\[\[(?!(?:pc|npc|wiki):)([^\[\]|\n]+)\]\]/g;
+/* the place a {{Little Eundir, Prince City}} mark names, or null after telling the GM what went wrong */
+function placeOf(v, mark){
+  const [name, ...rest] = mark.split(','), hits = N.placeFind(name, rest.join(',').trim());
+  if (!hits.length) { toast(v, `No place called “${mark.trim()}” on the maps. Check the spelling.`); render(v); return null; }
+  if (hits.length > 1) { const ins = [...new Set(hits.map(h => (h.n ? h.t : h.t ? h.c : null)?.l).filter(Boolean))];
+    toast(v, `More than one “${name.trim()}”. Add a comma and where it is: ${ins.map(x => `{{${name.trim()}, ${x}}}`).join(' or ')}`); render(v); return null; }
+  return hits[0];
+}
+const meetNames = text => [...new Set([...text.matchAll(/<<([^<>]+)>>/g)].map(x => x[1].trim().replace(/\s+/g, ' ').slice(0, 60)).filter(Boolean))];
+/* Jake: a Narrator line with scene marks (<<NPC>>, [[Location]], {{Map pin}}) in a chat with no scene yet opens the scene
+   window filled in from the marks. The line waits in the box and is sent once the GM starts the scene (sd.pend). */
+function sceneFirst(v, ch, text){
+  const g = G(), pl = [...text.matchAll(/\{\{([^{}]+)\}\}/g)].map(x => x[1]);
+  const loc = pl.length ? placeOf(v, pl[pl.length - 1]) : null; if (pl.length && !loc) return;
+  const wh = [...text.matchAll(WHERE_RE)].map(x => x[1].trim().replace(/\s+/g, ' ')).filter(Boolean), w = wh[wh.length - 1];
+  openSheet(v, 'scene');
+  const sd = v.ui.sd; sd.ch = ch; sdLoad(sd, 'new');
+  if (w) sd.where = (w[0].toUpperCase() + w.slice(1)).slice(0, 80);
+  if (loc) { sd.loc = N.locKeys(loc); sd.share = true; if (!w) sd.where = N.locText(loc);
+    const spot = loc.n || loc.t || loc.c; if (spot) sd.place = {map:spot.m, rx:spot.rx, ry:spot.ry}; }
+  for (const name of meetNames(text)) { const n = g.npcs.find(x => x.name.toLowerCase() === name.toLowerCase());
+    if (n) { if (!sd.cast.includes(n.name)) sd.cast = N.withSidekicks(ch, [...sd.cast, n.name]); }
+    else if (!sd.extras.some(e => e.name.toLowerCase() === name.toLowerCase())) sd.extras.push({id:uid('o'), name, skills:{}}); }
+  sd.touched = true; sd.pend = {ch, text:v.ui.draft};
+  render(v);
+}
+function send(v, opt = {}){
   let text = v.ui.draft.trim(); if (!text) return;
   const devCommand = /^\/dev(?:\s|$)/i.test(text);
   if (devCommand && !(['jackhelling10@gmail.com', 'theusualsuspect41995@gmail.com'].includes(N.me()?.email) && N.me()?.emailVerified)) {
@@ -1134,23 +1162,25 @@ function send(v){
   else if (gm) { const pt = N.npcFace(v.ui.voice, ch); m = {kind:'rp', as:v.ui.voice}; if (pt) m.pt = pt; }
   else m = {kind:'rp', as:c && c.built ? c.short : g.P[v.role].name};
   if (!devCommand && v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
+  const narr = gm && m.kind === 'rp' && m.as === 'Narrator';
+  if (narr && !g.scenes[ch] && !opt.again && (/\{\{[^{}]+\}\}|<<[^<>]+>>/.test(text) || [...text.matchAll(WHERE_RE)].length)) { sceneFirst(v, ch, text); return; }
+  /* sent again after the scene window started the scene: the marks only read as words, the scene already holds what they said */
+  if (opt.again) {
+    text = text.replace(/\{\{([^{}]+)\}\}/g, (x, w) => w.split(',')[0].trim()).replace(WHERE_RE, (x, t) => { t = t.trim().replace(/\s+/g, ' '); const e = g.wiki.find(y => y.title.toLowerCase() === t.toLowerCase()); return e ? `[[wiki:${e.id}|${t}]]` : t; });
+    text = text.replace(/<<([^<>]+)>>/g, (x, w, at, all) => { w = w.trim().replace(/\s+/g, ' '); const start = !all.slice(0, at).trim() || /[.!?:"“]\s*$/.test(all.slice(0, at));
+      const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && !N.properWord(words[0], w) && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
+  }
   /* the GM's narrator can move the scene: {{Little Eundir, Prince City}} reads "Little Eundir" and the scene's map location goes there */
   let move = null;
   if (gm && m.kind === 'rp' && m.as === 'Narrator' && /\{\{[^{}]+\}\}/.test(text)) {
-    const wants = [...text.matchAll(/\{\{([^{}]+)\}\}/g)].map(x => x[1]), last = wants[wants.length - 1];
-    const [name, ...rest] = last.split(','), inside = rest.join(',').trim(), hits = N.placeFind(name, inside);
-    if (!g.scenes[ch]) { toast(v, 'Set a scene in this chat first: {{ }} moves the scene to a place.'); render(v); return; }
-    if (!hits.length) { toast(v, `No place called “${last.trim()}” on the maps. Check the spelling.`); render(v); return; }
-    if (hits.length > 1) { const ins = [...new Set(hits.map(h => (h.n ? h.t : h.t ? h.c : null)?.l).filter(Boolean))];
-      toast(v, `More than one “${name.trim()}”. Add a comma and where it is: ${ins.map(x => `{{${name.trim()}, ${x}}}`).join(' or ')}`); render(v); return; }
-    move = hits[0];
+    const wants = [...text.matchAll(/\{\{([^{}]+)\}\}/g)].map(x => x[1]);
+    move = placeOf(v, wants[wants.length - 1]); if (!move) return;
     text = text.replace(/\{\{([^{}]+)\}\}/g, (x, w) => w.split(',')[0].trim());
   }
   /* Jake: [[General store]] in a Narrator line changes the scene's shown location (its "where" line, not the map pin).
      The line reads without the marks; a wiki title in it stays a link to that article. Links the Link button makes
      ([[wiki:id|…]], [[npc:…]]) and lines outside a scene are left as they were. */
   let where = null;
-  const WHERE_RE = /\[\[(?!(?:pc|npc|wiki):)([^\[\]|\n]+)\]\]/g;
   const wheres = gm && m.kind === 'rp' && m.as === 'Narrator' && g.scenes[ch] ? [...text.matchAll(WHERE_RE)] : [];
   if (wheres.length) {
     const all = wheres.map(x => x[1].trim().replace(/\s+/g, ' ')).filter(Boolean), w = all[all.length - 1];
@@ -1164,7 +1194,7 @@ function send(v){
   let meet = [];
   if (gm && m.kind === 'rp' && m.as === 'Narrator' && /<<[^<>]+>>/.test(text)) {
     if (!g.scenes[ch]) { toast(v, 'Set a scene in this chat first: << >> adds someone to the scene.'); render(v); return; }
-    meet = [...new Set([...text.matchAll(/<<([^<>]+)>>/g)].map(x => x[1].trim().replace(/\s+/g, ' ').slice(0, 60)).filter(Boolean))];
+    meet = meetNames(text);
     text = text.replace(/<<([^<>]+)>>/g, (x, w, at, all) => { w = w.trim().replace(/\s+/g, ' ');
       const start = !all.slice(0, at).trim() || /[.!?:"“]\s*$/.test(all.slice(0, at));
       const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && !N.properWord(words[0], w) && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
@@ -2864,7 +2894,10 @@ function act(v, a, el, e){
   case 'locHere': { const loc = N.myLoc(v.role, ui.ch); if (!loc) break;
     const k = N.LOCK.find(k => loc[k] && g.maps.some(m => m.id === loc[k].m && seeMap(v, m))); if (!k) { toast(v, `You’re in ${N.locText(loc)}.`); return; }
     ui.mapId = loc[k].m; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
-  case 'sdApply': { const s = ui.sd; sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), tod:s.tod || '', art:s.art, place:s.place, aspects:s.aspects, loc:s.loc, share:s.share}, s.post); ui.sheet = null; renderAll(); return; }
+  case 'sdApply': { const s = ui.sd; sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), tod:s.tod || '', art:s.art, place:s.place, aspects:s.aspects, loc:s.loc, share:s.share}, s.post); ui.sheet = null;
+    /* the Narrator line that opened this window goes out now, in the chat it was written for */
+    if (s.pend && s.pend.ch === s.ch && ui.ch === s.ch && ui.draft.trim() === s.pend.text.trim()) { s.pend = null; send(v, {again:true}); return; }
+    renderAll(); return; }
   /* ending a scene takes its banner down and lets its one-off NPCs and NPC list go (Undo brings them back) */
   case 'sdEnd': { const ch = val || ui.sd?.ch; if (!ch || !g.scenes[ch]) { ui.sheet = null; break; }
     const undoStress = clearStress(ch);
