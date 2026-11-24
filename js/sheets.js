@@ -606,7 +606,10 @@ N.sheetHtml = function(v){
     const st = v.ui.revSeat, keys = N.revKeys(card, N.revOf(arg, st)), parts = N.revParts(card, !!c), name = c ? c.short || c.name : n.name;
     if (!st) return sheet(`Reveal ${esc(name)}`, `<div class="quiet"><div class="art"></div><p>No other players yet.</p></div>`);
     const groups = [...new Set(parts.map(p => p.g))];
-    const row = p => `<button type="button" class="revrow" data-a="revTog" data-v="${esc(p.k)}" aria-pressed="${keys.includes(p.k)}"><span class="rck">${IC('check')}</span><span><b>${esc(p.l)}</b><small>${esc(p.v)}</small></span></button>`;
+    /* an NPC field with aliases: the GM also picks what this player is told, the truth or one alias */
+    const als = p => c ? [] : N.aliases(card, p.k), asId = p => N.asOf(keys, p.k), asV = p => als(p).find(a => a.id === asId(p));
+    const row0 = p => `<button type="button" class="revrow" data-a="revTog" data-v="${esc(p.k)}" aria-pressed="${keys.includes(p.k)}"><span class="rck">${IC('check')}</span><span><b>${esc(p.l)}</b><small>${asV(p) ? `Alias: ${esc(p.k === 'age' ? 'Age ' + asV(p).v : asV(p).v)}` : esc(p.v)}</small></span></button>`;
+    const row = p => !als(p).length ? row0(p) : `<div class="revas">${row0(p)}<div class="seg asseg" role="group" aria-label="What ${esc(pName(st))} is told"><button type="button" data-a="revAs" data-v="${p.k}" data-n="" aria-pressed="${!asV(p)}">${IC('check')}The truth</button>${als(p).map(a => `<button type="button" data-a="revAs" data-v="${p.k}" data-n="${esc(a.id)}" aria-pressed="${asId(p) === a.id}">${IC('mask')}${esc(a.v)}</button>`).join('')}</div></div>`;
     const body = `<div><h4>To</h4><div class="forwho" role="group" aria-label="Player">${seats.map(s2 => `<button type="button" data-a="revSeat" data-v="${s2}" aria-pressed="${s2 === st}">${N.av(N.personObj(s2),28)}${esc(pName(s2))}${N.revCount(arg, s2) ? ` <span class="tag" style="height:16px">${N.revCount(arg, s2)}</span>` : ''}</button>`).join('')}</div></div>
       <div class="revgrp"><h4>How ${esc(pName(st))} knows them</h4><div class="seg metseg" role="group" aria-label="How they know them">${Object.entries(N.MET).map(([x, l]) => `<button type="button" data-a="revMet" data-v="${x}" aria-pressed="${N.metOf(keys) === x}">${IC(x === 'met' ? 'hand' : 'chat')}${l}</button>`).join('')}</div><small class="metnote">${N.metOf(keys) ? 'Tap it again to clear it.' : 'Not marked yet. The player sees what you pick here and can’t change it.'}</small></div>
       ${groups.map(gr => `<div class="revgrp${gr === 'Skills' || gr === 'Weapons and armor' ? ' tight' : ''}"><h4>${gr}</h4>${parts.filter(p => p.g === gr).map(row).join('')}</div>`).join('')}
@@ -1242,6 +1245,12 @@ function pcEditor(v){
     <label class="field"><span>Important people</span><textarea class="inp" id="pdp-${v.id}" data-i="pd" data-k="people" rows="3" placeholder="Family, friends, rivals, debts… one per line">${esc(d.people||'')}</textarea></label>
     <label class="field"><span>Inventory notes</span><textarea class="inp" id="pdv-${v.id}" data-i="pd" data-k="invText" rows="3" placeholder="What they carry. Items you hand out go in the Inventory menu.">${esc(d.invText||'')}</textarea></label>`;
 }
+/* aliases (Jake): false names and stories the NPC tells. In Reveal the GM picks, per player, the truth or one of these */
+function aliasEditor(v, d){
+  const al = d.al || {}, n = N.ALF.reduce((x, [f]) => x + (al[f] || []).length, 0);
+  return `<div class="alias-w"><h4>Aliases${n ? ` <span class="tag" style="height:16px">${n}</span>` : ''}<small>False names or stories this NPC tells about themselves. In Reveal you choose, for each player, whether they learn the truth or one of these. Players can’t tell an alias from the truth.</small></h4>
+    <div class="alias-l">${N.ALF.map(([f, l]) => `<div class="alrow"><span class="alf">${l}<small>${esc(f === 'age' ? (d.age ? 'Age ' + d.age : 'Not set') : d[f] || 'Not set')}</small></span><div class="alvals">${(al[f] || []).map((a, i) => `<span class="alv"><input class="inp" id="ndal-${f}-${esc(a.id)}-${v.id}" data-i="nd" data-k="al" data-f="${f}" data-n="${i}" value="${esc(a.v)}" placeholder="${f === 'name' ? 'A false name' : f === 'age' ? 'A false age' : 'What they claim'}" autocomplete="off"${f === 'race' ? ` list="races-${v.id}"` : f === 'nat' ? ` list="nats-${v.id}"` : ''}><button type="button" class="xb" data-a="ndAlDel" data-v="${f}" data-n="${i}" aria-label="Remove this alias">${IC('x')}</button></span>`).join('')}<button type="button" class="btn sm ghost" data-a="ndAlAdd" data-v="${f}">${IC('plus')}Alias</button></div></div>`).join('')}</div></div>`;
+}
 function npcEditor(v){
   const d = v.ui.nd;
   return `${raceList(v)}<div><h4>Portrait</h4>${portraitPick(d.portrait, 'ndPortrait', 'ndUpload')}</div>
@@ -1254,6 +1263,7 @@ function npcEditor(v){
       <label class="field"><span>Age</span><input class="inp" id="ndg-${v.id}" data-i="nd" data-k="age" value="${esc(d.age||'')}" placeholder="Optional"></label>
       ${N.nd.list().length ? `<label class="field"><span>Folder</span><select class="inp" id="ndf-${v.id}" data-i="nd" data-k="dir"><option value="">No folder</option>${N.nd.list().map(([id, name]) => `<option value="${esc(id)}" ${d.dir === id ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>` : ''}
     </div>
+    ${aliasEditor(v, d)}
     <div><h4>Kind</h4><div class="seg"><button type="button" data-a="ndType" data-v="supporting" aria-pressed="${d.type!=='nameless'}">Supporting</button><button type="button" data-a="ndType" data-v="nameless" aria-pressed="${d.type==='nameless'}">Nameless (one hit)</button></div></div>
     <div class="nd-side"><h4>Sidekick</h4><div class="seg"><button type="button" data-a="ndSide" data-v="" aria-pressed="${!d.side}">No</button><button type="button" data-a="ndSide" data-v="1" aria-pressed="${!!d.side}">Yes</button></div>
       ${d.side ? `<label class="field"><span>Leader · the sidekick joins every scene they’re in</span><select class="inp" id="ndlead-${v.id}" data-i="ndLead"><option value="">Pick the leader</option><optgroup label="Player characters">${N.pcs().filter(c => c.built).map(c => `<option value="pc:${esc(c.id)}" ${d.lead === 'pc:' + c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</optgroup><optgroup label="NPCs">${N.G.npcs.filter(n => n.id !== d.edit).map(n => `<option value="npc:${esc(n.id)}" ${d.lead === 'npc:' + n.id ? 'selected' : ''}>${esc(n.name)}</option>`).join('')}</optgroup></select></label>` : ''}</div>

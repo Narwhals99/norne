@@ -852,7 +852,7 @@ N.properWord = (w, phrase) => {
     const add = t => { const c = clean(String(t || '')); if (!c) return; if (c.includes(' ')) many.add(c); else one.add(c); };
     N.RACES.forEach(add); N.nations().forEach(add); ['Dwarven', 'Dwarvish', 'Elven', 'Elvish', 'Gnomish'].forEach(add);
     (g.maps || []).forEach(m => { add(m.name); (m.pins || []).forEach(p => add(p.label)); });
-    (g.npcs || []).forEach(n => add(n.name)); Object.values(g.chars || {}).forEach(c => { add(c.name); add(c.short); });
+    (g.npcs || []).forEach(n => { add(n.name); N.aliases(n, 'name').forEach(a => add(a.v)); }); Object.values(g.chars || {}).forEach(c => { add(c.name); add(c.short); });
     /* a capitalised word in the middle of a wiki sentence, not followed by another capitalised word: Daroese, Altarian */
     const walk = o => { if (typeof o === 'string') { for (const mm of o.matchAll(/(?<=[\p{Ll},)'’]\s+)(\p{Lu}[\p{L}'’]+)(?!\s+\p{Lu})/gu)) one.add(mm[1].replace(/['’]s$/, '').toLowerCase()); }
       else if (Array.isArray(o)) o.forEach(walk); else if (o && typeof o === 'object') Object.values(o).forEach(walk); };
@@ -1071,6 +1071,17 @@ N.craftPool = cr => N.craftOwners(cr).flatMap(w => (w.o.inv || []).map((row, i) 
 N.craftUsed = cr => N.craftPool(cr).filter(x => x.use > 0);
 N.goldTxt = n => `${Math.max(0, parseInt(n, 10) || 0).toLocaleString('en-US')} gold`;
 N.GOLD_MAX = 9999999; /* Gold on a card: whole numbers 0 to this, 7 digits like the box allows */
+/* ---------- aliases (Jake, 2026-11-23): an NPC can tell a false story about themselves ----------
+   n.al = {name:[{id, v}], race:[…], nat:[…], age:[…], job:[…]} (NPC cards only, GM only in gm/npcs).
+   In Reveal the GM picks, per player and per field, the truth or one alias: reveal key as:<field>:<alias id>.
+   Like met:, an as: key is not a card part. The player is sent the alias in place of the truth and can't tell it apart.
+   If that alias is deleted later the player is sent nothing for that field (never the truth by accident). */
+N.ALF = [['name','Name'],['race','Race'],['nat','Nationality'],['age','Age'],['job','Job or faction']];
+N.aliases = (c, f) => (c && c.al && c.al[f]) || [];
+N.notPart = k => /^(met|as):/.test(k);
+N.asOf = (keys, f) => { const k = (keys || []).find(x => x.startsWith('as:' + f + ':')); return k ? k.slice(4 + f.length) : ''; };
+/* the value a player is told for one field: the truth, the alias the GM picked, or null when that alias is gone */
+N.alVal = (c, keys, f) => { const id = N.asOf(keys, f); if (!id) return c[f]; const a = N.aliases(c, f).find(x => x.id === id); return a ? a.v : null; };
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 N.revParts = (c, pc) => {
   const out = [], add = (k, grp, l, v) => out.push({k, g:grp, l, v});
@@ -1094,14 +1105,12 @@ N.revParts = (c, pc) => {
 N.revKeys = (c, keys) => keys.flatMap(k => k === 'about' ? ['race', 'nat', 'age'] : k === 'cons' ? consSlots(c.skills || {}).map(sl => 'cn:' + sl.k) : k === 'gear' ? N.GEARK.map(g => 'g:' + g[0]) : [k]);
 /* what one player is told about a card: only the parts in keys, nothing at all without the name */
 N.revealed = (c, pc, keys0) => {
-  const keys = N.revKeys(c, keys0), has = k => keys.includes(k);
+  const keys = N.revKeys(c, keys0), has = k => keys.includes(k), val = f => pc ? c[f] : N.alVal(c, keys, f);
   if (!has('name')) return null;
-  const r = {id:c.id, name:c.name || c.short || ''};
+  const nm = pc ? c.name || c.short || '' : val('name'); if (nm == null) return null;
+  const r = {id:c.id, name:nm || c.short || ''};
   if (has('pic') && c.portrait) r.portrait = c.portrait;
-  if (has('race') && c.race) r.race = c.race;
-  if (has('nat') && c.nat) r.nat = c.nat;
-  if (!pc && has('job') && c.job) r.job = c.job;
-  if (has('age') && c.age) r.age = c.age;
+  for (const f of ['race', 'nat', ...(pc ? [] : ['job']), 'age']) { const x = has(f) && val(f); if (x) r[f] = x; }
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
   const sk = N.revSkills(c).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;
   const st = (c.stunts || []).filter(([n, d]) => has('st:' + (n || d))); if (st.length) r.stunts = st;
@@ -1117,8 +1126,8 @@ N.revOf = (id, seat) => ((N.G.rev || {})[id] || {})[seat] || [];
 /* Met / Heard of lives in the same list; it is not a card part, so counts and Reveal everything leave it alone */
 N.MET = {met:'Met', heard:'Heard of'};
 N.metOf = keys => { const k = (keys || []).find(x => x.startsWith('met:')); return k ? k.slice(4) : ''; };
-N.revCount = (id, seat) => N.revOf(id, seat).filter(k => !k.startsWith('met:')).length;
-N.revSeats = id => Object.entries((N.G.rev || {})[id] || {}).filter(([, l]) => l.some(k => !k.startsWith('met:'))).map(([s]) => s);
+N.revCount = (id, seat) => N.revOf(id, seat).filter(k => !N.notPart(k)).length;
+N.revSeats = id => Object.entries((N.G.rev || {})[id] || {}).filter(([, l]) => l.some(k => !N.notPart(k))).map(([s]) => s);
 N.pcTag = c => N.pcAspects(c)[0] || '';
 
 /* ---------- combat helpers ---------- */
