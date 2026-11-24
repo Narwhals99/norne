@@ -591,6 +591,13 @@ N.sheetHtml = function(v){
     return sheet('Wiki categories', body, `<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="cdSave" ${dup||!names.length?'disabled':''}>${IC('check')}Save categories</button>`);
   }
   /* ---------------- map settings (GM) ---------------- */
+  /* ---------------- open a second chat beside this one (desktop) ---------------- */
+  case 'split2': {
+    const chs = N.channelsFor(v.role).filter(c => c !== v.ui.ch && c !== 'gm');
+    return sheet('Open another chat beside this one', `<p class="muted" style="margin:0;font:600 13px/1.45 var(--f-ui)">Both chats stay open side by side. Click in either one to talk there; the x at the top of a chat closes it.</p>
+      <div class="split-list">${chs.map(c => `<button type="button" class="opt" data-a="split2Go" data-v="${esc(c)}">${N.chanIcon(v, c)}<span><b>${esc(N.chName(c, v.role))}</b><small>${esc(N.chSub(c, v.role))}</small></span></button>`).join('') || '<p class="muted">No other chats yet.</p>'}</div>`,
+      `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button>`);
+  }
   case 'mapSet': {
     const m = g.maps.find(x => x.id === arg); if (!m) return '';
     return sheet('Map settings', `<label class="field"><span>Map name</span><input class="inp" id="mpn-${v.id}" data-i="mapName" data-v="${esc(m.id)}" value="${esc(m.name)}"></label>

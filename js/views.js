@@ -214,8 +214,8 @@ function chatPage(v){
   if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
   /* roleplay: the chat, the card (or GM screen) on the right, and the roleplay actions under it */
   v.ui.rpSeen = (G().msgs.findLast(m => m.ch === v.ui.ch) || {}).t || 0;
-  if (N.nlOn(v)) return N.nl.desk(v, chatView(v));
-  return deskPage(v, chatView(v), `<div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>`, 'rp');
+  if (N.nlOn(v)) return N.nl.desk(v, chatPair(v));
+  return deskPage(v, chatPair(v), `<div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>`, 'rp');
 }
 /* desktop: the big panel (C) on the left, and on the right the top panel (A) over the actions (B).
    The line on the right side's left edge drags to share the width; roleplay and combat remember their own widths.
@@ -301,6 +301,14 @@ N.deskPage = deskPage; N.modeSeg = modeSeg; N.fightComposer = fightComposer; N.r
 function railShown(v){
   return v.dev === 'desktop';
 }
+/* desktop: two chats side by side (Jake). The active chat is drawn as usual; the other one is drawn as if it were active
+   (N.splitOther) with its own scroll keys. Its column is dimmed a little until pressed */
+function chatPair(v){
+  if (!N.splitOn(v)) return chatView(v);
+  const a = chatView(v), b = N.splitOther(v, () => chatView(v)).replace(/data-sk="([^"]+)"/g, 'data-sk="$1-2"').replace(/ data-bottom="1"/, ' data-bottom="1" data-other="1"');
+  const L = v.ui.side === 'R' ? b : a, R = v.ui.side === 'R' ? a : b;
+  return `<div class="chatpair"><div class="pcol${v.ui.side === 'R' ? '' : ' on'}" data-col="L">${L}</div><div class="pcol${v.ui.side === 'R' ? ' on' : ''}" data-col="R">${R}</div></div>`;
+}
 function chatView(v, side){
   const g = G(), gm = isGM(v), ch = v.ui.ch, sc = g.scenes[ch], cb = g.combat;
   const fa = fightAvail(v), grpBtn = gm && !!N.grpOf(ch);
@@ -313,6 +321,7 @@ function chatView(v, side){
     ${grpBtn ? `<button type="button" class="btn sm" data-a="grpEdit" data-v="${ch.slice(4)}" style="--h:36px">${IC('gear')}Edit group</button>` : ''}
     ${N.mu ? N.mu.topBtn(v) : ''}${N.pn ? N.pn.topBtn(v) : ''}
     <button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>
+    ${N.splitOn(v) ? `<button type="button" class="ibtn" data-a="split2Off" aria-label="Close this chat" title="Close this chat (keep the other one)">${IC('x')}</button>` : `<button type="button" class="ibtn" data-a="split2" aria-label="Open another chat beside this one" title="Open another chat beside this one">${IC('split')}</button>`}
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
     ${N.nlOn(v) && !(fa && v.ui.fightOpen) ? `<button type="button" class="ibtn nlside" data-a="nlSideOff" aria-pressed="${!v.ui.nlSideOff}" aria-label="${v.ui.nlSideOff ? 'Show' : 'Hide'} the side panel" title="${v.ui.nlSideOff ? 'Show' : 'Hide'} the side panel">${N.nl.PANEL}</button>` : ''}
     ${fa ? (cb.state === 'setup' ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC(N.kw().ic)}Back to ${N.kw().w} setup</button>` : modeSeg(v)) : ''}</header>`;

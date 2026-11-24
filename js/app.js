@@ -105,6 +105,17 @@ const newUi = N.newUi = role => ({...nlUi(), tab:'chat', ch:'table', sheet:null,
   wikiQ:'', wikiCat:null, wikiSel:null, paper:null, newsEdit:null, newsSel:null, charSel:null, castSeg:'players', castSel:null, npcQ:'', npcDir:null,
   roll:null, sd:null, pd:null, nd:null, wd:null, exp:null, cbAsp:'', cbAspFree:0, cbAspOn:null});
 
+/* ---------------- two chats side by side (desktop, Jake 2026-11-23) ----------------
+   ui.s2 holds the other chat's own state (which chat, draft, voice, reply…); ui.side says which column ('L' or 'R') the
+   active chat (ui.ch) sits in. Everything works on the active chat as before. Pressing anywhere in the other column first
+   swaps the two (N.splitSwap), so that column's chat becomes ui.ch, and then the tap goes ahead as usual. */
+const SPLIT_K = ['ch', 'draft', 'mode', 'voice', 'reply', 'sceneBig', 'sceneMin', 'stick', 'fresh'];
+N.splitSwap = v => { const ui = v.ui, o = ui.s2 || {}, cur = {}; for (const k of SPLIT_K) { cur[k] = ui[k]; ui[k] = o[k]; } ui.s2 = cur; };
+N.splitOn = v => { const s2 = v.ui.s2; return v.dev !== 'phone' && !!s2 && s2.ch !== v.ui.ch && v.ui.ch !== 'gm' && N.channelsFor(v.role).includes(s2.ch); };
+/* draws the other column: its chat is ui.ch for the moment, with its own ids (v.id + 's') so nothing clashes */
+N.splitOther = (v, fn) => { const id = v.id; N.splitSwap(v); v.id = id + 's'; v._sw = true; try { return fn(); } finally { v._sw = false; v.id = id; N.splitSwap(v); } };
+const splitNew = ch => ({ch, draft:'', mode:'ooc', voice:'Narrator', reply:null, sceneBig:false, sceneMin:false, stick:true, fresh:null});
+
 /* ---------------- mount + render ---------------- */
 N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), fz:N.fzOk(o.fz), ui:newUi(o.role)};
@@ -258,6 +269,7 @@ function render(v){
   const root = v.root;
   if (!root.isConnected) return;
   if (swBusy(v)) { v._later = true; return; }
+  if (v._sw) return;
   const nl = N.nlLook(v);
   root.dataset.theme = v.theme; const st = N.styleOf(v); root.dataset.style = st; if (nl) { root.dataset.nl = '1'; root.dataset.nlp = N.palOk('plain', v.pal); } else { delete root.dataset.nl; delete root.dataset.nlp; }
   if (N.nlOn(v)) root.dataset.lay = 'new'; else delete root.dataset.lay;
@@ -649,6 +661,12 @@ function bind(v){
     if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = v.ui.sheet === 'scenePics' ? 'scene' : null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
   root.addEventListener('pointerdown', e => { hsDrag(v, e); down(v, e); });
+  /* two chats side by side: a press in the other column makes that chat the active one before the tap is handled */
+  root.addEventListener('pointerdown', e => { const col = e.target.closest && e.target.closest('.pcol'); if (!col || col.classList.contains('on') || !N.splitOn(v)) return;
+    const typed = e.target.closest('textarea, input');
+    N.splitSwap(v); v.ui.side = col.dataset.col; v.ui.pop = null; if (v.ui.sheet === 'split2') v.ui.sheet = null; render(v);
+    /* the redraw gave the box new ids, so the press would land on a box that's gone: put the cursor in the new one */
+    if (typed) { e.preventDefault(); const t = v.root.querySelector('.pcol.on .composer textarea'); if (t) setTimeout(() => t.focus(), 0); } }, true);
   /* mouse wheel over a sideways row that doesn't fit scrolls it sideways (until its end, then the page scrolls as usual) */
   root.addEventListener('wheel', e => {
     if (e.ctrlKey || TOUCH.matches) return;
@@ -1924,7 +1942,9 @@ function act(v, a, el, e){
     renderAll(); return; }
   case 'sadjReset': { const c = g.chars[d.c]; if (!gm || !c || !c.sadj) break; const old = c.sadj; delete c.sadj; toast(v, 'Fixes undone.', () => { c.sadj = old; }); renderAll(); return; }
   case 'heroStats': ui.heroStats = val || null; if (!val) ui.statEd = false; v.root.querySelector('[data-sk=hero],[data-sk=herostats]')?.scrollTo?.(0, 0); break;
-  case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
+  /* the chat already open in the other column: just make that column the active one */
+  case 'ch': if (N.splitOn(v) && ui.s2.ch === val) { close(); ui.tab = 'chat'; N.splitSwap(v); ui.side = ui.side === 'R' ? 'L' : 'R'; break; }
+    close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
   case 'mode': if (val === 'cb') { ui.fightOpen = true; ui.fightPane = 'fight'; } else { ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; ui.stick = true; } break;
   case 'railFold': ui[d.v] = !ui[d.v]; try { localStorage.setItem('norne-' + d.v.toLowerCase(), ui[d.v] ? '1' : '0'); } catch(e) {} break;
@@ -2560,6 +2580,12 @@ function act(v, a, el, e){
     if (!Object.keys(by).length) delete g.rev[id];
     renderAll(); return;
   }
+  case 'split2': ui.pop = null; ui.sheet = 'split2'; break;
+  case 'split2Go': { if (!N.channelsFor(v.role).includes(val) || val === ui.ch) break; ui.sheet = null;
+    /* the new chat opens on the right; the one you were in stays on the left and stays active */
+    ui.s2 = splitNew(val); ui.side = 'L'; break; }
+  /* close the column the button is in (a press there already made it the active one): the other chat is left */
+  case 'split2Off': if (ui.s2) { N.splitSwap(v); ui.s2 = null; ui.side = 'L'; } break;
   case 'kPic': ui.kPic = {...(ui.kPic || {}), [val]:+d.n || 0}; break;
   case 'castSeg': ui.castSeg = val; ui.castSel = null; break;
   case 'castSel': ui.castSel = val; ui.heroStats = null; ui.statEd = false; break;
