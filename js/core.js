@@ -441,6 +441,8 @@ N.PINT = {
 
 /* one place of a kind: "City", "Town", "You are here" */
 N.pinOne = t => t.one || t.name.replace(/s$/, '');
+/* Jake: a city pin can be marked Capital (p.cap), which adds a little red star to it on the map */
+N.pinCap = p => !!(p && p.cap && p.type === 'city');
 
 /* ---------- the shared game (filled in by sync.js) ---------- */
 const SEATCOL = 8;
