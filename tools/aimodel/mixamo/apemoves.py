@@ -5,6 +5,7 @@
 # shares of his height, in his own space: x to his left, y up, z the way he faces.
 #   hip      where the hips are, from where they rest          hipr / chest / head   (lean forward, turn left, tip left) degrees;
 #   aL aR    upper fists, from their shoulders                  chest is on top of the hips, head on top of the chest
+#   gL gR ga where the upper fists are from the middle of the floor instead (ga 1), for fists planted on the ground
 #   bL bR    lower fists, from theirs                           fL fR   the ankles, from the middle of the floor under him
 #   paL..    which way that elbow points                        tL tR   toes down, degrees        fist  how closed the hands are
 V = lambda *a: np.array(a, dtype=float)
@@ -14,7 +15,8 @@ Ht = B[P + 'Head'].tail_local.y / .985
 STANCE = dict(hip=V(0, -.035, -.01), hipr=V(14, 0, 0), chest=V(12, 0, 0), head=V(-22, 0, 0),
   aL=V(.13, -.37, .10), aR=V(-.13, -.37, .10), bL=V(.0, -.22, .22), bR=V(.0, -.22, .22),
   paL=V(1, -.2, -.7), paR=V(-1, -.2, -.7), pbL=V(1, 0, -.5), pbR=V(-1, 0, -.5),
-  fL=V(.17, .08, .03), fR=V(-.17, .08, .03), tL=V(0), tR=V(0), kL=V(.25, 0, 1), kR=V(-.25, 0, 1), fist=V(.55, .55), tw=V(90, 90))
+  fL=V(.17, .08, .03), fR=V(-.17, .08, .03), tL=V(0), tR=V(0), kL=V(.25, 0, 1), kR=V(-.25, 0, 1), fist=V(.55, .55), tw=V(90, 90),
+  gL=V(.2, .07, .3), gR=V(-.2, .07, .3), ga=V(0))
 def rq(v): return Quaternion((0, 1, 0), math.radians(v[1])) @ Quaternion((1, 0, 0), math.radians(v[0])) @ Quaternion((0, 0, 1), math.radians(-v[2]))
 ID = Quaternion()
 def swing(a, b): return Vector(a).normalized().rotation_difference(Vector(b).normalized())
@@ -35,11 +37,12 @@ def solve(p):
   def place(b):
     if b.name in pos: return pos[b.name]
     pp = place(b.parent); pos[b.name] = pp + R[b.parent.name] @ (b.head_local - b.parent.head_local); return pos[b.name]
-  def ik(a, b, c, target, pole, absolute):
+  def ik(a, b, c, target, pole, absolute, ground=None, ga=0):
     ba, bb, bc = B[P + a], B[P + b], B[P + c]
     R[ba.name] = Rc = R[ba.parent.name]; p0 = place(ba)
     v1 = bb.head_local - ba.head_local; v2 = bc.head_local - bb.head_local; l1, l2 = v1.length, v2.length
     v = (Vector(target) * Ht if absolute else p0 + Vector(target) * Ht) - p0
+    if ga > 0: v = v.lerp(Vector(ground) * Ht - p0, min(1, ga))
     d = min(max(v.length, abs(l1 - l2) + 1e-4), (l1 + l2) * .995); n = v.normalized()
     proj = (l1 * l1 + d * d - l2 * l2) / (2 * d); up = math.sqrt(max(l1 * l1 - proj * proj, 0))
     pl = Vector(pole); pl = pl - n * pl.dot(n); pl = pl.normalized() if pl.length > 1e-6 else n.orthogonal().normalized()
@@ -57,7 +60,7 @@ def solve(p):
         R[P + side + 'Foot'] = Quaternion((0, 1, 0), math.radians(p['hipr'][1])) @ Quaternion((1, 0, 0), math.radians(float(p['t' + s][0])))
       elif n.endswith('Arm2'): ik(side + 'Arm2', side + 'ForeArm2', side + 'Hand2', p['b' + s], p['pb' + s], False)
       else:
-        ik(side + 'Arm', side + 'ForeArm', side + 'Hand', p['a' + s], p['pa' + s], False)
+        ik(side + 'Arm', side + 'ForeArm', side + 'Hand', p['a' + s], p['pa' + s], False, p['g' + s], float(p['ga'][0]))
         # the forearm turns about its own length (tw, degrees), half of it at the forearm and all of it at the hand
         fa = P + side + 'ForeArm'; ax = (pos[P + side + 'Hand'] - pos[fa]).normalized(); tw = math.radians(float(p['tw'][0 if s == 'L' else 1])) * (1 if s == 'L' else -1)
         R[P + side + 'Hand'] = Quaternion(ax, tw) @ R[fa]; R[fa] = Quaternion(ax, tw / 2) @ R[fa]
@@ -124,18 +127,20 @@ write('idle', [
   (2.7, dict(hip=(-.012, -.03, -.01), chest=(9, -4, -1), head=(-20, -7, 0), aL=(.12, -.365, .12), aR=(-.14, -.37, .09), bR=(-.02, -.20, .24), fist=(.5, .8))),
   (3.6, {})], loop=True)
 
-# ---------- running: a heavy leaning run, the upper arms swinging against the legs and the lower ones with them ----------
-def stride(lead):          # lead = 1: left foot down in front, right foot pushing off behind
-  s = lead; A, Bk = ('L', 'R') if s > 0 else ('R', 'L')
-  return {'hip': (0, -.075, .0), 'hipr': (24, -9 * s, 0), 'chest': (10, 16 * s, 0), 'head': (-28, -7 * s, 0),
-    'f' + A: (.13 * s, .085, .20), 'f' + Bk: (-.13 * s, .12, -.19), 't' + A: (-12,), 't' + Bk: (38,),
-    'a' + A: (.10 * s, -.30, -.12), 'a' + Bk: (-.06 * s, -.20, .30), 'b' + A: (.07 * s, -.16, .26), 'b' + Bk: (-.09 * s, -.26, .02), 'fist': (.9, .9)}
-def passing(lead):         # the foot that was in front is under him, the other swings through off the floor
-  s = lead; A, Bk = ('L', 'R') if s > 0 else ('R', 'L')
-  return {'hip': (.012 * s, -.035, .0), 'hipr': (22, 0, 2 * s), 'chest': (10, 0, 0), 'head': (-26, 0, 0),
-    'f' + A: (.13 * s, .08, .0), 'f' + Bk: (-.13 * s, .21, .04), 't' + A: (0,), 't' + Bk: (15,),
-    'a' + A: (.09 * s, -.34, .10), 'a' + Bk: (-.09 * s, -.34, .10), 'b' + A: (.08 * s, -.23, .15), 'b' + Bk: (-.08 * s, -.23, .15), 'fist': (.9, .9)}
-write('walk', [(0, stride(1)), (.17, passing(1)), (.34, stride(-1)), (.51, passing(-1)), (.68, stride(1))], loop=True)
+# ---------- running: a gorilla's gallop on his knuckles. The upper fists land in front and he vaults over them, the feet
+# swing through and land by the hands, and he throws the arms forward again. The lower arms stay tucked to his belly. ----------
+RUN = dict(ga=(1,), fist=(1, 1), paL=(1, .1, -.5), paR=(-1, .1, -.5), kL=(.5, 0, 1), kR=(-.5, 0, 1))
+def gal(hip, hp, cp, hdp, handz, handy, footz, footy, toe, low):
+  return {**RUN, 'hip': hip, 'hipr': (hp, 0, 0), 'chest': (cp, 0, 0), 'head': (hdp, 0, 0),
+    'gL': (.20, handy, handz + .05), 'gR': (-.20, handy + (.02 if handy > .08 else 0), handz - .03),
+    'fL': (.19, footy, footz - .04), 'fR': (-.19, footy + (.02 if footy > .09 else 0), footz + .04), 'tL': (toe,), 'tR': (toe,),
+    'bL': (.06, -.27 + low, -.08), 'bR': (-.06, -.27 + low, -.08)}
+write('walk', [
+  (0.00, gal((0, -.12, -.02), 44, 26, -58, .42, .07, -.22, .10, 40, -.04)),      # fists down in front, feet pushing off behind
+  (0.14, gal((0, -.08, .02), 50, 24, -60, .16, .07, -.02, .20, 20, .0)),         # over the fists, feet tucked up and coming through
+  (0.28, gal((0, -.15, .0), 36, 22, -48, .30, .24, .14, .08, -8, -.06)),         # feet down by where the hands were, arms off the ground
+  (0.42, gal((0, -.12, -.02), 38, 24, -52, .48, .16, -.06, .08, 12, -.02)),      # legs driving, arms reaching for the ground
+  (0.56, gal((0, -.12, -.02), 44, 26, -58, .42, .07, -.22, .10, 40, -.04))], loop=True)
 
 # ---------- the pound: he rears up with all four fists over his head and brings them down together (lands at 0.72 s) ----------
 UP = dict(hip=(0, .0, -.03), hipr=(-6, 0, 0), chest=(-20, 0, 0), head=(-8, 0, 0), aL=(.09, .40, .0), aR=(-.09, .40, .0), paL=(1, 0, -.2), paR=(-1, 0, -.2),
