@@ -672,6 +672,10 @@ N.calDayOf = ch => { const g = N.G, a = (g.calDates || {})[ch] || null;
   const x = !a ? b : !b ? a : (b.t || 0) > (a.t || 0) ? b : a;
   /* a day posted without a year takes the calendar's year (G.calYear, set by the GM) */
   return x && !x.u && N.MONTHS[x.m] ? (String(x.y || '').trim() || !N.G.calYear ? x : {...x, y:N.G.calYear}) : null; };
+/* a new scene's When starts as the day of the last Next day (or calendar date) in that chat, else the newest one anywhere (Jake) */
+N.sceneDay = ch => { const g = N.G, here = (g.calDates || {})[ch] || g.msgs.some(m => m.ch === ch && m.day);
+  /* a chat whose last day is "Date unknown" stays empty instead of borrowing another chat's date */
+  const x = here ? N.calDayOf(ch) : N.calAnchor(); return x ? N.dayLine(x) : ''; };
 /* which day of the week dates fall on: taken from any known date (the newest), else the year starts on First Market */
 N.calAnchor = () => { let best = null; const chs = new Set([...Object.keys(N.G.calDates || {}), ...N.G.msgs.filter(m => m.day).map(m => m.ch)]);
   for (const ch of chs) { const x = N.calDayOf(ch); if (x && (!best || (x.t || 0) > (best.t || 0))) best = x; } return best; };
