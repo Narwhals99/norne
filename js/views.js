@@ -214,8 +214,8 @@ function chatPage(v){
   if (fa && v.ui.fightOpen) return `<main class="page fighting">${N.fightView(v)}${G().combat.state === 'setup' ? `<aside class="fight-chat setup-col scroll" data-sk="setup">${N.setupPanel(v)}</aside>` : `<div class="fight-chat">${chatView(v, true)}</div>`}</main>`;
   /* roleplay: the chat, the card (or GM screen) on the right, and the roleplay actions under it */
   v.ui.rpSeen = (G().msgs.findLast(m => m.ch === v.ui.ch) || {}).t || 0;
-  if (N.nlOn(v)) return N.nl.desk(v, chatView(v));
-  return deskPage(v, chatView(v), `<div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>`, 'rp');
+  if (N.nlOn(v)) return N.nl.desk(v, chatPair(v));
+  return deskPage(v, chatPair(v), `<div class="rail-a scroll" data-sk="rail">${gm ? gmScreen(v) : heroQuick(v)}</div>`, 'rp');
 }
 /* desktop: the big panel (C) on the left, and on the right the top panel (A) over the actions (B).
    The line on the right side's left edge drags to share the width; roleplay and combat remember their own widths.
@@ -301,6 +301,14 @@ N.deskPage = deskPage; N.modeSeg = modeSeg; N.fightComposer = fightComposer; N.r
 function railShown(v){
   return v.dev === 'desktop';
 }
+/* desktop: two chats side by side (Jake). The active chat is drawn as usual; the other one is drawn as if it were active
+   (N.splitOther) with its own scroll keys. Its column is dimmed a little until pressed */
+function chatPair(v){
+  if (!N.splitOn(v)) return chatView(v);
+  const a = chatView(v), b = N.splitOther(v, () => chatView(v)).replace(/data-sk="([^"]+)"/g, 'data-sk="$1-2"').replace(/ data-bottom="1"/, ' data-bottom="1" data-other="1"');
+  const L = v.ui.side === 'R' ? b : a, R = v.ui.side === 'R' ? a : b;
+  return `<div class="chatpair"><div class="pcol${v.ui.side === 'R' ? '' : ' on'}" data-col="L">${L}</div><div class="pcol${v.ui.side === 'R' ? ' on' : ''}" data-col="R">${R}</div></div>`;
+}
 function chatView(v, side){
   const g = G(), gm = isGM(v), ch = v.ui.ch, sc = g.scenes[ch], cb = g.combat;
   const fa = fightAvail(v), grpBtn = gm && !!N.grpOf(ch);
@@ -313,6 +321,7 @@ function chatView(v, side){
     ${grpBtn ? `<button type="button" class="btn sm" data-a="grpEdit" data-v="${ch.slice(4)}" style="--h:36px">${IC('gear')}Edit group</button>` : ''}
     ${N.mu ? N.mu.topBtn(v) : ''}${N.pn ? N.pn.topBtn(v) : ''}
     <button type="button" class="ibtn" data-a="sheet" data-v="search" aria-label="Search the chats" title="Search the chats">${IC('search')}</button>
+    ${N.splitOn(v) ? `<button type="button" class="ibtn" data-a="split2Off" aria-label="Close this chat" title="Close this chat (keep the other one)">${IC('x')}</button>` : `<button type="button" class="ibtn" data-a="split2" aria-label="Open another chat beside this one" title="Open another chat beside this one">${IC('split')}</button>`}
     ${gm ? `<button type="button" class="ibtn" data-a="sheet" data-v="export" aria-label="Export the log" title="Export the log">${IC('export')}</button>` : ''}
     ${N.nlOn(v) && !(fa && v.ui.fightOpen) ? `<button type="button" class="ibtn nlside" data-a="nlSideOff" aria-pressed="${!v.ui.nlSideOff}" aria-label="${v.ui.nlSideOff ? 'Show' : 'Hide'} the side panel" title="${v.ui.nlSideOff ? 'Show' : 'Hide'} the side panel">${N.nl.PANEL}</button>` : ''}
     ${fa ? (cb.state === 'setup' ? `<button type="button" class="btn sm" data-a="openFight" style="--h:36px">${IC(N.kw().ic)}Back to ${N.kw().w} setup</button>` : modeSeg(v)) : ''}</header>`;
@@ -1289,8 +1298,11 @@ function heroPage(v){
 /* someone else's card as a player sees it: only the parts the GM revealed. PCs and NPCs look exactly alike here */
 function knownBody(v, k){
   const sub = [k.race, k.nat, k.job, k.age ? `Age ${k.age}` : ''].filter(Boolean).map(esc).join(' · ');
-  const hero = `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:k.name, portrait:k.portrait || null, color:'var(--c-npc)'}, 84)}<div style="min-width:0"><h2>${esc(k.name)}</h2>${sub ? `<div class="by">${sub}</div>` : ''}
-    ${k.met ? `<div class="metbadge">${IC(k.met === 'met' ? 'hand' : 'chat')}${N.MET[k.met]}</div>` : ''}</div></section>`;
+  /* the GM can show a player more than one picture of an NPC (Jake): tap one to see it big */
+  const all = [k.portrait, ...(k.pics || [])].filter(Boolean), pi = Math.min(((v.ui.kPic || {})[k.id]) || 0, Math.max(all.length - 1, 0));
+  const strip = all.length > 1 ? `<div class="kpics" role="group" aria-label="Pictures of ${esc(k.name)}">${all.map((p, i) => `<button type="button" data-a="kPic" data-v="${esc(k.id)}" data-n="${i}" aria-pressed="${i === pi}" aria-label="Picture ${i + 1}">${N.av({name:k.name, portrait:p, color:'var(--c-npc)'}, 40)}</button>`).join('')}</div>` : '';
+  const hero = `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:k.name, portrait:all[pi] || null, color:'var(--c-npc)'}, 84)}<div style="min-width:0"><h2>${esc(k.name)}</h2>${sub ? `<div class="by">${sub}</div>` : ''}
+    ${k.met ? `<div class="metbadge">${IC(k.met === 'met' ? 'hand' : 'chat')}${N.MET[k.met]}</div>` : ''}${strip}</div></section>`;
   const sec = (h, body, full) => `<section class="sec${full ? ' full' : ''}"><h3>${h}</h3>${body}</section>`;
   const tx = t => N.emoText(N.linkText(t));
   const rungs = k.skills ? [...new Set(k.skills.map(x => x[1]))].sort((a, b) => b - a).map(x => [x, k.skills.filter(y => y[1] === x)]) : [];

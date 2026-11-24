@@ -105,6 +105,17 @@ const newUi = N.newUi = role => ({...nlUi(), tab:'chat', ch:'table', sheet:null,
   wikiQ:'', wikiCat:null, wikiSel:null, paper:null, newsEdit:null, newsSel:null, charSel:null, castSeg:'players', castSel:null, npcQ:'', npcDir:null,
   roll:null, sd:null, pd:null, nd:null, wd:null, exp:null, cbAsp:'', cbAspFree:0, cbAspOn:null});
 
+/* ---------------- two chats side by side (desktop, Jake 2026-11-23) ----------------
+   ui.s2 holds the other chat's own state (which chat, draft, voice, reply…); ui.side says which column ('L' or 'R') the
+   active chat (ui.ch) sits in. Everything works on the active chat as before. Pressing anywhere in the other column first
+   swaps the two (N.splitSwap), so that column's chat becomes ui.ch, and then the tap goes ahead as usual. */
+const SPLIT_K = ['ch', 'draft', 'mode', 'voice', 'reply', 'sceneBig', 'sceneMin', 'stick', 'fresh'];
+N.splitSwap = v => { const ui = v.ui, o = ui.s2 || {}, cur = {}; for (const k of SPLIT_K) { cur[k] = ui[k]; ui[k] = o[k]; } ui.s2 = cur; };
+N.splitOn = v => { const s2 = v.ui.s2; return v.dev !== 'phone' && !!s2 && s2.ch !== v.ui.ch && v.ui.ch !== 'gm' && N.channelsFor(v.role).includes(s2.ch); };
+/* draws the other column: its chat is ui.ch for the moment, with its own ids (v.id + 's') so nothing clashes */
+N.splitOther = (v, fn) => { const id = v.id; N.splitSwap(v); v.id = id + 's'; v._sw = true; try { return fn(); } finally { v._sw = false; v.id = id; N.splitSwap(v); } };
+const splitNew = ch => ({ch, draft:'', mode:'ooc', voice:'Narrator', reply:null, sceneBig:false, sceneMin:false, stick:true, fresh:null});
+
 /* ---------------- mount + render ---------------- */
 N.mount = function(root, o){
   const v = {id:'v' + Math.random().toString(36).slice(2,6), root, role:o.role, dev:o.dev, theme:o.theme || 'night', style:N.styleOk(o.style), fz:N.fzOk(o.fz), ui:newUi(o.role)};
@@ -258,6 +269,7 @@ function render(v){
   const root = v.root;
   if (!root.isConnected) return;
   if (swBusy(v)) { v._later = true; return; }
+  if (v._sw) return;
   const nl = N.nlLook(v);
   root.dataset.theme = v.theme; const st = N.styleOf(v); root.dataset.style = st; if (nl) { root.dataset.nl = '1'; root.dataset.nlp = N.palOk('plain', v.pal); } else { delete root.dataset.nl; delete root.dataset.nlp; }
   if (N.nlOn(v)) root.dataset.lay = 'new'; else delete root.dataset.lay;
@@ -543,14 +555,15 @@ function bind(v){
   /* Jake: a chat portrait seen bigger. Phone: press and hold the little picture, it shows while the finger stays down.
      Computer: click it, it stays until a click anywhere else. Only pictures, not the letter circles. The big one sits in the
      .app root (data-keep, so redraws leave it alone), fixed on the screen next to the little one. */
-  const PEEK = '.msgs .m > .av';
+  /* Jake (Nov 24): the big portrait on a character sheet (PC, NPC or a card you know) opens the same way */
+  const PEEK = '.msgs .m > .av, .pc-hero > .av';
   const peekAv = t => { const a = t?.closest?.(PEEK); return a && a.querySelector('img') ? a : null; };
   let pk = null, pkTouch = 0;
   const peekHide = () => { if (!pk) return; clearTimeout(pk.tm); pk.el?.remove(); document.removeEventListener('touchmove', pkHold, {passive:false}); pk = null; };
   const pkHold = e => { if (pk?.el && e.cancelable) e.preventDefault(); };
   const peekShow = a => {
     const r = a.getBoundingClientRect(), W = innerWidth, H = innerHeight, S = Math.min(TOUCH.matches ? 220 : 260, W - 32);
-    const who = a.parentElement.querySelector('.who')?.firstChild, name = (who && who.nodeType === 3 ? who.nodeValue : a.parentElement.querySelector('.who')?.textContent || '').trim();
+    const who = a.parentElement.querySelector('.who')?.firstChild, name = (who && who.nodeType === 3 ? who.nodeValue : a.parentElement.querySelector('.who, h2')?.textContent || '').trim();
     const el = document.createElement('div'); el.className = 'avpeek'; el.setAttribute('data-keep', ''); el.setAttribute('aria-hidden', 'true');
     const big = a.cloneNode(true); big.classList.add('big'); big.style.setProperty('--s', S + 'px'); el.appendChild(big);
     if (name) { const b = document.createElement('b'); b.textContent = name; el.appendChild(b); }
@@ -582,7 +595,7 @@ function bind(v){
   root.addEventListener('click', e => { if (Date.now() - pkTouch < 700) return; const a = peekAv(e.target); if (!a) return;
     const same = pk?.av === a; peekHide(); if (!same) { pk = {}; peekShow(a); } }, true);
   document.addEventListener('pointerdown', e => { if (pk?.el && !TOUCH.matches && !peekAv(e.target) && !e.target.closest?.('.avpeek')) peekHide(); }, true);
-  root.addEventListener('scroll', e => { if (pk?.el && e.target.matches?.('.msgs')) peekHide(); }, true);
+  root.addEventListener('scroll', e => { if (pk?.el && e.target.matches?.('.msgs, .scroll, .page, .sheet-b')) peekHide(); }, true);
   addEventListener('keydown', e => { if (e.key === 'Escape') peekHide(); });
   addEventListener('resize', peekHide);
   /* long-press a message on a phone to react, reply or (GM) edit it; a right-click does the same on a computer */
@@ -649,6 +662,12 @@ function bind(v){
     if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = v.ui.sheet === 'scenePics' ? 'scene' : null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
   });
   root.addEventListener('pointerdown', e => { hsDrag(v, e); down(v, e); });
+  /* two chats side by side: a press in the other column makes that chat the active one before the tap is handled */
+  root.addEventListener('pointerdown', e => { const col = e.target.closest && e.target.closest('.pcol'); if (!col || col.classList.contains('on') || !N.splitOn(v)) return;
+    const typed = e.target.closest('textarea, input');
+    N.splitSwap(v); v.ui.side = col.dataset.col; v.ui.pop = null; if (v.ui.sheet === 'split2') v.ui.sheet = null; render(v);
+    /* the redraw gave the box new ids, so the press would land on a box that's gone: put the cursor in the new one */
+    if (typed) { e.preventDefault(); const t = v.root.querySelector('.pcol.on .composer textarea'); if (t) setTimeout(() => t.focus(), 0); } }, true);
   /* mouse wheel over a sideways row that doesn't fit scrolls it sideways (until its end, then the page scrolls as usual) */
   root.addEventListener('wheel', e => {
     if (e.ctrlKey || TOUCH.matches) return;
@@ -1721,7 +1740,7 @@ function applyMap(v){
   /* first time this map shows in this style: make its copy with the colours painted in (js/mappic.js), so the big
      picture needs no CSS filter, which on a phone took a full-size extra copy in memory and crashed the page */
   const im = st.querySelector('img:not(.eimg)');
-  if (im && !im._bk && !im.classList.contains('baked')) { im._bk = 1; const f = getComputedStyle(im).filter; if (N.earthFilter) N.earthFilter(v.style + '/' + v.theme, f); N.mapBake(m.src, v.style + '/' + v.theme, f, im); }
+  if (im && im._bk !== m.src && !im.classList.contains('baked')) { im._bk = m.src; const f = getComputedStyle(im).filter; if (N.earthFilter) N.earthFilter(v.style + '/' + v.theme, f); N.mapBake(m.src, v.style + '/' + v.theme, f, im); }
   if (st._k !== T.k) { st._k = T.k; const s = `scale(${1 / T.k})`; for (const el of st.querySelectorAll('.pin,.beacon')) el.style.transform = s; }
 }
 /* smooth zooming: a pinch or wheel sends many moves per frame. Each one used to restyle every pin and redraw the whole
@@ -1924,7 +1943,9 @@ function act(v, a, el, e){
     renderAll(); return; }
   case 'sadjReset': { const c = g.chars[d.c]; if (!gm || !c || !c.sadj) break; const old = c.sadj; delete c.sadj; toast(v, 'Fixes undone.', () => { c.sadj = old; }); renderAll(); return; }
   case 'heroStats': ui.heroStats = val || null; if (!val) ui.statEd = false; v.root.querySelector('[data-sk=hero],[data-sk=herostats]')?.scrollTo?.(0, 0); break;
-  case 'ch': close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
+  /* the chat already open in the other column: just make that column the active one */
+  case 'ch': if (N.splitOn(v) && ui.s2.ch === val) { close(); ui.tab = 'chat'; N.splitSwap(v); ui.side = ui.side === 'R' ? 'L' : 'R'; break; }
+    close(); if (ui.ch !== val) ui.reply = null; ui.tab = 'chat'; ui.ch = val; ui.stick = true; focusFight(v); if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; break;
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
   case 'mode': if (val === 'cb') { ui.fightOpen = true; ui.fightPane = 'fight'; } else { ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; ui.stick = true; } break;
   case 'railFold': ui[d.v] = !ui[d.v]; try { localStorage.setItem('norne-' + d.v.toLowerCase(), ui[d.v] ? '1' : '0'); } catch(e) {} break;
@@ -2365,6 +2386,17 @@ function act(v, a, el, e){
       g.maps.push({id, name:f.name.replace(/\.[^.]+$/, ''), src, w:img.naturalWidth, h:img.naturalHeight, vis:false, pins:[], ...(N.dirById(ui.mapDir) ? {dir:ui.mapDir} : {})});
       ui.mapId = id; ui.mapT = null; ui.mapEdit = true; ui.sheet = 'mapSet'; ui.sheetArg = id; toast(v, 'Map added. It stays hidden until you pick who sees it.'); renderAll();
     }); return;
+  /* Jake: swap a map's picture for an edited one. Pins are kept as fractions of the picture (rx, ry), so they stay put;
+     a picture of another shape stretches them with it, so the GM is told to check */
+  case 'mapReplace': { const m = g.maps.find(x => x.id === val); if (!m) break; N.pickImage(img => {
+      const w = img.naturalWidth, h = img.naturalHeight, was = {src:m.src, w:m.w, h:m.h};
+      m.src = N.storeImg(N.shrink(img, 2400), false); m.w = w; m.h = h; ui.mapT = null;
+      const same = w === was.w && h === was.h, shape = Math.abs(w / h - was.w / was.h) < .01, n = m.pins.length;
+      const drop = setTimeout(() => N.dropImg(was.src), 6000);
+      toast(v, same || shape ? `Picture replaced. ${n ? `All ${n} place${n === 1 ? '' : 's'} stayed where they were.` : ''}`.trim()
+        : `Picture replaced, but it’s a different shape (${w} × ${h}, was ${was.w} × ${was.h}). The places moved with it, so check them.`,
+        () => { clearTimeout(drop); Object.assign(m, was); ui.mapT = null; renderAll(); });
+      renderAll(); }); return; }
   case 'findParty': ui.mapId = g.party.map; ui.mapT = null; ui.pinSel = '__party'; render(v); return;
   case 'pinClose': ui.pinSel = null; break;
   case 'pinMap': pinGo(v, val, true); return;
@@ -2525,7 +2557,7 @@ function act(v, a, el, e){
   /* sheet reveals (GM) */
   case 'revOpen': ui.pop = null; ui.sheet = 'reveal'; ui.sheetArg = val; ui.askRev = {id:val, base:JSON.parse(JSON.stringify((g.rev || {})[val] || {}))}; break;
   case 'revSeat': ui.revSeat = val; break;
-  case 'revTog': case 'revAll': case 'revMet': case 'revAs': {
+  case 'revTog': case 'revAll': case 'revMet': case 'revAs': case 'revPic': {
     const id = ui.sheetArg, st = ui.revSeat; if (!id || !st) break;
     g.rev = g.rev || {}; const by = g.rev[id] = g.rev[id] || {};
     const c = g.chars[id], card = c || g.npcs.find(x => x.id === id); if (!card) break;
@@ -2535,6 +2567,13 @@ function act(v, a, el, e){
     if (a === 'revMet') { const was = mt.find(k => k.startsWith('met:')); mt = mt.filter(k => !k.startsWith('met:')); if (val && was !== 'met:' + val) mt.push('met:' + val); }
     /* an NPC's alias or other picture (Jake): this player is told the truth (no id) or one alias for that field; picking either reveals the field */
     else if (a === 'revAs') { const f = val; mt = mt.filter(k => !k.startsWith('as:' + f + ':')); if (d.n) mt.push('as:' + f + ':' + d.n); if (!keys.includes(f)) keys.push(f); }
+    /* NPC pictures (Jake): tick or untick one; at least one stays ticked (untick Picture to hide them all).
+       Just the main portrait is stored as no as:pic: key, like before */
+    else if (a === 'revPic') { const all = N.npcPics(card).map(N.picKey), main = card.portrait ? N.picKey(card.portrait) : '';
+      let on = N.picIds(mt).filter(x => all.includes(x)); if (!on.length && main && keys.includes('pic')) on = [main];
+      on = on.includes(val) ? (on.length > 1 ? on.filter(x => x !== val) : on) : [...on, val];
+      mt = mt.filter(k => !k.startsWith('as:pic:')); if (!(on.length === 1 && on[0] === main)) mt.push(...on.map(x => 'as:pic:' + x));
+      if (!keys.includes('pic')) keys.push('pic'); }
     else if (a === 'revAll') keys = val ? N.revParts(card, !!c).map(p => p.k) : [];
     else keys = keys.includes(val) ? keys.filter(k => k !== val) : [...keys, val];
     keys = [...keys, ...mt];
@@ -2542,6 +2581,13 @@ function act(v, a, el, e){
     if (!Object.keys(by).length) delete g.rev[id];
     renderAll(); return;
   }
+  case 'split2': ui.pop = null; ui.sheet = 'split2'; break;
+  case 'split2Go': { if (!N.channelsFor(v.role).includes(val) || val === ui.ch) break; ui.sheet = null;
+    /* the new chat opens on the right; the one you were in stays on the left and stays active */
+    ui.s2 = splitNew(val); ui.side = 'L'; break; }
+  /* close the column the button is in (a press there already made it the active one): the other chat is left */
+  case 'split2Off': if (ui.s2) { N.splitSwap(v); ui.s2 = null; ui.side = 'L'; } break;
+  case 'kPic': ui.kPic = {...(ui.kPic || {}), [val]:+d.n || 0}; break;
   case 'castSeg': ui.castSeg = val; ui.castSel = null; break;
   case 'castSel': ui.castSel = val; ui.heroStats = null; ui.statEd = false; break;
   case 'castBack': ui.castSel = null; ui.heroStats = null; ui.statEd = false; break;
