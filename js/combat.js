@@ -682,13 +682,17 @@ N.cbAddFoe = function(i, side, zone){
    on the GM's cards. The turn stays with whoever had it; if it was the removed one's, it passes to the next in line. */
 N.cbRemove = function(id){
   const cb = G().combat, i = cb.tokens.findIndex(t => t.id === id); if (i < 0) return null;
-  const ord = N.order(), n = ord.length, oi = ord.findIndex(t => t.id === id), cur = cb.state === 'live' && n ? cb.turn % n : -1;
+  if (cb.state === 'live') N.curTok();
+  const ord = N.order(), n = ord.length, oi = ord.findIndex(t => t.id === id), cur = cb.state === 'live' && n ? cb.turn % n : -1; let wrap = false;
   const t = cb.tokens.splice(i, 1)[0];
   if (cb.lead === id) cb.lead = null;
   if (oi >= 0 && cur >= 0) {
     if (oi < cur) cb.turn = cur - 1;
     else if (oi > cur) cb.turn = cur;
-    else { cb.acted = false; cb.moved = false; cb.turn = cur < n - 1 ? cur : 0; if (cb.turn === 0 && n > 1 && cb.phase !== 'notice' && cb.phase !== 'pick') cb.exchange++; }
+    /* the one acting is removed: the next in the order goes. Only removing the last one ends the exchange (or the contest round,
+       which is scored first); removing the first one used to start a new exchange while the rest hadn't acted yet */
+    else { cb.acted = false; cb.moved = false; wrap = cur >= n - 1; cb.turn = wrap ? 0 : cur;
+      if (wrap && n > 1 && cb.phase !== 'notice' && cb.phase !== 'pick') { if (N.cbKind() === 'contest') N.ctScore(); cb.exchange++; } }
   }
   const p = cb.pending; if (p && (p.att === id || p.def === id)) cb.pending = null;
   const l = cb.last; if (l && (l.att === id || l.def === id)) cb.last = null;
@@ -696,7 +700,7 @@ N.cbRemove = function(id){
   if (t.kind === 'pc') cb.invited = (cb.invited || []).filter(r => r !== t.ref);
   if (cb.state === 'live') {
     sys(`${N.tokName(t)} is removed from the fight.`);
-    const nx = oi === cur && N.curTok(); if (nx && cb.phase !== 'pick') sys(cb.turn === 0 && n > 1 ? `Exchange ${cb.exchange} begins. ${N.tokName(nx)}’s turn.` : `${N.tokName(nx)}’s turn.`);
+    const nx = oi === cur && N.curTok(); if (nx && cb.phase !== 'pick') sys(wrap && n > 1 ? `${N.cbKind() === 'contest' ? 'Round' : 'Exchange'} ${cb.exchange} begins. ${N.tokName(nx)}’s turn.` : `${N.tokName(nx)}’s turn.`);
   }
   return t;
 };
@@ -730,6 +734,7 @@ N.cbGo = function(){
 /* someone added once the turn order is rolled rolls Notice right away */
 N.cbLateInit = t => { const cb = G().combat; if (cb.state !== 'live' || cb.phase === 'notice' || t.init != null || N.cbKind() === 'challenge') return; N.rollInit(t); sys(`${N.tokName(t)} rolls Notice for their turn: ${sgn(t.init)} ${ladderWord(t.init)}.`); };
 N.cbNext = function(){
+  N.curTok();   /* first settle whose turn it is in the order as it is now */
   const cb = G().combat, n = N.order().length, contest = N.cbKind() === 'contest';
   /* the last turn of a contest round ends it: the round is scored before the next one starts */
   if (contest && n && (cb.turn + 1) % n === 0) N.ctScore();

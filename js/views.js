@@ -160,7 +160,9 @@ N.shHide = () => { try { return new Set(JSON.parse(localStorage.getItem('norne-s
 function shelfFilters(v, chs){
   const kinds = new Set(chs.map(N.shKind).filter(Boolean)); if (!kinds.size) return '';
   const off = N.shHide();
-  return `<div class="shf" role="group" aria-label="Show these chats">${N.SHF.filter(([k]) => kinds.has(k)).map(([k, l]) => `<button type="button" class="shfb" data-a="shFilt" data-v="${k}" role="checkbox" aria-checked="${!off.has(k)}"><span class="ck">${IC('check')}</span>${l}</button>`).join('')}</div>`;
+  /* a hidden kind with new messages says so on its box, so the dot on the chat list button can be found */
+  const hid = k => off.has(k) ? chs.filter(c => N.shKind(c) === k && c !== v.ui.ch && !N.chArchived(c)).reduce((a, c) => a + N.unread(v.role, c), 0) : 0;
+  return `<div class="shf" role="group" aria-label="Show these chats">${N.SHF.filter(([k]) => kinds.has(k)).map(([k, l]) => { const n = hid(k); return `<button type="button" class="shfb" data-a="shFilt" data-v="${k}" role="checkbox" aria-checked="${!off.has(k)}"><span class="ck">${IC('check')}</span>${l}${n ? `<span class="badge" aria-label="${n} new">${n}</span>` : ''}</button>`; }).join('')}</div>`;
 }
 function shelfHtml(v){
   const gm = isGM(v), ph = v.dev === 'phone', off = N.shHide();
@@ -346,6 +348,8 @@ function chatView(v, side){
   const owed = N.owedTok(v), pend = cb.pending;
   const owedBar = owed ? (pend.stage === 'defend'
     ? `<div class="fightbar owed">${IC('attack','sw')}<div class="t">${esc(N.tokName(N.tokById(pend.att)))} attacks ${gm ? esc(N.tokName(owed)) : 'you'}!<span>${esc(pend.skill)} for ${sgn(pend.total)} ${ladderWord(pend.total)}. Roll the defense.</span></div>${N.defBtn(owed, v)}</div>`
+    : pend.stage === 'style'
+    ? `<div class="fightbar owed">${IC('attack','sw')}<div class="t">${esc(N.tokName(N.tokById(pend.att)))} hit ${esc(N.tokName(owed))} with style<span>Pick the full ${pend.dmg} shift${pend.dmg>1?'s':''}, or ${Math.max(0, pend.dmg - 2)} and a boost.</span></div><button type="button" class="btn sm gold" data-a="openFight">Pick on the board</button></div>`
     : `<div class="fightbar owed">${IC('warn','sw')}<div class="t">${gm ? esc(N.tokName(owed)) + ' takes' : 'You take'} ${pend.shifts} shift${pend.shifts>1?'s':''}<span>Pick a stress box or a consequence on the board.</span></div><button type="button" class="btn sm gold" data-a="openFight">Soak the hit</button></div>`) : '';
   /* an open store in this chat: players browse it; the GM also sees one being set up */
   const craft = !side && gm && N.craftOf(ch), craftIt = craft && N.itemById(craft.make);
@@ -575,18 +579,34 @@ function rMsg(v, m, prev, firstNarr){
   return `<div class="m say${s.npc?' npc':''}${mine?' mine':''}${gmv}${cont?' cont':''}" style="--spk:${s.color}">${N.av(s,32)}<div class="body">${cont?'':`<div class="who" style="--who:${s.color}">${esc(s.name)}${s.npc?'<span class="tag">NPC</span>':''} ${time}</div>`}<div class="bub">${N.emoText(sayFmt(m.text)) + (m.ed ? ' <span class="ed">edited</span>' : '')}</div></div></div>`;
 }
 /* roleplay lines: words "in quotes" are spoken and read normally, everything else is description in the story font */
-const QUOTE = /"[^"]*(?:"|$)|“[^”]*(?:”|$)/g;
 function sayFmt(t){
-  /* lists first, then inside each part: words in quotes are speech, the rest is action */
-  /* **bold** can wrap speech ("**"Now."**"), so it is marked before the split and reopened in each piece it spans */
+  /* lists first, then inside each part: words in quotes are speech, the rest is action.
+     The marks are done on the whole line first, so one can wrap speech ("||He says "Bob did it"||", "*nods and says "fine"*");
+     the quotes are then found in the text between the tags, and every mark open at a quote is closed there and reopened after,
+     so each piece is whole HTML of its own. A " is &quot; once escaped; tags never hold a curly quote */
   return N.blocks(t, s => {
-    let bold = false;
-    const piece = x => { const pre = bold ? '<strong>' : ''; const h = N.inl(x).replace(/\u0001/g, () => (bold = !bold) ? '<strong>' : '</strong>'); return pre + h + (bold ? '</strong>' : ''); };
-    const act = x => x.trim() ? `<span class="rpd">${piece(x)}</span>` : piece(x);
-    s = s.replace(/\*\*([^*\n]+)\*\*/g, '\u0001$1\u0001');
-    let out = '', at = 0;
-    for (const q of s.matchAll(QUOTE)) { out += act(s.slice(at, q.index)) + piece(q[0]); at = q.index + q[0].length; }
-    return out + act(s.slice(at));
+    const h = N.inl(s), open = [];
+    const shut = () => open.map(x => `</${x.n}>`).reverse().join(''), reopen = () => open.map(x => x.t).join('');
+    let out = '<span class="rpd">', q = null;
+    for (const tk of h.split(/(<[^>]+>)/)) {
+      if (!tk) continue;
+      if (tk[0] === '<') { out += tk; const m = tk.match(/^<(\/?)([a-z]+)/i); if (!m || /^(br|img|wbr|hr)$/i.test(m[2]) || /\/>$/.test(tk)) continue;
+        if (m[1]) { const i = open.map(x => x.n).lastIndexOf(m[2].toLowerCase()); if (i >= 0) open.splice(i, 1); } else open.push({n:m[2].toLowerCase(), t:tk}); continue; }
+      /* a spoiler stays one piece (it opens with one tap), so quotes inside it don't split it */
+      if (open.some(x => /class="spoil"/.test(x.t))) { out += tk; continue; }
+      let at = 0;
+      while (at < tk.length) {
+        const re = q === null ? /&quot;|“/g : q === '“' ? /”/g : /&quot;/g; re.lastIndex = at; const f = re.exec(tk);
+        if (!f) { out += tk.slice(at); break; }
+        if (q === null) { out += tk.slice(at, f.index) + shut() + '</span>' + reopen() + f[0]; q = f[0]; }
+        else { out += tk.slice(at, f.index) + f[0] + shut() + '<span class="rpd">' + reopen(); q = null; }
+        at = f.index + f[0].length;
+      }
+    }
+    if (q === null) out += shut() + '</span>' + reopen();
+    /* marks closed and reopened right at a quote leave empty pairs behind; action that is only spaces needs no story font */
+    for (let k = 0; k < 4; k++) { const was = out; out = out.replace(/<(strong|em|u|s|span|a)\b[^>]*><\/\1>/g, ''); if (out === was) break; }
+    return out.replace(/<span class="rpd">(\s*)<\/span>/g, '$1');
   });
 }
 /* phones: a roll in the roleplay chat is one small line; tapping it opens the full card */
@@ -685,7 +705,7 @@ function resCard(res, v, vw = v){
     <div class="rs-out"><span class="out ${res.out?.k === 'tie' ? 'tie' : 'succ'}">${esc(res.out?.t || '')}</span><span>${esc(res.after || '')}</span></div>
     <div class="rs-score">${(res.score || []).map(x => `<span><b>${x.p}</b>${esc(x.n)}</span>`).join('')}</div></div>`;
   if (res.k === 'order') return `<div class="resm"><div class="rs-h">${IC('clock')}<b>Turn order</b><small>Notice rolls</small></div>
-    <ol class="rs-rows">${(res.rows||[]).map(x => `<li><span class="nm">${esc(x.n)}</span><span class="mt">Notice ${!vw || skSeen(vw, 'Notice', null, x.n) ? sgn(x.sk) : skHid} · dice ${sgn((x.d||[]).reduce((a,b)=>a+b,0))}</span><b>${sgn(x.tot)}</b></li>`).join('')}</ol></div>`;
+    <ol class="rs-rows">${(res.rows||[]).map(x => `<li><span class="nm">${esc(x.n)}</span><span class="mt">${!vw || skSeen(vw, 'Notice', null, x.n) ? `Notice ${sgn(x.sk)} · dice ${sgn((x.d||[]).reduce((a,b)=>a+b,0))}` : `Notice ${skHid}`}</span><b>${sgn(x.tot)}</b></li>`).join('')}</ol></div>`;
   const row = (x, lab) => `<li><span class="nm"><small>${lab}</small>${esc(x.n)}</span><span class="mt">${esc(x.sk)} ${!vw || skSeen(vw, x.sk, null, x.n) ? sgn(x.b - (x.g||0) + (x.dist||0) - (x.mod||0)) : skHid}${x.g?` · ${x.gl || 'gear'} ${sgn(x.g)}`:''}${x.dist?` · distance −${x.dist}`:''}${x.mod?` · ${x.mod > 0 ? 'buff' : 'debuff'} ${sgn(x.mod)}`:''}</span><b>${sgn(x.tot)}<small>${ladderWord(x.tot)}</small></b></li>`;
   const [a, d] = res.rows || [];
   return `<div class="resm ${res.out?.k||''}"><div class="rs-h">${IC('swords')}<b>${esc(res.title)}</b></div>
@@ -759,7 +779,7 @@ function composer(v){
 /* the party's fate points and stress, as the GM changes them (GM screen, and the Party tab of the new side panel) */
 function partyRows(v){
   const pcs = N.pcs();
-  return pcs.map(c => c.built ? `<div class="pcrow">${N.av(c,40)}<span><b>${esc(c.short)}</b><small>${N.emoText(N.marks(esc(N.pcTag(c))))}</small></span>
+  return pcs.map(c => c.built ? `<div class="pcrow">${N.av(c,40)}<span><b>${esc(c.short)}</b><small>${N.emoText(N.marks(esc(N.linkPlain(N.pcTag(c)))))}</small></span>
         <span class="coins">${coinsHtml(c, true)}</span>
         <div class="tracks"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<button type="button" class="sbox${c.stress.phys[i]?' on':''}" data-a="stress" data-c="${c.id}" data-k="phys" data-i="${i}" aria-pressed="${c.stress.phys[i]}">${x}</button>`).join('')}</div>
         <span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<button type="button" class="sbox${c.stress.ment[i]?' on':''}" data-a="stress" data-c="${c.id}" data-k="ment" data-i="${i}" aria-pressed="${c.stress.ment[i]}">${x}</button>`).join('')}</div></div></div>`
@@ -850,9 +870,9 @@ function heroQuick(v){
   if (!c.built) return `<div class="gs"><div class="quiet"><div class="art"></div><p>${esc(N.gmName())} hasn’t made your character card yet. It shows up here as soon as it’s ready.</p></div></div>`;
   const top = Object.entries(c.skills).sort((a,b)=>b[1]-a[1]).slice(0,6);
   return `<div class="gs">
-    <div class="hero-top">${N.av(c,58)}<span><b>${esc(c.name)}</b><small>${N.emoText(N.marks(esc(N.pcTag(c))))}</small></span></div>
+    <div class="hero-top">${N.av(c,58)}<span><b>${esc(c.name)}</b><small>${N.emoText(N.marks(esc(N.linkPlain(N.pcTag(c)))))}</small></span></div>
     <section class="gs-sec"><div class="gs-h"><h3>Fate points</h3><span class="muted" style="font-weight:700;font-size:12px">Refresh ${c.refresh}</span></div><div class="coins">${coinsHtml(c,false)}</div><div class="gs-gold"><span class="coin"></span>Gold <b>${(Math.max(0, parseInt(c.gold, 10) || 0)).toLocaleString('en-US')}</b></div></section>
-    <section class="gs-sec"><div class="gs-h"><h3>Aspects</h3></div><div class="icards">${N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.8,.7,-.4][i%3]}deg"><span class="k">${k}</span><span>${N.emoText(N.marks(esc(a)))}</span></span>`).join('')}</div></section>
+    <section class="gs-sec"><div class="gs-h"><h3>Aspects</h3></div><div class="icards">${N.pcAspects(c).map((a,i)=>[`Aspect ${i+1}`,a]).map(([k,a],i)=>`<span class="icard" style="--rot:${[-.8,.7,-.4][i%3]}deg"><span class="k">${k}</span><span>${N.emoText(N.linkText(a))}</span></span>`).join('')}</div></section>
     <section class="gs-sec"><div class="gs-h"><h3>Top skills</h3></div><div class="quick-sk">${top.map(([n,x])=>`<span>${esc(n)}<i>${sgn(x)}</i></span>`).join('')}</div></section>
     <section class="gs-sec"><div class="gs-h"><h3>Stress</h3></div>
       <div class="pcrow" style="grid-template-columns:auto 1fr"><div class="tracks" style="grid-column:1/-1"><span>Phys</span><div class="boxes">${c.stressV.phys.map((x,i)=>`<span class="sbox${c.stress.phys[i]?' on':''}">${x}</span>`).join('')}</div><span>Mind</span><div class="boxes">${c.stressV.ment.map((x,i)=>`<span class="sbox${c.stress.ment[i]?' on':''}">${x}</span>`).join('')}</div></div></div>
@@ -952,7 +972,7 @@ function popHtml(v){
   if (p.type === 'paneA' || p.type === 'paneB') {
     /* a side panel's picker: every page it can show; picking the one the other panel shows swaps the two */
     const mode = v._paneMode || 'rp', slot = p.type === 'paneA' ? 0 : 1, picks = panePicks(v, mode);
-    const row = ([id, l, ic]) => `<button type="button" class="opt" role="menuitemradio" aria-checked="${picks[slot] === id}" data-a="pane" data-v="${slot}:${id}"><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${esc(l)}${picks[1 - slot] === id ? `<small>Swaps with the ${slot ? 'top' : 'bottom'} panel</small>` : ''}</span>${picks[slot] === id ? `<span class="ck">${IC('check')}</span>` : ''}</button>`;
+    const row = ([id, l, ic]) => `<button type="button" class="opt" role="menuitemradio" aria-checked="${picks[slot] === id}" data-a="panePick" data-v="${slot}:${id}"><span class="av" style="--s:30px;box-shadow:none;background:var(--accent-soft);color:var(--gold-tx)">${IC(ic).replace('<svg','<svg style="width:16px;height:16px"')}</span><span>${esc(l)}${picks[1 - slot] === id ? `<small>Swaps with the ${slot ? 'top' : 'bottom'} panel</small>` : ''}</span>${picks[slot] === id ? `<span class="ck">${IC('check')}</span>` : ''}</button>`;
     return `<div class="pop pane-pop" style="${pos}" role="menu" aria-label="Show in the ${slot ? 'bottom' : 'top'} panel"><div class="lbl">Show in the ${slot ? 'bottom' : 'top'} panel</div>${paneOpts(v, mode).map(row).join('')}</div>`;
   }
   if (p.type === 'wAs') {
@@ -1302,7 +1322,7 @@ function paperHtml(p, prev){
 function heroList(v){
   const g = G(), mine = N.charOf(v.role);
   const known = Object.values(g.known || {}).filter(k => k.name).sort((a, b) => a.name.localeCompare(b.name));
-  return [...(mine ? [{id:mine.id, me:true, av:{name:mine.built ? mine.short : pn(mine), portrait:mine.built ? mine.portrait : null, color:mine.color}, b:'You', sm:mine.built ? N.emoText(N.marks(esc(N.pcTag(mine)))) : 'No card yet'}] : []),
+  return [...(mine ? [{id:mine.id, me:true, av:{name:mine.built ? mine.short : pn(mine), portrait:mine.built ? mine.portrait : null, color:mine.color}, b:'You', sm:mine.built ? N.emoText(N.marks(esc(N.linkPlain(N.pcTag(mine))))) : 'No card yet'}] : []),
     ...known.map(k => ({id:k.id, av:{name:k.name, portrait:k.portrait, color:'var(--c-npc)'}, b:k.name, sm:N.MET[k.met] || 'Not marked', met:k.met}))];
 }
 function heroPage(v){
@@ -1488,7 +1508,7 @@ N.sheetBody = function(v, c){
   const canRoll = gm, edit = mine || gm;
   return `<section class="pc-hero full" style="${who}">
       ${mine && !gm ? `<button type="button" class="facebtn" data-a="sheet" data-v="myFace" aria-label="Change my picture">${N.av(c,84)}<span class="badge">${IC('image')}</span></button>` : N.av(c,84)}
-      <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.nat?`${esc(c.nat)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${N.emoText(N.marks(esc(N.pcTag(c))))}</div>`:''}</div>
+      <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.nat?`${esc(c.nat)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${N.emoText(N.linkText(N.pcTag(c)))}</div>`:''}</div>
       <div class="fp"><div class="res"><div><span class="eyebrow">Fate points · refresh ${c.refresh}</span><div class="coins">${coinsHtml(c, gm)}</div></div>${goldHtml(c, 'c', gm)}${gm ? N.xferBtn('c', c.id) : ''}</div>${gm?`<div class="gmbar"><button type="button" class="btn sm" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Edit card</button>${revBtn(c.id)}<button type="button" class="btn sm" data-a="pcToNpc" data-v="${c.id}" title="Make a new NPC card from this sheet">${IC('npc')}Copy as NPC</button><button type="button" class="btn sm danger" data-a="sheet" data-v="pcDel" data-c="${c.id}">${IC('trash')}Delete</button></div>`:''}</div>
     </section>
     ${c.lvl && ((mine && !gm) || (gm && v.ui.tab === 'cast')) ? (() => { const lv = c.lvl, left = lv.pts - N.lvlSpent(lv), sent = lv.st === 'sent';
@@ -1634,13 +1654,13 @@ function castPage(v){
     <div style="display:flex;align-items:center;gap:10px;padding-top:var(--safe-t,0px)">${ph?meBtn(v):''}<h1 class="ttl" style="flex:1;font-size:${ph?22:28}px">Cast</h1><button type="button" class="btn sm primary spark" data-a="npcNew">${IC('plus')}New NPC</button></div>
     <div class="seg" role="group" aria-label="Show" style="justify-self:start"><button type="button" data-a="castSeg" data-v="players" aria-pressed="${seg==='players'}">${IC('users')}Players</button><button type="button" data-a="castSeg" data-v="npcs" aria-pressed="${seg==='npcs'}">${IC('npc')}NPCs <span class="tag" style="height:16px">${g.npcs.length}</span></button><button type="button" data-a="castSeg" data-v="items" aria-pressed="${seg==='items'}">${IC('bag')}Items</button></div>
     ${seg === 'items' ? invBody(v) : seg === 'players' ? `<div class="cgrid">${pcs.map(c => c.built
-      ? `<button type="button" class="ccard" data-a="castSel" data-v="${c.id}">${N.av(c,52)}<span><b>${esc(c.name)}</b><small>${N.emoText(N.marks(esc(N.pcTag(c))))}</small><small>Played by ${esc(pn(c))}</small></span><span class="icon-go">${IC('right')}</span></button>`
+      ? `<button type="button" class="ccard" data-a="castSel" data-v="${c.id}">${N.av(c,52)}<span><b>${esc(c.name)}</b><small>${N.emoText(N.marks(esc(N.linkPlain(N.pcTag(c)))))}</small><small>Played by ${esc(pn(c))}</small></span><span class="icon-go">${IC('right')}</span></button>`
       : `<div class="ccard empty">${N.av({name:pn(c),color:c.color},52)}<span><b>${esc(pn(c))}</b><small>Signed in · no card yet</small></span><button type="button" class="btn sm primary" data-a="pcEdit" data-v="${c.id}">Make card</button></div>`).join('')}
       <button type="button" class="ccard empty" data-a="sheet" data-v="players"><span class="av" style="--s:52px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('userplus').replace('<svg','<svg style="width:24px;height:24px"')}</span><span><b>Players &amp; sign-ins</b><small>${pending ? `${pending} ${pending===1?'person is':'people are'} waiting to be let in` : pcs.length ? 'Let people in, rename or remove them' : 'Send your players the link to this page'}</small></span>${pending?`<span class="badge">${pending}</span>`:`<span class="icon-go">${IC('right')}</span>`}</button></div>`
     : `<div class="ndbar"><div class="search">${IC('search')}<input class="inp" id="npcq-${v.id}" placeholder="${here ? 'Find an NPC in any folder' : 'Find an NPC'}" data-i="npcQ" value="${esc(v.ui.npcQ||'')}"></div><button type="button" class="btn sm" data-a="nfOpen" data-v="">${IC('folder')}New folder</button></div>
       ${q ? '' : dirHead}
       ${dirs.length ? `<div class="cgrid">${dirs.map(dirCard).join('')}</div>` : ''}
-      ${npcs.length ? `<div class="cgrid">${npcs.map(n => `<div class="ccard">${N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},52)}<span><b>${esc(n.name)}</b><small>${esc(N.npcSub(n))}</small>${q && N.nd.of(n) ? `<small class="ndwhere">${IC('folder')}${esc(N.nd.name(n.dir))}</small>` : ''}<small style="font-style:italic;font-family:var(--f-display)">${esc(n.hc)}</small></span><button type="button" class="ibtn sm" data-a="castSel" data-v="${n.id}" aria-label="Open ${esc(n.name)}">${IC('right')}</button>
+      ${npcs.length ? `<div class="cgrid">${npcs.map(n => `<div class="ccard">${N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},52)}<span><b>${esc(n.name)}</b><small>${esc(N.linkPlain(N.npcSub(n)))}</small>${q && N.nd.of(n) ? `<small class="ndwhere">${IC('folder')}${esc(N.nd.name(n.dir))}</small>` : ''}<small style="font-style:italic;font-family:var(--f-display)">${esc(N.linkPlain(n.hc))}</small></span><button type="button" class="ibtn sm" data-a="castSel" data-v="${n.id}" aria-label="Open ${esc(n.name)}">${IC('right')}</button>
         <div class="acts2"><button type="button" class="btn sm" data-a="voice" data-v="${esc(n.name)}" data-go="1">${IC('chatL')}Speak as</button>${g.combat.state!=='off'?`<button type="button" class="btn sm" data-a="npcToFight" data-v="${n.id}">${IC('swords')}Add to fight</button>`:''}<button type="button" class="btn sm ghost" data-a="npcEdit" data-v="${n.id}">${IC('pen')}Edit</button></div></div>`).join('')}</div>`
       : dirs.length ? '' : `<div class="quiet"><div class="art"></div><p>${q ? 'No NPCs match.' : here ? 'This folder is empty. Press New NPC to write one here, or move an NPC in from Edit on its card.' : g.npcs.length ? 'Every NPC is in a folder.' : 'Your NPC cards live here, for your eyes only. Press New NPC to write the first one.'}</p></div>`}`}
   </div></div>`;
@@ -1653,7 +1673,7 @@ N.alsLine = n => { const l = N.ALF.map(([f, lb]) => [lb, N.aliases(n, f).map(a =
 function npcBody(v, n){
   const rungs = [8,7,6,5,4,3,2,1,-1].map(x => [x, Object.entries(n.skills).filter(([,y]) => y === x).map(([k]) => k)]).filter(r => r[1].length);
   const trk = (k, l) => `<div class="trk"><span class="eyebrow">${l}</span><div class="boxes">${n.stressV[k].map((x,i)=>`<button type="button" class="sbox${n.stress[k][i]?' on':''}" data-a="npcStress" data-n="${n.id}" data-k="${k}" data-i="${i}" aria-pressed="${!!n.stress[k][i]}" aria-label="${l} ${x}">${x}</button>`).join('')}</div></div>`;
-  return `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},84)}<div style="min-width:0"><h2>${esc(n.name)}</h2><div class="by">${esc(N.npcSub(n) || 'NPC')}${n.nat?` · ${esc(n.nat)}`:''}${n.age?` · Age ${esc(n.age)}`:''} · ${n.type==='nameless'?'Nameless NPC':'Supporting NPC'}${N.nd.of(n) ? ` · ${IC('folder').replace('<svg','<svg style="width:13px;height:13px;vertical-align:-2px"')} ${esc(N.nd.name(n.dir))}` : ''}</div>${N.alsLine(n)}${N.pcTag(n)?`<div class="hc">${esc(N.pcTag(n))}</div>`:''}</div>
+  return `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},84)}<div style="min-width:0"><h2>${esc(n.name)}</h2><div class="by">${esc(N.linkPlain(N.npcSub(n) || 'NPC'))}${n.nat?` · ${esc(n.nat)}`:''}${n.age?` · Age ${esc(n.age)}`:''} · ${n.type==='nameless'?'Nameless NPC':'Supporting NPC'}${N.nd.of(n) ? ` · ${IC('folder').replace('<svg','<svg style="width:13px;height:13px;vertical-align:-2px"')} ${esc(N.nd.name(n.dir))}` : ''}</div>${N.alsLine(n)}${N.pcTag(n)?`<div class="hc">${N.emoText(N.linkText(N.pcTag(n)))}</div>`:''}</div>
     <div class="fp"><div class="res"><div><span class="eyebrow">Fate points · refresh ${n.refresh}</span><div class="coins">${Array.from({length:Math.max(n.fp, n.refresh)}, (_,i) => `<span class="coin${i<n.fp?'':' off'}"></span>`).join('')}<span class="mini"><button type="button" data-a="npcFp" data-n="${n.id}" data-d="-1" aria-label="Take a fate point from ${esc(n.name)}">−</button><button type="button" data-a="npcFp" data-n="${n.id}" data-d="1" aria-label="Give ${esc(n.name)} a fate point">+</button></span></div></div>${goldHtml(n, 'n', true)}${N.xferBtn('n', n.id)}</div><div class="gmbar"><button type="button" class="btn sm" data-a="npcEdit" data-v="${n.id}">${IC('pen')}Edit</button>${revBtn(n.id)}${N.figOk && N.figOk() ? `<button type="button" class="btn sm" data-a="figOpen" data-v="npc:${n.id}">${IC('hero')}${n.fig ? 'Figure' : 'Make figure'}</button>` : ''}${G().combat.state!=='off'?`<button type="button" class="btn sm" data-a="npcToFight" data-v="${n.id}">${IC('swords')}Add to fight</button>`:''}<button type="button" class="btn sm ghost" data-a="npcDup" data-v="${n.id}">${IC('copy')}Duplicate</button><button type="button" class="btn sm danger" data-a="sheet" data-v="npcDel" data-c="${n.id}">${IC('trash')}Delete</button></div></div></section>
     ${wikiSec(v, n.id)}
     <section class="sec"><h3>Aspects</h3><div class="asps">${asps(N.pcAspects(n).map((a,i)=>[`Aspect ${i+1}`,a])) || '<p class="muted">None yet.</p>'}</div></section>

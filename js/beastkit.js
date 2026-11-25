@@ -986,7 +986,7 @@ function pose(rig, name, t){
   tail.forEach((g, i) => { g.rotation.y += Math.sin(t / 520 - i * .7) * (id === 'serpent' ? 0 : .16); });
   if (rig.trunk) rig.trunk.rotation.x += Math.sin(t / 700) * .08;
   if (rig.ears) rig.ears.forEach(e => { e.rotation.y += e.userData.s * Math.sin(t / 600) * .12; });
-  if (rig.orbit) rig.orbit.rotation.y = t / 1400;
+  if (rig.orbit) rig.orbit.rotation.y = (t / 1400) % (Math.PI * 2);
   if (rig.fire) { const f = 1 + Math.sin(t / 90) * .06 + Math.sin(t / 37) * .04; rig.fire.scale.set(1, f, 1); if (rig.glow) rig.glow.material.opacity = .6 + .15 * Math.sin(t / 120); }
   if (plan === 'bird') { const fl = Math.sin(t / 260); wings.forEach(w => { w.rotation.z += w.userData.s * fl * .35; w.rotation.y += -w.userData.s * .1; }); torso.position.y += Math.sin(t / 520) * 1.4; }
   else if (wings.length) wings.forEach(w => { w.rotation.z += -w.userData.s * .35; w.rotation.y += w.userData.s * .55; w.rotation.x += .15 + Math.sin(t / 900) * .04; }); /* half folded, held up off the back */

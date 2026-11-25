@@ -26,11 +26,11 @@ N.figPref = on => { pref = !!on; try { localStorage.setItem('norne-figs', pref ?
 let kit = null, kitBusy = false, no3d = false;
 const on = v => pref && !no3d && !!(N.figOk && N.figOk()) && !!v && !!v.role;
 /* the board lays out for figures once the first one stands there */
-N.figOn = v => { const S = v && v._fig; if (!S || !on(v)) return false; for (const F of S.figs.values()) if (F.rig) return true; return false; };
+N.figOn = v => { const S = v && v._fig; if (!S || S.lost || !on(v)) return false; for (const F of S.figs.values()) if (F.rig) return true; return false; };
 /* the token hides its circle only once its figure is really standing there */
 const ELF = new WeakMap();
 /* (S.v === v: a phone swipe's preview of the fight pane is a copy of the screen with no 3D in it, so it shows circles) */
-N.figHas = (v, t) => { const S = v && v._fig, F = S && S.v === v && S.figs.get(t.id); return !!(F && F.rig && on(v)); };
+N.figHas = (v, t) => { const S = v && v._fig, F = S && S.v === v && !S.lost && S.figs.get(t.id); return !!(F && F.rig && on(v)); };
 
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x)), seg = (t, a, b) => clamp((t - a) / (b - a), 0, 1), lerp = (a, b, u) => a + (b - a) * u;
 const eOut = u => 1 - Math.pow(1 - u, 3), eIO = u => u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
@@ -44,7 +44,7 @@ function wantOf(t){
   const g = N.G, K = kit.K, copy = s => JSON.parse(JSON.stringify(s));
   let fig = null, race = '', who = null;
   if (t.kind === 'pc') { const c = g.chars[t.ref]; fig = c && c.fig; race = c && c.race; who = c; }
-  else { const n = g.npcs.find(x => x.id === t.ref); fig = (n && n.fig) || t.fig; race = (n && n.race) || (t.fig && t.fig.race); }
+  else { const n = g.npcs.find(x => x.id === t.ref); fig = (n && n.fig) || t.fig; race = (n && n.race) || (t.fig && t.fig.race) || t.frace; }
   const side = t.kind === 'pc' ? 'pc' : N.sideOf(t) === 'ally' ? 'ally' : 'foe';
   let spec = K.okSpec(fig) ? copy(fig) : null;
   /* no figure yet: a look made from the fighter's id, of its race, or of the animal its race names ("Wolf") */
@@ -72,8 +72,9 @@ function init(v){
   const camera = new THREE.OrthographicCamera(0, 1, 0, -1, 1, 60000), D = 20000;
   camera.position.set(0, D * SIN, D * COS); camera.rotation.set(-TILT, 0, 0);
   const S = v._fig = {v, r, scene, camera, cv, figs:new Map(), q:[], W:0, H:0, pr:0, raf:0, last:0, cols:{}};
-  cv.addEventListener('webglcontextlost', e => { e.preventDefault(); S.lost = true; });
-  cv.addEventListener('webglcontextrestored', () => { S.lost = false; draw(S, performance.now()); });
+  /* a lost picture (an iPhone short of memory) shows the plain token circles again until it comes back */
+  cv.addEventListener('webglcontextlost', e => { e.preventDefault(); S.lost = true; if (N.renderAll) N.renderAll(); });
+  cv.addEventListener('webglcontextrestored', () => { S.lost = false; draw(S, performance.now()); if (N.renderAll) N.renderAll(); });
   S.ro = new ResizeObserver(() => { if (S.cam && S.cam.isConnected) { measure(S, true); draw(S, performance.now()); } });
   return S;
 }

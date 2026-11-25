@@ -33,7 +33,8 @@ const marks0 = h => h
   .replace(/~~([^~\n]+)~~/g, '<s>$1</s>')
   .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
   .replace(/(^|[^\w:])_([^_\n]+)_(?![\w:])/g, '$1<em>$2</em>');
-const inl = s => marks(esc(s)).replace(/\n/g,'<br>');
+/* links the app wrote into the text ([[wiki:id|Nörne]] from a Narrator's [[Nörne]]) are drawn as links (xl), not as their code */
+const inl = s => marks(xl(esc(s))).replace(/\n/g,'<br>');
 const LI = /^\s*(?:[-•*]|(\d{1,3})[.)])\s+(.*)$/;
 /* splits text into plain runs, lists and > quotes; each plain run, list item and quote line goes through inline() */
 const blocks = (s, inline = inl) => {
@@ -76,6 +77,8 @@ const xl = h => h.replace(LINK_RE, (m, k, id, lab) => N.linkSees(k, id) ? `<a cl
   : k === 'wiki' && (N.G.role !== 'gm' || N.seeAs) ? N.lockLink(lab) : lab);
 /* card text with its marks and links (aspects, stunts, bio as text) */
 N.linkText = s => marks(xl(esc(s)));
+/* the same text with its links as plain names, for lists and cards that are buttons themselves */
+N.linkPlain = s => String(s ?? '').replace(LINK_RE, (m, k, id, lab) => lab);
 /* the copy a player gets: links they can't follow become the plain name (seeOk(kind, id) says which they can).
    seeOk answering 'lock' keeps a wiki link as a locked one with no id ([[wiki:-|Title]]), so the player sees a link they can't open
    and learns nothing about the entry. Old [[Title]] links to an entry turn into [[wiki:<id>|Title]] first, so they lock the same way */
@@ -862,7 +865,8 @@ N.properWord = (w, phrase) => {
     (g.maps || []).forEach(m => { add(m.name); (m.pins || []).forEach(p => add(p.label)); });
     (g.npcs || []).forEach(n => { add(n.name); N.aliases(n, 'name').forEach(a => add(a.v)); }); Object.values(g.chars || {}).forEach(c => { add(c.name); add(c.short); });
     /* a capitalised word in the middle of a wiki sentence, not followed by another capitalised word: Daroese, Altarian */
-    const walk = o => { if (typeof o === 'string') { for (const mm of o.matchAll(/(?<=[\p{Ll},)'’]\s+)(\p{Lu}[\p{L}'’]+)(?!\s+\p{Lu})/gu)) one.add(mm[1].replace(/['’]s$/, '').toLowerCase()); }
+    /* (no look-behind: iPhones before iOS 16.4 can't read one, and a regex they can't read stops all of core.js from loading) */
+    const walk = o => { if (typeof o === 'string') { for (const mm of o.matchAll(/[\p{Ll},)'’]\s+(\p{Lu}[\p{L}'’]+)(?!\s+\p{Lu})/gu)) one.add(mm[1].replace(/['’]s$/, '').toLowerCase()); }
       else if (Array.isArray(o)) o.forEach(walk); else if (o && typeof o === 'object') Object.values(o).forEach(walk); };
     (g.wiki || []).forEach(e => { add(e.title); walk(e); });
     _proper = {one, many}; _properKey = key;
@@ -1247,7 +1251,14 @@ N.atkItems = (t, sk) => {
   if (sk === 'Shooting') { add('Ranged weapon', N.eqOf(o, 'ranged')[0]); add('Ammo', N.eqOf(o, 'ammo')[0]); }
   return out;
 };
-N.curTok = () => { if (N.G.combat.phase === 'notice' || N.cbKind() === 'challenge') return null; const o = N.order(); return o.length ? o[N.G.combat.turn % o.length] : null; };
+/* the fighter whose turn it is. cb.turn is a place in the turn order, and the order changes under it mid-fight (someone
+   taken out or back in, a late joiner rolling Notice, a zone deleted): the turn then went to whoever slid into that place.
+   So this device remembers whose turn it was (_tid) for the order it saw (_tsig): when the order has changed but nobody moved
+   the turn on purpose (cb.turn is what it was, _tturn), the turn stays with that fighter. Never saved (combatOut drops them) */
+N.curTok = () => { const cb = N.G.combat; if (cb.phase === 'notice' || N.cbKind() === 'challenge') return null; const o = N.order(); if (!o.length) return null;
+  const sig = o.map(t => t.id).join(',');
+  if (cb.phase !== 'pick' && cb._tid && cb._tsig !== sig && cb._tturn === cb.turn) { const i = o.findIndex(t => t.id === cb._tid); if (i >= 0) cb.turn = i; }
+  const t = o[cb.turn % o.length]; cb._tid = t.id; cb._tsig = sig; cb._tturn = cb.turn; return t; };
 N.tokObj = t => { if (t.kind === 'pc') { const c = N.G.chars[t.ref] || {}; const p = N.G.P[c.player]; return {name:c.short || '?', portrait:c.built ? c.portrait : null, color:p?.color || 'var(--accent)'}; }
   const s = N.sideOf(t), tm = s !== 'ally' && s !== 'foe' && N.teams().find(x => x.id === s);
   return {name:t.name, portrait:t.portrait, color:tm ? tm.col : s === 'ally' ? 'var(--c-npc)' : 'var(--c-foe)'}; };

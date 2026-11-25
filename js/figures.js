@@ -183,7 +183,11 @@ N.figClose = () => { if (box && box.ask && box.ask(leaveNow)) { if (openV) openV
 const url = f => new URL(f, document.baseURI).href;
 let kitP = null;
 const kitLoad = () => kitP || (kitP = Promise.all([import(url('vendor/three.module.min.js')), import(url('js/figkit.js'))])
-  .then(([THREE, kit]) => ({THREE, K:kit.makeKit(THREE)})).catch(e => { kitP = null; throw e; }));
+  .then(([THREE, kit]) => { const K = kit.makeKit(THREE);
+    /* the figure an NPC card's race stands for (an animal or one of the figure races), or null: the GM's device puts only this on
+       the fight token of a card with no figure of its own, so players see the same wolf the GM does, not the race text */
+    N.figRace = race => { const s = String(race || '').trim().toLowerCase(); return !s ? null : K.beastOf(s) || K.RACE_LIST.find(x => x.toLowerCase() === s) || null; };
+    return {THREE, K}; }).catch(e => { kitP = null; throw e; }));
 N.figKit = kitLoad;
 /* the fight board's figures (js/figboard.js) stop drawing while the maker covers the screen */
 N.figMakerOpen = () => !!box;
@@ -428,7 +432,8 @@ function start(box, THREE, K){
     if (tab === 'body') {
       /* first, for a character with a model of their own (js/aikit.js): which figure they stand as */
       /* a model made for one character is only offered for that character */
-      const models = K.MODELS.filter(m => !m.who || m.id === own || m.id === spec.model);
+      /* beast models (the Dreadape) belong to their beast kind, which only the GM can pick: never a choice here */
+      const models = K.MODELS.filter(m => !m.beast && (!m.who || m.id === own || m.id === spec.model));
       if (models.length) {
         const mo = models.find(m => m.id === spec.model);
         grp('Figure in fights', mo ? 'New version' : 'Old figure', opt('', 'Old figure', !mo, 'model') + models.map(m => opt(m.id, models.length > 1 ? m.n : 'New version', m === mo, 'model')).join(''));
