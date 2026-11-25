@@ -863,7 +863,7 @@ N.properWord = (w, phrase) => {
     const add = t => { const c = clean(String(t || '')); if (!c) return; if (c.includes(' ')) many.add(c); else one.add(c); };
     N.RACES.forEach(add); N.nations().forEach(add); ['Dwarven', 'Dwarvish', 'Elven', 'Elvish', 'Gnomish'].forEach(add);
     (g.maps || []).forEach(m => { add(m.name); (m.pins || []).forEach(p => add(p.label)); });
-    (g.npcs || []).forEach(n => { add(n.name); N.aliases(n, 'name').forEach(a => add(a.v)); }); Object.values(g.chars || {}).forEach(c => { add(c.name); add(c.short); });
+    (g.npcs || []).forEach(n => { add(n.name); N.aliases(n, 'name').forEach(a => add(a.v)); }); Object.values(g.chars || {}).forEach(c => { add(c.name); add(c.short); N.aliases(N.withX(c), 'name').forEach(a => add(a.v)); });
     /* a capitalised word in the middle of a wiki sentence, not followed by another capitalised word: Daroese, Altarian */
     /* (no look-behind: iPhones before iOS 16.4 can't read one, and a regex they can't read stops all of core.js from loading) */
     const walk = o => { if (typeof o === 'string') { for (const mm of o.matchAll(/[\p{Ll},)'’]\s+(\p{Lu}[\p{L}'’]+)(?!\s+\p{Lu})/gu)) one.add(mm[1].replace(/['’]s$/, '').toLowerCase()); }
@@ -1101,6 +1101,13 @@ N.picKey = s => { let h = 5381; s = String(s || ''); for (let i = 0; i < s.lengt
 N.picIds = keys => (keys || []).filter(k => k.startsWith('as:pic:')).map(k => k.slice(7));
 N.picVals = (c, keys) => { const ids = N.picIds(keys); if (!ids.length) return c.portrait ? [c.portrait] : []; return N.npcPics(c).filter(p => ids.includes(N.picKey(p))); };
 N.picVal = (c, keys) => N.picVals(c, keys)[0] || null;
+/* PCs too (Jake, Nov 25): a PC's aliases and other pictures live GM-only in gm/misc as g.pcx[<card id>] = {al, pics},
+   never on game/chars (every player can read that). The owner gets their own copy in only/<seat> (g.pxMine).
+   N.withX(c) gives the card with them added, for Reveal, the GM's card and the owner's card. A PC has no Job alias */
+N.PCALF = N.ALF.filter(([f]) => f !== 'job');
+N.pcX = c => (c && c.player && ((N.G.pcx || {})[c.id] || (N.G.pxMine || {})[c.id])) || null;
+N.withX = c => { const x = N.pcX(c); return x ? {...c, al:x.al || {}, pics:x.pics || []} : c; };
+N.alClean = (al, fs) => Object.fromEntries((fs || N.ALF).map(([f]) => [f, ((al || {})[f] || []).map(a => ({id:a.id, v:String(a.v || '').trim()})).filter(a => a.v)]).filter(([, l]) => l.length));
 N.alVal = (c, keys, f) => { const id = N.asOf(keys, f); if (!id) return c[f]; const a = N.aliases(c, f).find(x => x.id === id); return a ? a.v : null; };
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
 N.revParts = (c, pc) => {
@@ -1125,11 +1132,11 @@ N.revParts = (c, pc) => {
 N.revKeys = (c, keys) => keys.flatMap(k => k === 'about' ? ['race', 'nat', 'age'] : k === 'cons' ? consSlots(c.skills || {}).map(sl => 'cn:' + sl.k) : k === 'gear' ? N.GEARK.map(g => 'g:' + g[0]) : [k]);
 /* what one player is told about a card: only the parts in keys, nothing at all without the name */
 N.revealed = (c, pc, keys0) => {
-  const keys = N.revKeys(c, keys0), has = k => keys.includes(k), val = f => pc ? c[f] : N.alVal(c, keys, f);
+  const keys = N.revKeys(c, keys0), has = k => keys.includes(k), val = f => N.alVal(c, keys, f);
   if (!has('name')) return null;
-  const nm = pc ? c.name || c.short || '' : val('name'); if (nm == null) return null;
+  const nm = val('name'); if (nm == null) return null;
   const r = {id:c.id, name:nm || c.short || ''};
-  if (has('pic')) { const ps = pc ? [c.portrait].filter(Boolean) : N.picVals(c, keys); if (ps[0]) r.portrait = ps[0]; if (ps.length > 1) r.pics = ps.slice(1); }
+  if (has('pic')) { const ps = N.picVals(c, keys); if (ps[0]) r.portrait = ps[0]; if (ps.length > 1) r.pics = ps.slice(1); }
   for (const f of ['race', 'nat', ...(pc ? [] : ['job']), 'age']) { const x = has(f) && val(f); if (x) r[f] = x; }
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
   const sk = N.revSkills(c).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;

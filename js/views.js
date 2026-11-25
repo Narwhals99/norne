@@ -1204,7 +1204,7 @@ function wikiFigs(ps, car, alt){
   const fig = x => `<figure class="wfig">${N.wikiImg(x.src, x.alt || x.cap || alt)}${x.cap ? `<figcaption>${N.emoText(N.marks(esc(x.cap)))}</figcaption>` : ''}</figure>`;
   if (!car || ps.length < 2) return `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(fig).join('')}</div>`;
   return `<div class="wcar">${car.l ? `<div class="wcar-l">${N.emoText(N.marks(esc(car.l)))}</div>` : ''}<div class="wcar-s">${ps.map(fig).join('')}</div>
-    <div class="wcar-n"><button type="button" class="ibtn sm" data-a="carGo" data-d="-1" aria-label="Previous picture" disabled>${IC('left')}</button><span class="wcar-d">${ps.map((x, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</span><span class="wcar-c">1 / ${ps.length}</span><button type="button" class="ibtn sm" data-a="carGo" data-d="1" aria-label="Next picture">${IC('right')}</button></div></div>`;
+    <div class="wcar-n"><button type="button" class="ibtn sm" data-a="carGo" data-d="-1" aria-label="Previous picture">${IC('left')}</button><span class="wcar-d">${ps.map((x, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</span><span class="wcar-c">1 / ${ps.length}</span><button type="button" class="ibtn sm" data-a="carGo" data-d="1" aria-label="Next picture">${IC('right')}</button></div></div>`;
 }
 function articleHtml(v, e){
   if (!e) return '';
@@ -1506,9 +1506,12 @@ N.sheetBody = function(v, c){
     <div class="quiet full"><div class="art"></div><p>${gm?'Name, age, aspects, skills, stunts and fate points. The player gets a note when it’s ready.':'It shows up here as soon as it’s ready.'}</p></div>`;
   const rungs = [8,7,6,5,4,3,2,1,-1].map(x => [x, Object.entries(c.skills).filter(([,y]) => y === x).map(([n]) => n)]).filter(r => r[1].length);
   const canRoll = gm, edit = mine || gm;
+  /* the GM and the character's own player see its aliases and other pictures (Jake, Nov 25); tap a picture to look at it */
+  const cx = gm || mine ? N.withX(c) : c, all = N.npcPics(cx), pi = Math.min(((v.ui.kPic || {})[c.id]) || 0, Math.max(all.length - 1, 0)), face = pi ? {...c, portrait:all[pi]} : c;
+  const strip = all.length > 1 ? `<div class="kpics" role="group" aria-label="Pictures of ${esc(c.name)}">${all.map((p, i) => `<button type="button" data-a="kPic" data-v="${esc(c.id)}" data-n="${i}" aria-pressed="${i === pi}" aria-label="${i ? 'Picture ' + (i + 1) : 'Main portrait'}">${N.av({name:c.name, portrait:p, color:c.color}, 40)}</button>`).join('')}</div>` : '';
   return `<section class="pc-hero full" style="${who}">
-      ${mine && !gm ? `<button type="button" class="facebtn" data-a="sheet" data-v="myFace" aria-label="Change my picture">${N.av(c,84)}<span class="badge">${IC('image')}</span></button>` : N.av(c,84)}
-      <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.nat?`${esc(c.nat)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${N.pcTag(c)?`<div class="hc">${N.emoText(N.linkText(N.pcTag(c)))}</div>`:''}</div>
+      ${mine && !gm ? `<button type="button" class="facebtn" data-a="sheet" data-v="myFace" aria-label="Change my picture">${N.av(face,84)}<span class="badge">${IC('image')}</span></button>` : N.av(face,84)}
+      <div style="min-width:0"><h2>${esc(c.name)}</h2><div class="by">${c.race?`${esc(c.race)} · `:''}${c.nat?`${esc(c.nat)} · `:''}${c.age?`Age ${esc(c.age)} · `:''}Played by ${esc(pn(c))}${mine?' · you':''}</div>${cx !== c ? N.alsLine(cx) : ''}${N.pcTag(c)?`<div class="hc">${N.emoText(N.linkText(N.pcTag(c)))}</div>`:''}${strip}</div>
       <div class="fp"><div class="res"><div><span class="eyebrow">Fate points · refresh ${c.refresh}</span><div class="coins">${coinsHtml(c, gm)}</div></div>${goldHtml(c, 'c', gm)}${gm ? N.xferBtn('c', c.id) : ''}</div>${gm?`<div class="gmbar"><button type="button" class="btn sm" data-a="pcEdit" data-v="${c.id}">${IC('pen')}Edit card</button>${revBtn(c.id)}<button type="button" class="btn sm" data-a="pcToNpc" data-v="${c.id}" title="Make a new NPC card from this sheet">${IC('npc')}Copy as NPC</button><button type="button" class="btn sm danger" data-a="sheet" data-v="pcDel" data-c="${c.id}">${IC('trash')}Delete</button></div>`:''}</div>
     </section>
     ${c.lvl && ((mine && !gm) || (gm && v.ui.tab === 'cast')) ? (() => { const lv = c.lvl, left = lv.pts - N.lvlSpent(lv), sent = lv.st === 'sent';
@@ -1667,7 +1670,7 @@ function castPage(v){
 }
 N.knownBody = knownBody; N.heroQuick = heroQuick; N.gmScreen = gmScreen; N.picShelf = picShelf; N.paneBody = paneBody; N.paneOpts = paneOpts; N.chatView = chatView; N.meBtn = meBtn; N.worldPage = worldPage;
 N.npcBody = (v, n) => npcBody(v, n);
-/* the GM's reminder of an NPC's aliases, under their name (GM only: players never get n.al) */
+/* the GM's reminder of an NPC's aliases, under their name (GM only: players never get n.al). A PC's own player sees theirs too */
 N.alsLine = n => { const l = N.ALF.map(([f, lb]) => [lb, N.aliases(n, f).map(a => a.v)]).filter(([, x]) => x.length);
   return l.length ? `<div class="alsline">${IC('mask')} Aliases · ${l.map(([lb, x]) => `${lb}: ${x.map(esc).join(', ')}`).join(' · ')}</div>` : ''; };
 function npcBody(v, n){
