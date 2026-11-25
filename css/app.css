@@ -854,6 +854,8 @@
 .app .pincard .row{display:flex;gap:8px;flex-wrap:wrap}
 .app .mapedit{grid-row:4;justify-self:center;align-self:end;display:flex;gap:4px;padding:5px;border-radius:999px}
 .app .mapedit .btn{--h:38px}
+.app .mapedit{max-width:calc(100% - 16px);overflow-x:auto;scrollbar-width:none}
+.app .mapedit::-webkit-scrollbar{display:none}
 
 /* ---------- world ---------- */
 .app .world{display:grid;min-height:0;height:100%}
@@ -1423,6 +1425,15 @@
 .app .paper .pfig .wfr{display:block;max-width:100%;width:min(100%,420px);aspect-ratio:var(--r);overflow:hidden;box-shadow:0 0 0 1px #2b2416}
 .app .paper .pfig .wfr img{width:100%;height:100%;max-height:none;object-fit:cover;box-shadow:none}
 .app .paper .pfig figcaption{font:italic 400 13px/1.3 var(--f-paper);color:#4a3f2a;text-align:center}
+/* newer editions: International / National / Local news sections (Jake) */
+.app .paper .psec{clear:both;margin-top:16px}
+.app .paper .psech{display:flex;align-items:center;gap:10px;margin:0;font:400 15px/1 var(--f-paper);text-transform:uppercase;letter-spacing:.18em;text-align:center}
+.app .paper .psech::before,.app .paper .psech::after{content:"";flex:1;border-top:3px double #2b2416}
+.app .paper .psec .pstories{margin-top:8px;padding-top:0;border-top:0}
+.app .ndsec{display:grid;gap:10px;padding:12px;border-radius:16px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .ndsec-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.app .ndsec-h h3{margin:0;font:600 16px/1.2 var(--f-display)}
+.app .ndsec-h small{color:var(--ink-3);font:600 12px/1.2 var(--f-ui)}
 .app .ndst{display:grid;gap:8px;padding:10px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line)}
 
 /* scene picker: free-invoke dots and remove on aspect cards */
@@ -1478,6 +1489,13 @@
 .app .shelf{display:grid;grid-template-rows:auto 1fr auto;min-height:0;gap:6px}
 .app .shh{display:flex;align-items:center;gap:9px;padding:6px 8px 6px 10px}
 .app .shh .st{width:14px;height:14px;color:var(--gold-tx);flex:none;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--gold) 55%,transparent))}
+.app .shf{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 8px}
+.app .shfb{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 10px 0 6px;border-radius:999px;border:0;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-3);font:700 12.5px/1 var(--f-ui);cursor:pointer}
+.app .shfb .ck{width:18px;height:18px;border-radius:6px;display:grid;place-items:center;box-shadow:inset 0 0 0 1.5px var(--line-3);color:transparent}
+.app .shfb .ck svg{width:12px;height:12px}
+.app .shfb[aria-checked="true"]{color:var(--ink-1)}
+.app .shfb[aria-checked="true"] .ck{background:var(--accent);box-shadow:none;color:#fff}
+.app .shelf.mini .shf{display:none}
 .app .shh h2{flex:1;margin:0;font:600 13px/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--ink-2)}
 .app .shl{display:grid;gap:14px;align-content:start;min-height:0;padding:2px 0 8px}
 .app .shg{display:grid;gap:2px}
@@ -3437,8 +3455,54 @@
 .chatpair>.pcol:not(.on){opacity:.78}
 .chatpair>.pcol:not(.on):hover{opacity:.92}
 .chatpair>.pcol.on{box-shadow:0 0 0 2px var(--gold-tx,var(--gold))}
+/* each column is narrow, so it lays itself out for its own width (Jake: the two chats were crowded and overlapping) */
+.chatpair>.pcol{container:pcol / inline-size}
+@container pcol (max-width: 620px){
+  .app .top.dt{padding:12px 12px 4px;gap:2px}
+  .app .top.dt h1{font-size:21px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .app .top.dt .sub{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+  .app .top.dt .btn.sm{font-size:0;gap:0;padding:0 9px}
+  .app .top.dt .btn.sm svg{margin:0}
+  .app .top.dt .ibtn{width:34px;height:34px}
+  .app .scene .in{padding:10px 12px 12px}
+  .app .scene h2{font-size:22px}
+  .app .scene .ctl{position:static;order:-1;justify-content:flex-end;padding:8px 8px 0;flex-wrap:wrap}
+  .app .scene:not(.empty){display:flex;flex-direction:column}
+  .app .composer{padding:6px 10px 12px}
+  .app .composer .box{flex-wrap:wrap;border-radius:20px}
+  .app .composer textarea{flex:1 0 100%;order:-1;width:auto;padding:9px 10px 6px}
+  .app .composer .voice{margin-right:auto;max-width:60%}
+  .app .composer .nlhint{display:none}
+}
 .split-list{display:flex;flex-direction:column;gap:6px}
 .split-list .opt{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:12px;border:0;background:var(--sunk);color:var(--ink-1);text-align:left;cursor:pointer;font:600 14px/1.3 var(--f-ui)}
 .split-list .opt span{display:flex;flex-direction:column;min-width:0}
 .split-list .opt small{color:var(--ink-3);font-weight:600}
 .split-list .opt:hover{background:var(--panel-2)}
+
+/* wiki carousels (Jake): one picture at a time, the set's label over it and each caption as its sublabel */
+.app .wcar{display:grid;gap:6px;margin:4px 0 14px}
+.app .wcar-l{font:600 13px/1.2 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--gold-tx)}
+.app .wcar-s{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;border-radius:14px;overscroll-behavior-x:contain}
+.app .wcar-s::-webkit-scrollbar{display:none}
+.app .wcar-s>.wfig{flex:0 0 100%;scroll-snap-align:center;margin:0;display:grid;justify-items:center;align-content:start;gap:6px}
+.app .wcar-s>.wfig img{max-height:340px;width:auto;max-width:100%;object-fit:contain;border-radius:12px}
+.app .wcar-n{display:flex;align-items:center;justify-content:center;gap:10px}
+.app .wcar-d{display:flex;gap:6px}
+.app .wcar-d i{width:7px;height:7px;border-radius:50%;background:var(--line-3);transition:background .2s,transform .2s}
+.app .wcar-d i.on{background:var(--gold-tx);transform:scale(1.25)}
+.app .wcar-c{font:600 12px/1 var(--f-ui);color:var(--ink-3);min-width:38px;text-align:center}
+.app .wcared{display:grid;gap:8px;margin-top:4px}
+/* a wiki or newspaper picture seen big: click it (computer) or press and hold it (phone) */
+.app .article .wfig img,.app .paper .pfig img{cursor:zoom-in;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.app .picbox{position:fixed;inset:0;z-index:90;display:grid;place-items:center;padding:56px 16px 64px;background:rgba(4,5,14,.9);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:pbIn .16s ease-out}
+@keyframes pbIn{from{opacity:0}}
+.app .picbox figure{margin:0;display:grid;gap:10px;justify-items:center;max-width:100%;max-height:100%}
+.app .picbox img{max-width:min(100%,1400px);max-height:calc(100dvh - 160px);object-fit:contain;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.app .picbox figcaption{color:#f1ecdf;font:500 15px/1.4 var(--f-ui);text-align:center;max-width:640px}
+.app .picbox figcaption small{display:block;margin-bottom:2px;font:600 11.5px/1.2 var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:#e8c77a}
+.app .picbox .ibtn{position:absolute;color:#fff;background:rgba(255,255,255,.12)}
+.app .picbox .pbx{top:max(14px,var(--safe-t,0px));right:14px}
+.app .picbox .pbp{left:14px;top:50%}
+.app .picbox .pbn{right:14px;top:50%}
+.app .picbox .pbc{position:absolute;bottom:22px;left:0;right:0;text-align:center;color:#cfc9bb;font:600 13px/1 var(--f-ui)}

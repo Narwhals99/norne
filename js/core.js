@@ -317,6 +317,8 @@ N.bgPic = src => { const u = N.show(N.imgUrl(src)); if (!u) return ''; const f =
   return `<i class="pic" style="background-image:url(${esc(u)})${f ? `;background-position:${f.x}% ${f.y}%` + frameRule(f) : ''}"></i>`; };
 /* a wiki picture: shown whole, or through its frame in the shape picked for it */
 /* every picture in a news issue: the one over the lead, then one per story */
+/* the sections of a newer news edition, in the order they are printed (Jake) */
+N.NSECS = [['intl', 'International news'], ['nat', 'National news'], ['loc', 'Local news']];
 N.newsPics = i => [i.limg, ...(i.stories || []).map(st => st.img)].filter(Boolean);
 N.wikiImg = (src, alt='') => { const u = esc(N.show(N.imgUrl(src))), f = N.picFrame(src);
   return f && f.r ? `<span class="wfr" style="--r:${f.r}"><img src="${u}" alt="${esc(alt)}" loading="lazy" style="${N.frameCss(src)}"></span>` : `<img src="${u}" alt="${esc(alt)}" loading="lazy">`; };

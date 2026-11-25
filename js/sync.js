@@ -521,7 +521,7 @@ function syncNow(){
       }
       writeUnits('gm/wiki', asUnits(g.wiki));
       /* sections for everybody go out with the entry; GM-only sections never leave the GM (o = the section's place in the entry) */
-      const partPub = (p, o) => ({id:p.id, h:p.h || '', text:p.text || '', o, ...(p.imgs?.length ? {imgs:p.imgs} : {})});
+      const partPub = (p, o) => ({id:p.id, h:p.h || '', text:p.text || '', o, ...(p.imgs?.length ? {imgs:p.imgs} : {}), ...(p.car ? {car:p.car} : {})});
       writeUnits('game/wiki', asUnits(g.wiki, (e,i) => { const {secret, parts, ...pub} = e, all = (parts || []).map((p, o) => N.partTo(p) === 'all' ? partPub(p, o) : null).filter(Boolean);
         return share(e, 'wiki', 'w:' + e.id, N.linkScrub({...pub, ...(all.length ? {parts:all} : {}), o:i}, pubLink)); }));
       /* sections of an entry for some players only: each of them gets just the sections picked for them, in their own only/<seat> */

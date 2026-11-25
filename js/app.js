@@ -580,6 +580,38 @@ function bind(v){
     v.root.appendChild(el); pk.el = el; pk.av = a;
   };
   N.peekHide = () => peekHide();
+  /* Jake: wiki (and newspaper) pictures seen big. Computer: click one. Phone: press and hold it (a plain tap still scrolls).
+     It fills the screen over everything (data-keep, so redraws leave it); arrows step through the pictures beside it */
+  const BIGP = '.article .wfig img, .paper .pfig img';
+  let bx = null;
+  const bigHide = () => { if (!bx) return; bx.el.remove(); bx = null; };
+  const bigShow = img => {
+    bigHide();
+    const set = [...(img.closest('.wcar-s, .wfigs, .paper') || img.parentElement).querySelectorAll('.wfig img, .pfig img')], el = document.createElement('div');
+    el.className = 'picbox'; el.setAttribute('data-keep', ''); el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Picture');
+    const lab = img.closest('.wcar')?.querySelector('.wcar-l')?.textContent || '';
+    const draw = i => { const im = set[i], cap = im.closest('figure')?.querySelector('figcaption')?.innerHTML || '';
+      el.innerHTML = `<button type="button" class="ibtn pbx" aria-label="Close">${IC('x')}</button><figure><img src="${N.esc(im.currentSrc || im.src)}" alt="${N.esc(im.alt || '')}">${lab || cap ? `<figcaption>${lab ? `<small>${N.esc(lab)}</small>` : ''}${cap}</figcaption>` : ''}</figure>${set.length > 1 ? `<button type="button" class="ibtn pbp" aria-label="Previous picture">${IC('left')}</button><button type="button" class="ibtn pbn" aria-label="Next picture">${IC('right')}</button><span class="pbc">${i + 1} / ${set.length}</span>` : ''}`;
+      bx.i = i; };
+    bx = {el, i:0, t:Date.now()}; draw(Math.max(0, set.indexOf(img)));
+    el.addEventListener('click', e => { e.stopPropagation(); if (Date.now() - bx.t < 450) return;
+      if (e.target.closest('.pbp')) return draw((bx.i + set.length - 1) % set.length); if (e.target.closest('.pbn')) return draw((bx.i + 1) % set.length);
+      if (!e.target.closest('img')) bigHide(); });
+    v.root.appendChild(el);
+  };
+  N.bigHide = bigHide;
+  let bh = null;
+  root.addEventListener('touchstart', e => { clearTimeout(bh?.tm); bh = null; const im = e.touches.length === 1 && e.target.closest?.(BIGP); if (!im) return;
+    const t = e.touches[0]; bh = {x:t.clientX, y:t.clientY, tm:setTimeout(() => { bh = null; bigShow(im); try { navigator.vibrate?.(8); } catch(err) {} }, 380)}; }, {passive:true});
+  root.addEventListener('touchmove', e => { if (!bh) return; const t = e.touches[0]; if (Math.hypot(t.clientX - bh.x, t.clientY - bh.y) > 8) { clearTimeout(bh.tm); bh = null; } }, {passive:true});
+  root.addEventListener('touchend', () => { if (bh) { clearTimeout(bh.tm); bh = null; } }, {passive:true});
+  root.addEventListener('contextmenu', e => { if (e.target.closest?.(BIGP) && TOUCH.matches) e.preventDefault(); });
+  root.addEventListener('click', e => { if (TOUCH.matches || Date.now() - pkTouch < 700) return; const im = e.target.closest?.(BIGP); if (im && !e.target.closest('a,button')) bigShow(im); });
+  addEventListener('keydown', e => { if (e.key === 'Escape') bigHide(); });
+  /* a carousel's dots and count follow its scrolling */
+  root.addEventListener('scroll', e => { const s = e.target; if (!s.classList?.contains('wcar-s')) return; const n = s.children.length, i = Math.max(0, Math.min(n - 1, Math.round(s.scrollLeft / Math.max(1, s.clientWidth)))), c = s.closest('.wcar');
+    c.querySelectorAll('.wcar-d i').forEach((d, k) => d.classList.toggle('on', k === i)); const cc = c.querySelector('.wcar-c'); if (cc) cc.textContent = `${i + 1} / ${n}`;
+    const [a, b] = c.querySelectorAll('[data-a="carGo"]'); if (a) a.disabled = i === 0; if (b) b.disabled = i === n - 1; }, true);
   root.addEventListener('touchstart', e => {
     if (pk?.stay && e.target.closest?.('.avpeek')) return;
     peekHide(); pkTouch = Date.now();
@@ -1075,7 +1107,7 @@ function input(v, el, ev){
       if (k === 'asp') d.aspects[n] = val; else if (k === 'stn') d.stunts[n][0] = val; else if (k === 'std') d.stunts[n][1] = val; else d[k] = val;
       if (k === 'name') render(v); return;
     }
-    case 'wd': if (k === 'cap') { v.ui.wd.imgs[+el.dataset.n].cap = val; return; } if (k === 'ph' || k === 'pt') { v.ui.wd.parts[+el.dataset.n][k === 'ph' ? 'h' : 'text'] = val; return; } if (k === 'pcap') { const x = v.ui.wd.parts[+el.dataset.n]?.imgs?.[+el.dataset.x]; if (x) x.cap = val; return; } v.ui.wd[k] = val; if (k === 'title') render(v); return;
+    case 'wd': if (k === 'carl') { const n = +el.dataset.n, o = n < 0 ? v.ui.wd : v.ui.wd.parts[n]; if (o?.car) o.car.l = val; return; } if (k === 'cap') { v.ui.wd.imgs[+el.dataset.n].cap = val; return; } if (k === 'ph' || k === 'pt') { v.ui.wd.parts[+el.dataset.n][k === 'ph' ? 'h' : 'text'] = val; return; } if (k === 'pcap') { const x = v.ui.wd.parts[+el.dataset.n]?.imgs?.[+el.dataset.x]; if (x) x.cap = val; return; } v.ui.wd[k] = val; if (k === 'title') render(v); return;
     case 'cd': v.ui.cd[+el.dataset.n].name = val; return;
     case 'mapName': { const m = G().maps.find(x => x.id === el.dataset.v); if (m) m.name = val; return; }
     case 'mapLvl': { const m = G().maps.find(x => x.id === el.dataset.v); if (!m) return; m.lvl = val; N.renderAll(); return; }
@@ -1144,6 +1176,29 @@ function placeOf(v, mark){
 /* $$Wind knocked out, Xira$$ (Jake): a situation aspect for the scene. After the last ", " the name of someone in the scene
    (a player character, an NPC in the cast or a one-off) puts it on them; the line shows it as "Wind knocked out" */
 const ASP_RE = /\$\$([^$\n]+)\$\$/g;
+/* ^^Item, Character^^ (Jake): who gets it is the name after the last comma: a player character (full or short name) or an NPC card */
+const ITEM_RE = /\^\^([^\^\n]+)\^\^/g;
+function itemMarks(text){
+  const g = G(), low = x => String(x || '').trim().toLowerCase();
+  return [...text.matchAll(ITEM_RE)].map(x => { const raw = x[1].trim().replace(/\s+/g, ' '), i = raw.lastIndexOf(','); if (i <= 0) return {name:'', who:null};
+    const name = raw.slice(0, i).trim(), to = raw.slice(i + 1).trim();
+    const pc = Object.values(g.chars).find(c => c.built && (low(c.short) === low(to) || low(c.name) === low(to))), npc = !pc && g.npcs.find(n => low(n.name) === low(to));
+    return {name, to, who:pc || npc ? {o:pc || npc, pc:!!pc} : null}; });
+}
+/* put one of an item in o's inventory (who = {o, pc}): the catalog item of that name, or a new plain one. A player gets a note */
+N.giveItem = (who, name, ch) => {
+  const g = G(), o = who.o, it = (g.items || []).find(x => N.pvKey(x.name) === N.pvKey(name)), label = who.pc ? o.short || o.name : o.name;
+  if (!o.inv) o.inv = [];
+  const nm = it ? it.name : name[0].toUpperCase() + name.slice(1), ex = o.inv.find(x => Array.isArray(x) && N.pvKey(x[0]) === N.pvKey(nm));
+  let row = ex;
+  if (it) { const note = N.invNote(it), ic = it.ic || N.itemKind(it.kind)[2];
+    if (ex) { ex[1] = (+ex[1] || 0) + 1; if (note) ex[2] = note; if (ic !== 'bag') ex[3] = ic; } else { row = ic !== 'bag' ? [nm, 1, note, ic] : [nm, 1, note]; o.inv.push(row); }
+    N.invSetX(row, {it:it.id, cl:N.itemClass(it), ...(N.itemSlot(it) ? {w:1} : {}), ...(it.ammo && N.invX(row).am == null ? {am:N.AMMO_MAX} : {})}); }
+  else if (ex) ex[1] = (+ex[1] || 0) + 1; else o.inv.push([nm, 1, '']);
+  /* a player hears about it in their chat with the GM (unless the line itself was there): it's in their inventory now */
+  if (who.pc && ch !== 'dm-' + o.player) sys(`${label} got ${nm}. It’s in the inventory.`, 'dm-' + o.player);
+  return {item:nm, to:label};
+};
 function aspMarks(text, ch, cast, extras){
   const who = [...N.chPcs(ch).flatMap(c => [[c.short || c.name, c.short || c.name], [c.name, c.short || c.name]]), ...(cast || []).map(n => [n, n]), ...(extras || []).map(x => [x.name, x.name])].filter(([n]) => n);
   return [...text.matchAll(ASP_RE)].map(x => { const raw = x[1].trim().replace(/\s+/g, ' '), i = raw.lastIndexOf(', ');
@@ -1202,6 +1257,14 @@ function send(v, opt = {}){
     text = text.replace(/<<([^<>]+)>>/g, (x, w, at, all) => { w = w.trim().replace(/\s+/g, ' '); const start = !all.slice(0, at).trim() || /[.!?:"“]\s*$/.test(all.slice(0, at));
       const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && !N.properWord(words[0], w) && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
   }
+  /* Jake: ^^sapphire throne, Egrot^^ in a Narrator line gives that character the item. The line reads "sapphire throne";
+     the catalog item of that name goes in their inventory (a new plain item, first letter capitalised, when the catalog has none) */
+  let gifts = [];
+  if (narr && /\^\^[^\^\n]+\^\^/.test(text)) {
+    gifts = itemMarks(text);
+    const bad = gifts.find(x => !x.who); if (bad) { toast(v, bad.name ? `No character called “${bad.to}”. Write ^^${bad.name}, Name^^ with the name of a character or NPC.` : 'Write ^^Item, Name^^: the item, a comma, then who gets it.'); render(v); return; }
+    text = text.replace(ITEM_RE, (x, w) => { const i = w.lastIndexOf(','); return (i > 0 ? w.slice(0, i) : w).trim().replace(/\s+/g, ' '); });
+  }
   /* the GM's narrator can move the scene: {{Little Eundir, Prince City}} reads "Little Eundir" and the scene's map location goes there */
   let move = null;
   if (gm && m.kind === 'rp' && m.as === 'Narrator' && /\{\{[^{}]+\}\}/.test(text)) {
@@ -1238,6 +1301,7 @@ function send(v, opt = {}){
       const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && !N.properWord(words[0], w) && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
   }
   push(Object.assign(m, {ch, by:v.role, text}));
+  if (gifts.length) { const got = gifts.map(x => N.giveItem(x.who, x.name, ch)); toast(v, got.map(x => `${x.item} to ${x.to}`).join(', ').replace(/^/, 'Gave ') + '.'); }
   if (move) sceneMove(v, ch, move);
   if (where) sceneWhere(v, ch, where);
   if (asps.length) sceneAsp(v, ch, asps);
@@ -1875,7 +1939,7 @@ function act(v, a, el, e){
   const g = G(), ui = v.ui, d = el.dataset, val = d.v, cb = g.combat, gm = isGM(v);
   const close = () => { ui.sheet = null; ui.pop = null; };
   /* anything tapped in the phone's chat drawer closes it */
-  if (ui.shelf && a !== 'shelf') ui.shelf = false;
+  if (ui.shelf && a !== 'shelf' && a !== 'shFilt') ui.shelf = false;
   switch (a) {
   /* account */
   case 'signIn': N.signIn(); return;
@@ -1949,7 +2013,8 @@ function act(v, a, el, e){
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
   case 'mode': if (val === 'cb') { ui.fightOpen = true; ui.fightPane = 'fight'; } else { ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; ui.stick = true; } break;
   case 'railFold': ui[d.v] = !ui[d.v]; try { localStorage.setItem('norne-' + d.v.toLowerCase(), ui[d.v] ? '1' : '0'); } catch(e) {} break;
-  case 'shelfDt': ui.shelfOff = !ui.shelfOff; try { localStorage.setItem('norne-shelfoff', ui.shelfOff ? '1' : '0'); } catch(e) {} break;
+  case 'shFilt': { const off = N.shHide(); off.has(val) ? off.delete(val) : off.add(val); try { localStorage.setItem('norne-shf', JSON.stringify([...off])); } catch(e) {} break; }
+  case 'shelfDt': ui.shelfOff = !ui.shelfOff; ui.shelfSplit = false; try { localStorage.setItem('norne-shelfoff', ui.shelfOff ? '1' : '0'); } catch(e) {} break;
   case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   /* desktop side panels: show another page in the top (0) or bottom (1) panel; the page the other panel shows swaps over.
      Remembered on this device, roleplay and combat each their own */
@@ -2078,10 +2143,14 @@ function act(v, a, el, e){
   }
   /* a published issue opens in the same form; saving changes it in place */
   case 'newsEditIssue': { const i = g.news.issues.find(x => x.id === val); if (!gm || !i) break; close(); ui.tab = 'news';
-    ui.newsEdit = Object.assign(blankIssue(), JSON.parse(JSON.stringify({paper:i.paper || '', no:String(i.no || ''), date:i.date || '', price:i.price || '', headline:i.headline || '', sub:i.sub || '', lead:i.lead || '', limg:i.limg || '', lcap:i.lcap || '',
-      stories:(i.stories || []).map(st => ({title:st.title || '', body:st.body || '', img:st.img || '', cap:st.cap || ''})), notices:(i.notices || []).join('\n')})), {edit:i.id});
+    ui.newsEdit = Object.assign(blankIssue(), JSON.parse(JSON.stringify({paper:i.paper || '', no:String(i.no || ''), date:i.date || '', price:i.price || '', headline:i.headline || '', sub:i.sub || '', lead:i.lead || '', limg:i.limg || '', lcap:i.lcap || '', secs:!!i.secs,
+      stories:(i.stories || []).map(st => ({title:st.title || '', body:st.body || '', img:st.img || '', cap:st.cap || '', ...(i.secs ? {sec:N.NSECS.some(x => x[0] === st.sec) ? st.sec : 'loc'} : {})})), notices:(i.notices || []).join('\n')})), {edit:i.id});
     const r = v.root.querySelector('[data-sk="nr"]'); if (r) r.scrollTop = 0; break; }
-  case 'ndStoryAdd': ui.newsEdit.stories.push({title:'', body:'', img:'', cap:''}); break;
+  case 'ndStoryAdd': { const ne = ui.newsEdit, st = {title:'', body:'', img:'', cap:''};
+    /* Jake: new editions put their articles in International, National or Local news; the article joins the end of its section */
+    if (ne.secs) { st.sec = N.NSECS.some(x => x[0] === d.s) ? d.s : 'loc'; let at = -1; ne.stories.forEach((x, i) => { if (x.sec === st.sec) at = i; });
+      if (at < 0) ne.stories.push(st); else ne.stories.splice(at + 1, 0, st); } else ne.stories.push(st);
+    break; }
   case 'ndStoryDel': { const [st] = ui.newsEdit.stories.splice(+d.n, 1); if (st?.img) dropDraftPic(ui.newsEdit, st.img); break; }
   /* pictures start as GM only; publishing shares them with whoever can read the issue */
   case 'ndImgAdd': { const n = +d.n; pickFramed(v, 'wiki', (img, f) => { const ne = ui.newsEdit; if (!ne) return; const src = N.withFrame(N.storeImg(N.shrink(img, 1400, 600000), false), f);
@@ -2486,7 +2555,19 @@ function act(v, a, el, e){
   case 'wEdit': openSheet(v, 'wEdit', {v:val}); break;
   case 'wdAud': N.audSet(ui.wd, 'wiki', val); break;
   /* sections only some players read */
+  /* Jake: lore documents for just this entry. Their text comes in as GM-only sections, one per heading in the file */
+  case 'wdImport': {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true; inp.accept = '.docx,.txt,.md,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    inp.onchange = async () => { const fs = [...(inp.files || [])]; if (!fs.length || !ui.wd) return; let n = 0; const bad = [];
+      for (const f of fs) { try { const secs = await N.readDoc(f), base = f.name.replace(/\.[^.]+$/, '');
+          for (const x of secs) { ui.wd.parts.push({id:uid('s'), h:x.h || base, text:x.text, to:'gm', see:[], imgs:[]}); n++; } } catch(err) { console.error(err); bad.push(f.name); } }
+      toast(v, `${n ? `Added ${n} section${n === 1 ? '' : 's'} as GM only. Check them, then Save.` : 'Nothing to add.'}${bad.length ? ` Couldn’t read ${bad.join(', ')}.` : ''}`); render(v); };
+    inp.click(); return;
+  }
   case 'wdPartAdd': ui.wd.parts.push({id:uid('s'), h:'', text:'', to:'all', see:[], imgs:[]}); break;
+  /* Jake: a set of pictures shown as a carousel, one at a time, with a label over all of them; each picture's caption is its sublabel */
+  case 'wdCar': { const n = +d.n, o = n < 0 ? ui.wd : ui.wd.parts[n]; if (o) o.car = o.car ? null : {l:''}; break; }
+  case 'carGo': { const s = el.closest('.wcar')?.querySelector('.wcar-s'); if (s) s.scrollBy({left:(+d.d || 1) * s.clientWidth, behavior:'smooth'}); return; }
   case 'wdPartTo': { const p = ui.wd.parts[+d.n]; if (p && ['all','some','gm'].includes(val)) p.to = val; break; }
   case 'wdPartUp': { const i = +d.n, ps = ui.wd.parts; if (i > 0 && ps[i]) [ps[i - 1], ps[i]] = [ps[i], ps[i - 1]]; break; }
   case 'wdPartImgAdd': { const n = +d.n; pickFramed(v, 'wiki', (img, f) => { const p = ui.wd?.parts[n]; if (!p) return; (p.imgs = p.imgs || []).push({src:N.withFrame(N.storeImg(N.shrink(img, 1400, 600000), false), f), cap:''}); render(v); }); return; }
@@ -2541,9 +2622,10 @@ function act(v, a, el, e){
     /* the old GM notes now live as a GM-only section (sec:1), so the entry's secret goes; a section with only pictures stays */
     const parts = (w.parts || []).map(p => { const o = {id:p.id, h:(p.h || '').trim(), text:(p.text || '').trim(), to:p.to || 'all'};
       if (o.to === 'some') o.see = [...(p.see || [])]; if (p.sec) o.sec = 1;
-      const im = (p.imgs || []).map(x => { const y = {src:x.src}; if (x.cap?.trim()) y.cap = x.cap.trim(); return y; }); if (im.length) o.imgs = im; return o; }).filter(p => p.h || p.text || p.imgs);
+      const im = (p.imgs || []).map(x => { const y = {src:x.src}; if (x.cap?.trim()) y.cap = x.cap.trim(); return y; }); if (im.length) o.imgs = im; if (p.car && im.length > 1) o.car = {l:(p.car.l || '').trim()}; return o; }).filter(p => p.h || p.text || p.imgs);
     if (parts.length) en.parts = parts;
     en.imgs = w.imgs.map(p => { const o = {src:p.src}; if (p.alt) o.alt = p.alt; if (p.cap?.trim()) o.cap = p.cap.trim(); return o; });
+    if (w.car && en.imgs.length > 1) en.car = {l:(w.car.l || '').trim()};
     if (old) for (const p of N.wikiAllPics(old)) if (!N.wikiAllPics(en).some(x => samePic(x.src, p.src))) N.dropImg(p.src);
     const i = g.wiki.findIndex(x => x.id === en.id); if (i >= 0) g.wiki[i] = en; else g.wiki.push(en);
     ui.sheet = null; ui.tab = 'world'; ui.wikiSel = en.id; ui.wikiCat = en.cat; const aud = N.audOf(en, 'wiki'); toast(v, aud === 'gm' ? 'Saved. Only you can see it.' : aud === '*' ? 'Saved. Players can read it.' : `Saved. ${N.audLabel(en, 'wiki')} can read it.`); renderAll(); return;
@@ -2584,9 +2666,11 @@ function act(v, a, el, e){
   case 'split2': ui.pop = null; ui.sheet = 'split2'; break;
   case 'split2Go': { if (!N.channelsFor(v.role).includes(val) || val === ui.ch) break; ui.sheet = null;
     /* the new chat opens on the right; the one you were in stays on the left and stays active */
-    ui.s2 = splitNew(val); ui.side = 'L'; break; }
+    ui.s2 = splitNew(val); ui.side = 'L';
+    /* Jake: two chats were crowded. The chat list folds away while both are open (only on this screen, not saved) and comes back on close */
+    if (!ui.shelfOff) { ui.shelfOff = true; ui.shelfSplit = true; } break; }
   /* close the column the button is in (a press there already made it the active one): the other chat is left */
-  case 'split2Off': if (ui.s2) { N.splitSwap(v); ui.s2 = null; ui.side = 'L'; } break;
+  case 'split2Off': if (ui.s2) { N.splitSwap(v); ui.s2 = null; ui.side = 'L'; if (ui.shelfSplit) { ui.shelfOff = false; ui.shelfSplit = false; } } break;
   case 'kPic': ui.kPic = {...(ui.kPic || {}), [val]:+d.n || 0}; break;
   case 'castSeg': ui.castSeg = val; ui.castSel = null; break;
   case 'castSel': ui.castSel = val; ui.heroStats = null; ui.statEd = false; break;
@@ -2819,6 +2903,9 @@ function act(v, a, el, e){
   /* export */
   case 'expCh': { const s = ui.exp.ch; s.has(val) ? s.delete(val) : s.add(val); break; }
   case 'expKind': ui.exp[val] = !ui.exp[val]; break;
+  case 'expWhat': ui.exp.what = val; break;
+  case 'expCat': { const s = ui.exp.cats; s.has(val) ? s.delete(val) : s.add(val); break; }
+  case 'expPaper': { const s = ui.exp.papers; s.has(val) ? s.delete(val) : s.add(val); break; }
   case 'expWhen': {
     const ex = ui.exp, now = Date.now(); ex.when = val; ex.to = '';
     if (val === 'all') ex.from = '';
@@ -2843,7 +2930,7 @@ function act(v, a, el, e){
     const t = v.root.querySelector('#exOut'); if (!t) return;
     const dt = new Date(), p = n => String(n).padStart(2, '0');
     const js = !!ui.exp.json, url = URL.createObjectURL(new Blob([t.value], {type:js ? 'application/json' : 'text/markdown'})), aEl = document.createElement('a');
-    aEl.href = url; aEl.download = `norne-log-${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}.${js ? 'json' : 'md'}`; document.body.appendChild(aEl); aEl.click(); aEl.remove();
+    aEl.href = url; aEl.download = `norne-${{wiki:'wiki', news:'newspapers'}[ui.exp.what] || 'log'}-${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}.${js ? 'json' : 'md'}`; document.body.appendChild(aEl); aEl.click(); aEl.remove();
     setTimeout(() => URL.revokeObjectURL(url), 2000); return;
   }
   /* roll sheet */
@@ -3311,12 +3398,13 @@ function openSheet(v, s, d={}){
   }
   if (s === 'wEdit') {
     const e = d.v && g.wiki.find(x => x.id === d.v);
-    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), gm:!!e.gm, see:[...(e.see || [])], imgs:N.wikiPics(e).map(p => ({...p})), parts:N.wikiParts(e).map(p => ({...p, id:p.id === 'sec' ? uid('s') : p.id, to:N.partTo(p), see:[...(p.see || [])], imgs:(p.imgs || []).map(x => ({...x}))}))}
+    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), gm:!!e.gm, see:[...(e.see || [])], imgs:N.wikiPics(e).map(p => ({...p})), car:e.car ? {...e.car} : null, parts:N.wikiParts(e).map(p => ({...p, id:p.id === 'sec' ? uid('s') : p.id, to:N.partTo(p), see:[...(p.see || [])], imgs:(p.imgs || []).map(x => ({...x}))}))}
               : {id:null, title:'', cat:ui.wikiCat || (N.cats().find(c => c.name === 'People') || N.cats()[0] || {name:'People'}).name, summary:'', info:'', body:'', gm:false, imgs:[], parts:[]};
   }
   if (s === 'wCats') { ui.cd = N.catNames(g.wiki).map(name => ({from:name, name, ic:N.catIcon(name)})); ui.cdIc = null; }
   if (s === 'wipe') ui.wipe = {ch:null, step:1, ok:false, typed:''};
-  if (s === 'export') ui.exp = {ch:new Set(N.channelsFor('gm').filter(c => c !== 'gm')), rp:true, roll:true, meta:false, when:'all', from:'', to:''};
+  if (s === 'export') ui.exp = {ch:new Set(N.channelsFor('gm').filter(c => c !== 'gm')), rp:true, roll:true, meta:false, when:'all', from:'', to:'',
+    what:'log', cats:new Set(N.cats().map(c => c.name)), wgm:true, papers:new Set(N.papers().map(p => p.name))};
 }
 N.openSheet = openSheet;
 /* the typed name has to match the chat's name exactly (any capitals) before a wipe is allowed */
@@ -3631,12 +3719,15 @@ function newsTab(v){
 }
 /* the next issue of a paper: its name, number and price carried over */
 const nextIssue = p => { const last = p.issues[p.issues.length - 1]; return {paper:p.name, no:String(Math.max(0, ...p.issues.map(i => +i.no || 0)) + 1), price:last.price || ''}; };
-const blankIssue = () => ({paper:'', no:'1', date:'', price:'', headline:'', sub:'', lead:'', limg:'', lcap:'', stories:[{title:'', body:'', img:'', cap:''}], notices:''});
+/* new editions use sections (secs): International, National and Local news, each with as many articles as the GM adds.
+   Editions made before that have no secs and keep their old single list of stories, in the reader and in the form */
+const blankIssue = () => ({paper:'', no:'1', date:'', price:'', headline:'', sub:'', lead:'', limg:'', lcap:'', secs:true, stories:[], notices:''});
 /* the form as an issue: as many stories as the GM wrote, each with an optional picture, and an optional picture over the lead */
 N.draftIssue = d => { const o = {paper:d.paper.trim(), no:parseInt(d.no, 10) || 0, date:d.date.trim(), price:d.price.trim(), headline:d.headline.trim(), sub:d.sub.trim(), lead:d.lead,
-  stories:d.stories.map(st => { const x = {title:st.title.trim(), body:st.body}; if (st.img) { x.img = st.img; if (st.cap?.trim()) x.cap = st.cap.trim(); } return x; }).filter(st => st.title || st.body.trim() || st.img),
+  stories:d.stories.map(st => { const x = {title:st.title.trim(), body:st.body}; if (d.secs) x.sec = st.sec || 'loc'; if (st.img) { x.img = st.img; if (st.cap?.trim()) x.cap = st.cap.trim(); } return x; }).filter(st => st.title || st.body.trim() || st.img),
   notices:d.notices.split('\n').map(s => s.trim()).filter(Boolean)};
   if (d.limg) { o.limg = d.limg; if (d.lcap?.trim()) o.lcap = d.lcap.trim(); }
+  if (d.secs) { o.secs = true; o.stories.sort((a, b) => N.NSECS.findIndex(x => x[0] === a.sec) - N.NSECS.findIndex(x => x[0] === b.sec)); }
   return o; };
 /* uploads in a draft that never got saved are deleted; pictures the saved issue still uses stay */
 function dropDraftPic(d, src){ if (!d || !src) return; const old = d.edit && G().news.issues.find(x => x.id === d.edit); if (!(old && N.newsPics(old).some(x => samePic(x, src)))) N.dropImg(src); }
