@@ -20,9 +20,14 @@ export const MODELS = [
   {id:'caelis', n:'Caelis', file:'models/caelis.glb', who:'Caelis Rethvael'},
   {id:'xira', n:'Xira', file:'models/xira.glb', who:'Xira'},
   {id:'egrot', n:'Egrot', file:'models/egrot.glb', who:'Egrot'},
+  /* an animal or monster of the figure kit (js/beastkit.js) stands as its model wherever it is drawn; tall is its height
+     against a Human's */
+  {id:'dreadape', n:'Dreadape', file:'models/dreadape.glb', beast:'dreadape', tall:1.25},
 ];
 const BY = new Map(MODELS.map(m => [m.id, m]));
 export const isModel = id => BY.has(id);
+/* the model that stands for a beast of the figure kit, or null */
+export const beastModel = b => { const m = b && MODELS.find(m => m.beast === b); return m ? m.id : null; };
 /* the model made for a character, or null: the names match, or their first words do ("Caelis Rethvael", "Caelis") */
 const norm = s => String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
 export const modelFor = (...names) => { const ns = names.map(norm).filter(Boolean);
@@ -54,11 +59,13 @@ export function makeAI(THREE, H){
   const ready = id => done.has(id);
 
   /* a figure: the same base and rings as a toy figure, the model standing on it at the height the race's figure would be */
-  function build(spec, opt = {}){
-    const L = done.get(spec.model);
+  function build(spec, opt = {}, id = spec.model){
+    const L = done.get(id), M = BY.get(id);
     const root = new THREE.Group(), mats = [], rig = {root, spec, mats, fx:{}, ai:true, w:{}};
-    if (opt.base !== false) H.addBase(root, rig, opt);
-    const body = L.S.clone(L.scene), tall = H.figH(spec), s = tall / L.h;
+    if (opt.base !== false) H.addBase(root, rig, opt, M.beast ? 27 : 21);
+    /* a beast fights with its hands and holds nothing */
+    rig.fists = !!M.beast;
+    const body = L.S.clone(L.scene), tall = H.figH(M.tall ? {tall:M.tall} : spec), s = tall / L.h;
     body.scale.setScalar(s); body.position.y = (opt.base !== false ? 6 : 0) - L.y0 * s;
     body.traverse(o => { if (o.isMesh) { o.material = o.material.clone(); o.material.userData.base = o.material.color.clone(); mats.push(o.material); o.frustumCulled = false; } });
     root.add(body);
@@ -97,6 +104,10 @@ export function makeAI(THREE, H){
     const has = k => !!rig.acts[k], dur = k => rig.acts[k].getClip().duration, cap = (k, x) => Math.max(0, Math.min(dur(k) - 1e-4, x));
     const loop = (k, x) => ((x % dur(k)) + dur(k)) % dur(k), one = (k, show) => ({clip:k, at:cap(k, (t % (H.ANIMS[name] || 1e9)) / 1000), show:show || []});
     if (name === 'walk') return {clip:'walk', at:loop('walk', t / 1000), show:[]};
+    if (rig.fists && (name === 'sword' || name === 'bow' || name === 'magic')) {
+      const D = H.ANIMS[name], ks = (name === 'sword' ? (has('pound') ? ['pound', 'punch', 'flurry'] : ['hook', 'chop', 'jabs', 'sweep']) : has('drum') ? ['drum'] : name === 'bow' ? ['slam'] : ['cast']).filter(has);
+      if (ks.length) return one(ks[(rig.var != null ? rig.var : Math.floor(t / D)) % ks.length]);
+    }
     if (name === 'sword' || name === 'bow') {
       const h = rig.held, D = H.ANIMS[name], ms = t % D;
       if (h && (name === 'sword') === (h.def.cat === 'melee')) {

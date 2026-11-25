@@ -6,7 +6,7 @@
    spec.model ('<id>', js/aikit.js) swaps the figure for an AI-made model once that has loaded (loadFor(spec) loads both).
    Loaded as a module by js/figures.js, only when the maker opens. */
 import {makeBeasts} from './beastkit.js';
-import {makeAI, isModel, modelFor} from './aikit.js';
+import {makeAI, isModel, modelFor, beastModel} from './aikit.js';
 import {makeArmory} from './armory.js';
 export function makeKit(THREE){
 const V3 = THREE.Vector3, TAU = Math.PI * 2, PI = Math.PI, DEG = PI / 180;
@@ -863,7 +863,8 @@ function addBase(root, rig, opt, baseR = 21){
 /* opt.noModel: the maker's own figure even when the look has an AI model */
 function buildFigure(spec, opt = {}){
   if (spec.model && !opt.noModel && !spec.beast && AI.ready(spec.model)) return AI.build(spec, opt);
-  if (spec.beast) return BK.build(spec, opt, API);
+  if (spec.beast) { const bm = !opt.noModel && spec.model !== 'none' && beastModel(spec.beast); if (bm && AI.ready(bm)) return AI.build(spec, opt, bm);
+    return BK.build(spec, opt, API); }
   const R = RACES[spec.race] || RACES.Human;
   const fem = spec.body === 'f', H = R.h, Wd = R.w, D = .76;
   const skinHex = (R.skins[spec.skin] || R.skins[0]).c, hairHex = pick(HAIRC, spec.hairCol)[2], main = pick(CLOTH, spec.cloth)[2];
@@ -1905,16 +1906,17 @@ const AR = makeArmory(THREE, {inked, toon, at, rot});
 /* AI-made models (js/aikit.js): as tall as the toy figure of the look's race would be (a Human's is HUMAN_H, less the 6 its base adds) */
 let HUMAN_H = 0;
 const figH = spec => { if (!HUMAN_H) { const r = buildFigure(defaultSpec('Human', 'm'), {base:false}); HUMAN_H = r.h; dispose(r); }
-  return (HUMAN_H - 6) * ((RACES[spec.race] || RACES.Human).h); };
+  return (HUMAN_H - 6) * (spec.tall || (RACES[spec.race] || RACES.Human).h); };
 const AI = makeAI(THREE, {addBase, sword, bow, staff, figH, INK, ANIMS, DUAL:AR.DUAL});
 /* everything a look needs before it can be built: its hairstyle and, with one, its AI model (null if that can't load) */
-const loadFor = spec => Promise.all([loadHair(spec && spec.hair), spec && isModel(spec.model) && !spec.beast ? AI.load(spec.model).catch(() => null) : null]);
+const loadFor = spec => Promise.all([loadHair(spec && spec.hair), spec && isModel(spec.model) && !spec.beast ? AI.load(spec.model).catch(() => null) : null,
+  spec && spec.beast && spec.model !== 'none' && beastModel(spec.beast) ? AI.load(beastModel(spec.beast)).catch(() => null) : null]);
 /* a look figkit can build: a person of a known race, or a known beast */
 const okSpec = s => !!(s && (s.beast ? BK.isBeast(s) : RACES[s.race]));
 const API = {RACES, RACE_LIST, HAIRC, EYES, CLOTH, HEAD_SIZES, HEAD_SHAPES, JAWS, EYE_SHAPES, EYE_SIZES, BROWS, NOSES, MOUTHS, EXPRS, MARKS, HAIRS, HAIR_LEN, BEARDS, OUTFITS, randomSpec,
   defaultSpec, faceFix, buildFigure, animate, pose, flash, addFx, dispose, faceIcon, ANIMS, pick, hoodOf, loadHair, hairId, setHairBase,
   WEAPONS:AR.W, WEAPON_LIST:AR.LIST, METALS:AR.METALS, WOODS:AR.WOODS, hold:AR.hold, okWeapon:AR.okLook, offWeapon:AR.offOk, DUAL_MOVES:AR.DUAL,
-  MODELS:AI.MODELS, isModel, modelFor, loadFor, loadModel:AI.load, modelReady:AI.ready,
+  MODELS:AI.MODELS, isModel, modelFor, beastModel, loadFor, loadModel:AI.load, modelReady:AI.ready,
   BEASTS:BK.BEASTS, BEAST_LIST:BK.LIST, beastOf:BK.beastOf, beastSpec:BK.defaultSpec, isBeast:BK.isBeast, okSpec};
 return API;
 }

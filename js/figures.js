@@ -325,7 +325,7 @@ function start(box, THREE, K){
     return ready = K.loadFor(spec).catch(() => { toast('That hairstyle could not load. Check the connection and pick it again.'); }).then(() => {
       if (my !== want || !running) return;
       if (rig) { scene.remove(rig.root); K.dispose(rig); }
-      rig = K.buildFigure(spec, {fine:true, noModel:true}); K.addFx(scene, rig); scene.add(rig.root);
+      rig = K.buildFigure(spec, {fine:true, noModel:!spec.beast}); K.addFx(scene, rig); scene.add(rig.root);
       K.hold(rig, wpnLook()); $('wpnRow').hidden = !!spec.beast;
       /* the AI model made from this look (js/aikit.js), shown under AI model; it is what stands in fights */
       if (aiRig) { scene.remove(aiRig.root); K.dispose(aiRig); aiRig = null; }
@@ -413,13 +413,14 @@ function start(box, THREE, K){
     const beast = !!spec.beast, r = beast ? null : R(), o = [];
     $('kind').querySelectorAll('[data-kind]').forEach(b => b.setAttribute('aria-pressed', String((b.dataset.kind === 'beast') === beast)));
     $('tabs').hidden = beast; $('racenote').hidden = beast;
-    $('reset').textContent = beast ? 'Back to the first coat' : 'Back to the race default';
+    $('reset').textContent = beast ? 'Back to the first coat' : 'Back to the race default'; $('reset').style.display = beast && K.beastModel(spec.beast) ? 'none' : '';
     const grp = (k, val, body, cls = 'grid') => o.push(`<div class="grp"><span class="k">${k}${val ? `<b>${esc(val)}</b>` : ''}</span><div class="${cls}">${body}</div></div>`);
     if (beast) {
       const B = K.BEASTS[spec.beast];
       grp('Animal or monster', B.n, K.BEAST_LIST.map(id => opt(id, K.BEASTS[id].n, id === spec.beast, 'beast', beastPic(id))).join(''), 'grid beasts');
-      grp(spec.beast === 'giant' ? 'Kind of giant' : 'Coat, scales or shell', B.coats[spec.skin] ? B.coats[spec.skin].n : '', B.coats.map((c, i) => sw(i, c.n, c.c, i === +spec.skin, 'coat')).join(''), 'sws');
-      o.push(spec.beast === 'dreadape' ? `<p class="note">The dreadape fights with its four fists only. <b>Sword</b> is one of five attacks (a leaping hammer blow, a haymaker and uppercut, a chest drum and four-fist ram, a spinning backfist, a four-fist flurry and an overhand); leave it playing to see them all. A fight picks one each attack. <b>Hit</b> and <b>Dodge</b> have two ways each, and <b>Bow</b> and <b>Magic</b> are a chest-drumming roar.</p>`
+      /* one that stands as an AI-made model (js/aikit.js) has that model's own colours */
+      if (!K.beastModel(spec.beast)) grp(spec.beast === 'giant' ? 'Kind of giant' : 'Coat, scales or shell', B.coats[spec.skin] ? B.coats[spec.skin].n : '', B.coats.map((c, i) => sw(i, c.n, c.c, i === +spec.skin, 'coat')).join(''), 'sws');
+      o.push(spec.beast === 'dreadape' ? `<p class="note">The dreadape fights with its four fists only. <b>Attack</b> is one of three (a double fist pound, a punch, a four-fist flurry); leave it playing to see them all. A fight picks one each attack. <b>Shoot</b> and <b>Magic</b> are a chest-drumming roar.</p>`
         : `<p class="note">Animals and monsters come as they are: pick one and its colours. In a fight, <b>Sword</b> is its bite, pounce or smash, and <b>Bow</b> and <b>Magic</b> are a roar or a breath from a distance.</p>`);
       $('opts').innerHTML = o.join('');
       return;
