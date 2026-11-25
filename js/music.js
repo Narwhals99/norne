@@ -236,7 +236,7 @@ const muteBtn = () => B('mute', S.muted ? 'Turn the music on' : 'Mute the music'
 /* the strip above the chat while music plays for this person */
 mu.bar = v => {
   const t = mu.tgt(v), n = mu.now(t); if (!n) return '';
-  const {d, song:s} = n, gm = isGM(v), who = gm ? (t === 'all' ? 'Everyone' : tgtName(t) + ' only') + ' · ' : t !== 'all' ? 'Just for you · ' : '';
+  const {d, song:s} = n, gm = isGM(v), who = gm ? (t === 'all' ? 'Everyone' : esc(tgtName(t)) + ' only') + ' · ' : t !== 'all' ? 'Just for you · ' : '';
   const where = d.mode === 'dir' ? `${esc(dirName(d.dir))} · song ${n.i + 1} of ${d.list.length}` : 'On a loop';
   const tap = S.locked && d.on && !S.muted && S.hear === t;
   const sub = who + (!d.on ? 'Paused' : S.muted ? 'Muted on this device' : where);

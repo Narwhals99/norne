@@ -86,6 +86,13 @@ async function unsubscribe(){
   try { const r = reg && await navigator.serviceWorker.ready, sub = r && await r.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch(e) {}
   if (N.pushSave) N.pushSave(devId(), null).catch(() => {});
 }
+/* signing out: this device stops getting the pings of the person who was signed in (their private and party lines on a
+   shared iPad's lock screen). The address is deleted while still signed in; the choice to have notifications stays */
+N.notifyOff = async () => {
+  pushed = false;
+  try { const r = reg && await navigator.serviceWorker.ready, sub = r && await r.pushManager.getSubscription(); if (sub) await sub.unsubscribe(); } catch(e) {}
+  try { if (N.pushSave) await N.pushSave(devId(), null); } catch(e) {}
+};
 /* once signed in: renew this device's push address, and open the chat a tapped notification pointed at */
 N.notifyStart = () => {
   if (N.notifyState() === 'on') subscribe().then(() => N.renderAll());
@@ -166,7 +173,8 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) flush
 addEventListener('pagehide', () => flush(true));
 /* the device's person still plays the seat it was saved for. The GM's seat is 'gm', which N.seatsOf leaves out
    (it lists only player seats), so checking that alone silently skipped every GM device from 2026-11-12 on */
-const holds = (who, seat) => seat === 'gm' ? who.role === 'gm' : N.seatsOf(who).includes(seat);
+/* (a removed player keeps their old seats list, so their role has to be a seat too) */
+const holds = (who, seat) => seat === 'gm' ? who.role === 'gm' : /^p\d+$/.test(who.role || '') && N.seatsOf(who).includes(seat);
 function send(list, leaving){
   const role = G().role, uid = N.me?.()?.uid, pushes = [], now = Date.now();
   for (const d of N.PUSH || []) {

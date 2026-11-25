@@ -265,6 +265,15 @@ function fpsMeter(on){
     fpsRaf = requestAnimationFrame(tick); };
   fpsRaf = requestAnimationFrame(tick);
 }
+/* a wiki carousel's dots, count and arrows say which picture it is scrolled to. A redraw sets them back to the markup
+   (picture 1) while the strip stays where it was, so render() runs this on every carousel afterwards */
+/* this view's own message box: in two chats side by side the first box on the page is the left one, not always the active one */
+const myBox = N.myBox = v => v.root.querySelector('#ta-' + v.id) || v.root.querySelector('.composer textarea');
+function carSync(s){
+  const n = s.children.length, i = Math.max(0, Math.min(n - 1, Math.round(s.scrollLeft / Math.max(1, s.clientWidth)))), c = s.closest('.wcar'); if (!c) return;
+  c.querySelectorAll('.wcar-d i').forEach((d, k) => d.classList.toggle('on', k === i)); const cc = c.querySelector('.wcar-c'); if (cc) cc.textContent = `${i + 1} / ${n}`;
+  const [a, b] = c.querySelectorAll('[data-a="carGo"]'); if (a) a.disabled = i === 0; if (b) b.disabled = i === n - 1;
+}
 function render(v){
   const root = v.root;
   if (!root.isConnected) return;
@@ -320,8 +329,9 @@ function render(v){
   v.ui.stick = false;
   { const ml = root.querySelector('.chat > .msgs[data-sk="msgs"]'); if (ml) pastCheck(v, ml); else if (v.ui.past && v.ui.tab !== 'chat') v.ui.past = null; }
   if (focus) { const f = root.querySelector('#' + CSS.escape(focus.id)); if (f) { f.focus({preventScroll:true}); try { if (focus.s != null) f.setSelectionRange(focus.s, focus.e); } catch(e){} } }
-  const ta = root.querySelector('.composer textarea'); if (ta) grow(ta);
+  root.querySelectorAll('.composer textarea').forEach(grow);
   hsArrows(root);
+  root.querySelectorAll('.wcar-s').forEach(s => { if (s.scrollLeft > 2) carSync(s); });
   /* a redraw keeps the map element but sets its pins back to the markup, so their size is put on again */
   if (v.ui.tab === 'map' || paneShows(v, 'map')) { root.querySelectorAll('.mapst').forEach(e => { e._k = null; }); applyMap(v); }
   if (v.ui.fresh) setTimeout(() => { v.ui.fresh = null; }, 900);
@@ -564,7 +574,8 @@ function bind(v){
   const peekShow = a => {
     const r = a.getBoundingClientRect(), W = innerWidth, H = innerHeight, S = Math.min(TOUCH.matches ? 220 : 260, W - 32);
     const who = a.parentElement.querySelector('.who')?.firstChild, name = (who && who.nodeType === 3 ? who.nodeValue : a.parentElement.querySelector('.who, h2')?.textContent || '').trim();
-    const el = document.createElement('div'); el.className = 'avpeek'; el.setAttribute('data-keep', ''); el.setAttribute('aria-hidden', 'true');
+    /* an id of its own: a redraw matches elements without one by their place, and could turn this into the toast that follows it */
+    const el = document.createElement('div'); el.className = 'avpeek'; el.id = 'avpeek-' + v.id; el.setAttribute('data-keep', ''); el.setAttribute('aria-hidden', 'true');
     const big = a.cloneNode(true); big.classList.add('big'); big.style.setProperty('--s', S + 'px'); el.appendChild(big);
     if (name) { const b = document.createElement('b'); b.textContent = name; el.appendChild(b); }
     /* Jake: a link to that character's sheet on the Character tab, when some of it is revealed to this player */
@@ -588,7 +599,7 @@ function bind(v){
   const bigShow = img => {
     bigHide();
     const set = [...(img.closest('.wcar-s, .wfigs, .paper') || img.parentElement).querySelectorAll('.wfig img, .pfig img')], el = document.createElement('div');
-    el.className = 'picbox'; el.setAttribute('data-keep', ''); el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Picture');
+    el.className = 'picbox'; el.id = 'picbox-' + v.id; el.setAttribute('data-keep', ''); el.setAttribute('role', 'dialog'); el.setAttribute('aria-label', 'Picture');
     const lab = img.closest('.wcar')?.querySelector('.wcar-l')?.textContent || '';
     const draw = i => { const im = set[i], cap = im.closest('figure')?.querySelector('figcaption')?.innerHTML || '';
       el.innerHTML = `<button type="button" class="ibtn pbx" aria-label="Close">${IC('x')}</button><figure><img src="${N.esc(im.currentSrc || im.src)}" alt="${N.esc(im.alt || '')}">${lab || cap ? `<figcaption>${lab ? `<small>${N.esc(lab)}</small>` : ''}${cap}</figcaption>` : ''}</figure>${set.length > 1 ? `<button type="button" class="ibtn pbp" aria-label="Previous picture">${IC('left')}</button><button type="button" class="ibtn pbn" aria-label="Next picture">${IC('right')}</button><span class="pbc">${i + 1} / ${set.length}</span>` : ''}`;
@@ -608,10 +619,8 @@ function bind(v){
   root.addEventListener('contextmenu', e => { if (e.target.closest?.(BIGP) && TOUCH.matches) e.preventDefault(); });
   root.addEventListener('click', e => { if (TOUCH.matches || Date.now() - pkTouch < 700) return; const im = e.target.closest?.(BIGP); if (im && !e.target.closest('a,button')) bigShow(im); });
   addEventListener('keydown', e => { if (e.key === 'Escape') bigHide(); });
-  /* a carousel's dots and count follow its scrolling */
-  root.addEventListener('scroll', e => { const s = e.target; if (!s.classList?.contains('wcar-s')) return; const n = s.children.length, i = Math.max(0, Math.min(n - 1, Math.round(s.scrollLeft / Math.max(1, s.clientWidth)))), c = s.closest('.wcar');
-    c.querySelectorAll('.wcar-d i').forEach((d, k) => d.classList.toggle('on', k === i)); const cc = c.querySelector('.wcar-c'); if (cc) cc.textContent = `${i + 1} / ${n}`;
-    const [a, b] = c.querySelectorAll('[data-a="carGo"]'); if (a) a.disabled = i === 0; if (b) b.disabled = i === n - 1; }, true);
+  /* a carousel's dots and count follow its scrolling (and render() puts them back after a redraw, see carSync) */
+  root.addEventListener('scroll', e => { const s = e.target; if (s.classList?.contains('wcar-s')) carSync(s); }, true);
   root.addEventListener('touchstart', e => {
     if (pk?.stay && e.target.closest?.('.avpeek')) return;
     peekHide(); pkTouch = Date.now();
@@ -668,7 +677,7 @@ function bind(v){
       /* phones, GM: picking anything in the pulled-up fight controls drops them back down to the board and results */
       if (v.ui.sheet === 'gmFight' && a.closest('.gmfs')) v.ui.sheet = null;
       act(v, a.dataset.a, a, e);
-      if (v.kb) { v.kb = false; const ta = root.querySelector('.composer textarea'); if (ta && !typing()) ta.focus({preventScroll:true}); }
+      if (v.kb) { v.kb = false; const ta = myBox(v); if (ta && !typing()) ta.focus({preventScroll:true}); }
       return;
     }
     const tok = e.target.closest('[data-tok]'); if (tok) { tokClick(v, tok.dataset.tok); return; }
@@ -697,6 +706,14 @@ function bind(v){
   /* two chats side by side: a press in the other column makes that chat the active one before the tap is handled */
   root.addEventListener('pointerdown', e => { const col = e.target.closest && e.target.closest('.pcol'); if (!col || col.classList.contains('on') || !N.splitOn(v)) return;
     const typed = e.target.closest('textarea, input');
+    /* the pressed column becomes the active one, whose ids and scroll keys are the plain ones (the other's end in "s" and "-2").
+       Rename them on the page first, so the redraw keeps every element (the press lands where it was aimed, not on a new list)
+       and each column keeps its own scroll place instead of taking the other's */
+    const oth = [...v.root.querySelectorAll('.chatpair > .pcol')].find(c => c !== col), sid = v.id + 's';
+    col.querySelectorAll('[id]').forEach(x => { if (x.id.includes(sid)) x.id = x.id.replace(sid, v.id); });
+    col.querySelectorAll('[data-sk]').forEach(x => { x.dataset.sk = x.dataset.sk.replace(/-2$/, ''); });
+    if (oth) { oth.querySelectorAll('[id]').forEach(x => { if (x.id.includes(v.id) && !x.id.includes(sid)) x.id = x.id.replace(v.id, sid); });
+      oth.querySelectorAll('[data-sk]').forEach(x => { if (!/-2$/.test(x.dataset.sk)) x.dataset.sk += '-2'; }); }
     N.splitSwap(v); v.ui.side = col.dataset.col; v.ui.pop = null; if (v.ui.sheet === 'split2') v.ui.sheet = null; render(v);
     /* the redraw gave the box new ids, so the press would land on a box that's gone: put the cursor in the new one */
     if (typed) { e.preventDefault(); const t = v.root.querySelector('.pcol.on .composer textarea'); if (t) setTimeout(() => t.focus(), 0); } }, true);
@@ -797,6 +814,8 @@ function nlSegTo(v, d, d2){
 const pageBack = v => v.root.querySelector('.page [data-a][aria-label^="Back"]');
 function swStart(v, s, dx){
   const ui = v.ui, root = v.root;
+  /* over a picture seen big a swipe back only closes the picture; the page under it stays */
+  if (root.querySelector('.picbox')) { if (dx > 0 && N.bigHide) N.bigHide(); return false; }
   s.W = root.clientWidth; s.dir = dx < 0 ? -1 : 1;
   if (s.k === 'shelf') {
     const d = root.querySelector('.shelf.drawer'); if (dx > 0 || !d) return false;
@@ -847,7 +866,7 @@ function swPage(v, s, take){
   const peek = document.createElement('div'); peek.className = 'swpeek'; peek.setAttribute('aria-hidden', 'true'); peek.inert = true;
   peek.style.cssText = `left:${pg.offsetLeft}px;top:${pg.offsetTop}px;width:${pg.offsetWidth}px;height:${pg.offsetHeight}px`;
   try {
-    const fv = Object.assign({}, v, {ui:Object.assign({}, v.ui, {folded:new Map(v.ui.folded), wikiPrev:[...(v.ui.wikiPrev || [])], toast:null})});
+    const fv = Object.assign({}, v, {ui:Object.assign({}, v.ui, {folded:new Map(v.ui.folded), wikiPrev:[...(v.ui.wikiPrev || [])], mapBack:[...(v.ui.mapBack || [])], cardBack:[...(v.ui.cardBack || [])], toast:null})});
     fv.peek = true; take(fv);
     const tpl = document.createElement('template'); tpl.innerHTML = N.appHtml(fv);
     const np = tpl.content.querySelector('.shell > .page'); if (np) peek.appendChild(np);
@@ -962,6 +981,8 @@ function nlMoreBack(v){
 }
 function backStep(v, home){
   const ui = v.ui;
+  /* a wiki or newspaper picture seen big closes first (Android's back button; a swipe is caught in swStart) */
+  if (!v.peek && v.root.querySelector('.picbox')) return () => { N.bigHide && N.bigHide(); };
   if (ui.figs) return () => { ui.figs = false; if (N.figClose) N.figClose(); };
   if (ui.shelf) return () => { ui.shelf = false; };
   if (ui.pop) return () => { ui.pop = null; };
@@ -1015,7 +1036,7 @@ window.addEventListener('popstate', () => {
 function input(v, el, ev){
   const g = G(), i = el.dataset.i, k = el.dataset.k, val = el.value;
   switch (i) {
-    case 'draft': v.ui.draft = val; grow(el); typed(v, ev); return;
+    case 'draft': if (el.id === 'ta-' + v.id + 's') { if (v.ui.s2) v.ui.s2.draft = val; grow(el); return; } v.ui.draft = val; grow(el); typed(v, ev); return;
     case 'fcDraft': v.ui.fcDraft = val; return;
     case 'pnQ': case 'pnDirName': case 'pnRenName': case 'pnTitle': case 'pnText': N.pn.input(v, el, i); return;
     case 'muDir': case 'muRen': case 'muVol': case 'muMyVol': N.mu.input(v, el, i); return;
@@ -1177,11 +1198,14 @@ function placeOf(v, mark){
    (a player character, an NPC in the cast or a one-off) puts it on them; the line shows it as "Wind knocked out" */
 const ASP_RE = /\$\$([^$\n]+)\$\$/g;
 /* ^^Item, Character^^ (Jake): who gets it is the name after the last comma: a player character (full or short name) or an NPC card */
-const ITEM_RE = /\^\^([^\^\n]+)\^\^/g;
+/* the words sit right inside the marks: "grins ^^ and bows ^^" is a smiley, not an item */
+const ITEM_RE = /\^\^(?=\S)([^\^\n]*\S)\^\^/g;
 function itemMarks(text){
   const g = G(), low = x => String(x || '').trim().toLowerCase();
-  return [...text.matchAll(ITEM_RE)].map(x => { const raw = x[1].trim().replace(/\s+/g, ' '), i = raw.lastIndexOf(','); if (i <= 0) return {name:'', who:null};
-    const name = raw.slice(0, i).trim(), to = raw.slice(i + 1).trim();
+  return [...text.matchAll(ITEM_RE)].map(x => { const raw = x[1].trim().replace(/\s+/g, ' '), i = raw.lastIndexOf(',');
+    const name = i > 0 ? raw.slice(0, i).trim() : '', to = i > 0 ? raw.slice(i + 1).trim() : '';
+    /* no item or nobody after the comma ("^^rope,^^") is a mistake, not the first character without a short name */
+    if (!name || !to) return {name:'', who:null};
     const pc = Object.values(g.chars).find(c => c.built && (low(c.short) === low(to) || low(c.name) === low(to))), npc = !pc && g.npcs.find(n => low(n.name) === low(to));
     return {name, to, who:pc || npc ? {o:pc || npc, pc:!!pc} : null}; });
 }
@@ -1260,7 +1284,7 @@ function send(v, opt = {}){
   /* Jake: ^^sapphire throne, Egrot^^ in a Narrator line gives that character the item. The line reads "sapphire throne";
      the catalog item of that name goes in their inventory (a new plain item, first letter capitalised, when the catalog has none) */
   let gifts = [];
-  if (narr && /\^\^[^\^\n]+\^\^/.test(text)) {
+  if (narr && /\^\^(?=\S)[^\^\n]*\S\^\^/.test(text)) {
     gifts = itemMarks(text);
     const bad = gifts.find(x => !x.who); if (bad) { toast(v, bad.name ? `No character called “${bad.to}”. Write ^^${bad.name}, Name^^ with the name of a character or NPC.` : 'Write ^^Item, Name^^: the item, a comma, then who gets it.'); render(v); return; }
     text = text.replace(ITEM_RE, (x, w) => { const i = w.lastIndexOf(','); return (i > 0 ? w.slice(0, i) : w).trim().replace(/\s+/g, ' '); });
@@ -1316,7 +1340,7 @@ function send(v, opt = {}){
   v.ui.draft = ''; v.ui.stick = true; v.ui.reply = null; N.typingMark(ch, v.role, false); N.typingMark(v.ui.ch, v.role, false);
   if (devCommand && v.ui.ch !== 'table') { v.ui.ch = 'table'; toast(v, 'Dev Note sent to Everyone.'); }
   renderAll();
-  const ta = v.root.querySelector('.composer textarea'); if (ta) ta.focus({preventScroll:true});
+  const ta = myBox(v); if (ta) ta.focus({preventScroll:true});
 }
 N.send = send;
 /* the fight's own chat: table talk that stays with the fight (fc = the fight's id) and out of the roleplay chat and exports */
@@ -1918,6 +1942,12 @@ function metaPic(v, p){
   if (isGM(v)) g.gmPic = p || null; else { const c = N.charOf(v.role); if (!c) return; if (p) c.mpic = p; else delete c.mpic; }
   toast(v, p ? 'Meta picture saved.' : 'Meta picture removed.'); renderAll(); N.syncNow && N.syncNow();
 }
+/* a background still on a scene, a fight or a saved scene draft keeps its picture when it leaves the shelf */
+function picInUse(src){
+  const g = G(), same = x => x && samePic(x, src);
+  return g.msgs.some(m => m.kind === 'scene' && same(m.scene?.art)) || Object.values(N.allFights()).some(f => same(f?.bg))
+    || (g.sdrafts || []).some(d => same(d.art)) || (g.recent || []).some(r => same(r.art));
+}
 function keepPic(src){ const p = {id:uid('pic'), src}; G().pics = [p, ...G().pics]; return p; }
 function uploadPicture(v, cb){ pickFramed(v, 'bg', (img, f) => { const src = N.withFrame(N.storeImg(N.shrink(img, 1600, 700000), true), f); keepPic(src); cb(src); render(v); }); }
 /* a reframed background changes everywhere it is in use right now */
@@ -2019,7 +2049,8 @@ function act(v, a, el, e){
   /* desktop side panels: show another page in the top (0) or bottom (1) panel; the page the other panel shows swaps over.
      Remembered on this device, roleplay and combat each their own */
   case 'sidePane': ui.sidePane = val === '1'; ui.pop = null; if (!ui.sidePane) ui.stick = true; break;
-  case 'pane': { close(); const mode = v._paneMode || 'rp', [i, id] = [+val[0], val.slice(2)], keys = N.PANE_KEYS[mode], picks = N.panePicks(v, mode);
+  /* (its own name: 'pane' is the phone's Roleplay | Combat switch further down, and a second case with the same name never ran) */
+  case 'panePick': { close(); const mode = v._paneMode || 'rp', [i, id] = [+val[0], val.slice(2)], keys = N.PANE_KEYS[mode], picks = N.panePicks(v, mode);
     if (picks[1 - i] === id) picks[1 - i] = picks[i]; picks[i] = id;
     keys.forEach((k, j) => { ui[k] = picks[j]; try { localStorage.setItem('norne-' + k.toLowerCase(), picks[j]); } catch(e) {} });
     if (i === 1 && ui.recentOff) { ui.recentOff = false; try { localStorage.setItem('norne-recent', '1'); } catch(e) {} }
@@ -2107,7 +2138,7 @@ function act(v, a, el, e){
     else if (val === '__flip') ui.mode = ui.mode === 'ooc' ? 'rp' : 'ooc';
     else { ui.mode = 'rp'; ui.voice = val; }
     ui.pop = null;
-    if (d.go) { ui.sheet = null; ui.tab = 'chat'; if (ui.ch === 'gm') ui.ch = 'table'; if (d.go === 'side') { ui.tokSel = null; if (v.dev === 'phone') ui.fightPane = 'chat'; } toast(v, `Speaking as ${val}`); setTimeout(() => { const t = v.root.querySelector('.composer textarea'); t && t.focus(); }, 20); }
+    if (d.go) { ui.sheet = null; ui.tab = 'chat'; if (ui.ch === 'gm') ui.ch = 'table'; if (d.go === 'side') { ui.tokSel = null; if (v.dev === 'phone') ui.fightPane = 'chat'; } toast(v, `Speaking as ${val}`); setTimeout(() => { const t = myBox(v); t && t.focus(); }, 20); }
     if (ui.sheet === 'gm') ui.sheet = null;
     break;
   }
@@ -2178,11 +2209,13 @@ function act(v, a, el, e){
     for (const ch of to === '*' ? ['table'] : to.map(s => 'dm-' + s)) push({ch, kind:'news', by:'gm', text:issue.headline, nid:issue.id});
     ui.newsEdit = null; ui.paper = N.paperName(issue); ui.newsSel = issue.id; toast(v, to === '*' ? 'Published. Everyone got a note in chat.' : `Published for ${N.audLabel(issue, 'news').replace(/^Only /, '')}. They got a note.`); renderAll(); return;
   }
-  case 'ndAud': N.audSet(ui.newsEdit, 'news', val); break;
+  case 'ndAud': { const cur = N.audOf(ui.newsEdit, 'news'); if (Array.isArray(cur) && cur.length === 1 && cur[0] === val) { toast(v, 'Someone has to read it. Tick another player (or Everyone) first, then untick this one.'); break; } N.audSet(ui.newsEdit, 'news', val); break; }
   case 'newsAud': {
     const i = g.news.issues.find(x => x.id === ui.sheetArg); if (!i) break;
     /* only a reader who has never had this issue gets a note; ticking someone off and on again, or
        switching between readers and Everyone, never sends the same issue twice */
+    /* an edition can't be for nobody: unticking its last reader made it everyone's (and pinged every other player) */
+    { const cur = N.audOf(i, 'news'); if (Array.isArray(cur) && cur.length === 1 && cur[0] === val) { toast(v, 'Someone has to read it. Tick another player (or Everyone) first, then untick this one.'); break; } }
     const told = new Set(i.told || N.audSeats(i, 'news')); N.audSet(i, 'news', val);
     const added = N.audSeats(i, 'news').filter(s => !told.has(s));
     for (const s of added) { push({ch:'dm-' + s, kind:'news', by:'gm', text:i.headline, nid:i.id}); told.add(s); }
@@ -2255,7 +2288,7 @@ function act(v, a, el, e){
   case 'grpDelGo': { if (!gm) break; const gr = g.groups.find(x => x.id === val); if (!gr) break; N.dropGroup(gr.id); close(); if (ui.ch === 'grp-' + gr.id) ui.ch = 'table'; toast(v, `${gr.name} deleted.`); renderAll(); return; }
   /* several characters per player: the GM adds or removes seats, the player switches (a reload, like signing in as someone else) */
   case 'seatAdd': { if (!gm) break; const m = N.MEMBERS.find(x => x.uid === val), s = N.addSeat(val); if (s) toast(v, `${m?.name || 'They'} got another character (seat ${s.slice(1)}). Fill in its card in Cast.`); break; }
-  case 'seatDrop': if (gm) { N.dropSeat(val, d.s); toast(v, 'Character taken away. Its card stays in Cast.'); } break;
+  case 'seatDrop': if (gm) { const id = val, seat = d.s; N.dropSeat(id, seat); toast(v, 'Character taken away. Its card stays in Cast.', () => N.undropSeat(id, seat)); } break;
   case 'seatGo': { const c = g.chars[g.P[val]?.char || 'pc' + String(val).slice(1)], k = c?.built ? c : N.seatCard(val); toast(v, `Switching to ${k?.short || 'your other character'}…`); N.switchSeat(val); return; }
   case 'picSend': sendPic(v); return;
   case 'picView': openSheet(v, 'picView', {v:val}); break;
@@ -2268,7 +2301,7 @@ function act(v, a, el, e){
     if (l.length) rx[v.role] = l; else delete rx[v.role];
     if (!Object.keys(rx).length) delete m.rx;
     ui.pop = null; if (N.saveRx) N.saveRx(m, v.role); renderAll(); return; }
-  case 'reply': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m) break; ui.reply = m.id; if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; render(v); const ta = v.root.querySelector('.composer textarea'); if (ta) ta.focus({preventScroll:true}); return; }
+  case 'reply': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m) break; ui.reply = m.id; if (v.dev === 'phone' && N.fightAvail(v)) ui.fightPane = 'chat'; render(v); const ta = myBox(v); if (ta) ta.focus({preventScroll:true}); return; }
   case 'replyOff': ui.reply = null; break;
   case 'moreMsgs': {
     /* draw more of the chat's history, keeping the view where it was */
@@ -2300,10 +2333,10 @@ function act(v, a, el, e){
     w.scrollIntoView({block:'center', behavior:'smooth'});
     { const ml = w.closest('.msgs'); v._jump = {id:val, ch:ui.ch, t:performance.now()}; if (ml) pastCheck(v, ml); setTimeout(() => { if (v._jump && v._jump.id === val) { v._jump = null; if (ml && ml.isConnected) pastCheck(v, ml); } }, 1500); }
     w.classList.remove('flash'); void w.offsetWidth; w.classList.add('flash'); setTimeout(() => w.classList.remove('flash'), 2400); return; }
-  case 'emoIns': { const ta = v.root.querySelector('.composer textarea'), t = val.startsWith(':') ? val + ' ' : val;
+  case 'emoIns': { const ta = myBox(v), t = val.startsWith(':') ? val + ' ' : val;
     const a = ta ? ta.selectionStart ?? ui.draft.length : ui.draft.length, b = ta ? ta.selectionEnd ?? a : a;
     ui.draft = ui.draft.slice(0, a) + t + ui.draft.slice(b); ui.pop = null; render(v);
-    const f = v.root.querySelector('.composer textarea'); if (f) { f.focus({preventScroll:true}); f.setSelectionRange(a + t.length, a + t.length); } return; }
+    const f = myBox(v); if (f) { f.focus({preventScroll:true}); f.setSelectionRange(a + t.length, a + t.length); } return; }
   /* the GM's own emoji pictures */
   case 'emoField': { const id = ui.pop?.fld, sel = ui.pop?.sel, t = val.startsWith(':') || val.startsWith('[[') ? val + ' ' : val; ui.pop = null;
     const f = id && v.root.querySelector('#' + CSS.escape(id)); if (!f) { render(v); return; }
@@ -2464,7 +2497,7 @@ function act(v, a, el, e){
       const drop = setTimeout(() => N.dropImg(was.src), 6000);
       toast(v, same || shape ? `Picture replaced. ${n ? `All ${n} place${n === 1 ? '' : 's'} stayed where they were.` : ''}`.trim()
         : `Picture replaced, but it’s a different shape (${w} × ${h}, was ${was.w} × ${was.h}). The places moved with it, so check them.`,
-        () => { clearTimeout(drop); Object.assign(m, was); ui.mapT = null; renderAll(); });
+        () => { clearTimeout(drop); const nu = m.src; Object.assign(m, was); if (nu !== was.src) N.dropImg(nu); ui.mapT = null; renderAll(); });
       renderAll(); }); return; }
   case 'findParty': ui.mapId = g.party.map; ui.mapT = null; ui.pinSel = '__party'; render(v); return;
   case 'pinClose': ui.pinSel = null; break;
@@ -2557,12 +2590,14 @@ function act(v, a, el, e){
   /* sections only some players read */
   /* Jake: lore documents for just this entry. Their text comes in as GM-only sections, one per heading in the file */
   case 'wdImport': {
-    const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true; inp.accept = '.docx,.txt,.md,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-    inp.onchange = async () => { const fs = [...(inp.files || [])]; if (!fs.length || !ui.wd) return; let n = 0; const bad = [];
+    /* the file box stays in the page while the picker is open (N.pickFiles): an iPhone can lose a loose one and then nothing happens */
+    const wd = ui.wd;
+    N.pickFiles('.docx,.txt,.md,text/plain,text/markdown,application/vnd.openxmlformats-officedocument.wordprocessingml.document', true, async fs => { if (!wd || ui.wd !== wd) return; let n = 0; const bad = [];
       for (const f of fs) { try { const secs = await N.readDoc(f), base = f.name.replace(/\.[^.]+$/, '');
-          for (const x of secs) { ui.wd.parts.push({id:uid('s'), h:x.h || base, text:x.text, to:'gm', see:[], imgs:[]}); n++; } } catch(err) { console.error(err); bad.push(f.name); } }
-      toast(v, `${n ? `Added ${n} section${n === 1 ? '' : 's'} as GM only. Check them, then Save.` : 'Nothing to add.'}${bad.length ? ` Couldn’t read ${bad.join(', ')}.` : ''}`); render(v); };
-    inp.click(); return;
+          for (const x of secs) { wd.parts.push({id:uid('s'), h:x.h || base, text:x.text, to:'gm', see:[], imgs:[]}); n++; } } catch(err) { console.error(err); bad.push(f.name); } }
+      if (ui.wd !== wd) return;
+      toast(v, `${n ? `Added ${n} section${n === 1 ? '' : 's'} as GM only. Check them, then Save.` : 'Nothing to add.'}${bad.length ? ` Couldn’t read ${bad.join(', ')}.` : ''}`); render(v); });
+    return;
   }
   case 'wdPartAdd': ui.wd.parts.push({id:uid('s'), h:'', text:'', to:'all', see:[], imgs:[]}); break;
   /* Jake: a set of pictures shown as a carousel, one at a time, with a label over all of them; each picture's caption is its sublabel */
@@ -2739,7 +2774,7 @@ function act(v, a, el, e){
     const n = get('n'), q = parseInt(get('q'), 10), note = get('d'), ic = ui.invEdit?.ic ?? it[3];
     if (!n) { toast(v, 'An item needs a name.'); break; }
     ui.invEdit = null;
-    if (q === 0) { c.inv.splice(+d.i, 1); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
+    if (q === 0) { c.inv.splice(+d.i, 1); if (N.invX(it).eq && !d.nd) N.applyGear(c); if (d.c) sys(`${N.gmName()} removed ${it[0]} from ${c.short}’s inventory.`, 'dm-' + c.player); renderAll(); return; }
     const was = it[0], x0 = it[4], x1 = x0 && was.toLowerCase() !== n.toLowerCase() ? (({it:_i, cl:_c, k:_k, sl:_s, ...r}) => Object.keys(r).length ? r : null)(x0) : x0;
     /* a hand-made row (not from the catalog) can be filed under one of the catalog's kinds for the Inventory tab ('' = guess from its picture) */
     const kSel = v.root.querySelector(`#iek-${key}-${v.id}`), x = kSel && !N.rowItem([n]) ? (({k:_k, ...r}) => kSel.value ? {...r, k:kSel.value} : Object.keys(r).length ? r : null)(x1 || {}) : x1;
@@ -2760,12 +2795,11 @@ function act(v, a, el, e){
   case 'itCls': ui.itC = val || ''; break;
   case 'itdSilver': if (ui.itd) ui.itd.silver = ui.itd.silver ? 0 : 1; break;
   case 'itImport': {
-    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
-    inp.onchange = () => { const f = inp.files?.[0]; if (!f) return;
+    N.pickFiles('.json,application/json', false, ([f]) => {
       f.text().then(t => { const j = JSON.parse(t), list = Array.isArray(j) ? j : j.items; if (!Array.isArray(list)) throw new Error('no items');
         const r = N.importItems(list); toast(v, `Imported ${r.add} new item${r.add === 1 ? '' : 's'}${r.rep ? `, updated ${r.rep}` : ''}.`); renderAll(); })
-        .catch(err => { console.error(err); toast(v, 'That isn’t a Norne items file.'); }); };
-    inp.click(); return;
+        .catch(err => { console.error(err); toast(v, 'That isn’t a Norne items file.'); }); });
+    return;
   }
   case 'itNew': ui.itd = {id:null, name:'', kind:ui.itK || 'weapon', ic:'', d:'', gm:'', gearAtk:0, gearRng:0, gearAmmo:0, gearDef:0}; ui.sheet = 'itemEd'; break;
   case 'itEdit': { const it = N.itemById(val); if (!it) break; ui.itd = {ic:'', d:'', gm:'', ...JSON.parse(JSON.stringify(it))}; ui.sheet = 'itemEd'; break; }
@@ -2894,11 +2928,10 @@ function act(v, a, el, e){
   case 'admit': { const n = N.admit(val); if (n) toast(v, `${n} is in. Their seat has an empty card for you to fill.`); break; }
   case 'reject': { const m = N.kick(val); if (m) toast(v, /^p\d+$/.test(m.role) ? `${m.name} no longer has a seat. You can let them back in any time.` : `Turned ${m.name} away.`); ui.sheet = 'players'; break; }
   case 'importLore': {
-    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
-    inp.onchange = () => { const f = inp.files?.[0]; if (!f) return; toast(v, 'Importing…');
+    N.pickFiles('.json,application/json', false, ([f]) => { toast(v, 'Importing…');
       N.importLore(f).then(dd => { ui.sheet = null; toast(v, `Imported ${dd.wiki.length} wiki entries and ${dd.maps.length} maps.`); if (!ui.mapId) ui.mapId = (g.maps.find(m => m.id === 'norne') || g.maps[0])?.id; renderAll(); })
-        .catch(err => { console.error(err); toast(v, 'That isn’t the Norne lore file.'); }); };
-    inp.click(); return;
+        .catch(err => { console.error(err); toast(v, 'That isn’t the Norne lore file.'); }); });
+    return;
   }
   /* export */
   case 'expCh': { const s = ui.exp.ch; s.has(val) ? s.delete(val) : s.add(val); break; }
@@ -2939,7 +2972,7 @@ function act(v, a, el, e){
   case 'rollTgt': ui.roll.target = val; ui.roll.ctx = 'cb'; break;
   case 'rollDist': ui.roll.dist = +val || 0; break;
   case 'rollMod': ui.roll.mod = clamp(+val || 0, -6, 6); break;
-  case 'rollSkill': { const r = ui.roll; r.skill = val; if (val in vsSkillMem) { r.vsSkill = vsSkillMem[val]; const n = r.vsNpc && g.npcs.find(x => x.id === r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; } break; }
+  case 'rollSkill': { const r = ui.roll; r.skill = val; if (val in vsSkillMem) { r.vsSkill = vsSkillMem[val]; const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = (n.skills || {})[r.vsSkill] || 0; } break; }
   case 'rollAll': ui.roll.all = true; break;
   case 'rollOpp': ui.roll.opp = val === 'null' ? null : +val; break;
   case 'rollVsSkill': { const r = ui.roll; r.vsSkill = r.vsSkill === val ? null : val; vsSkillMem[r.skill] = r.vsSkill; vsSkillSave(); const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
@@ -2961,7 +2994,7 @@ function act(v, a, el, e){
   case 'sdFor': { const sd = ui.sd, autoDay = sd.date === N.sceneDay(sd.ch); sd.ch = val;
     /* another chat: open its scene to edit, unless the GM is already building a new one */
     if (g.scenes[val] && !(sd.mode === 'new' && sd.touched)) sdLoad(sd, 'edit');
-    else { const keep = {title:sd.title, where:sd.where, date:sd.date, art:sd.art, place:sd.place, aspects:sd.aspects, loc:sd.loc, share:sd.share, touched:sd.touched, ...(sd.draft ? {draft:sd.draft, cast:N.withSidekicks(val, sd.cast), extras:sd.extras, cpics:sd.cpics} : {})}; if (autoDay) delete keep.date; /* the day filled in for the old chat follows the new chat's day */ sdLoad(sd, 'new'); if (keep.touched) Object.assign(sd, keep); }
+    else { const keep = {title:sd.title, where:sd.where, date:sd.date, tod:sd.tod, art:sd.art, place:sd.place, aspects:sd.aspects, loc:sd.loc, share:sd.share, touched:sd.touched, ...(sd.draft ? {draft:sd.draft, cast:N.withSidekicks(val, sd.cast), extras:sd.extras, cpics:sd.cpics} : {})}; if (autoDay) delete keep.date; /* the day filled in for the old chat follows the new chat's day */ sdLoad(sd, 'new'); if (keep.touched) Object.assign(sd, keep); }
     break; }
   case 'sdMode': sdLoad(ui.sd, val); break;
   case 'sdOneAdd': { const sd = ui.sd, name = (sd.oneName || '').trim(); if (!name) { toast(v, 'Give them a name first.'); break; }
@@ -3008,11 +3041,11 @@ function act(v, a, el, e){
   }
   case 'sdPost': ui.sd.post = !ui.sd.post; break;
   case 'sdCopyOpen': ui.sd.copy = !ui.sd.copy; break;
-  case 'sdCopy': { const s = ui.sd, to = val, g = G(); if (!s.title.trim() || !(s.art || s.place) || !to || to === s.ch) break;
+  case 'sdCopy': { const s = ui.sd, to = val, g = G(); if (!s.title.trim() || !(s.art || s.place) || !to || to === s.ch) break; const back = castSnap(to);
     if (s.cast.length) g.casts[to] = [...s.cast]; else delete g.casts[to];
     g.cpics = {...(g.cpics || {})}; if (Object.keys(s.cpics || {}).length) g.cpics[to] = {...s.cpics}; else delete g.cpics[to];
     if (s.extras.length) g.extras[to] = s.extras.map(x => ({id:x.id, name:x.name, skills:{...x.skills}})); else delete g.extras[to];
-    setScene(v, to, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), art:s.art, place:s.place, aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})})), loc:s.loc, share:s.share}, true);
+    setScene(v, to, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), tod:s.tod || '', art:s.art, place:s.place, aspects:s.aspects.map(a => ({t:a.t, free:a.free || 0, ...(a.on ? {on:a.on} : {})})), loc:s.loc, share:s.share}, true, back);
     const kit = copyKit(s.ch, to), more = [kit.done.length ? 'Also copied: ' + kit.done.join(', ') + '.' : '', kit.kept.length ? `${N.chName(to, 'gm')} already had ${kit.kept.join(' and ')}, so that stays.` : ''].filter(Boolean).join(' ');
     toast(v, `Scene copied to ${N.chName(to, 'gm')}: ${s.title.trim()}${more ? '. ' + more : ''}`);
     ui.sheet = null; renderAll(); return; }
@@ -3047,7 +3080,7 @@ function act(v, a, el, e){
   case 'locHere': { const loc = N.myLoc(v.role, ui.ch); if (!loc) break;
     const k = N.LOCK.find(k => loc[k] && g.maps.some(m => m.id === loc[k].m && seeMap(v, m))); if (!k) { toast(v, `You’re in ${N.locText(loc)}.`); return; }
     ui.mapId = loc[k].m; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
-  case 'sdApply': { const s = ui.sd; sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), tod:s.tod || '', art:s.art, place:s.place, aspects:s.aspects, loc:s.loc, share:s.share}, s.post); ui.sheet = null;
+  case 'sdApply': { const s = ui.sd, back = castSnap(s.ch); sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), tod:s.tod || '', art:s.art, place:s.place, aspects:s.aspects, loc:s.loc, share:s.share}, s.post, back); ui.sheet = null;
     /* the Narrator line that opened this window goes out now, in the chat it was written for */
     if (s.pend && s.pend.ch === s.ch && ui.ch === s.ch && ui.draft.trim() === s.pend.text.trim()) { s.pend = null; send(v, {again:true}); return; }
     renderAll(); return; }
@@ -3130,7 +3163,7 @@ function act(v, a, el, e){
     if (o.fp !== before && pool.pc) N.purseNote(o, 'fp', before);
     renderAll(); return; }
   case 'tokStress': { const t = N.tokById(d.t), s = N.tokStress(t); s.s[+d.i] = !s.s[+d.i]; renderAll(); return; }
-  case 'tokTurn': { const o = N.order(), i = o.findIndex(t => t.id === d.t); if (i >= 0) { cb.turn = i; cb.acted = false; cb.moved = false; cb.pending = null; } ui.tokSel = null; ui.sheet = null; renderAll(); return; }
+  case 'tokTurn': { if (cb.pending) { const t = N.tokById(cb.pending.def); toast(v, `Settle the hit on ${t ? N.tokName(t) : 'them'} first, or drop it.`); return; } const o = N.order(), i = o.findIndex(t => t.id === d.t); if (i >= 0) { cb.turn = i; cb.acted = false; cb.moved = false; } ui.tokSel = null; ui.sheet = null; renderAll(); return; }
   case 'tokOut': { const t = N.tokById(d.t); t.out = !t.out; if (t.out && cb.state === 'live') fsys(`${N.tokName(t)} is taken out.`); ui.sheet = null; renderAll(); return; }
   case 'tokRemove': { const t = N.cbRemove(d.t); ui.tokSel = null; ui.sheet = null; if (t) toast(v, `${N.tokName(t)} removed from the fight.`); renderAll(); return; }
   case 'cbBg': cb.bg = val; renderAll(); return;
@@ -3145,16 +3178,16 @@ function act(v, a, el, e){
     g.pics.splice(i, 1); ui.picSel = null;
     /* the picture itself is only removed once the Undo has run out */
     toast(v, 'Picture deleted.', () => { kept = true; g.pics.splice(Math.min(i, g.pics.length), 0, p); });
-    setTimeout(() => { if (!kept && !g.pics.some(x => x.src === p.src) && N.dropImg) N.dropImg(p.src); }, 5500);
+    setTimeout(() => { if (!kept && !g.pics.some(x => samePic(x.src, p.src)) && !picInUse(p.src) && N.dropImg) N.dropImg(p.src); }, 5500);
     renderAll(); return;
   }
   case 'cbBgUpload': uploadPicture(v, src => { cb.bg = src; }); return;
   case 'picFrame': { const p = g.pics.find(x => x.id === val); if (p) reframePic(v, p.src); else if (val === 'fight' && cb.bg) reframePic(v, cb.bg); return; }
   case 'zoneEdit': ui.zoneSel = ui.zoneSel === val && v.dev === 'desktop' ? null : val; ui.cbTool = 'zone'; if (v.dev === 'phone') { ui.sheet = 'zone'; ui.sheetArg = val; } break;
   case 'zoneCol': cb.zones.find(z => z.id === d.z).col = val; renderAll(); return;
-  case 'zoneDel': { const i = cb.zones.findIndex(z => z.id === d.z), z = cb.zones[i]; cb.zones.splice(i, 1); const moved = cb.tokens.filter(t => t.zone === z.id); moved.forEach(t => t.zone = null); ui.zoneSel = null; ui.sheet = null; toast(v, `Deleted ${z.name}.`, () => { cb.zones.splice(i, 0, z); moved.forEach(t => t.zone = z.id); }); renderAll(); return; }
+  case 'zoneDel': { const i = cb.zones.findIndex(z => z.id === d.z), z = cb.zones[i]; if (!z) return; if (cb.state === 'live' && cb.tokens.some(t => t.zone === z.id)) { toast(v, `Move everyone out of ${z.name} before deleting it.`); return; } cb.zones.splice(i, 1); const moved = cb.tokens.filter(t => t.zone === z.id); moved.forEach(t => t.zone = null); ui.zoneSel = null; ui.sheet = null; toast(v, `Deleted ${z.name}.`, () => { cb.zones.splice(i, 0, z); moved.forEach(t => t.zone = z.id); }); renderAll(); return; }
   case 'cbQuickZones': N.cbQuickZones(); ui.cbTool = 'move'; renderAll(); return;
-  case 'cbInvite': { const i = cb.invited.indexOf(val); if (i >= 0) { cb.invited.splice(i, 1); cb.tokens = cb.tokens.filter(t => !(t.kind === 'pc' && t.ref === val)); } else { cb.invited.push(val); cb.tokens.push(N.tokFromPc(g.chars[val])); N.cbPlacePcs(); } renderAll(); return; }
+  case 'cbInvite': { const i = cb.invited.indexOf(val); if (i >= 0) { cb.invited.splice(i, 1); cb.tokens = cb.tokens.filter(t => !(t.kind === 'pc' && t.ref === val)); if (ui.placing && !N.tokById(ui.placing)) ui.placing = null; if (ui.tokSel && !N.tokById(ui.tokSel)) { ui.tokSel = null; ui.sheet = null; } } else { cb.invited.push(val); cb.tokens.push(N.tokFromPc(g.chars[val])); N.cbPlacePcs(); } renderAll(); return; }
   case 'cbAddNpc': { const t = N.cbAddNpc(val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
   case 'cbAddOnce': { const t = N.cbAddOnce(val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
   case 'foeAll': ui.foeAll = !ui.foeAll; break;
@@ -3398,7 +3431,7 @@ function openSheet(v, s, d={}){
   }
   if (s === 'wEdit') {
     const e = d.v && g.wiki.find(x => x.id === d.v);
-    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), gm:!!e.gm, see:[...(e.see || [])], imgs:N.wikiPics(e).map(p => ({...p})), car:e.car ? {...e.car} : null, parts:N.wikiParts(e).map(p => ({...p, id:p.id === 'sec' ? uid('s') : p.id, to:N.partTo(p), see:[...(p.see || [])], imgs:(p.imgs || []).map(x => ({...x}))}))}
+    ui.wd = e ? {id:e.id, title:e.title, cat:e.cat, summary:e.summary || '', info:(e.info||[]).map(i => i.join(': ')).join('\n'), body:(e.body||[]).join('\n\n'), gm:!!e.gm, see:[...(e.see || [])], imgs:N.wikiPics(e).map(p => ({...p})), car:e.car ? {...e.car} : null, parts:N.wikiParts(e).map(p => ({...p, id:p.id === 'sec' ? uid('s') : p.id, to:N.partTo(p), see:[...(p.see || [])], imgs:(p.imgs || []).map(x => ({...x})), car:p.car ? {...p.car} : null}))}
               : {id:null, title:'', cat:ui.wikiCat || (N.cats().find(c => c.name === 'People') || N.cats()[0] || {name:'People'}).name, summary:'', info:'', body:'', gm:false, imgs:[], parts:[]};
   }
   if (s === 'wCats') { ui.cd = N.catNames(g.wiki).map(name => ({from:name, name, ic:N.catIcon(name)})); ui.cdIc = null; }
@@ -3527,7 +3560,13 @@ function shopKeep(s){
   if (old) { if (!here && old.loc) { x.loc = old.loc; x.locL = old.locL; if (old.sel) x.sel = old.sel; } x.id = old.id; Object.assign(old, x); } else L.push(x);
   s.lib = x.id;
 }
-function setScene(v, ch, s, post){
+/* a chat's scene cast, one-off NPCs and picked pictures as they were, so a scene's Undo can put them back */
+function castSnap(ch){
+  const g = G(), c = g.casts[ch], x = g.extras[ch], p = g.cpics && g.cpics[ch];
+  return () => { const set = (o, v) => { if (v) o[ch] = v; else delete o[ch]; };
+    set(g.casts, c && [...c]); set(g.extras, x && x.map(e => ({...e, skills:{...e.skills}}))); g.cpics = {...(g.cpics || {})}; set(g.cpics, p && {...p}); };
+}
+function setScene(v, ch, s, post, back){
   const g = G();
   /* a location the players aren't told stays in the GM's own data, so it never reaches their devices */
   const loc = s.loc ? N.locBuild(s.loc) : null, share = s.share !== false;
@@ -3537,7 +3576,7 @@ function setScene(v, ch, s, post){
   sceneRecent(sc);
   const undoStress = clearStress(ch);
   const who = ch === 'table' ? 'everyone' : (g.P[ch.slice(3)]?.name || 'them');
-  toast(v, `Scene set for ${who}: ${sc.title}. Stress boxes cleared.`, () => { N.delMsg(m.id); undoStress(); N.renderAll(); });
+  toast(v, `Scene set for ${who}: ${sc.title}. Stress boxes cleared.`, () => { N.delMsg(m.id); undoStress(); if (back) back(); if (loc && !share) delete g.hlocs[m.id]; N.renderAll(); });
 }
 /* Level Up (Jake's follow-up): when a player sends their level up, the GM's device posts a summary in GM notes
    (players can't write there). lvl.noted marks it done, so it's posted once even if the GM was away */
@@ -3644,9 +3683,10 @@ function saveNpc(v){
     inv:(d.inv || []).map(x => [...x]), dir:N.nd.byId(d.dir) ? d.dir : null, side:!!(d.side && d.lead), lead:d.side && d.lead ? d.lead : '', pics:(d.pics || []).filter(p => p && p !== d.portrait).slice(0, 8),
     al:Object.fromEntries(N.ALF.map(([f]) => [f, (d.al?.[f] || []).map(a => ({id:a.id, v:String(a.v || '').trim()})).filter(a => a.v)]).filter(([, l]) => l.length))};
   if (d.copyOf && !old) base.gold = +d.gold || 0;
-  let n;
+  let n; const was = old ? old.name : null;
   if (old) {
     n = Object.assign(old, base);
+    if (was !== n.name) npcRenamed(was, n.name);
     for (const [tr, sk] of [['phys','Strength'],['ment','Will']]) { const sv = [...N.stressVals(n.skills[sk] || 0), ...(tr === 'phys' ? n.gearBox || [] : [])]; if (sv.join() !== (n.stressV[tr] || []).join()) { n.stressV[tr] = sv; n.stress[tr] = sv.map(() => false); } }
   } else { n = N.npcCard(base); g.npcs.push(n); }
   g.npcs.sort((a,b) => a.name.localeCompare(b.name));
@@ -3655,6 +3695,16 @@ function saveNpc(v){
   if (d.copyOf && !old) { v.ui.tab = 'cast'; v.ui.castSel = n.id; }
   if (d.from === 'voice') { v.ui.voice = n.name; v.ui.mode = 'rp'; const ch = v.ui.ch === 'gm' ? 'table' : v.ui.ch, cast = N.castOf(ch) || []; if (!cast.includes(n.name)) g.casts[ch] = N.withSidekicks(null, [...cast, n.name], [n.name]); }
   toast(v, old ? 'NPC saved.' : d.copyOf ? `${n.name} saved as an NPC.` : `${n.name} saved. Pick them in “Speak as”.`); renderAll();
+}
+/* scene casts, picked scene pictures, scene drafts, storefronts and Speak as go by the NPC's name, so a renamed card stays in all of them */
+function npcRenamed(a, b){
+  const g = G(), sw = L => Array.isArray(L) ? L.map(x => x === a ? b : x) : L;
+  const pk = o => { if (o && a in o) { if (!(b in o)) o[b] = o[a]; delete o[a]; } };
+  for (const ch of Object.keys(g.casts || {})) g.casts[ch] = sw(g.casts[ch]);
+  for (const o of Object.values(g.cpics || {})) pk(o);
+  for (const d of g.sdrafts || []) { d.cast = sw(d.cast); pk(d.cpics); }
+  for (const sh of Object.values(g.shops || {})) for (const x of sh.npcs || []) if (x.name === a) x.name = b;
+  for (const w of views) { if (w.ui.voice === a) w.ui.voice = b; if (w.ui.sd) { w.ui.sd.cast = sw(w.ui.sd.cast); pk(w.ui.sd.cpics); } }
 }
 /* the GM's buff or debuff on a roll that's already made (a defense, a Notice roll, or one rolled without it): −6..+6,
    the total and any fight result follow it */

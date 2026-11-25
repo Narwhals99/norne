@@ -49,14 +49,30 @@ function syncErr(t){ if (SWITCHING || OUT) return; if (V) N.toast(V, t); N.rende
 /* ---------- documents made of units ---------- */
 const KNOWN = new Map(), LOADED = new Set();
 const dref = path => F.doc(db, ...path.split('/'));
-const track = pr => pr.catch(err => { console.error(err); syncErr(err?.code === 'permission-denied' ? 'A change wasn’t saved: you don’t have permission for it.' : 'A change wasn’t saved. Check your connection.'); });
+const track = pr => pr.catch(err => { console.error(err); syncErr(err?.code === 'permission-denied' ? 'A change wasn’t saved: you don’t have permission for it.' : err?.code === 'invalid-argument' ? 'A change wasn’t saved: the database refused it as too big.' : 'A change wasn’t saved. Check your connection.'); });
 /* write the units that differ from what the server last had; partial leaves other units alone */
 function writeUnits(path, units, partial){
   if (!LOADED.has(path)) return;
-  const k = KNOWN.get(path), ch = {}; let n = 0;
-  for (const [key, v] of Object.entries(units)) { const j = JSON.stringify(v); if (k.units[key] !== j) { ch[key] = j; k.units[key] = j; n++; } }
-  if (!partial) for (const key of Object.keys(k.units)) if (!(key in units)) { ch[key] = F.deleteField(); delete k.units[key]; n++; }
-  if (n) track(F.setDoc(dref(path), ch, {merge:true}));
+  const k = KNOWN.get(path), ch = {}, nu = {...k.units}; let n = 0;
+  for (const [key, v] of Object.entries(units)) { const j = JSON.stringify(v); if (nu[key] !== j) { ch[key] = j; nu[key] = j; n++; } }
+  if (!partial) for (const key of Object.keys(nu)) if (!(key in units)) { ch[key] = F.deleteField(); delete nu[key]; n++; }
+  if (!n) return;
+  /* the database keeps at most 1 MiB in one document and refuses the whole save past that. Saying so (and trying again
+     on the next change) beats a "check your connection" while the change quietly never arrives */
+  if (tooBig(path, nu)) return;
+  k.units = nu;
+  track(F.setDoc(dref(path), ch, {merge:true}));
+}
+const BIGW = new Map();
+function tooBig(path, units){
+  let len = 0; for (const [key, j] of Object.entries(units)) len += key.length + j.length + 2;
+  if (len * 3 < 1000000) return false;
+  let b = 0; const te = new TextEncoder(); for (const [key, j] of Object.entries(units)) b += te.encode(key).length + te.encode(j).length + 2;
+  if (b < 1048000) return false;
+  const now = Date.now(); if (now - (BIGW.get(path) || 0) > 60000) { BIGW.set(path, now);
+    const what = /wiki/.test(path) ? 'The wiki' : /maps/.test(path) ? 'The maps' : /chars|parties/.test(path) ? 'The character sheets' : /npcs/.test(path) ? 'The NPC cards' : /news/.test(path) ? 'The newspapers' : 'Part of the campaign';
+    syncErr(`${what} got too big to save (${Math.round(b / 1024)} KB, the most is 1024 KB). The last change wasn’t saved: make something there shorter, then change it again.`); }
+  return true;
 }
 /* listen to a document; apply(units) runs only when it really changed.
    soft: a refusal (security rules not published yet) leaves it unloaded instead of stopping the app */
@@ -87,7 +103,11 @@ function listenDoc(path, apply, soft){
       const first = !LOADED.has(path); LOADED.add(path);
       if (first || !same) { apply(units); if (!first) changed(); }
       res();
-    }, err => { heard(path, false); if (soft) { console.warn(path, err?.code); DENIED.add(path); LOADED.delete(path); res(); } else { fail(err); res(); } });
+    }, err => { heard(path, false);
+      /* a document that could be read and now can't (a player moved out of a party, a group chat they left): the listener is
+         over, so forget it; put back in later, it is listened to afresh instead of staying blank until a reload */
+      if (soft) { console.warn(path, err?.code); const had = LOADED.has(path); DENIED.add(path); LOADED.delete(path);
+        if (had) { PARTY_ON.delete(path); FIGHT_ON.delete(path); ONLY_ON.delete(path); KNOWN.delete(path); } res(); } else { fail(err); res(); } });
   });
 }
 const vals = u => Object.values(u).map(j => JSON.parse(j));
@@ -427,6 +447,22 @@ N.pickImage = cb => {
   setTimeout(() => { addEventListener('focus', back); document.addEventListener('visibilitychange', back); }, 0);
   inp.click();
 };
+/* the same for documents (wiki Import lore, the item list, the lore file): cb gets the chosen files, at least one */
+let PICKF = null;
+N.pickFiles = (accept, multiple, cb) => {
+  if (PICKF) PICKF.remove();
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = accept; inp.multiple = !!multiple;
+  inp.setAttribute('aria-hidden', 'true'); inp.tabIndex = -1;
+  inp.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';
+  document.body.appendChild(inp); PICKF = inp;
+  let done = false;
+  const end = () => { removeEventListener('focus', back); document.removeEventListener('visibilitychange', back); if (PICKF === inp) PICKF = null; inp.remove(); };
+  const take = () => { const fs = [...(inp.files || [])]; if (done || !fs.length) return; done = true; end(); cb(fs); };
+  const back = () => { if (document.visibilityState === 'hidden') return; setTimeout(take, 500); setTimeout(take, 1500); };
+  inp.addEventListener('change', take); inp.addEventListener('input', take); inp.addEventListener('cancel', () => { if (!done) end(); });
+  setTimeout(() => { addEventListener('focus', back); document.addEventListener('visibilitychange', back); }, 0);
+  inp.click();
+};
 N.storeImg = (data, vis) => {
   const id = uid('img'); MIMG.set(id, {url:data, p:null}); MVIS.set(id, visKey(vis));
   track(F.setDoc(dref('mapimgs/' + id), {data, vis}));
@@ -583,7 +619,10 @@ function syncNow(){
   } else {
     const mine = g.P[g.role]?.char;
     const pt = N.partyOf(g.role);
-    if (mine && g.chars[mine]) writeUnits(pt ? 'parties/' + pt.id : 'game/chars', {[mine]:g.chars[mine]}, true);
+    if (mine && g.chars[mine]) { const path = pt ? 'parties/' + pt.id : 'game/chars'; writeUnits(path, {[mine]:g.chars[mine]}, true);
+      /* this device's own writes don't come back as changes, so its copy of the document has to follow what it wrote:
+         otherwise the next change to game/chars rebuilt the cards from the old copy and this card jumped back (and was saved so) */
+      const k = KNOWN.get(path); if (k) { if (pt) CH.party[pt.id] = {...k.units}; else CH.base = {...k.units}; } }
     /* partial: the same document can hold an open store (unit s), which only the GM writes */
     for (const [ch, cb] of Object.entries(N.allFights())) if (cb.state === 'live') { const s = N.chKey(ch); writeUnits(s ? 'fights/' + s : 'game/combat', {c:combatOut(cb)}, true); }
   }
@@ -625,11 +664,11 @@ const gmKept = (ch, cb) => cb.state === 'setup' || (cb.state === 'live' && (ch =
 const OLDBG = {forest:'dark-forest', tavern:'town-alley', street:'town-alley', cave:'cave-temple-deep', castle:'castle-ramparts', swamp:'dark-forest', snow:'mountain-pass-raid', ship:'harbor-ship'};
 /* Fights are also written in the old app's shape (bg key, scene, zone color), so rolling the site back keeps them working. */
 const oldBg = src => ({'dark-forest':'forest', 'town-alley':'tavern', 'cave-temple-deep':'cave', 'castle-ramparts':'castle', 'mountain-pass-raid':'snow', 'harbor-ship':'ship'})[(String(src).match(/^art\/bg\/([\w-]+)\.jpg$/) || [])[1]] || 'forest';
-const combatOut = c => ({...c, art:c.bg, bg:oldBg(c.bg), scene:c.aspects, zones:c.zones.map(z => ({...z, color:z.col})), tokens:c.tokens.map(npcTokOut)});
+const combatOut = ({_tid, _tsig, _tturn, ...c}) => ({...c, art:c.bg, bg:oldBg(c.bg), scene:c.aspects, zones:c.zones.map(z => ({...z, color:z.col})), tokens:c.tokens.map(npcTokOut)});
 /* a named NPC's token carries a copy of its card's consequences, so players (who can't read NPC cards) see them in the fight */
 /* players don't get the GM's NPC cards, so a card NPC's figure goes out on its token (figures for everyone, 2026-11-11) */
 const npcTokOut = t => { if (t.kind !== 'npc') return t; const card = G().npcs.find(x => x.id === t.ref), n = t.type !== 'nameless' && card;
-  return {...t, ...(t.label == null ? {label:''} : {}), ...(n ? {cons:{...(n.cons || {})}, conSt:n.conSt ? {...n.conSt} : null} : {}), ...(card && card.fig ? {fig:card.fig} : {})}; };
+  return {...t, ...(t.label == null ? {label:''} : {}), ...(n ? {cons:{...(n.cons || {})}, conSt:n.conSt ? {...n.conSt} : null} : {}), ...(card && card.fig ? {fig:card.fig} : card && card.race && N.figRace && N.figRace(card.race) ? {frace:N.figRace(card.race)} : {})}; };
 function normCombat(c){
   if (!c) return N.freshCombat();
   const f = N.freshCombat(), legacy = !c.joined;
@@ -666,6 +705,9 @@ function setCombat(){
     if (!src.table && GC?.state === 'live') src.table = GC;
     /* the GM's own fights stay until the GM ends them, even before they are saved */
     Object.assign(out, cur);
+    /* ...but one this device had from the server, and the server no longer has, was ended or cancelled on the GM's other
+       device: keeping it here wrote it back on the next tap and the fight came back for everyone */
+    for (const ch of Object.keys(out)) if (!src[ch] && SRC[ch]?.id && cur[ch]?.id === SRC[ch].id) delete out[ch];
   } else {
     if (GC?.state === 'live') src.table = GC;
     if (PF[g.role]?.state === 'live') src['dm-' + g.role] = PF[g.role];
@@ -727,7 +769,7 @@ N.decorate = c => {
 
 /* a change from someone else redraws the page, but never under someone who is typing in a form */
 let _rq = 0, _late = false;
-const typing = () => { const a = document.activeElement; return !!a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('.composer') && V && V.root.contains(a); };
+const typing = () => { const a = document.activeElement; return !!a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName) && !a.closest('.composer, .fc-comp') && V && V.root.contains(a); };
 function changed(){ if (!live) return; clearTimeout(_rq); _rq = setTimeout(() => { if (typing()) { _late = true; return; } _late = false; if (readyCheck()) N.renderAll(); }, 40); }
 document.addEventListener('focusout', () => { if (_late) setTimeout(() => { if (_late && !typing()) changed(); }, 0); });
 
@@ -977,7 +1019,9 @@ N.signOut = () => {
   syncNow(); OUT = true;
   try { localStorage.removeItem('norne-gmtest'); } catch(e) {}
   try { localStorage.removeItem(WKEY()); } catch(e) {}
-  F.signOut(auth).then(() => F.terminate(db)).then(() => F.clearIndexedDbPersistence(db)).catch(e => console.warn('clear copy', e)).then(() => location.reload());
+  /* no more pings for the person signing out (at most 2 seconds, so an offline device still signs out) */
+  Promise.race([Promise.resolve(N.notifyOff && N.notifyOff()).catch(() => {}), new Promise(r => setTimeout(r, 2000))])
+    .then(() => F.signOut(auth)).then(() => F.terminate(db)).then(() => F.clearIndexedDbPersistence(db)).catch(e => console.warn('clear copy', e)).then(() => location.reload());
 };
 N.admit = id => {
   const m = N.MEMBERS.find(x => x.uid === id); if (!m) return;
@@ -1000,6 +1044,11 @@ N.dropSeat = (id, seat) => {
   const m = N.MEMBERS.find(x => x.uid === id); if (!m || m.role === seat) return;
   track(F.updateDoc(dref('members/' + m.uid), {seats:N.seatsOf(m).filter(s => s !== seat)}));
 };
+/* Undo of the above: the same seat back */
+N.undropSeat = (id, seat) => {
+  const m = N.MEMBERS.find(x => x.uid === id); if (!m || N.seatsOf(m).includes(seat)) return;
+  track(F.updateDoc(dref('members/' + m.uid), {seats:[...N.seatsOf(m), seat]}));
+};
 /* a player switches character: this tab reloads as that seat, with its own chats and memory. Other open tabs keep
    the character they are playing. The account's role is set too, so tabs opened later start on this one. */
 N.switchSeat = seat => {
@@ -1018,9 +1067,23 @@ N.importLore = file => file.text().then(txt => {
   if (d.kind !== 'norne-lore' || !Array.isArray(d.wiki) || !Array.isArray(d.maps)) throw new Error('not lore');
   const g = G();
   /* pictures the GM added to an entry stay when the lore file replaces its text */
-  for (const e of d.wiki) { const i = g.wiki.findIndex(x => x.id === e.id); if (i >= 0) { const was = g.wiki[i]; if (was.imgs && !e.imgs) { e.imgs = was.imgs; delete e.img; } if (was.parts && !e.parts) e.parts = was.parts; g.wiki[i] = e; } else g.wiki.push(e); }
-  for (const m0 of d.maps) { const m = normMap(m0), i = g.maps.findIndex(x => x.id === m.id); if (i >= 0) { if (g.maps[i].dir && !m.dir) m.dir = g.maps[i].dir; /* re-import keeps the GM's level and default */ if (g.maps[i].lvl != null && m.lvl == null) m.lvl = g.maps[i].lvl; if (g.maps[i].def) m.def = true; /* a place keeps the map the GM linked it to */ for (const p of m.pins) { const was = g.maps[i].pins.find(x => x.id === p.id); if (was && was.to && !p.to) p.to = was.to; if (was && was.see?.length && !p.vis && !p.see) p.see = was.see; if (was && was.sub && !p.sub) p.sub = was.sub; if (was && was.wiki && !p.wiki) p.wiki = was.wiki; if (was && was.cap && p.cap == null) p.cap = true; } g.maps[i] = m; } else g.maps.push(m); }
-  return Promise.all(Object.entries(d.mapimgs || {}).map(([id, data]) => { const v = g.maps.find(m => m.src === 'fs:' + id)?.vis !== false; MIMG.set(id, {url:data, p:null}); MVIS.set(id, v); return F.setDoc(dref('mapimgs/' + id), {data, vis:v}); }))
+  /* so does who can read it: an entry the GM hid or gave to some players in the app keeps that (a re-import made them public) */
+  for (const e of d.wiki) { const i = g.wiki.findIndex(x => x.id === e.id); if (i >= 0) { const was = g.wiki[i]; if (was.imgs && !e.imgs) { e.imgs = was.imgs; delete e.img; } if (was.parts && !e.parts) e.parts = was.parts; if (was.car && !e.car) e.car = was.car;
+      if (was.gm || was.see?.length) { delete e.gm; delete e.see; if (was.gm) e.gm = true; if (was.see?.length) e.see = [...was.see]; }
+      g.wiki[i] = e; } else g.wiki.push(e); }
+  for (const m0 of d.maps) { const m = normMap(m0), i = g.maps.findIndex(x => x.id === m.id); if (i >= 0) { const old = g.maps[i]; if (old.dir && !m.dir) m.dir = old.dir; /* re-import keeps the GM's level and default */ if (old.lvl != null && m.lvl == null) m.lvl = old.lvl; if (old.def) m.def = true;
+      /* and what the GM changed on the map in the app: its name, its picture (Replace picture) and who sees it */
+      m.name = old.name || m.name; if (old.src && old.src !== m.src) { m.src = old.src; m.w = old.w; m.h = old.h; }
+      for (const k of ['vis', 'see']) { if (old[k] === undefined) delete m[k]; else m[k] = Array.isArray(old[k]) ? [...old[k]] : old[k]; }
+      /* a place keeps the map the GM linked it to, and whether it is shown (pins the GM revealed or hid during play) */
+      for (const p of m.pins) { const was = old.pins.find(x => x.id === p.id); if (was && was.to && !p.to) p.to = was.to; if (was && was.sub && !p.sub) p.sub = was.sub; if (was && was.wiki && !p.wiki) p.wiki = was.wiki; if (was && was.cap && p.cap == null) p.cap = true;
+        if (was) for (const k of ['vis', 'see']) { if (was[k] === undefined) delete p[k]; else p[k] = Array.isArray(was[k]) ? [...was[k]] : was[k]; } }
+      /* pins the GM added in the app (notes, You are here, the party) aren't in the file: they stay */
+      for (const p of old.pins) if (!m.pins.some(x => x.id === p.id)) m.pins.push(p);
+      g.maps[i] = m; } else g.maps.push(m); }
+  /* a map picture the GM replaced isn't put back from the file */
+  const base = m => N.picBase ? N.picBase(m.src || '') : m.src, used = new Set(g.maps.map(base));
+  return Promise.all(Object.entries(d.mapimgs || {}).filter(([id]) => used.has('fs:' + id)).map(([id, data]) => { const v = g.maps.find(m => base(m) === 'fs:' + id)?.vis !== false; MIMG.set(id, {url:data, p:null}); MVIS.set(id, v); return F.setDoc(dref('mapimgs/' + id), {data, vis:v}); }))
     .then(() => { syncNow(); return d; });
 });
 })();

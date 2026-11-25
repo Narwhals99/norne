@@ -437,7 +437,7 @@ N.sheetHtml = function(v){
     const foot = `<button type="button" class="btn ghost" data-a="expCopy">${IC('copy')}Copy</button><button type="button" class="btn primary lg" data-a="expDl">${IC('download')}Download ${ex.json ? '.json' : '.md'}</button>`;
     if (what === 'wiki') return sheet('Export the wiki', `${whatRow}
       <div><h4>Categories</h4><div class="forwho">${N.cats().map(c => `<button type="button" data-a="expCat" data-v="${esc(c.name)}" aria-pressed="${ex.cats.has(c.name)}">${esc(c.name)} <small>${G().wiki.filter(e => e.cat === c.name).length}</small></button>`).join('')}</div></div>
-      <div><h4>Include</h4><div class="forwho"><button type="button" data-a="expKind" data-v="wgm" aria-pressed="${!!ex.wgm}">GM-only parts</button></div><small class="muted">Every entry says who can read it, and every section who it is for.</small></div>
+      <div><h4>Include</h4><div class="forwho"><button type="button" data-a="expKind" data-v="wgm" aria-pressed="${!!ex.wgm}">GM-only entries and sections</button></div><small class="muted">Every entry says who can read it, and every section who it is for.</small></div>
       ${fmt}${prev}`, foot, {wide:true});
     if (what === 'news') return sheet('Export the newspapers', `${whatRow}
       <div><h4>Papers</h4><div class="forwho">${ps.map(p => `<button type="button" data-a="expPaper" data-v="${esc(p.name)}" aria-pressed="${ex.papers.has(p.name)}">${esc(p.name)} <small>${p.issues.length}</small></button>`).join('') || '<span class="muted">No papers yet.</span>'}</div><small class="muted">Every edition, oldest first, with who could read it.</small></div>
@@ -1462,7 +1462,8 @@ function carEd(v, o, n){
 const plainLinks = t => String(t || '').replace(/\[\[(?:[a-z]+:[^|\]]+\|)?([^\]]+)\]\]/g, '$1');
 const whoWiki = (x, k) => { const a = N.audOf(x, k); return a === '*' ? 'Everyone' : a === 'gm' ? 'GM only' : N.audLabel(x, k).replace(/^Only /, ''); };
 function wikiExport(sel){
-  const g = G(), es = g.wiki.filter(e => sel.cats.has(e.cat)).sort((a, b) => a.title.localeCompare(b.title));
+  /* without GM-only parts, entries only the GM can read stay out too (they were in the file, marked "Seen by: GM only") */
+  const g = G(), es = g.wiki.filter(e => sel.cats.has(e.cat) && (sel.wgm || N.audOf(e, 'wiki') !== 'gm')).sort((a, b) => a.title.localeCompare(b.title));
   if (sel.json) return JSON.stringify({kind:'norne-wiki', exported:new Date().toISOString(), entries:es.map(e => ({title:e.title, category:e.cat, seenBy:whoWiki(e, 'wiki'), summary:plainLinks(e.summary),
     facts:(e.info || []).map(([k, x]) => ({[k]:plainLinks(x)})), text:(e.body || []).map(plainLinks),
     sections:N.wikiParts(e).filter(p => sel.wgm || N.partTo(p) !== 'gm').map(p => ({heading:plainLinks(p.h), seenBy:N.partTo(p) === 'all' ? 'Everyone' : N.partTo(p) === 'gm' ? 'GM only' : N.namesList(p.see || []), text:plainLinks(p.text)}))}))}, null, 2);
@@ -1526,7 +1527,14 @@ N.buildExport = sel => {
 const srchText = m => { const t = N.msgCopyText(m); return m.kind === 'roll' ? `${m.roll.who || ''} ${m.roll.skill} ${m.roll.action || ''} ${m.roll.target || ''} ${t}` : m.kind === 'scene' ? `${m.scene?.title || ''} ${m.scene?.where || ''}` : t; };
 const srchWho = m => m.kind === 'roll' ? (m.roll.who || 'Roll') : m.kind === 'scene' ? 'New scene' : m.kind === 'sys' || m.kind === 'news' ? '' : m.kind === 'rp' && !N.metaRp(m) ? N.speakerObj(m).name || 'Narrator' : N.msgPerson(m).name;
 const fold = x => String(x).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-const mark = (txt, words) => { let h = esc(txt); for (const w of words) h = h.replace(new RegExp('(' + esc(w).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi'), '<mark>$1</mark>'); return h; };
+/* every word found is marked on the plain text first (accents folded like the search), then escaped, so a later word never lands inside an earlier <mark> or an &amp; */
+const mark = (txt, words) => {
+  const f = N.fold(txt), on = new Uint8Array(txt.length);
+  if (f.length !== txt.length) return esc(txt);
+  for (const w of words.map(x => N.fold(x)).filter(Boolean)) for (let i = f.indexOf(w); i > -1; i = f.indexOf(w, i + w.length)) on.fill(1, i, i + w.length);
+  let h = '', i = 0; while (i < txt.length) { let j = i; while (j < txt.length && on[j] === on[i]) j++; h += on[i] ? `<mark>${esc(txt.slice(i, j))}</mark>` : esc(txt.slice(i, j)); i = j; }
+  return h;
+};
 N.chatSearch = (v, q, all) => {
   const words = fold(q).split(/\s+/).filter(Boolean); if (!words.length) return [];
   const chs = new Set(all ? N.channelsFor(v.role) : [v.ui.ch]);
