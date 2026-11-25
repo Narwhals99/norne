@@ -633,18 +633,18 @@ N.sheetHtml = function(v){
   }
   /* ---------------- reveal parts of a card to single players (GM) ---------------- */
   case 'reveal': {
-    const c = g.chars[arg], n = !c && g.npcs.find(x => x.id === arg), card = c || n; if (!card) return '';
+    const c = g.chars[arg], n = !c && g.npcs.find(x => x.id === arg), card = c ? N.withX(c) : n; if (!card) return '';
     const seats = N.seats().filter(st => !c || st !== c.player);
     if (!seats.includes(v.ui.revSeat)) v.ui.revSeat = seats[0];
     const st = v.ui.revSeat, keys = N.revKeys(card, N.revOf(arg, st)), parts = N.revParts(card, !!c), name = c ? c.short || c.name : n.name;
     if (!st) return sheet(`Reveal ${esc(name)}`, `<div class="quiet"><div class="art"></div><p>No other players yet.</p></div>`);
     const groups = [...new Set(parts.map(p => p.g))];
-    /* an NPC field with aliases: the GM also picks what this player is told, the truth or one alias */
-    const als = p => c ? [] : N.aliases(card, p.k), asId = p => N.asOf(keys, p.k), asV = p => als(p).find(a => a.id === asId(p));
+    /* a field with aliases (NPCs, and PCs since Nov 25): the GM also picks what this player is told, the truth or one alias */
+    const als = p => N.aliases(card, p.k), asId = p => N.asOf(keys, p.k), asV = p => als(p).find(a => a.id === asId(p));
     /* an NPC with other pictures: which one this player is shown */
     /* several can be ticked (Jake): the first ticked is their portrait, the others show on the card as other pictures */
-    const pics = c ? [] : N.npcPics(card), picOn = N.picVals(card, keys), picN = picOn.length;
-    const picRow = p => `<div class="revas">${row0({...p, v:!picN ? 'No picture' : picN > 1 ? `${picN} pictures` : picOn[0] === card.portrait ? p.v : 'Another picture'})}<div class="revpics" role="group" aria-label="Which pictures ${esc(pName(st))} sees">${pics.map((x, i) => `<button type="button" data-a="revPic" data-v="${esc(N.picKey(x))}" aria-pressed="${picOn.includes(x)}" aria-label="${i ? 'Picture ' + (i + 1) : 'Main portrait'}">${N.av({name:card.name, portrait:x, color:'var(--c-npc)'}, 48)}${picN > 1 && x === picOn[0] ? `<span class="pfirst">${IC('star')}</span>` : ''}<small>${x === card.portrait ? 'Main' : 'Picture ' + (i + 1)}</small></button>`).join('')}</div><small class="revpics-n">Tick more than one to show them several. The first ticked in this row${picN > 1 ? ' (star)' : ''} is the portrait they see.</small></div>`;
+    const pics = N.npcPics(card), picOn = N.picVals(card, keys), picN = picOn.length;
+    const picRow = p => `<div class="revas">${row0({...p, v:!picN ? 'No picture' : picN > 1 ? `${picN} pictures` : picOn[0] === card.portrait ? p.v : 'Another picture'})}<div class="revpics" role="group" aria-label="Which pictures ${esc(pName(st))} sees">${pics.map((x, i) => `<button type="button" data-a="revPic" data-v="${esc(N.picKey(x))}" aria-pressed="${picOn.includes(x)}" aria-label="${i ? 'Picture ' + (i + 1) : 'Main portrait'}">${N.av({name:card.name, portrait:x, color:c ? c.color : 'var(--c-npc)'}, 48)}${picN > 1 && x === picOn[0] ? `<span class="pfirst">${IC('star')}</span>` : ''}<small>${x === card.portrait ? 'Main' : 'Picture ' + (i + 1)}</small></button>`).join('')}</div><small class="revpics-n">Tick more than one to show them several. The first ticked in this row${picN > 1 ? ' (star)' : ''} is the portrait they see.</small></div>`;
     const row0 = p => `<button type="button" class="revrow" data-a="revTog" data-v="${esc(p.k)}" aria-pressed="${keys.includes(p.k)}"><span class="rck">${IC('check')}</span><span><b>${esc(p.l)}</b><small>${asV(p) ? `Alias: ${esc(p.k === 'age' ? 'Age ' + asV(p).v : asV(p).v)}` : esc(p.v)}</small></span></button>`;
     const row = p => p.k === 'pic' && pics.length > 1 ? picRow(p) : !als(p).length ? row0(p) : `<div class="revas">${row0(p)}<div class="seg asseg" role="group" aria-label="What ${esc(pName(st))} is told"><button type="button" data-a="revAs" data-v="${p.k}" data-n="" aria-pressed="${!asV(p)}">${IC('check')}The truth</button>${als(p).map(a => `<button type="button" data-a="revAs" data-v="${p.k}" data-n="${esc(a.id)}" aria-pressed="${asId(p) === a.id}">${IC('mask')}${esc(a.v)}</button>`).join('')}</div></div>`;
     const body = `<div><h4>To</h4><div class="forwho" role="group" aria-label="Player">${seats.map(s2 => `<button type="button" data-a="revSeat" data-v="${s2}" aria-pressed="${s2 === st}">${N.av(N.personObj(s2),28)}${esc(pName(s2))}${N.revCount(arg, s2) ? ` <span class="tag" style="height:16px">${N.revCount(arg, s2)}</span>` : ''}</button>`).join('')}</div></div>
@@ -1256,6 +1256,7 @@ function pcEditor(v){
   const d = v.ui.pd;
   const extra = Object.entries(d.skills).filter(([,x]) => x > 8 || x < -1 || x === 0);
   return `${raceList(v)}<div><h4>Portrait</h4>${portraitPick(d.portrait, 'pdPortrait', 'pdUpload')}</div>
+    ${altPics(d, 'pd')}
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
       <label class="field"><span>Character name</span><input class="inp" id="pdn-${v.id}" data-i="pd" data-k="name" value="${esc(d.name)}" placeholder="Full name"></label>
       <label class="field"><span>Short name (chat and tokens)</span><input class="inp" id="pds-${v.id}" data-i="pd" data-k="short" value="${esc(d.short)}" placeholder="What the table calls them"></label>
@@ -1263,6 +1264,7 @@ function pcEditor(v){
       <label class="field"><span>Nationality</span><input class="inp" id="pdt-${v.id}" data-i="pd" data-k="nat" list="nats-${v.id}" value="${esc(d.nat||'')}" placeholder="Optional" autocomplete="off"></label>
       <label class="field"><span>Age</span><input class="inp" id="pdg-${v.id}" data-i="pd" data-k="age" value="${esc(d.age||'')}" placeholder="Optional"></label>
     </div>
+    ${aliasEditor(v, d, 'pd')}
     <div><h4>Aspects</h4><div style="display:grid;gap:8px">
       ${d.aspects.map((a,i) => `<label class="field"><span>Aspect ${i+1}</span><input class="inp" id="pda${i}-${v.id}" data-i="pd" data-k="asp" data-n="${i}" value="${esc(a||'')}" placeholder="Optional"></label>`).join('')}
     </div></div>
@@ -1283,15 +1285,21 @@ function pcEditor(v){
     <label class="field"><span>Inventory notes</span><textarea class="inp" id="pdv-${v.id}" data-i="pd" data-k="invText" rows="3" placeholder="What they carry. Items you hand out go in the Inventory menu.">${esc(d.invText||'')}</textarea></label>`;
 }
 /* aliases (Jake): false names and stories the NPC tells. In Reveal the GM picks, per player, the truth or one of these */
-function aliasEditor(v, d){
-  const al = d.al || {}, n = N.ALF.reduce((x, [f]) => x + (al[f] || []).length, 0);
-  return `<div class="alias-w"><h4>Aliases${n ? ` <span class="tag" style="height:16px">${n}</span>` : ''}<small>False names or stories this NPC tells about themselves. In Reveal you choose, for each player, whether they learn the truth or one of these. Players can’t tell an alias from the truth.</small></h4>
-    <div class="alias-l">${N.ALF.map(([f, l]) => `<div class="alrow"><span class="alf">${l}<small>${esc(f === 'age' ? (d.age ? 'Age ' + d.age : 'Not set') : d[f] || 'Not set')}</small></span><div class="alvals">${(al[f] || []).map((a, i) => `<span class="alv"><input class="inp" id="ndal-${f}-${esc(a.id)}-${v.id}" data-i="nd" data-k="al" data-f="${f}" data-n="${i}" value="${esc(a.v)}" placeholder="${f === 'name' ? 'A false name' : f === 'age' ? 'A false age' : 'What they claim'}" autocomplete="off"${f === 'race' ? ` list="races-${v.id}"` : f === 'nat' ? ` list="nats-${v.id}"` : ''}><button type="button" class="xb" data-a="ndAlDel" data-v="${f}" data-n="${i}" aria-label="Remove this alias">${IC('x')}</button></span>`).join('')}<button type="button" class="btn sm ghost" data-a="ndAlAdd" data-v="${f}">${IC('plus')}Alias</button></div></div>`).join('')}</div></div>`;
+function aliasEditor(v, d, pre){
+  pre = pre || 'nd'; const pc = pre === 'pd', fs = pc ? N.PCALF : N.ALF;
+  const al = d.al || {}, n = fs.reduce((x, [f]) => x + (al[f] || []).length, 0);
+  return `<div class="alias-w"><h4>Aliases${n ? ` <span class="tag" style="height:16px">${n}</span>` : ''}<small>False names or stories this ${pc ? 'character' : 'NPC'} tells about themselves. In Reveal you choose, for each ${pc ? 'other ' : ''}player, whether they learn the truth or one of these. Players can’t tell an alias from the truth.${pc ? ' The character’s own player sees them on their card.' : ''}</small></h4>
+    <div class="alias-l">${fs.map(([f, l]) => `<div class="alrow"><span class="alf">${l}<small>${esc(f === 'age' ? (d.age ? 'Age ' + d.age : 'Not set') : d[f] || 'Not set')}</small></span><div class="alvals">${(al[f] || []).map((a, i) => `<span class="alv"><input class="inp" id="${pre}al-${f}-${esc(a.id)}-${v.id}" data-i="${pre}" data-k="al" data-f="${f}" data-n="${i}" value="${esc(a.v)}" placeholder="${f === 'name' ? 'A false name' : f === 'age' ? 'A false age' : 'What they claim'}" autocomplete="off"${f === 'race' ? ` list="races-${v.id}"` : f === 'nat' ? ` list="nats-${v.id}"` : ''}><button type="button" class="xb" data-a="${pre}AlDel" data-v="${f}" data-n="${i}" aria-label="Remove this alias">${IC('x')}</button></span>`).join('')}<button type="button" class="btn sm ghost" data-a="${pre}AlAdd" data-v="${f}">${IC('plus')}Alias</button></div></div>`).join('')}</div></div>`;
+}
+/* other pictures: an NPC's (or, since Nov 25, a PC's) other looks. In Reveal the GM picks which ones each player sees */
+function altPics(d, pre){
+  const pc = pre === 'pd';
+  return `<div class="altpics-w"><h4>Other pictures<small>${pc ? 'A different look, mood or disguise. In Reveal you pick which of them each other player sees. Only you and their player see the list.' : 'A different look, mood or disguise. When you put them in a scene, you pick which picture they use there.'}</small></h4><div class="altpics">${(d.pics || []).map((p, i) => `<span class="altpic">${N.av({name:d.name || '?', portrait:p, color:pc ? d.color : 'var(--c-npc)'}, 56)}<button type="button" class="xb" data-a="${pre}AltDel" data-v="${i}" aria-label="Remove this picture">${IC('x')}</button><button type="button" class="btn sm ghost" data-a="${pre}AltMain" data-v="${i}" title="Make this the main portrait">${IC('star')}Main</button></span>`).join('')}${(d.pics || []).length < 8 ? `<button type="button" class="altpic add" data-a="${pre}AltAdd"><span class="av" style="--s:56px;--c:var(--line-3);background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2)">${IC('plus').replace('<svg','<svg style="width:20px;height:20px"')}</span><span>Add a picture</span></button>` : ''}</div></div>`;
 }
 function npcEditor(v){
   const d = v.ui.nd;
   return `${raceList(v)}<div><h4>Portrait</h4>${portraitPick(d.portrait, 'ndPortrait', 'ndUpload')}</div>
-    <div class="altpics-w"><h4>Other pictures<small>A different look, mood or disguise. When you put them in a scene, you pick which picture they use there.</small></h4><div class="altpics">${(d.pics || []).map((p, i) => `<span class="altpic">${N.av({name:d.name || '?', portrait:p, color:'var(--c-npc)'}, 56)}<button type="button" class="xb" data-a="ndAltDel" data-v="${i}" aria-label="Remove this picture">${IC('x')}</button><button type="button" class="btn sm ghost" data-a="ndAltMain" data-v="${i}" title="Make this the main portrait">${IC('star')}Main</button></span>`).join('')}${(d.pics || []).length < 8 ? `<button type="button" class="altpic add" data-a="ndAltAdd"><span class="av" style="--s:56px;--c:var(--line-3);background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2)">${IC('plus').replace('<svg','<svg style="width:20px;height:20px"')}</span><span>Add a picture</span></button>` : ''}</div></div>
+    ${altPics(d, 'nd')}
     <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
       <label class="field"><span>Name</span><input class="inp" id="ndn-${v.id}" data-i="nd" data-k="name" value="${esc(d.name)}" placeholder="Name or role"></label>
       <label class="field"><span>Race</span><input class="inp" id="ndr-${v.id}" data-i="nd" data-k="race" list="races-${v.id}" value="${esc(d.race)}" placeholder="Optional"></label>

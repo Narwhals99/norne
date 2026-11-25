@@ -272,7 +272,6 @@ const myBox = N.myBox = v => v.root.querySelector('#ta-' + v.id) || v.root.query
 function carSync(s){
   const n = s.children.length, i = Math.max(0, Math.min(n - 1, Math.round(s.scrollLeft / Math.max(1, s.clientWidth)))), c = s.closest('.wcar'); if (!c) return;
   c.querySelectorAll('.wcar-d i').forEach((d, k) => d.classList.toggle('on', k === i)); const cc = c.querySelector('.wcar-c'); if (cc) cc.textContent = `${i + 1} / ${n}`;
-  const [a, b] = c.querySelectorAll('[data-a="carGo"]'); if (a) a.disabled = i === 0; if (b) b.disabled = i === n - 1;
 }
 function render(v){
   const root = v.root;
@@ -940,13 +939,13 @@ function askTell(v){
   const ui = v.ui, g = G(), gm = N.gmName(), items = [];
   const add = (to, text) => items.push({to, text, on:true, ok:to === '*' || (!!g.P[to] && N.dmOn(to))});
   if (ui.sheet === 'reveal' && ui.askRev?.id === ui.sheetArg) {
-    const id = ui.askRev.id, c = g.chars[id], card = c || g.npcs.find(x => x.id === id), base = ui.askRev.base; ui.askRev = null;
+    const id = ui.askRev.id, c = g.chars[id], card = c ? N.withX(c) : g.npcs.find(x => x.id === id), base = ui.askRev.base; ui.askRev = null;
     if (card) {
       for (const [st, l] of Object.entries((g.rev || {})[id] || {})) {
         const now = N.revKeys(card, l), was = N.revKeys(card, base[st] || []);
         if (!now.includes('name') || !now.some(k => !k.startsWith('met:') && !was.includes(k))) continue;
-        /* the name this player knows them by: an NPC's alias when the GM picked one */
-        const name = c ? c.short || c.name : N.revealed(card, false, now)?.name; if (!name) continue;
+        /* the name this player knows them by: an alias when the GM picked one (a PC's true name goes by its short name) */
+        const name = c && !N.asOf(now, 'name') ? c.short || c.name : N.revealed(card, !!c, now)?.name; if (!name) continue;
         add(st, was.includes('name') ? `${gm} revealed more about ${name}. Open Character to see it.` : `${gm} revealed ${name} to you. Open Character to see them.`);
       }
     }
@@ -1119,6 +1118,7 @@ function input(v, el, ev){
     case 'dOth': { (v.ui.dOth = v.ui.dOth || {})[el.dataset.act + '|' + el.dataset.s] = val; const b = el.parentElement.querySelector('button'); if (b) b.disabled = !val.trim(); return; }
     case 'pd': {
       const d = v.ui.pd, n = +el.dataset.n;
+      if (k === 'al') { const a = (d.al?.[el.dataset.f] || [])[n]; if (a) a.v = val; return; }
       if (k === 'asp') d.aspects[n] = val; else if (k === 'stn') d.stunts[n][0] = val; else if (k === 'std') d.stunts[n][1] = val; else d[k] = val;
       if (k === 'name' || k === 'hc') render(v); return;
     }
@@ -2602,7 +2602,9 @@ function act(v, a, el, e){
   case 'wdPartAdd': ui.wd.parts.push({id:uid('s'), h:'', text:'', to:'all', see:[], imgs:[]}); break;
   /* Jake: a set of pictures shown as a carousel, one at a time, with a label over all of them; each picture's caption is its sublabel */
   case 'wdCar': { const n = +d.n, o = n < 0 ? ui.wd : ui.wd.parts[n]; if (o) o.car = o.car ? null : {l:''}; break; }
-  case 'carGo': { const s = el.closest('.wcar')?.querySelector('.wcar-s'); if (s) s.scrollBy({left:(+d.d || 1) * s.clientWidth, behavior:'smooth'}); return; }
+  /* the arrows loop (Jake, Nov 25): Next on the last picture goes back to the first, Previous on the first goes to the last */
+  case 'carGo': { const s = el.closest('.wcar')?.querySelector('.wcar-s'); if (!s) return; const n = s.children.length, w = Math.max(1, s.clientWidth), i = Math.round(s.scrollLeft / w);
+    s.scrollTo({left:(((i + (+d.d || 1)) % n) + n) % n * w, behavior:'smooth'}); return; }
   case 'wdPartTo': { const p = ui.wd.parts[+d.n]; if (p && ['all','some','gm'].includes(val)) p.to = val; break; }
   case 'wdPartUp': { const i = +d.n, ps = ui.wd.parts; if (i > 0 && ps[i]) [ps[i - 1], ps[i]] = [ps[i], ps[i - 1]]; break; }
   case 'wdPartImgAdd': { const n = +d.n; pickFramed(v, 'wiki', (img, f) => { const p = ui.wd?.parts[n]; if (!p) return; (p.imgs = p.imgs || []).push({src:N.withFrame(N.storeImg(N.shrink(img, 1400, 600000), false), f), cap:''}); render(v); }); return; }
@@ -2677,7 +2679,7 @@ function act(v, a, el, e){
   case 'revTog': case 'revAll': case 'revMet': case 'revAs': case 'revPic': {
     const id = ui.sheetArg, st = ui.revSeat; if (!id || !st) break;
     g.rev = g.rev || {}; const by = g.rev[id] = g.rev[id] || {};
-    const c = g.chars[id], card = c || g.npcs.find(x => x.id === id); if (!card) break;
+    const c = g.chars[id], card = c ? N.withX(c) : g.npcs.find(x => x.id === id); if (!card) break;
     let keys = N.revKeys(card, by[st] || []);
     let mt = keys.filter(k => N.notPart(k)); keys = keys.filter(k => !N.notPart(k));
     /* Met / Heard of: the GM decides how this player's character knows them (tap again to clear) */
@@ -2713,6 +2715,12 @@ function act(v, a, el, e){
   case 'pcEdit': openSheet(v, 'pcEdit', {v:val}); break;
   case 'pdPortrait': ui.pd.portrait = val; break;
   case 'pdUpload': uploadFace(v, src => { ui.pd.portrait = src; }); return;
+  /* a PC's aliases and other pictures (Jake, Nov 25): same as an NPC's, kept GM-only in g.pcx */
+  case 'pdAltAdd': if ((ui.pd.pics || []).length >= 8) { toast(v, 'Eight other pictures at most.'); break; } uploadFace(v, src => { ui.pd.pics = [...(ui.pd.pics || []), src]; }); return;
+  case 'pdAltDel': ui.pd.pics = (ui.pd.pics || []).filter((_, i) => i !== +val); break;
+  case 'pdAltMain': { const ps = ui.pd.pics || [], p = ps[+val]; if (!p) break; ps[+val] = ui.pd.portrait; ui.pd.pics = ps.filter(Boolean); ui.pd.portrait = p; break; }
+  case 'pdAlAdd': { const al = ui.pd.al = ui.pd.al || {}; (al[val] = al[val] || []).push({id:Date.now().toString(36) + Math.random().toString(36).slice(2, 5), v:''}); break; }
+  case 'pdAlDel': if (ui.pd.al?.[val]) ui.pd.al[val].splice(+d.n, 1); break;
   case 'pdFrame': if (ui.pd?.portrait) reframe(v, 'face', ui.pd.portrait, nu => { ui.pd.portrait = nu; render(v); }); return;
   case 'pdSkillDel': delete ui.pd.skills[val]; break;
   case 'pdSkillMv': ui.pd.skills[val] = N.skillStep(ui.pd.skills[val], +d.d); break;
@@ -2725,7 +2733,8 @@ function act(v, a, el, e){
   case 'pcDelete': {
     const old = g.chars[val]; g.chars[val] = N.decorate(N.blankChar(val, old.player));
     if (old.mpic) g.chars[val].mpic = old.mpic; /* the player's Meta picture is theirs, not the card's */
-    ui.sheet = null; toast(v, `${old.short}’s card is empty again.`, () => { g.chars[val] = old; }); renderAll(); return;
+    const ox = (g.pcx || {})[val]; if (ox) delete g.pcx[val];
+    ui.sheet = null; toast(v, `${old.short}’s card is empty again.`, () => { g.chars[val] = old; if (ox) g.pcx[val] = ox; }); renderAll(); return;
   }
   case 'invAdd': {
     const c = invOwner(d, v), key = d.nd ? 'nd' : c.id, inp = v.root.querySelector(`#inv-${key}-${v.id}`), n = (inp?.value || '').trim(), q = ui.invQ || 1;
@@ -3408,6 +3417,7 @@ function openSheet(v, s, d={}){
     const c = g.chars[d.v];
     ui.pd = JSON.parse(JSON.stringify(c));
     ui.pd.isNew = !c.built;
+    { const x = (g.pcx || {})[d.v] || {}; ui.pd.al = JSON.parse(JSON.stringify(x.al || {})); ui.pd.pics = [...(x.pics || [])]; }
     if (!c.built) Object.assign(ui.pd, {name:'', short:'', portrait:null, hc:'', trouble:''});
     /* older cards had a high concept and trouble; they become Aspect 1 and 2 */
     ui.pd.aspects = N.pcAspects(ui.pd); ui.pd.hc = ''; ui.pd.trouble = '';
@@ -3423,7 +3433,8 @@ function openSheet(v, s, d={}){
     if (pc) { const c = JSON.parse(JSON.stringify(pc)), extra = [c.people ? `Important people: ${c.people}` : '', c.invText ? `Inventory notes: ${c.invText}` : ''].filter(Boolean).join('\n\n');
       Object.assign(ui.nd, {name:`${c.name || c.short} (copy)`, race:c.race || '', nat:c.nat || '', age:c.age || '', hc:c.hc || '', trouble:c.trouble || '', aspects:c.aspects || [], skills:c.skills || {}, disc:c.disc || {},
         stunts:c.stunts || [], magic:c.magic || '', bio:c.bio || '', notes:extra, refresh:c.refresh ?? 3, fp:c.fp ?? 3, portrait:c.portrait || null, type:'supporting',
-        gearAtk:c.gearAtk || 0, gearDef:c.gearDef || 0, gearRng:c.gearRng || 0, gearAmmo:c.gearAmmo || 0, inv:c.inv || [], gold:c.gold || 0, copyOf:c.id}); }
+        gearAtk:c.gearAtk || 0, gearDef:c.gearDef || 0, gearRng:c.gearRng || 0, gearAmmo:c.gearAmmo || 0, inv:c.inv || [], gold:c.gold || 0, copyOf:c.id});
+      { const x = (g.pcx || {})[c.id]; if (x) { ui.nd.al = JSON.parse(JSON.stringify(x.al || {})); ui.nd.pics = [...(x.pics || [])]; } } }
     ui.nd.from = d.from || null;
     /* NPC aspects are Aspect 1, 2, 3 too; an old high concept and trouble become the first two */
     ui.nd.aspects = N.pcAspects(ui.nd); ui.nd.hc = ''; ui.nd.trouble = '';
@@ -3651,6 +3662,9 @@ function savePc(v){
     aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), race:(d.race || '').trim(), nat:(d.nat || '').trim(), age:(d.age || '').trim(), bio:d.bio || '', people:d.people || '', invText:d.invText || '', skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), refresh:d.refresh, fp:d.fp, built:true,
     stressV:{phys:pv, ment:mv}, stress:{phys:pv.map((x,i) => !!c.stress.phys[i]), ment:mv.map((x,i) => !!c.stress.ment[i])}, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0});
   delete c.disc; c.disc = keepDisc(d);
+  /* aliases + other pictures stay off the card (game/chars is readable by every player): GM-only g.pcx */
+  { const x = {al:N.alClean(d.al, N.PCALF), pics:(d.pics || []).filter(p => p && p !== c.portrait).slice(0, 8)};
+    g.pcx = g.pcx || {}; if (x.pics.length || Object.keys(x.al).length) g.pcx[c.id] = x; else delete g.pcx[c.id]; }
   v.ui.sheet = null;
   if (first) { sys(`${N.gmName()} made your character card: ${c.name}. Open Character to see it.`, 'dm-' + c.player); toast(v, `Saved. ${g.P[c.player]?.name || 'They'} got a note.`); }
   else toast(v, 'Card saved.');
@@ -3681,7 +3695,7 @@ function saveNpc(v){
   const base = {name:d.name.trim(), race:d.race.trim(), nat:(d.nat || '').trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
     skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0,
     inv:(d.inv || []).map(x => [...x]), dir:N.nd.byId(d.dir) ? d.dir : null, side:!!(d.side && d.lead), lead:d.side && d.lead ? d.lead : '', pics:(d.pics || []).filter(p => p && p !== d.portrait).slice(0, 8),
-    al:Object.fromEntries(N.ALF.map(([f]) => [f, (d.al?.[f] || []).map(a => ({id:a.id, v:String(a.v || '').trim()})).filter(a => a.v)]).filter(([, l]) => l.length))};
+    al:N.alClean(d.al)};
   if (d.copyOf && !old) base.gold = +d.gold || 0;
   let n; const was = old ? old.name : null;
   if (old) {

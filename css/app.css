@@ -3417,7 +3417,7 @@
 .app .asseg button{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .app .asseg button svg{width:14px;height:14px}
 .app .alsline{margin-top:4px;font:600 12.5px/1.35 var(--f-ui);color:var(--ink-3)}
-.app .alsline svg{width:13px;height:13px;vertical-align:-2px}
+.app .alsline svg{display:inline-block;width:13px;height:13px;vertical-align:-2px;margin-right:3px}
 /* Capital city pins (Jake, 2026-11-23): a little red star on the pin, and the Capital checkbox while editing it */
 .app .pin .pcap{position:absolute;top:-7px;left:calc(50% + 5px);width:17px;height:17px;display:grid;place-items:center;border-radius:50%;background:#c8231b;box-shadow:0 0 0 1.5px rgba(10,10,30,.8),0 2px 5px rgba(0,0,0,.6);pointer-events:none}
 .app .pin .pcap svg{width:11px;height:11px;color:#fff3c4}
