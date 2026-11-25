@@ -39,15 +39,21 @@ const BEASTS = {
   swamp:    {n:'Swamp thing', plan:'ape', base:24, coats:[C('Bog green', '#4f6a36', {moss:'#7a9a3e'}), C('Peat', '#5a4632', {moss:'#6f7a3a'}), C('Algae', '#3f6f5a', {moss:'#7aa86a'})], eye:'#e8f05a'},
   croc:     {k:1.1, n:'Crocodile', plan:'quad', base:26, coats:[C('Olive', '#5a6a3a', {belly:'#c8c08a', back:'#3f4a2a'}), C('Brown', '#6a5a3e', {belly:'#d0bf94', back:'#4a3e2a'}), C('Pale', '#8a947a', {belly:'#e0dcc0', back:'#6a725c'})], eye:'#d8c020'},
   lizard:   {n:'Large lizard', plan:'quad', base:23, coats:[C('Dusk', '#6e6a58', {belly:'#b8b08a', pat:'spots', dark:'#4a4636'}), C('Green', '#5f8f3f', {belly:'#c8d48a', pat:'spots', dark:'#3f6a2a'}), C('Red', '#9a4f3a', {belly:'#d8b08a', pat:'spots', dark:'#6a3426'})], eye:'#e0a020'},
+  /* Jake, 2026-11-25: a golem of rocks bound by magic (stone, sand or ice), and a large rat, bat and frog */
+  golem:    {k:1.18, n:'Golem', plan:'ape', base:25, coats:[C('Stone', '#8d8a84', {dark:'#5f5c57', glow:0x58d0ff, moss:'#6f8a4a'}), C('Sand', '#d1b27a', {dark:'#a5854f', glow:0xffb43c}), C('Ice', '#bfe3f2', {dark:'#86bcd6', glow:0xe8fbff, ice:1})]},
+  rat:      {k:1.05, n:'Large rat', plan:'quad', base:19, coats:[C('Brown', '#7a5f4a', {belly:'#bba48c'}), C('Grey', '#85827e', {belly:'#c9c4bc'}), C('Black', '#2e2b2c', {belly:'#4a4647'}), C('White', '#ece7df', {belly:'#ffffff', eyeC:'#d0283a'}), C('Sewer', '#5d5a3e', {belly:'#8a8460'})], eye:'#141018'},
+  bat:      {k:.95, n:'Large bat', plan:'bird', base:20, coats:[C('Brown', '#5a4434', {wing:'#3e2f26', belly:'#7a5e48'}), C('Black', '#29262a', {wing:'#1c1a1e', belly:'#3d393e'}), C('Grey', '#7d7880', {wing:'#5a5660', belly:'#a29ca5'}), C('Blood red', '#5a2a2c', {wing:'#7a2026', belly:'#7a3e40'})], eye:'#ffcf3a'},
+  frog:     {k:1.15, n:'Large frog', plan:'quad', base:20, coats:[C('Green', '#5f9a3e', {belly:'#e6e0a6', pat:'spots', dark:'#3f6e2a'}), C('Toad', '#8a6e48', {belly:'#d8c8a0', pat:'spots', dark:'#5a4630'}), C('Poison blue', '#2f6fd0', {belly:'#1c2a48', pat:'spots', dark:'#101624'}), C('Fire', '#e0582a', {belly:'#f4c23a', pat:'spots', dark:'#1a1416'})], eye:'#e8c23a'},
   snowcat:  {n:'Snow cat', plan:'quad', base:22, coats:[C('Snow', '#e4e0d8', {belly:'#ffffff', pat:'rosettes', dark:'#55545a'}), C('Smoke', '#b6b2ac', {belly:'#e8e6e0', pat:'rosettes', dark:'#3f3e44'}), C('Frost blue', '#d8e2ea', {belly:'#ffffff', pat:'rosettes', dark:'#4a5a6e'})], eye:'#a8d8e0'},
 };
-const LIST = ['horse', 'dog', 'cat', 'wolf', 'fox', 'tiger', 'snowcat', 'elephant', 'gorilla', 'dreadape', 'werewolf', 'troll', 'giant', 'swamp', 'trex', 'dragon', 'wyvern', 'phoenix', 'spider', 'serpent', 'crab', 'beetle', 'croc', 'lizard'];
+const LIST = ['horse', 'dog', 'cat', 'wolf', 'fox', 'tiger', 'snowcat', 'elephant', 'gorilla', 'dreadape', 'werewolf', 'troll', 'giant', 'swamp', 'trex', 'dragon', 'wyvern', 'phoenix', 'spider', 'serpent', 'crab', 'beetle', 'croc', 'lizard', 'golem', 'rat', 'bat', 'frog'];
 const ANIMS = {idle:2400, walk:900, sword:1700, bow:1900, magic:1900, hit:1300, block:1300, dodge:1300, down:2600};
 
 /* a name ("wolf", "Large spider", "T-rex") to a beast, so an NPC whose race is an animal stands as that animal */
 const ALIAS = {'t-rex':'trex', 'trex':'trex', 'tyrannosaurus rex':'trex', 'dinosaur':'trex', 'snake':'serpent', 'giant snake':'serpent', 'serpent':'serpent', 'spider':'spider', 'giant spider':'spider',
   'crab':'crab', 'giant crab':'crab', 'beetle':'beetle', 'giant beetle':'beetle', 'crocodile':'croc', 'alligator':'croc', 'croc':'croc', 'lizard':'lizard', 'giant lizard':'lizard', 'snow leopard':'snowcat', 'snowcat':'snowcat', 'snow cat':'snowcat',
-  'hound':'dog', 'puppy':'dog', 'kitten':'cat', 'ape':'gorilla', 'dread ape':'dreadape', 'dreadape':'dreadape', 'pony':'horse', 'stallion':'horse', 'mare':'horse', 'drake':'dragon', 'swamp monster':'swamp', 'swamp thing':'swamp', 'bog monster':'swamp'};
+  'hound':'dog', 'puppy':'dog', 'kitten':'cat', 'ape':'gorilla', 'dread ape':'dreadape', 'dreadape':'dreadape', 'pony':'horse', 'stallion':'horse', 'mare':'horse', 'drake':'dragon', 'swamp monster':'swamp', 'swamp thing':'swamp', 'bog monster':'swamp',
+  'golem':'golem', 'stone golem':'golem', 'rock golem':'golem', 'sand golem':'golem', 'ice golem':'golem', 'rat':'rat', 'giant rat':'rat', 'bat':'bat', 'giant bat':'bat', 'frog':'frog', 'giant frog':'frog', 'toad':'frog', 'giant toad':'frog'};
 function beastOf(name){
   const s = String(name || '').trim().toLowerCase(); if (!s) return null;
   if (BEASTS[s]) return s;
@@ -427,6 +433,77 @@ const BUILD = {
     rig.arms.forEach(a => { for (let i = 0; i < 3; i++) drip(a.el, (rnd() - .5) * 3, -2 - rnd() * 6, (rnd() - .5) * 3, 4 + rnd() * 4, .8); });
     for (let i = 0; i < 6; i++) drip(rig.head, (rnd() - .5) * 8, 4 + rnd() * 1.5, -1 + rnd() * 3, 3 + rnd() * 4, .7);
     for (let i = 0; i < 9; i++) q.torso.add(at(inked(sph(1.6 + rnd() * 1.4, 1.2 + rnd(), 1.4 + rnd(), 10), moss, .3), (rnd() - .5) * q.r1 * 1.8, q.Lt * (.25 + rnd() * .7), (rnd() > .5 ? 1 : -1) * q.r1 * .75));
+  },
+  rat(rig, cl, M, mats){
+    cl.mane = '#d99aa2';   /* the long bare tail is pink, not fur */
+    quad(rig, {L:25, R:6.2, wR:.9, hR:.92, leg:5.6, legR:1.3, neck:3.4, neckAng:.3, neckR:3.5, hump:.18, claws:1,
+      head:{r:4, w:.95, h:.85, snout:4.6, snoutR:1.7, snoutDown:.6, snoutEnd:.42, ears:'round', eyeX:.52, eyeY:.32, eyeZ:.62, eyeR:.18, eyeC:cl.eyeC || BEASTS.rat.eye, noseC:'#d88a96', jawR:.5, jawL:.8,
+        extra:(h, r) => { const pink = M('#e7a7ad'), mw = M('#f4f0e8');
+          /* big round ears with pink insides, two long front teeth, whiskers */
+          [-1, 1].forEach(s => { h.add(at(rot(inked(sph(r * .46, r * .46, r * .1, 14), M(cl.c), .3), 0, -s * .3, 0), s * r * .62, r * .72, -r * .1)); h.add(at(rot(new THREE.Mesh(sph(r * .32, r * .32, r * .06, 12), pink), 0, -s * .3, 0), s * r * .64, r * .72, -r * .02)); });
+          [-1, 1].forEach(s => h.add(at(inked(new THREE.BoxGeometry(r * .14, r * .38, r * .08), mw, .12), s * r * .08, -r * .62, r * 1.72)));
+          [-1, 1].forEach(s => [-.12, .1].forEach(k => h.add(at(rot(new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, r * 1.4, 4), mw), 0, 0, PI / 2 + s * k * 2), s * r * .7, -r * .22 + k * r, r * 1.55)))); }},
+      tail:{pts:[v(0, -.5, 0), v(0, -2.8, -5), v(1.8, -5, -11), v(6, -5.8, -16), v(11, -6, -17.5)], r:.95, end:.25, mat:'mane'}}, cl, M, mats);
+  },
+  frog(rig, cl, M, mats){
+    const q = quad(rig, {L:15, R:6.2, wR:1.15, hR:.78, yB:6.2, leg:5.5, legR:1.3, sprawl:1, neck:0, neckAng:0, neckR:0, pat:'spots', hindIn:2,
+      head:{r:4.6, w:1.35, h:.62, d:.95, snout:0, snoutR:3, jawR:1.2, jawL:1.2, ears:'none', eyeX:.6, eyeY:.62, eyeZ:.28, eyeR:.26, eyeC:BEASTS.frog.eye, nose:false, tongue:1, mat:M(0xffffff, {map:coatTex(cl, 'spots')}), jawMat:M(cl.belly),
+        extra:(h, r) => { const m = M(cl.c); [-1, 1].forEach(s => h.add(at(inked(sph(r * .36, r * .34, r * .34, 14), m, .3), s * r * .82, r * .48, r * .26))); }},
+      tail:null}, cl, M, mats);
+    /* it sits up: front up, the big back legs folded at its sides */
+    q.torso.rotation.x = -.32; rig.head.rotation.x = .3;
+    const mL = M(cl.c), mB = M(cl.belly);
+    [-1, 1].forEach(s => { const g = at(new THREE.Group(), s * q.R * 1.05, -q.R * .2, -q.L * .32); q.torso.add(g);
+      g.add(limb([v(0, 0, 0), v(s * 2.2, -1, 4.5), v(s * 3.2, -4.6, 1), v(s * 3.6, -5.4, 5.5)], 2.4, 1.1, mL, UPZ, .45, {bulge:.25}));
+      g.add(at(inked(sph(1.6, .5, 2.8, 12), mB, .3), s * 3.8, -5.9, 7.4)); });
+  },
+  bat(rig, cl, M, mats){
+    const {body} = rig, mB = M(cl.c), mY = M(cl.belly), mW = M(cl.wing, {side:THREE.DoubleSide}), mWb = M(shade(cl.wing, .8));
+    const torso = at(new THREE.Group(), 0, 24, 0); body.add(torso); rig.torso = torso;
+    torso.add(at(rot(inked(sph(4.6, 6, 4.6, 22), mB, .5), -.2, 0, 0), 0, 0, 0));
+    torso.add(at(rot(inked(sph(3.6, 4.8, 2.6, 18), mY, .3), -.2, 0, 0), 0, -.6, 2.4));
+    const nk = at(new THREE.Group(), 0, 5, 1); torso.add(nk); rig.neck = nk;
+    const head = at(new THREE.Group(), 0, 2.4, 1); nk.add(head); rig.head = head;
+    headOn(rig, head, {r:3.4, w:1.05, h:.95, snout:1.5, snoutR:1.4, snoutEnd:.7, snoutY:.15, ears:'none', eyeX:.42, eyeY:.22, eyeZ:.78, eyeR:.17, eyeC:BEASTS.bat.eye, glow:1, noseC:'#2a1a1c', fangs:1, jawR:.6,
+      extra:(h, r) => { const pink = M('#c98a90'); [-1, 1].forEach(s => { const e = spike(r * .42, r * 1.5, mB, v(s * r * .5, r * .6, -r * .1), v(s * .45, 1, -.1), .35, 10); e.scale.z = .5; h.add(e);
+        const ei = spike(r * .24, r * 1, pink, v(s * r * .52, r * .72, 0), v(s * .45, 1, -.1), .1, 8); ei.scale.z = .3; h.add(ei); });
+        h.add(spike(r * .24, r * .5, M('#2a1a1c'), v(0, r * .05, r * 1.2), v(0, 1, .4), .15, 6)); }}, cl, M, mats, {mPlain:mB, mNose:M('#2a1a1c'), mBelly:mY, mDark:M(shade(cl.c, .6))});
+    /* leathery wings on finger bones, a thumb claw at the top */
+    rig.wings = [-1, 1].map(s => { const g = at(new THREE.Group(), s * 3.4, 2.6, 0); torso.add(g);
+      const w = wing(24, mWb, mW, {back:.3}); w.rotation.x = .2; g.add(w); g.add(spike(.35, 1.4, M('#e8e0cc'), v(24 * .62, 24 * .34 + .6, -24 * .12), v(0, 1, .3), .15, 6));
+      if (s < 0) g.scale.x = -1; g.userData.s = s; return g; });
+    rig.legs = [-1, 1].map(s => { const g = at(new THREE.Group(), s * 2, -5, -.5); torso.add(g);
+      g.add(limb([v(0, 0, 0), v(0, -2.6, -.6), v(0, -4.2, .2)], .6, .45, mB, UPZ, .25, {nS:6, nR:6}));
+      for (let i = -1; i <= 1; i++) g.add(spike(.15, .9, M('#e8e0cc'), v(i * .3, -4.4, .5), v(0, -.4, 1), .1, 5)); return {g, s, f:s}; });
+    rig.dims = {yB:24, R:6, L:10, wR:1, hR:1};
+  },
+  /* the golem: rocks (stone, sand or ice) held together by a glowing magic core you can see in the gaps */
+  golem(rig, cl, M, mats){
+    const core = new THREE.MeshBasicMaterial({color:cl.glow});
+    const q = ape(rig, {hip:15, lean:.22, trunk:19, waist:7, chestR:9.5, wide:1.12, headUp:1.2, headFwd:.45, armR:2.6, arm1:13, arm2:12.5, armFwd:.25, armOut:.2, elbow:.25, legR:3, foreMat:'fur',
+      head:{r:3.8, w:1.05, h:.9, snout:0, snoutR:2, jaw:false, ears:'none', eyeX:.38, eyeY:.12, eyeZ:.86, eyeR:.17, eyeC:cl.glow, glow:1, mat:M(cl.dark)}}, Object.assign({}, cl, {c:cl.dark}), M, mats);
+    /* under the rocks: a dark body; the magic shows in the rune, the eyes and the glow */
+    const mIn = M(shade(cl.dark, .7)); rig.body.traverse(o => { if (o.isMesh && o.material && o.material.map) o.material = mIn; });
+    let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const mR = cl.ice ? M(cl.c, {transparent:true, opacity:.88}) : M(cl.c), mR2 = cl.ice ? M('#e6f6ff', {transparent:true, opacity:.9}) : M(cl.dark);
+    const rock = (par, x, y, z, r, sq = 1) => { const g = cl.ice ? new THREE.OctahedronGeometry(r, 0) : new THREE.DodecahedronGeometry(r, 0);
+      const m = inked(g, rnd() > .7 ? mR2 : mR, .45); m.position.set(x, y, z); m.rotation.set(rnd() * PI, rnd() * PI, rnd() * PI); m.scale.set(1 + rnd() * .35, (1 + rnd() * .3) * sq, 1 + rnd() * .3); par.add(m); return m; };
+    /* the trunk: a big chest stone, a belly stone and a ring of smaller ones */
+    rock(q.torso, 0, q.Lt * .72, 1, q.r1 * .95); rock(q.torso, 0, q.Lt * .3, 1.4, q.r0 * .95);
+    for (let i = 0; i < 9; i++) { const a = rnd() * TAU; rock(q.torso, Math.cos(a) * q.r1 * .8, q.Lt * (.15 + rnd() * .8), Math.sin(a) * q.r1 * .6, 3 + rnd() * 2.2); }
+    /* a glowing rune in the chest, between the stones */
+    q.torso.add(at(new THREE.Mesh(new THREE.TorusGeometry(2, .35, 8, 6), core), 0, q.Lt * .62, q.r1 * .98));
+    /* arms and legs: a boulder at each shoulder, stones down the arm, a big fist; legs of stacked stones */
+    rig.arms.forEach(a => { rock(a.sh, 0, 0, 0, 4.2); rock(a.sh, 0, -6.5, 0, 3.4); rock(a.el, 0, -5.5, 0, 3.1); rock(a.hand, 0, -.5, .3, 3.6, .9); });
+    rig.legs.forEach(l => { rock(l.g, 0, -3, .5, 3.6); rock(l.g, 0, -9, .8, 3.2); rock(l.g, 0, -13, 2, 3, .7); });
+    /* a craggy head, a little stone brow; moss on the stone one, frost spikes on the ice one */
+    rock(rig.head, 0, .8, -.2, 3.6, .85); rig.head.add(at(inked(new THREE.BoxGeometry(5.6, 1.2, 1.4), mR2, .3), 0, 1.4, 3));
+    if (cl.moss) for (let i = 0; i < 6; i++) q.torso.add(at(inked(sph(1.4 + rnd(), .7, 1.2 + rnd(), 8), M(cl.moss), .2), (rnd() - .5) * q.r1 * 1.6, q.Lt * (.4 + rnd() * .55), q.r1 * (.5 + rnd() * .3)));
+    if (cl.ice) for (let i = 0; i < 7; i++) q.torso.add(spike(.7, 3 + rnd() * 3, mR2, v((rnd() - .5) * q.r1 * 1.4, q.Lt * (.55 + rnd() * .45), -q.r1 * .55), v((rnd() - .5), 1, -.6), .2, 5));
+    /* small stones floating round it, held by the magic */
+    const orb = new THREE.Group(); orb.position.y = q.Lt * .5; q.torso.add(orb); rig.orbit = orb;
+    for (let i = 0; i < 5; i++) { const a = i / 5 * TAU; rock(orb, Math.cos(a) * (q.r1 + 5), (rnd() - .5) * 8, Math.sin(a) * (q.r1 + 5), 1 + rnd() * .6); }
+    const gl = new THREE.Sprite(new THREE.SpriteMaterial({map:GLOW, color:cl.glow, transparent:true, opacity:.45, depthWrite:false, blending:THREE.AdditiveBlending})); gl.scale.setScalar(26); gl.position.set(0, q.Lt * .62, q.r1); q.torso.add(gl); rig.glow = gl;
   },
   spider(rig, cl, M, mats){
     const {body} = rig, mB = M(cl.c), mL = M(shade(cl.c, .85)), mk = M(cl.mark);
@@ -909,6 +986,7 @@ function pose(rig, name, t){
   tail.forEach((g, i) => { g.rotation.y += Math.sin(t / 520 - i * .7) * (id === 'serpent' ? 0 : .16); });
   if (rig.trunk) rig.trunk.rotation.x += Math.sin(t / 700) * .08;
   if (rig.ears) rig.ears.forEach(e => { e.rotation.y += e.userData.s * Math.sin(t / 600) * .12; });
+  if (rig.orbit) rig.orbit.rotation.y = t / 1400;
   if (rig.fire) { const f = 1 + Math.sin(t / 90) * .06 + Math.sin(t / 37) * .04; rig.fire.scale.set(1, f, 1); if (rig.glow) rig.glow.material.opacity = .6 + .15 * Math.sin(t / 120); }
   if (plan === 'bird') { const fl = Math.sin(t / 260); wings.forEach(w => { w.rotation.z += w.userData.s * fl * .35; w.rotation.y += -w.userData.s * .1; }); torso.position.y += Math.sin(t / 520) * 1.4; }
   else if (wings.length) wings.forEach(w => { w.rotation.z += -w.userData.s * .35; w.rotation.y += w.userData.s * .55; w.rotation.x += .15 + Math.sin(t / 900) * .04; }); /* half folded, held up off the back */
@@ -1061,6 +1139,8 @@ function pose(rig, name, t){
       legs.forEach((l, i) => { l.g.rotation.x += Math.sin(t / 140 + i) * .1 * kk * (ms < 1800 ? 1 : 0); });
     } else if (plan === 'bird') {
       torso.position.y += -20 * kk; torso.rotation.z += .9 * kk; wings.forEach(w => { w.rotation.z += w.userData.s * -.6 * kk; });
+      /* the bat lands on its back with its wings spread flat, not through the base */
+      if (rig.beast === 'bat') { torso.position.y += 2 * kk; torso.rotation.z -= .9 * kk; torso.rotation.x += -1.35 * kk; wings.forEach(w => { w.rotation.z += w.userData.s * .6 * kk; }); }
       if (rig.fire) rig.fire.scale.multiplyScalar(Math.max(.05, 1 - kk * .95));
     }
     flash(rig, ms > 200 ? 1 - seg(ms, 200, 500) : 0, 0xff2a4a);

@@ -152,14 +152,26 @@ function grpGroup(v, list){
   const sub = (t, l) => l.length ? `<h4 class="shsub">${IC(t === 'Roleplay' ? 'mask' : 'chatL')}${t}</h4>${l.map(c => shelfRow(v, c)).join('')}` : '';
   return `<div class="shg" role="group" aria-label="Group chats"><h3>Group chats</h3>${meta.length ? sub('Roleplay', rp) + sub('Meta only', meta) : list.map(c => shelfRow(v, c)).join('')}</div>`;
 }
+/* Jake: three filter boxes on the chat list. Each group chat is one kind: a party, a Meta-only group chat or a (roleplay) group chat.
+   Unticking a box hides that kind on this device. Everyone, private chats and GM notes always show, and so does the chat you're in */
+N.SHF = [['party', 'Party'], ['grp', 'Group chat'], ['meta', 'Meta-only']];
+N.shKind = c => { const gr = N.grpOf(c); return !gr ? '' : gr.party ? 'party' : gr.meta ? 'meta' : 'grp'; };
+N.shHide = () => { try { return new Set(JSON.parse(localStorage.getItem('norne-shf') || '[]')); } catch(e) { return new Set(); } };
+function shelfFilters(v, chs){
+  const kinds = new Set(chs.map(N.shKind).filter(Boolean)); if (!kinds.size) return '';
+  const off = N.shHide();
+  return `<div class="shf" role="group" aria-label="Show these chats">${N.SHF.filter(([k]) => kinds.has(k)).map(([k, l]) => `<button type="button" class="shfb" data-a="shFilt" data-v="${k}" role="checkbox" aria-checked="${!off.has(k)}"><span class="ck">${IC('check')}</span>${l}</button>`).join('')}</div>`;
+}
 function shelfHtml(v){
-  const gm = isGM(v), chs = N.channelsFor(v.role), ph = v.dev === 'phone';
+  const gm = isGM(v), ph = v.dev === 'phone', off = N.shHide();
+  const chs = N.channelsFor(v.role).filter(c => c === v.ui.ch || !off.has(N.shKind(c)));
   const group = (t, list) => list.length ? `<div class="shg" role="group" aria-label="${t}"><h3>${t}</h3>${list.map(c => shelfRow(v, c)).join('')}</div>` : '';
   const me = N.personObj(v.role);
   /* beside an open fight on desktop the list shrinks to just the chat pictures, so the board keeps its room */
   const mini = !ph && fightAvail(v) && v.ui.fightOpen;
   return `<aside class="shelf${ph?' drawer':''}${mini?' mini':''}" aria-label="Chats">
     <header class="shh">${STAR.replace('<svg','<svg class="st"')}<h2>Chats</h2>${ph ? `<button type="button" class="ibtn" data-a="shelf" aria-label="Close the chat list">${IC('x')}</button>` : `<button type="button" class="ibtn sm shx" data-a="shelfDt" aria-label="Hide the chat list" title="Hide the chat list">${IC('left')}</button>`}</header>
+    ${shelfFilters(v, N.channelsFor(v.role))}
     <div class="shl scroll" data-sk="shelf">
       ${group('The table', chs.filter(c => c === 'table'))}
       ${gm ? '' : group('Your party', chs.filter(c => N.grpOf(c)?.party))}
@@ -777,7 +789,7 @@ function gmScreen(v){
   const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
     ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
     ['sheet', 'items', 'Item catalog', 'data-v="items"'], ['sheet', 'star', 'Level up', 'data-v="lvlGive"'],
-    ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export the log', 'data-v="export"'], ['sheet', 'smile', 'Emoji and GIFs', 'data-v="emoji"'], ['sheet', 'upload', 'Import lore', 'data-v="import"'], ['sheet', 'trash', 'Wipe a chat', 'data-v="wipe"']];
+    ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export logs, wiki, news', 'data-v="export"'], ['sheet', 'smile', 'Emoji and GIFs', 'data-v="emoji"'], ['sheet', 'upload', 'Import lore', 'data-v="import"'], ['sheet', 'trash', 'Wipe a chat', 'data-v="wipe"']];
   const scenes = N.channelsFor('gm').filter(c => c !== 'gm' && g.scenes[c]).length;
   return `<div class="gs">
     ${fight}${shopBtns}${craftBtns}${pcs.filter(c => c.lvl && c.lvl.st === 'sent').map(c => `<button type="button" class="bigcta lvcta" data-a="sheet" data-v="lvlRev" data-c="${esc(c.id)}"><span class="ic">${IC('star')}</span><span><b>Level up to approve: ${esc(c.short || c.name)}</b><small>${esc(c.short || c.name)} spent ${c.lvl.pts} points. Review the picks and approve.</small></span></button>`).join('')}
@@ -874,7 +886,7 @@ function fmtGuide(chat){
     return `<div class="fg-r"><code>${esc(t)}</code><span class="fg-l">${chat ? l.replace(', chat only', '') : l}</span><span class="fg-x">${look}</span></div>`;
   }).join('');
   /* the GM's narrator can move the scene to a map place */
-  const move = chat && G().role === 'gm' ? `<div class="fg-r"><code>{{Little Eundir, Prince City}}</code><span class="fg-l">Narrator only: moves the scene's map location there. Add the city after a comma when two places share a name.</span><span class="fg-x">Little Eundir</span></div><div class="fg-r"><code>You see an &lt;&lt;Elderly goblin&gt;&gt;</code><span class="fg-l">Narrator only: adds them to the scene as a one-off NPC (or their NPC card, if they have one).</span><span class="fg-x">You see an elderly goblin</span></div><div class="fg-r"><code>You walk to the [[general store]]</code><span class="fg-l">Narrator only: the scene's location line changes to General store (the map pin stays where it is).</span><span class="fg-x">You walk to the general store</span></div><div class="fg-r"><code>$$Wind knocked out, Xira$$</code><span class="fg-l">Narrator only: adds a situation aspect to the scene. After a comma, the name of someone in the scene puts it on them.</span><span class="fg-x">"Wind knocked out"</span></div>` : '';
+  const move = chat && G().role === 'gm' ? `<div class="fg-r"><code>{{Little Eundir, Prince City}}</code><span class="fg-l">Narrator only: moves the scene's map location there. Add the city after a comma when two places share a name.</span><span class="fg-x">Little Eundir</span></div><div class="fg-r"><code>You see an &lt;&lt;Elderly goblin&gt;&gt;</code><span class="fg-l">Narrator only: adds them to the scene as a one-off NPC (or their NPC card, if they have one).</span><span class="fg-x">You see an elderly goblin</span></div><div class="fg-r"><code>You walk to the [[general store]]</code><span class="fg-l">Narrator only: the scene's location line changes to General store (the map pin stays where it is).</span><span class="fg-x">You walk to the general store</span></div><div class="fg-r"><code>$$Wind knocked out, Xira$$</code><span class="fg-l">Narrator only: adds a situation aspect to the scene. After a comma, the name of someone in the scene puts it on them.</span><span class="fg-x">"Wind knocked out"</span></div><div class="fg-r"><code>finds a ^^sapphire throne, Egrot^^ mushroom</code><span class="fg-l">Narrator only: gives the item to that character or NPC. It comes from your item catalog when the name matches, or as a new plain item.</span><span class="fg-x">finds a sapphire throne mushroom</span></div>` : '';
   return `<div class="fguide"><p>Type the marks around your words. ${chat ? 'Works in every chat.' : 'Works in wiki entries, the news and character cards.'}</p>${rows}${move}</div>`;
 }
 function popHtml(v){
@@ -1036,7 +1048,7 @@ function mapPage(v){
       </div>
       <div class="chips" role="group" aria-label="Show">${(() => { const b = v.ui.mapBack || [], up = b.length && g.maps.find(x => x.id === b[b.length - 1]); return up ? `<button type="button" class="cchip mapup" data-a="mapBack" aria-label="Back to ${esc(up.name)}" style="padding:0 12px">${IC('left')}${esc(up.name.replace(/ \(.*\)$/, ''))}</button>` : ''; })()}${types.map(t => `<button type="button" class="cchip" data-a="mapType" data-v="${t}" aria-current="${v.ui.mapType===t}" style="padding:0 12px">${t==='all'?'Everything':IC((N.PINT[t]||N.PINT.note).ic)+esc((N.PINT[t]||N.PINT.note).name)}</button>`).join('')}${loc && !beacons.length ? `<button type="button" class="cchip here" data-a="locHere" style="padding:0 12px"><i class="bdot"></i>${gm ? 'Scene' : 'You’re'} in ${esc(N.locText(loc))}</button>` : ''}${party || !g.party.map ? '' : `<button type="button" class="cchip" data-a="findParty" style="padding:0 12px">${IC('banner')}Find the party</button>`}</div>
       <span></span>
-      ${gm && v.ui.mapEdit ? `<div class="mapedit glass"><button type="button" class="btn ${v.ui.addPin?'primary':'ghost'}" data-a="addPin">${IC('pinL')}${v.ui.addPin?'Tap the map…':'Add pin'}</button><button type="button" class="btn ghost" data-a="sheet" data-v="mapSet" data-c="${esc(m.id)}">${IC(N.audOf(m,'map')==='gm'?'eyeoff':'eye')}<span class="only-dt">${esc(N.audOf(m,'map')==='gm'?'Hidden':N.audLabel(m,'map'))}</span><span class="only-ph">Who sees it</span></button><button type="button" class="btn ghost" data-a="sheet" data-v="mapDel" data-c="${esc(m.id)}" aria-label="Delete this map">${IC('trash')}<span class="only-dt">Delete map</span></button><button type="button" class="btn ghost" data-a="mapUpload">${IC('upload')}<span class="only-dt">Upload map</span></button></div>` : '<span></span>'}
+      ${gm && v.ui.mapEdit ? `<div class="mapedit glass"><button type="button" class="btn ${v.ui.addPin?'primary':'ghost'}" data-a="addPin">${IC('pinL')}${v.ui.addPin?'Tap the map…':'Add pin'}</button><button type="button" class="btn ghost" data-a="sheet" data-v="mapSet" data-c="${esc(m.id)}">${IC(N.audOf(m,'map')==='gm'?'eyeoff':'eye')}<span class="only-dt">${esc(N.audOf(m,'map')==='gm'?'Hidden':N.audLabel(m,'map'))}</span><span class="only-ph">Who sees it</span></button><button type="button" class="btn ghost" data-a="mapReplace" data-v="${esc(m.id)}" aria-label="Replace picture" title="Swap in an edited picture of this map. Every place stays where it is.">${IC('image')}<span class="only-dt">Replace picture</span></button><button type="button" class="btn ghost" data-a="sheet" data-v="mapDel" data-c="${esc(m.id)}" aria-label="Delete this map">${IC('trash')}<span class="only-dt">Delete map</span></button><button type="button" class="btn ghost" data-a="mapUpload">${IC('upload')}<span class="only-dt">Upload map</span></button></div>` : '<span></span>'}
     </div>
     ${pin || (v.ui.pinSel === '__party' && party) ? pinCard(v, m, pin) : ''}
   </div>`;
@@ -1165,6 +1177,15 @@ function block(p){
   if (ls.length > 1 && ls[0].endsWith(':') && ls.slice(1).every(l => l.startsWith('- '))) return `<h3>${links(ls[0].slice(0,-1))}</h3><ul>${ls.slice(1).map(l => `<li>${links(l.slice(2))}</li>`).join('')}</ul>`;
   return `<p class="b">${links(p)}</p>`;
 }
+/* an entry's (or a section's) pictures: side by side, or (Jake) a carousel showing one at a time, with a label over the set
+   and each picture's caption as its own sublabel. Click a picture on a computer, or press and hold it on a phone, to see it big */
+function wikiFigs(ps, car, alt){
+  if (!ps.length) return '';
+  const fig = x => `<figure class="wfig">${N.wikiImg(x.src, x.alt || x.cap || alt)}${x.cap ? `<figcaption>${N.emoText(N.marks(esc(x.cap)))}</figcaption>` : ''}</figure>`;
+  if (!car || ps.length < 2) return `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(fig).join('')}</div>`;
+  return `<div class="wcar">${car.l ? `<div class="wcar-l">${N.emoText(N.marks(esc(car.l)))}</div>` : ''}<div class="wcar-s">${ps.map(fig).join('')}</div>
+    <div class="wcar-n"><button type="button" class="ibtn sm" data-a="carGo" data-d="-1" aria-label="Previous picture" disabled>${IC('left')}</button><span class="wcar-d">${ps.map((x, i) => `<i${i ? '' : ' class="on"'}></i>`).join('')}</span><span class="wcar-c">1 / ${ps.length}</span><button type="button" class="ibtn sm" data-a="carGo" data-d="1" aria-label="Next picture">${IC('right')}</button></div></div>`;
+}
 function articleHtml(v, e){
   if (!e) return '';
   const g = G(), gm = isGM(v) && !N.seeAs, as = N.seeAs;
@@ -1175,13 +1196,13 @@ function articleHtml(v, e){
     <h1>${esc(e.title)}</h1>
     ${e.summary ? `<p class="sum">${links(e.summary)}</p>` : ''}
     <div class="rule"><span class="star4"></span></div>
-    ${(() => { const ps = N.wikiPics(e); return ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(p => `<figure class="wfig">${N.wikiImg(p.src, p.alt || p.cap || e.title)}${p.cap?`<figcaption>${N.emoText(N.marks(esc(p.cap)))}</figcaption>`:''}</figure>`).join('')}</div>` : ''; })()}
+    ${wikiFigs(N.wikiPics(e), e.car, e.title)}
     ${e.info?.length ? `<dl class="facts">${e.info.map(([k,x]) => `<dt>${esc(k)}</dt><dd>${links(x)}</dd>`).join('')}</dl>` : ''}
     ${(e.body||[]).map(block).join('')}
     ${e.soon || !(e.body||[]).length ? '<p class="muted" style="font-weight:700;font-size:13px">More coming soon.</p>' : ''}
     ${N.wikiParts(e).filter(p => { const to = N.partTo(p); return !as || to === 'all' || to === 'some' && (p.see || []).includes(as); }).map(p => { const to = N.partTo(p), ps = p.imgs || [];
       const tag = to === 'all' ? '' : to === 'gm' ? `<span class="eyebrow">${IC('lock').replace('<svg','<svg style="width:13px;height:13px"')}GM only · players never see this</span>` : `<span class="eyebrow">${IC('eye').replace('<svg','<svg style="width:13px;height:13px"')}${gm ? (p.see?.length ? `Only ${esc(N.namesList(p.see))}` : 'Nobody picked yet') : 'Not every player can read this'}</span>`;
-      return `<section class="wsect${to === 'all' ? ' open' : to === 'gm' ? ' gmo' : ''}">${tag}${p.h ? `<h3>${links(p.h)}</h3>` : ''}${ps.length ? `<div class="wfigs${ps.length > 1 ? ' many' : ''}">${ps.map(x => `<figure class="wfig">${N.wikiImg(x.src, x.cap || p.h || e.title)}${x.cap ? `<figcaption>${N.emoText(N.marks(esc(x.cap)))}</figcaption>` : ''}</figure>`).join('')}</div>` : ''}${(p.text || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).map(block).join('')}</section>`; }).join('')}
+      return `<section class="wsect${to === 'all' ? ' open' : to === 'gm' ? ' gmo' : ''}">${tag}${p.h ? `<h3>${links(p.h)}</h3>` : ''}${wikiFigs(ps, p.car, p.h || e.title)}${(p.text || '').split(/\n\s*\n/).map(x => x.trim()).filter(Boolean).map(block).join('')}</section>`; }).join('')}
     ${backs.length ? `<p class="backs"><span class="eyebrow" style="margin-right:8px">Linked from</span>${backs.map(b => `<a class="wl" data-a="wiki" data-v="${b.id}" style="color:var(--link);cursor:pointer">${esc(b.title)}</a>`).join(', ')}</p>` : ''}
     ${e.src ? `<p class="src">From the lore notes: ${esc(e.src)}</p>` : ''}
   </article>`;
@@ -1228,10 +1249,15 @@ function newsForm(v, papers){
   const pic = (n, src, cap) => src
     ? `<div class="wpic"><button type="button" class="wpth" data-a="ndImgFrame" data-n="${n}" aria-label="Adjust framing" title="Adjust framing">${N.wikiImg(src)}<span>${IC('fit')}</span></button><input class="inp" id="nd-cap${n}-${v.id}" data-i="news" data-k="cap" data-n="${n}" value="${esc(cap || '')}" placeholder="Caption (optional)" aria-label="Caption"><button type="button" class="ibtn" data-a="ndImgDel" data-n="${n}" aria-label="Remove this picture">${IC('trash')}</button></div>`
     : `<button type="button" class="btn sm ghost" data-a="ndImgAdd" data-n="${n}" style="justify-self:start">${IC('image')}Add a picture</button>`;
-  const story = (st, i) => `<div class="ndst"><div style="display:flex;gap:6px;align-items:center"><span class="eyebrow" style="flex:1">Story ${i + 2}</span><button type="button" class="ibtn sm" data-a="ndStoryDel" data-n="${i}" aria-label="Remove story ${i + 2}" title="Remove this story">${IC('trash')}</button></div>
-    <input class="inp" id="nd-stt${i}-${v.id}" data-i="news" data-k="stt" data-n="${i}" value="${esc(st.title)}" placeholder="Title" aria-label="Story ${i + 2} title">
-    <textarea class="inp" id="nd-stb${i}-${v.id}" data-i="news" data-k="stb" data-n="${i}" rows="3" placeholder="Text. Leave a blank line between paragraphs." aria-label="Story ${i + 2} text">${esc(st.body)}</textarea>
+  const story = (st, i, lab = `Story ${i + 2}`) => `<div class="ndst"><div style="display:flex;gap:6px;align-items:center"><span class="eyebrow" style="flex:1">${lab}</span><button type="button" class="ibtn sm" data-a="ndStoryDel" data-n="${i}" aria-label="Remove ${lab}" title="Remove this ${d.secs ? 'article' : 'story'}">${IC('trash')}</button></div>
+    <input class="inp" id="nd-stt${i}-${v.id}" data-i="news" data-k="stt" data-n="${i}" value="${esc(st.title)}" placeholder="Title" aria-label="${lab} title">
+    <textarea class="inp" id="nd-stb${i}-${v.id}" data-i="news" data-k="stb" data-n="${i}" rows="3" placeholder="Text. Leave a blank line between paragraphs." aria-label="${lab} text">${esc(st.body)}</textarea>
     ${pic(i, st.img, st.cap)}</div>`;
+  /* Jake: International, National and Local news, each with as many articles as the GM likes. An empty section isn't printed */
+  const secs = () => N.NSECS.map(([k, l]) => { const mine = d.stories.map((st, i) => [st, i]).filter(([st]) => (st.sec || 'loc') === k);
+    return `<div class="ndsec"><div class="ndsec-h"><h3>${l}</h3><small>${mine.length ? `${mine.length} article${mine.length === 1 ? '' : 's'}` : 'Not printed while empty'}</small></div>
+      ${mine.map(([st, i], n) => story(st, i, `${l.replace(/ news$/, '')} article ${n + 1}`)).join('')}
+      <button type="button" class="btn sm" data-a="ndStoryAdd" data-s="${k}" style="justify-self:start">${IC('plus')}Add ${k === 'intl' ? 'an' : 'a'} ${l.replace(/ news$/, '').toLowerCase()} article</button></div>`; }).join('');
   return `<div class="article" style="max-width:none;grid-template-columns:1fr;gap:18px">
     ${N.textTools(v)}
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h1 style="font-size:28px;flex:1">${ed ? `Edit No. ${esc(d.no || '—')}` : 'New edition'}</h1><button type="button" class="btn ghost" data-a="newsCancel">Cancel</button><button type="button" class="btn gold" data-a="newsPub">${ed ? IC('check') + 'Save changes' : IC('send') + 'Publish'}</button></div>
@@ -1246,8 +1272,8 @@ function newsForm(v, papers){
         ${f('sub','Under the headline','One line of detail')}
         ${f('lead','Lead story','Leave a blank line between paragraphs.',6)}
         ${pic(-1, d.limg, d.lcap)}
-        ${d.stories.map(story).join('')}
-        <button type="button" class="btn" data-a="ndStoryAdd" style="justify-self:start">${IC('plus')}Add a story</button>
+        ${d.secs ? secs() : `${d.stories.map((st, i) => story(st, i)).join('')}
+        <button type="button" class="btn" data-a="ndStoryAdd" style="justify-self:start">${IC('plus')}Add a story</button>`}
         ${f('notices','Notices, one per line','Wanted posters, ads, announcements…',3)}
         ${ed ? '' : `<div><span class="eyebrow" style="display:block;margin-bottom:8px">Who gets this edition</span>${N.audPick('ndAud', d, 'news')}</div>`}
       </div>
@@ -1260,12 +1286,14 @@ function paperHtml(p, prev){
   const ph = (x, f) => x ? tx(x) : prev ? `<span class="ph">${f}</span>` : '';
   const paras = t => String(t||'').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean).map(s => `<p style="margin:0 0 10px">${tx(s).replace(/\n/g, '<br>')}</p>`).join('');
   const fig = (src, cap) => src ? `<figure class="pfig">${N.wikiImg(src, cap || '')}${cap ? `<figcaption>${tx(cap)}</figcaption>` : ''}</figure>` : '';
+  const storiesHtml = ss => `<div class="pstories">${ss.map(s => `<section>${s.title ? `<h3>${tx(s.title)}</h3>` : ''}${fig(s.img, s.cap)}${paras(s.body)}</section>`).join('')}</div>`;
   const stories = (p.stories||[]).filter(s => s.title || s.body || s.img), notices = (p.notices||[]).filter(Boolean);
   return `<div class="paper"><h1 class="mast">${ph(p.paper,'Paper name')}</h1><div class="strip"><span>No. ${esc(p.no||'—')}</span><span>${ph(p.date,'In-world date')}</span><span>${ph(p.price, prev ? 'Price' : '')}</span></div>
     <h2 class="hl">${ph(p.headline,'Your headline here')}</h2>${p.sub || prev ? `<p class="psub">${ph(p.sub,'A line under the headline')}</p>` : ''}
     ${fig(p.limg, p.lcap)}
     <div class="plead">${paras(p.lead) || (prev?'<p class="ph">The lead story goes here.</p>':'')}</div>
-    ${stories.length ? `<div class="pstories">${stories.map(s => `<section>${s.title ? `<h3>${tx(s.title)}</h3>` : ''}${fig(s.img, s.cap)}${paras(s.body)}</section>`).join('')}</div>` : ''}
+    ${p.secs ? N.NSECS.map(([k, l]) => { const ss = stories.filter(s => (s.sec || 'loc') === k); return ss.length ? `<div class="psec psec-${k}"><h3 class="psech"><span>${l}</span></h3>${storiesHtml(ss)}</div>` : ''; }).join('')
+      : stories.length ? storiesHtml(stories) : ''}
     ${notices.length ? `<aside class="pnotices"><h3>Notices</h3><ul>${notices.map(t => `<li>${tx(t)}</li>`).join('')}</ul></aside>` : ''}</div>`;
 }
 

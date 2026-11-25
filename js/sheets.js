@@ -381,7 +381,7 @@ N.sheetHtml = function(v){
       <div class="menu">
         ${gm ? `<button type="button" data-a="sheet" data-v="players">${IC('userplus')}<span>Players and sign-ins<small>Let people in, rename or remove them</small></span><span class="end">${pending?`<span class="badge">${pending}</span>`:IC('right')}</span></button>
         <button type="button" data-a="sheet" data-v="import">${IC('upload')}<span>Import lore<small>Load the wiki and maps from your lore file</small></span><span class="end">${IC('right')}</span></button>
-        <button type="button" data-a="sheet" data-v="export">${IC('export')}<span>Export the log<small>Copy or save chats as text</small></span><span class="end">${IC('right')}</span></button>`
+        <button type="button" data-a="sheet" data-v="export">${IC('export')}<span>Export<small>Chat logs, the wiki or the newspapers</small></span><span class="end">${IC('right')}</span></button>`
         : `<button type="button" data-a="tab" data-v="hero">${IC('hero')}<span>My character<small>${c && c.built?N.emoText(N.marks(esc(N.pcTag(c)))):'Not made yet'}</small></span><span class="end">${IC('right')}</span></button>`}
         ${!gm && N.figOk && N.figOk() ? `<button type="button" data-a="figOpen">${IC('hero')}<span>Toy figure maker<small>Your character’s figure in fights</small></span><span class="end">${IC('right')}</span></button>` : ''}
         <button type="button" data-a="sheet" data-v="credits">${IC('heart')}<span>Art credits<small>Free art used in this app</small></span><span class="end">${IC('right')}</span></button>
@@ -430,7 +430,19 @@ N.sheetHtml = function(v){
   case 'export': {
     const ex = v.ui.exp;
     const out = N.buildExport(ex);
-    const body = `<div><h4>Chats</h4><div class="forwho">${N.channelsFor('gm', true).map(c => `<button type="button" data-a="expCh" data-v="${c}" aria-pressed="${ex.ch.has(c)}">${esc(N.chName(c,'gm'))}</button>`).join('')}</div></div>
+    const what = ex.what || 'log', ps = N.papers();
+    const whatRow = `<div><h4>What to export</h4><div class="forwho">${[['log','Chat logs'],['wiki','Wiki'],['news','Newspapers']].map(([k,l]) => `<button type="button" data-a="expWhat" data-v="${k}" aria-pressed="${what === k}">${l}</button>`).join('')}</div></div>`;
+    const fmt = `<div><h4>Format</h4><div class="forwho"><button type="button" data-a="expKind" data-v="json" aria-pressed="${!ex.json}" ${ex.json ? '' : 'disabled'}>Text (.md)</button><button type="button" data-a="expKind" data-v="json" aria-pressed="${!!ex.json}" ${ex.json ? 'disabled' : ''}>Data for an AI (.json)</button></div></div>`;
+    const prev = `<div><h4>Preview</h4><textarea id="exOut" class="inp" readonly rows="10" style="font:500 12.5px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2)">${esc(out)}</textarea></div>`;
+    const foot = `<button type="button" class="btn ghost" data-a="expCopy">${IC('copy')}Copy</button><button type="button" class="btn primary lg" data-a="expDl">${IC('download')}Download ${ex.json ? '.json' : '.md'}</button>`;
+    if (what === 'wiki') return sheet('Export the wiki', `${whatRow}
+      <div><h4>Categories</h4><div class="forwho">${N.cats().map(c => `<button type="button" data-a="expCat" data-v="${esc(c.name)}" aria-pressed="${ex.cats.has(c.name)}">${esc(c.name)} <small>${G().wiki.filter(e => e.cat === c.name).length}</small></button>`).join('')}</div></div>
+      <div><h4>Include</h4><div class="forwho"><button type="button" data-a="expKind" data-v="wgm" aria-pressed="${!!ex.wgm}">GM-only parts</button></div><small class="muted">Every entry says who can read it, and every section who it is for.</small></div>
+      ${fmt}${prev}`, foot, {wide:true});
+    if (what === 'news') return sheet('Export the newspapers', `${whatRow}
+      <div><h4>Papers</h4><div class="forwho">${ps.map(p => `<button type="button" data-a="expPaper" data-v="${esc(p.name)}" aria-pressed="${ex.papers.has(p.name)}">${esc(p.name)} <small>${p.issues.length}</small></button>`).join('') || '<span class="muted">No papers yet.</span>'}</div><small class="muted">Every edition, oldest first, with who could read it.</small></div>
+      ${fmt}${prev}`, foot, {wide:true});
+    const body = `${whatRow}<div><h4>Chats</h4><div class="forwho">${N.channelsFor('gm', true).map(c => `<button type="button" data-a="expCh" data-v="${c}" aria-pressed="${ex.ch.has(c)}">${esc(N.chName(c,'gm'))}</button>`).join('')}</div></div>
       <div><h4>When</h4><div class="forwho">${[['all','Everything'],['day','Last 24 hours'],['week','Last 7 days'],['last','Since the last scene']].map(([k,l]) => `<button type="button" data-a="expWhen" data-v="${k}" aria-pressed="${ex.when === k}">${l}</button>`).join('')}</div>
         <div class="exrange"><label class="field"><span>From</span><input class="inp" type="datetime-local" data-i="expFrom" value="${esc(ex.from || '')}"></label><label class="field"><span>To</span><input class="inp" type="datetime-local" data-i="expTo" value="${esc(ex.to || '')}"></label></div>
         <small class="muted" id="exWhen">${esc(N.cap1(N.expRangeWords(ex)))}. Leave a box empty for no limit on that side.</small></div>
@@ -546,18 +558,19 @@ N.sheetHtml = function(v){
       <label class="field"><span>One-line summary</span><input class="inp" id="wds-${v.id}" data-i="wd" data-k="summary" value="${esc(d.summary)}" placeholder="Shown in lists and at the top"></label>
       <label class="field"><span>Facts box, one per line as “Label: value”</span><textarea class="inp" id="wdi-${v.id}" data-i="wd" data-k="info" rows="3" placeholder="Ruler: …">${esc(d.info)}</textarea></label>
       <div><h4>Pictures · a flag, a portrait, a sketch</h4><div class="wpics">${d.imgs.map((p, i) => `<div class="wpic"><button type="button" class="wpth" data-a="wdImgFrame" data-v="${i}" aria-label="Adjust framing" title="Adjust framing">${N.wikiImg(p.src)}<span>${IC('fit')}</span></button><input class="inp" id="wdp${i}-${v.id}" data-i="wd" data-k="cap" data-n="${i}" value="${esc(p.cap || '')}" placeholder="Caption (optional)" aria-label="Caption"><button type="button" class="ibtn" data-a="wdImgDel" data-v="${i}" aria-label="Remove this picture">${IC('trash')}</button></div>`).join('')}
-        <button type="button" class="btn" data-a="wdImgAdd" style="justify-self:start">${IC('upload')}Add a picture from your device</button></div></div>
+        <button type="button" class="btn" data-a="wdImgAdd" style="justify-self:start">${IC('upload')}Add a picture from your device</button>${carEd(v, d, -1)}</div></div>
       <label class="field"><span>Text · blank line between paragraphs · link entries with [[Title]]</span><textarea class="inp" id="wdb-${v.id}" data-i="wd" data-k="body" rows="8">${esc(d.body)}</textarea></label>
       <div class="wparts"><h4>Sections</h4>${(d.parts || []).map((p, i) => { const to = p.to || 'all', seg = (val, ic, l) => `<button type="button" data-a="wdPartTo" data-n="${i}" data-v="${val}" aria-pressed="${to === val}">${IC(ic)}${l}</button>`;
         return `<div class="wpart${to === 'gm' ? ' gmo' : ''}">
           <div class="wpart-h"><input class="inp" id="wdph${i}-${v.id}" data-i="wd" data-k="ph" data-n="${i}" value="${esc(p.h)}" placeholder="Heading, e.g. History" aria-label="Section heading">${i ? `<button type="button" class="ibtn" data-a="wdPartUp" data-n="${i}" aria-label="Move this section up" title="Move up">${IC('caret').replace('<svg', '<svg style="transform:rotate(180deg)"')}</button>` : ''}<button type="button" class="ibtn" data-a="wdPartDel" data-v="${i}" aria-label="Remove this section">${IC('trash')}</button></div>
           <textarea class="inp" id="wdpt${i}-${v.id}" data-i="wd" data-k="pt" data-n="${i}" rows="4" placeholder="${to === 'gm' ? 'Only you will ever see this' : 'Section text · link entries with [[Title]]'}" aria-label="Section text">${esc(p.text)}</textarea>
           <div class="wpics">${(p.imgs || []).map((x, j) => `<div class="wpic"><button type="button" class="wpth" data-a="wdPartImgFrame" data-n="${i}" data-v="${j}" aria-label="Adjust framing" title="Adjust framing">${N.wikiImg(x.src)}<span>${IC('fit')}</span></button><input class="inp" id="wdpc${i}-${j}-${v.id}" data-i="wd" data-k="pcap" data-n="${i}" data-x="${j}" value="${esc(x.cap || '')}" placeholder="Caption (optional)" aria-label="Caption"><button type="button" class="ibtn" data-a="wdPartImgDel" data-n="${i}" data-v="${j}" aria-label="Remove this picture">${IC('trash')}</button></div>`).join('')}
-            <button type="button" class="btn sm" data-a="wdPartImgAdd" data-n="${i}" style="justify-self:start">${IC('upload')}Add a picture to this section</button></div>
+            <button type="button" class="btn sm" data-a="wdPartImgAdd" data-n="${i}" style="justify-self:start">${IC('upload')}Add a picture to this section</button>${carEd(v, p, i)}</div>
           <div class="wpart-to"><span class="lbl">Who reads it</span><div class="seg" role="group" aria-label="Who reads this section">${seg('all', 'users', 'Everybody')}${seg('some', 'eye', 'Some players')}${seg('gm', 'lock', 'GM only')}</div></div>
           ${to === 'some' ? `<div class="forwho" role="group" aria-label="Which players">${N.seats().map(st => `<button type="button" data-a="wdPartWho" data-n="${i}" data-v="${st}" aria-pressed="${p.see.includes(st)}">${N.av(N.personObj(st),28)}${esc(pName(st))}</button>`).join('')}</div>` : ''}
           <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">${to === 'all' ? 'Everybody who can read the entry reads this section.' : to === 'gm' ? 'Only you see this section. Players never get it.' : p.see.length ? `Only ${esc(N.namesList(p.see))} ${p.see.length > 1 ? 'see' : 'sees'} this section. Everyone else reading the entry never gets it.` : 'Nobody picked yet, so only you see it.'}</p></div>`; }).join('')}
-        <button type="button" class="btn" data-a="wdPartAdd" style="justify-self:start">${IC('plus')}Add a section</button></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-a="wdPartAdd">${IC('plus')}Add a section</button><button type="button" class="btn" data-a="wdImport">${IC('upload')}Import lore into this entry</button></div>
+        <p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Import lore reads Word (.docx), .txt or .md files from your device. Each heading in the file becomes a section here, starting as GM only so nothing slips out. Check them, pick who reads each, then Save.</p></div>
       <div><h4>Who can read the entry</h4>${N.audPick('wdAud', d, 'wiki')}</div>`,
       `${d.id ? `<button type="button" class="btn danger" data-a="sheet" data-v="wDel" data-c="${esc(d.id)}" style="flex:0 0 auto" aria-label="Delete this entry">${IC('trash')}<span class="only-dt">Delete</span></button>` : ''}<button type="button" class="btn ghost" data-a="closeSheet" style="flex:0 0 auto">Cancel</button><button type="button" class="btn primary lg" data-a="wSave" ${d.title.trim()?'':'disabled'}>${IC('check')}Save entry</button>`, {wide:true});
   }
@@ -1439,7 +1452,62 @@ function buildJson(sel){
     about:'A Fate Core campaign log. Chats are in time order. type "fight" blocks hold that fight\'s rolls (4 Fate dice, -1/0/+1 each, total = dice + skillBonus + gear + 2 per invoke that is neither a reroll nor againstRoll; an againstRoll invoke is already in "against"), attack results and notices. Typed fight chat is left out.',
     includes:{roleplay:!!sel.rp, rolls:!!sel.roll, outOfCharacter:!!sel.meta}, chats}, null, 2);
 }
+/* the carousel switch under a set of wiki pictures (n = -1: the entry's own pictures, else section n). Shown from 2 pictures */
+function carEd(v, o, n){
+  if ((o.imgs || []).length < 2) return '';
+  return `<div class="wcared"><button type="button" class="revrow" data-a="wdCar" data-n="${n}" aria-pressed="${!!o.car}"><span class="rck">${IC('check')}</span><span><b>Show as a carousel</b><small>One picture at a time with arrows. ${o.car ? 'Each caption above is that picture’s sublabel.' : 'The captions become each picture’s sublabel.'}</small></span></button>
+    ${o.car ? `<input class="inp" id="wdcl${n}-${v.id}" data-i="wd" data-k="carl" data-n="${n}" value="${esc(o.car.l || '')}" placeholder="Carousel label, e.g. Flags of the Riverlands" aria-label="Carousel label">` : ''}</div>`;
+}
+/* Jake: besides the chat logs, the GM can export the whole wiki or the newspapers (text for notes, or JSON) */
+const plainLinks = t => String(t || '').replace(/\[\[(?:[a-z]+:[^|\]]+\|)?([^\]]+)\]\]/g, '$1');
+const whoWiki = (x, k) => { const a = N.audOf(x, k); return a === '*' ? 'Everyone' : a === 'gm' ? 'GM only' : N.audLabel(x, k).replace(/^Only /, ''); };
+function wikiExport(sel){
+  const g = G(), es = g.wiki.filter(e => sel.cats.has(e.cat)).sort((a, b) => a.title.localeCompare(b.title));
+  if (sel.json) return JSON.stringify({kind:'norne-wiki', exported:new Date().toISOString(), entries:es.map(e => ({title:e.title, category:e.cat, seenBy:whoWiki(e, 'wiki'), summary:plainLinks(e.summary),
+    facts:(e.info || []).map(([k, x]) => ({[k]:plainLinks(x)})), text:(e.body || []).map(plainLinks),
+    sections:N.wikiParts(e).filter(p => sel.wgm || N.partTo(p) !== 'gm').map(p => ({heading:plainLinks(p.h), seenBy:N.partTo(p) === 'all' ? 'Everyone' : N.partTo(p) === 'gm' ? 'GM only' : N.namesList(p.see || []), text:plainLinks(p.text)}))}))}, null, 2);
+  const out = ['# Nörne: wiki', `Exported ${new Date().toLocaleString()} · ${es.length} entr${es.length === 1 ? 'y' : 'ies'}${sel.wgm ? ' · includes GM-only parts' : ''}`];
+  for (const c of N.cats().map(x => x.name)) {
+    const ce = es.filter(e => e.cat === c); if (!ce.length) continue;
+    out.push('', `## ${c}`);
+    for (const e of ce) {
+      out.push('', `### ${e.title}`, `_Seen by: ${whoWiki(e, 'wiki')}_`);
+      if (e.summary) out.push('', `*${plainLinks(e.summary)}*`);
+      if (e.info?.length) out.push('', ...e.info.map(([k, x]) => `- **${k}:** ${plainLinks(x)}`));
+      for (const b of e.body || []) out.push('', plainLinks(b));
+      for (const p of N.wikiParts(e)) { const to = N.partTo(p); if (to === 'gm' && !sel.wgm) continue;
+        out.push('', `#### ${plainLinks(p.h) || 'Section'} (${to === 'all' ? 'everyone' : to === 'gm' ? 'GM only' : 'only ' + N.namesList(p.see || [])})`);
+        if (p.text) out.push('', plainLinks(p.text)); }
+    }
+  }
+  return out.join('\n');
+}
+function newsExport(sel){
+  const ps = N.papers().filter(p => sel.papers.has(p.name));
+  const story = st => ({title:st.title || '', text:st.body || '', ...(st.cap ? {caption:st.cap} : {})});
+  if (sel.json) return JSON.stringify({kind:'norne-news', exported:new Date().toISOString(), papers:ps.map(p => ({name:p.name, issues:p.issues.map(i => ({number:i.no, date:i.date || '', price:i.price || '',
+    readers:whoWiki(i, 'news'), headline:i.headline, underHeadline:i.sub || '', lead:i.lead || '',
+    ...(i.secs ? Object.fromEntries(N.NSECS.map(([k, l]) => [l, (i.stories || []).filter(st => (st.sec || 'loc') === k).map(story)]).filter(([, a]) => a.length)) : {stories:(i.stories || []).map(story)}),
+    notices:i.notices || []}))}))}, null, 2);
+  const out = ['# Nörne: newspapers', `Exported ${new Date().toLocaleString()}`];
+  const st = s => { const o = ['', `#### ${s.title || 'Untitled'}`]; if (s.body) o.push('', s.body.trim()); if (s.cap) o.push('', `_Picture: ${s.cap}_`); return o; };
+  for (const p of ps) {
+    out.push('', `## ${p.name}`);
+    for (const i of p.issues) {
+      out.push('', `### No. ${i.no || '—'}${i.date ? ' · ' + i.date : ''}${i.price ? ' · ' + i.price : ''}`, `_Readers: ${whoWiki(i, 'news')}_`, '', `**${i.headline}**`);
+      if (i.sub) out.push(`*${i.sub}*`);
+      if (i.lead) out.push('', i.lead.trim());
+      if (i.lcap) out.push('', `_Picture: ${i.lcap}_`);
+      if (i.secs) for (const [k, l] of N.NSECS) { const ss = (i.stories || []).filter(s => (s.sec || 'loc') === k); if (ss.length) out.push('', `#### — ${l} —`, ...ss.flatMap(st)); }
+      else for (const s of i.stories || []) out.push(...st(s));
+      if (i.notices?.length) out.push('', '#### Notices', ...i.notices.map(n => `- ${n}`));
+    }
+  }
+  return out.join('\n');
+}
 N.buildExport = sel => {
+  if (sel.what === 'wiki') return wikiExport(sel);
+  if (sel.what === 'news') return newsExport(sel);
   if (sel.json) return buildJson(sel);
   const kinds = [sel.rp && 'roleplay', sel.roll && 'rolls', sel.meta && 'meta talk'].filter(Boolean);
   const out = ['# Nörne: session log', `Exported ${new Date().toLocaleString()} · includes ${kinds.join(', ') || 'nothing'} · ${rangeWords(sel)}`];
