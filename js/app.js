@@ -1270,7 +1270,8 @@ function send(v, opt = {}){
   /* Everyone is Meta only: whatever the toggle says, it goes out as the person, not their character */
   else if (v.ui.mode === 'ooc' || N.metaOnly(ch) || N.emojiOnly(text)) m = {kind:'meta'};
   else if (gm) { const pt = N.npcFace(v.ui.voice, ch); m = {kind:'rp', as:v.ui.voice}; if (pt) m.pt = pt; }
-  else m = {kind:'rp', as:c && c.built ? c.short : g.P[v.role].name};
+  else if (c && c.built) { const pa = N.pcAs(c); m = {kind:'rp', as:pa.name}; if (pa.pic && pa.pic !== c.portrait) m.pt = pa.pic; }
+  else m = {kind:'rp', as:g.P[v.role].name};
   if (!devCommand && v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
   const narr = gm && m.kind === 'rp' && m.as === 'Narrator';
   if (narr && !g.scenes[ch] && !opt.again && (/\{\{[^{}]+\}\}|<<[^<>]+>>|\$\$[^$\n]+\$\$/.test(text) || [...text.matchAll(WHERE_RE)].length)) { sceneFirst(v, ch, text); return; }
@@ -2132,6 +2133,11 @@ function act(v, a, el, e){
   case 'fcSend': fcSend(v); return;
   case 'roll': openRoll(v, {skill:d.skill, who: d.who || (d.c ? 'pc:' + d.c : d.npc ? 'npc:' + d.npc : null), secret:!!d.secret}); break;
   case 'voiceAll': ui.voiceAll = !ui.voiceAll; return render(v);
+  /* a player picking the name or picture their character speaks with (it stays open so they can pick both) */
+  case 'pcAs': { const c = N.charOf(v.role); if (!c || !c.built) break; const l = N.pcLooks(c);
+    if (d.k === 'n' && l.names.includes(val)) { N.pcAsSet(c, 'n', val); ui.mode = 'rp'; ui.pop = null; setTimeout(() => { const t = myBox(v); t && t.focus(); }, 20); }
+    else if (d.k === 'p' && l.pics[+val]) { N.pcAsSet(c, 'p', l.pics[+val]); ui.mode = 'rp'; }
+    renderAll(); return; }
   case 'voice': { ui.voiceQ = ''; ui.voiceAll = false;
     if (val === '__ooc') ui.mode = 'ooc';
     else if (val === '__me') ui.mode = 'rp';
@@ -2365,21 +2371,29 @@ function act(v, a, el, e){
     let undone = false; if (x.a) setTimeout(() => { if (!undone && !g.emoji.some(y => y.d === x.d)) N.dropImg(x.d); }, 9000);
     toast(v, `Removed :${x.n}:.`, () => { undone = true; if (!g.emoji.some(y => y.n === x.n)) g.emoji.splice(at, 0, x); }); renderAll(); return; }
   /* the GM editing or deleting a chat message */
-  case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m || !N.canEdit(v, m)) break; ui.med = {id:m.id, text:m.text, as:N.msgVoice(m)}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
+  case 'msgEdit': { const m = g.msgs.find(x => x.id === val); ui.pop = null; if (!m || !N.canEdit(v, m)) break; ui.med = {id:m.id, text:m.text, as:N.msgVoice(m), an:m.by !== 'gm' && m.kind === 'rp' ? m.as : null, ap:m.by !== 'gm' && m.kind === 'rp' ? (m.pt || N.charOf(m.by)?.portrait || null) : null}; openSheet(v, 'msgEdit', {v:m.id}); setTimeout(() => { const f = v.root.querySelector(`#med-${v.id}`); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 30); break; }
   case 'msgSave': {
     const m = g.msgs.find(x => x.id === ui.med?.id), t = (ui.med?.text || '').trim(); if (!m || !t || !N.canEdit(v, m)) break;
     const was = N.msgVoice(m), as = ui.med.as || was, newVoice = N.voiceFixable(m) && as !== was;
     if (t !== m.text) { m.text = t; m.ed = 1; }
     /* a null is written to the saved message (so the old speaker goes) and dropped again when it comes back */
     if (newVoice) {
-      if (as === 'meta') { m.kind = 'meta'; m.as = null; if (m.pt) m.pt = null; }
+      /* a player can't take a picture off their own line (the rules let them change only its words and voice) */
+      if (as === 'meta') { m.kind = 'meta'; m.as = null; if (m.pt && gm) m.pt = null; }
       else if (m.by === 'gm') { const n = N.npcByName(as) || N.extraByName(m.ch, as); m.kind = 'rp'; m.as = as; m.pt = as !== 'Narrator' && (N.npcByName(as) ? N.npcFace(as, m.ch) : n?.portrait) || null; }
       else { m.kind = 'rp'; m.as = N.charVoiceName(m.by); }
       m.ed = 1;
     }
-    ui.sheet = null; ui.med = null; toast(v, newVoice && t === m.text ? 'Voice changed.' : 'Message edited.'); renderAll(); return;
+    /* the GM changing which of a PC's names and pictures a line went out with */
+    let newLook = false;
+    if (gm && m.by !== 'gm' && m.kind === 'rp' && !N.metaRp(m)) { const c = N.charOf(m.by), l = N.pcLooks(c);
+      if (ui.med.an && l.names.includes(ui.med.an) && ui.med.an !== m.as) { m.as = ui.med.an; newLook = true; }
+      if (ui.med.ap && l.pics.includes(ui.med.ap)) { const pt = ui.med.ap === c.portrait ? null : ui.med.ap; if ((m.pt || null) !== pt) { if (pt) m.pt = pt; else delete m.pt; newLook = true; } }
+      if (newLook) m.ed = 1; }
+    ui.sheet = null; ui.med = null; toast(v, (newVoice || newLook) && t === m.text ? (newLook && !newVoice ? 'Name and picture changed.' : 'Voice changed.') : 'Message edited.'); renderAll(); return;
   }
   case 'medAs': if (ui.med) ui.med.as = val; break;
+  case 'medLook': if (ui.med) { if (d.k === 'n') ui.med.an = val; else { const m = g.msgs.find(x => x.id === ui.med.id), p = N.pcLooks(N.charOf(m?.by)).pics[+val]; if (p) ui.med.ap = p; } } break;
 
   case 'msgDelGo': {
     const m = g.msgs.find(x => x.id === val); ui.sheet = null; if (!gm || !m) break;

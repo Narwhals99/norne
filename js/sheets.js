@@ -1143,10 +1143,18 @@ function medVoice(v, m, d){
   const cur = d.as || N.msgVoice(m), row = inner => `<div class="field medv"><span>Sent as</span>${inner}<small class="muted">Pick the voice it should have gone out in.</small></div>`;
   if (m.by !== 'gm') {
     const nm = N.charVoiceName(m.by), b = (val, ic, label) => `<button type="button" data-a="medAs" data-v="${val}" aria-pressed="${cur === val}">${IC(ic)}${esc(label)}</button>`;
-    return row(`<div class="seg medseg" role="group" aria-label="Sent as">${b('char', 'mask', nm)}${b('meta', 'chatL', 'Meta')}</div>`);
+    return row(`<div class="seg medseg" role="group" aria-label="Sent as">${b('char', 'mask', nm)}${b('meta', 'chatL', 'Meta')}</div>`) + medLook(v, m, d, cur);
   }
   const vf = N.voicesFor(m.ch, m.as), o = n => `<option value="${esc(n)}" ${cur === n ? 'selected' : ''}>${esc(n)}</option>`;
   return row(`<select class="inp" id="medv-${v.id}" data-i="medAs" aria-label="Sent as"><option value="meta" ${cur === 'meta' ? 'selected' : ''}>Meta (you, out of character)</option>${o('Narrator')}${vf.here.length ? `<optgroup label="In this scene">${vf.here.map(o).join('')}</optgroup>` : ''}${vf.rest.length ? `<optgroup label="Everyone else">${vf.rest.map(o).join('')}</optgroup>` : ''}</select>`);
+}
+/* the GM picking which of a PC's names (aliases) and pictures a line shows (Jake, Nov 25), like changing its voice */
+function medLook(v, m, d, cur){
+  if (!isGM(v) || cur !== 'char') return '';
+  const c = N.charOf(m.by), l = N.pcLooks(c); if (l.names.length < 2 && l.pics.length < 2) return '';
+  const an = d.an && l.names.includes(d.an) ? d.an : c.short, ap = d.ap && l.pics.includes(d.ap) ? d.ap : c.portrait;
+  return `${l.names.length > 1 ? `<div class="field medv"><span>Name</span><div class="seg medseg wrap" role="group" aria-label="Name it shows">${l.names.map(n => `<button type="button" data-a="medLook" data-k="n" data-v="${esc(n)}" aria-pressed="${n === an}">${esc(n)}</button>`).join('')}</div><small class="muted">${esc(c.short)}’s own name or one of their aliases.</small></div>` : ''}
+    ${l.pics.length > 1 ? `<div class="field medv"><span>Picture</span><div class="pcas-pics" role="group" aria-label="Picture it shows">${l.pics.map((p, i) => `<button type="button" data-a="medLook" data-k="p" data-v="${i}" aria-pressed="${p === ap}" aria-label="${i ? 'Picture ' + (i + 1) : 'Main portrait'}">${N.av({name:an, portrait:p, color:c.color}, 40)}</button>`).join('')}</div></div>` : ''}`;
 }
 function notifyToggle(){
   const st = N.notifyState ? N.notifyState() : 'none';

@@ -808,7 +808,8 @@ N.speakerObj = (m) => {
     return {name:m.as, portrait:m.pt || n?.portrait, color:'var(--c-npc)', npc:true};
   }
   const p = G.P[m.by], c = p && G.chars[p.char];
-  return {name:m.as || p?.name || 'A former player', portrait:c?.built ? c.portrait : null, color:p?.color || 'var(--ink-3)'};
+  /* m.pt: the other picture the player picked to speak with (or the GM set on the line later) */
+  return {name:m.as || p?.name || 'A former player', portrait:m.pt || (c?.built ? c.portrait : null), color:p?.color || 'var(--ink-3)'};
 };
 /* a person out of character: their own Meta picture, else their character's portrait.
    A player's Meta picture rides on their card (mpic), the GM's on game/meta (gmPic), so no new security rules are needed */
@@ -1107,6 +1108,18 @@ N.picVal = (c, keys) => N.picVals(c, keys)[0] || null;
 N.PCALF = N.ALF.filter(([f]) => f !== 'job');
 N.pcX = c => (c && c.player && ((N.G.pcx || {})[c.id] || (N.G.pxMine || {})[c.id])) || null;
 N.withX = c => { const x = N.pcX(c); return x ? {...c, al:x.al || {}, pics:x.pics || []} : c; };
+/* the names and pictures a PC can speak with in chat (Jake, Nov 25): their short name and their name aliases, their portrait
+   and their other pictures. The player picks on their device (N.pcAs); the GM can change a sent line's name and picture */
+N.pcLooks = c => { if (!c || !c.built) return {names:[], pics:[]}; const x = N.withX(c);
+  return {names:[...new Set([c.short, ...N.aliases(x, 'name').map(a => a.v)].filter(Boolean))], pics:N.npcPics(x)}; };
+const PCAS_K = 'norne-pcas';
+let pcAsMem = null;
+const pcAsAll = () => { if (pcAsMem) return pcAsMem; try { pcAsMem = JSON.parse(localStorage.getItem(PCAS_K) || '{}') || {}; } catch(e) { pcAsMem = {}; } return pcAsMem; };
+/* what this device speaks as for a PC: {name, pic, alt} where alt says the player picked something other than the default */
+N.pcAs = c => { const l = N.pcLooks(c), o = pcAsAll()[c?.id] || {};
+  const name = l.names.includes(o.n) ? o.n : c?.short, pic = l.pics.includes(o.p) ? o.p : c?.portrait || null;
+  return {name, pic, alt:name !== c?.short || pic !== (c?.portrait || null), many:l.names.length > 1 || l.pics.length > 1}; };
+N.pcAsSet = (c, k, val) => { if (!c) return; const all = pcAsAll(), o = {...(all[c.id] || {})}; o[k] = val; all[c.id] = o; pcAsMem = all; try { localStorage.setItem(PCAS_K, JSON.stringify(all)); } catch(e) {} };
 N.alClean = (al, fs) => Object.fromEntries((fs || N.ALF).map(([f]) => [f, ((al || {})[f] || []).map(a => ({id:a.id, v:String(a.v || '').trim()})).filter(a => a.v)]).filter(([, l]) => l.length));
 N.alVal = (c, keys, f) => { const id = N.asOf(keys, f); if (!id) return c[f]; const a = N.aliases(c, f).find(x => x.id === id); return a ? a.v : null; };
 N.revSkills = c => { const sk = Object.entries(c.skills || {}); for (const k of MUNDANE) if (!(k in (c.skills || {}))) sk.push([k, 0]); return sk.sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])); };
