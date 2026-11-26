@@ -582,7 +582,7 @@ N.msgCard = (m, role) => {
     const pc = Object.values(g.chars || {}).find(x => x.built && same(x)); return pc ? pc.id : null;
   }
   if (m.by === 'gm') { if (!m.as || m.as === 'Narrator') return null; const n = m.as.trim().toLowerCase();
-    const k = Object.values(g.known || {}).find(x => x.name && (x.name.trim().toLowerCase() === n || (x.short || '').trim().toLowerCase() === n)); return k ? k.id : null; }
+    const k = Object.values(g.known || {}).find(x => x.name && [x.name, x.short, ...(x.aka || [])].some(y => (y || '').trim().toLowerCase() === n)); return k ? k.id : null; }
   const c = N.charOf(m.by); if (!c) return null;
   if (m.by === role || N.charOf(role)?.id === c.id) return c.built ? c.id : null;
   return g.known?.[c.id]?.name ? c.id : null;
@@ -1105,7 +1105,14 @@ N.picVal = (c, keys) => N.picVals(c, keys)[0] || null;
 /* PCs too (Jake, Nov 25): a PC's aliases and other pictures live GM-only in gm/misc as g.pcx[<card id>] = {al, pics},
    never on game/chars (every player can read that). The owner gets their own copy in only/<seat> (g.pxMine).
    N.withX(c) gives the card with them added, for Reveal, the GM's card and the owner's card. A PC has no Job alias */
-N.PCALF = N.ALF.filter(([f]) => f !== 'job');
+/* Jake (Nov 25): PCs have a Job or faction too, so every alias field works for them */
+N.PCALF = N.ALF;
+/* several names (Jake, Nov 25): a player can know an NPC or PC by more than one name, one reveal key as:name:<id> each,
+   with ~ for the true name. The first in the list (the first the GM ticked) is the name they know them by; the rest show
+   as “Also known as”. No as:name: key means just the true name, like before */
+N.nameIds = keys => (keys || []).filter(k => k.startsWith('as:name:')).map(k => k.slice(8));
+N.nameVals = (c, keys) => { const ids = N.nameIds(keys), tv = c.name || c.short || ''; if (!ids.length) return tv ? [tv] : [];
+  return [...new Set(ids.map(id => id === '~' ? tv : (N.aliases(c, 'name').find(a => a.id === id) || {}).v).filter(Boolean))]; };
 N.pcX = c => (c && c.player && ((N.G.pcx || {})[c.id] || (N.G.pxMine || {})[c.id])) || null;
 N.withX = c => { const x = N.pcX(c); return x ? {...c, al:x.al || {}, pics:x.pics || []} : c; };
 /* the names and pictures a PC can speak with in chat (Jake, Nov 25): their short name and their name aliases, their portrait
@@ -1129,7 +1136,7 @@ N.revParts = (c, pc) => {
   add('pic', 'Who they are', 'Picture', c.portrait ? 'Their portrait' : 'No picture yet');
   add('race', 'Who they are', 'Race', c.race || 'Not set');
   add('nat', 'Who they are', 'Nationality', c.nat || 'Not set');
-  if (!pc) add('job', 'Who they are', 'Job or faction', c.job || 'Not set');
+  add('job', 'Who they are', 'Job or faction', c.job || 'Not set');
   /* Deceased (Jake, Nov 25): ticked here, the player sees “Deceased” and a skull by the name, but only while the card is marked dead */
   if (!pc) add('dead', 'Who they are', 'Deceased', c.dead ? 'Marked deceased · they see it with a skull' : 'Alive · nothing shows until you tick Deceased on the card');
   add('age', 'Who they are', 'Age', c.age ? 'Age ' + c.age : 'Not set');
@@ -1149,10 +1156,10 @@ N.revKeys = (c, keys) => keys.flatMap(k => k === 'about' ? ['race', 'nat', 'age'
 N.revealed = (c, pc, keys0) => {
   const keys = N.revKeys(c, keys0), has = k => keys.includes(k), val = f => N.alVal(c, keys, f);
   if (!has('name')) return null;
-  const nm = val('name'); if (nm == null) return null;
-  const r = {id:c.id, name:nm || c.short || ''};
+  const ns = N.nameVals(c, keys); if (!ns.length) return null;
+  const r = {id:c.id, name:ns[0]}; if (ns.length > 1) r.aka = ns.slice(1);
   if (has('pic')) { const ps = N.picVals(c, keys); if (ps[0]) r.portrait = ps[0]; if (ps.length > 1) r.pics = ps.slice(1); }
-  for (const f of ['race', 'nat', ...(pc ? [] : ['job']), 'age']) { const x = has(f) && val(f); if (x) r[f] = x; }
+  for (const f of ['race', 'nat', 'job', 'age']) { const x = has(f) && val(f); if (x) r[f] = x; }
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
   const sk = N.revSkills(c).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;
   const st = (c.stunts || []).filter(([n, d]) => has('st:' + (n || d))); if (st.length) r.stunts = st;

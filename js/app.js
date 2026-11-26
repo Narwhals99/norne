@@ -945,7 +945,7 @@ function askTell(v){
         const now = N.revKeys(card, l), was = N.revKeys(card, base[st] || []);
         if (!now.includes('name') || !now.some(k => !k.startsWith('met:') && !was.includes(k))) continue;
         /* the name this player knows them by: an alias when the GM picked one (a PC's true name goes by its short name) */
-        const name = c && !N.asOf(now, 'name') ? c.short || c.name : N.revealed(card, !!c, now)?.name; if (!name) continue;
+        const fid = N.nameIds(now)[0], name = c && (!fid || fid === '~') ? c.short || c.name : N.revealed(card, !!c, now)?.name; if (!name) continue;
         add(st, was.includes('name') ? `${gm} revealed more about ${name}. Open Character to see it.` : `${gm} revealed ${name} to you. Open Character to see them.`);
       }
     }
@@ -2702,6 +2702,12 @@ function act(v, a, el, e){
     /* Met / Heard of: the GM decides how this player's character knows them (tap again to clear) */
     if (a === 'revMet') { const was = mt.find(k => k.startsWith('met:')); mt = mt.filter(k => !k.startsWith('met:')); if (val && was !== 'met:' + val) mt.push('met:' + val); }
     /* an NPC's alias or other picture (Jake): this player is told the truth (no id) or one alias for that field; picking either reveals the field */
+    /* names (Jake, Nov 25): tick as many as this player knows (the truth and/or aliases); at least one stays ticked */
+    else if (a === 'revAs' && val === 'name') { const ok = x => x === '~' || N.aliases(card, 'name').some(al => al.id === x), id = d.n || '~';
+      let on = N.nameIds(mt).filter(ok); if (!on.length && keys.includes('name')) on = ['~'];
+      on = on.includes(id) ? (on.length > 1 ? on.filter(x => x !== id) : on) : [...on, id];
+      mt = mt.filter(k => !k.startsWith('as:name:')); if (!(on.length === 1 && on[0] === '~')) mt.push(...on.map(x => 'as:name:' + x));
+      if (!keys.includes('name')) keys.push('name'); }
     else if (a === 'revAs') { const f = val; mt = mt.filter(k => !k.startsWith('as:' + f + ':')); if (d.n) mt.push('as:' + f + ':' + d.n); if (!keys.includes(f)) keys.push(f); }
     /* NPC pictures (Jake): tick or untick one; at least one stays ticked (untick Picture to hide them all).
        Just the main portrait is stored as no as:pic: key, like before */
@@ -3676,7 +3682,7 @@ function savePc(v){
   const sv = N.stressVals;
   const pv = [...sv(d.skills.Strength || 0), ...(c.gearBox || [])], mv = sv(d.skills.Will || 0);
   Object.assign(c, {name:d.name.trim(), short:(d.short.trim() || d.name.trim().split(' ')[0]), portrait:d.portrait || null, hc:'', trouble:'',
-    aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), race:(d.race || '').trim(), nat:(d.nat || '').trim(), age:(d.age || '').trim(), bio:d.bio || '', people:d.people || '', invText:d.invText || '', skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), refresh:d.refresh, fp:d.fp, built:true,
+    aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), race:(d.race || '').trim(), nat:(d.nat || '').trim(), job:(d.job || '').trim(), age:(d.age || '').trim(), bio:d.bio || '', people:d.people || '', invText:d.invText || '', skills:{...d.skills}, stunts:d.stunts.filter(s => s[0].trim()), refresh:d.refresh, fp:d.fp, built:true,
     stressV:{phys:pv, ment:mv}, stress:{phys:pv.map((x,i) => !!c.stress.phys[i]), ment:mv.map((x,i) => !!c.stress.ment[i])}, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0});
   delete c.disc; c.disc = keepDisc(d);
   /* aliases + other pictures stay off the card (game/chars is readable by every player): GM-only g.pcx */

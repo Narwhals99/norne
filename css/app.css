@@ -3448,6 +3448,8 @@
 .revpics button{position:relative}
 .revpics .pfirst{position:absolute;top:-2px;right:2px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:var(--bg-1,#111)}
 .revpics .pfirst svg{width:11px;height:11px}
+.app .pc-hero .aka{margin:2px 0 4px;color:var(--ink-2);font:600 13px/1.4 var(--f-ui)}
+.app .pc-hero .aka b{color:var(--ink);font-weight:700}
 .revpics-n{display:block;margin:6px 2px 0;color:var(--ink-3);font:600 12px/1.35 var(--f-ui)}
 .kpics{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .kpics button{padding:2px;border-radius:50%;border:0;background:none;cursor:pointer;opacity:.7}
