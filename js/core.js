@@ -1130,6 +1130,8 @@ N.revParts = (c, pc) => {
   add('race', 'Who they are', 'Race', c.race || 'Not set');
   add('nat', 'Who they are', 'Nationality', c.nat || 'Not set');
   if (!pc) add('job', 'Who they are', 'Job or faction', c.job || 'Not set');
+  /* Deceased (Jake, Nov 25): ticked here, the player sees “Deceased” and a skull by the name, but only while the card is marked dead */
+  if (!pc) add('dead', 'Who they are', 'Deceased', c.dead ? 'Marked deceased · they see it with a skull' : 'Alive · nothing shows until you tick Deceased on the card');
   add('age', 'Who they are', 'Age', c.age ? 'Age ' + c.age : 'Not set');
   N.pcAspects(c).forEach((a, i) => add('a:' + i, 'Aspects', `Aspect ${i + 1}`, a));
   N.revSkills(c).forEach(([n, x]) => add('sk:' + n, 'Skills', n, sgn(x) + ' ' + ladderWord(x)));
@@ -1157,11 +1159,14 @@ N.revealed = (c, pc, keys0) => {
   const cn = consSlots(c.skills || {}).filter(sl => has('cn:' + sl.k)).map(sl => [sl.l, sl.lo + '–' + sl.hi, (c.cons || {})[sl.k] || '', N.conSt(c, sl.k)]); if (cn.length) r.cons = cn;
   const gr = N.GEARK.filter(([k]) => has('g:' + k)).map(([k]) => [k, +c[k] || 0]); if (gr.length) r.gear = gr;
   const it = (c.inv || []).filter(([n]) => has('it:' + n)).map(row => { const [n, q, d, ic] = row, cl = N.rowClass(row); return [n, q, d || '', ic || 'bag', ...(cl ? [cl] : [])]; }); if (it.length) r.inv = it;
+  if (!pc && has('dead') && c.dead) r.dead = 1;
   if (has('bio') && c.bio) r.bio = c.bio;
   if (pc && has('people') && c.people) r.people = c.people;
   const mt = N.metOf(keys); if (mt) r.met = mt;
   return r;
 };
+/* the “Deceased” mark next to a name: a skull and the word (or only the skull, sm) */
+N.deadTag = sm => `<span class="deadtag${sm ? ' sm' : ''}" title="Deceased">${IC('skull')}${sm ? '' : 'Deceased'}</span>`;
 N.revOf = (id, seat) => ((N.G.rev || {})[id] || {})[seat] || [];
 /* Met / Heard of lives in the same list; it is not a card part, so counts and Reveal everything leave it alone */
 N.MET = {met:'Met', heard:'Heard of'};
