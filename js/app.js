@@ -1170,6 +1170,9 @@ function change(v, el){
   if (i === 'gold' && isGM(v)) { const g = G(), o = el.dataset.c ? g.chars[el.dataset.c] : g.npcs.find(x => x.id === el.dataset.n);
     if (o) { const before = parseInt(o.gold, 10) || 0; o.gold = clamp(parseInt(val, 10) || 0, 0, N.GOLD_MAX); if (el.dataset.c) N.purseNote(o, 'gold', before); renderAll(); } }
   if (i === 'shopName' || i === 'shopPrice') renderAll();
+  /* Deceased (Jake, Nov 25): on the NPC sheet itself (saves at once) and in the NPC editor */
+  if (i === 'npcDead' && isGM(v)) { const n = G().npcs.find(x => x.id === el.dataset.n); if (n) { if (el.checked) n.dead = true; else delete n.dead; toast(v, el.checked ? `${n.name} marked deceased.` : `${n.name} is no longer marked deceased.`); renderAll(); } }
+  if (i === 'ndDead' && v.ui.nd) { v.ui.nd.dead = el.checked; render(v); }
   if (i === 'memName') { N.renameMember(el.dataset.v, val); toast(v, 'Name saved.'); render(v); }
   if (i === 'sdAspOn') { const a = v.ui.sd.aspects[+el.dataset.n]; if (a) { if (val) a.on = val; else delete a.on; } render(v); }
   if (/^nday[UWDM]$/.test(i) && v.ui.nday) { const d = v.ui.nday, k = i[4];
@@ -3709,7 +3712,7 @@ function saveNpc(v){
   const base = {name:d.name.trim(), race:d.race.trim(), nat:(d.nat || '').trim(), job:d.job.trim(), hc:'', trouble:'', aspects:d.aspects.map(a => (a||'').trim()).filter(Boolean), type:d.type, portrait:d.portrait || null, age:(d.age || '').trim(),
     skills:{...d.skills}, disc:keepDisc(d), stunts:d.stunts.filter(s => s[0].trim()), magic:d.magic || '', bio:d.bio || '', notes:d.notes || '', refresh:d.refresh, fp:d.fp, gearAtk:+d.gearAtk || 0, gearDef:+d.gearDef || 0, gearRng:+d.gearRng || 0, gearAmmo:+d.gearAmmo || 0,
     inv:(d.inv || []).map(x => [...x]), dir:N.nd.byId(d.dir) ? d.dir : null, side:!!(d.side && d.lead), lead:d.side && d.lead ? d.lead : '', pics:(d.pics || []).filter(p => p && p !== d.portrait).slice(0, 8),
-    al:N.alClean(d.al)};
+    al:N.alClean(d.al), dead:!!d.dead};
   if (d.copyOf && !old) base.gold = +d.gold || 0;
   let n; const was = old ? old.name : null;
   if (old) {

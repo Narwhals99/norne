@@ -1316,6 +1316,7 @@ function npcEditor(v){
       <label class="field"><span>Age</span><input class="inp" id="ndg-${v.id}" data-i="nd" data-k="age" value="${esc(d.age||'')}" placeholder="Optional"></label>
       ${N.nd.list().length ? `<label class="field"><span>Folder</span><select class="inp" id="ndf-${v.id}" data-i="nd" data-k="dir"><option value="">No folder</option>${N.nd.list().map(([id, name]) => `<option value="${esc(id)}" ${d.dir === id ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>` : ''}
     </div>
+    <label class="deadck"><input type="checkbox" id="nddead-${v.id}" data-i="ndDead" ${d.dead ? 'checked' : ''}><span>${IC('skull')}Deceased</span><small>Off: players see nothing different. On: “Deceased” and a skull show by the name, for players you reveal Deceased to.</small></label>
     ${aliasEditor(v, d)}
     <div><h4>Kind</h4><div class="seg"><button type="button" data-a="ndType" data-v="supporting" aria-pressed="${d.type!=='nameless'}">Supporting</button><button type="button" data-a="ndType" data-v="nameless" aria-pressed="${d.type==='nameless'}">Nameless (one hit)</button></div></div>
     <div class="nd-side"><h4>Sidekick</h4><div class="seg"><button type="button" data-a="ndSide" data-v="" aria-pressed="${!d.side}">No</button><button type="button" data-a="ndSide" data-v="1" aria-pressed="${!!d.side}">Yes</button></div>
