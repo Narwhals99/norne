@@ -3452,6 +3452,13 @@
 .kpics{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .kpics button{padding:2px;border-radius:50%;border:0;background:none;cursor:pointer;opacity:.7}
 .kpics button[aria-pressed="true"]{opacity:1;box-shadow:0 0 0 2px var(--gold)}
+.app .seg.medseg.wrap{display:flex;flex-wrap:wrap;width:fit-content;max-width:100%;border-radius:18px}
+.app .seg.medseg.wrap button{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcas-pics{display:flex;flex-wrap:wrap;gap:6px;padding:4px 8px 6px}
+.field .pcas-pics{padding:2px 0}
+.pcas-pics button{padding:2px;border-radius:50%;border:0;background:none;cursor:pointer;opacity:.65;transition:opacity .15s}
+.pcas-pics button:hover{opacity:.9}
+.pcas-pics button[aria-pressed="true"]{opacity:1;box-shadow:0 0 0 2px var(--gold)}
 /* two chats side by side on desktop (Jake) */
 .chatpair{display:grid;grid-template-columns:1fr 1fr;gap:10px;min-width:0;min-height:0;height:100%;flex:1}
 .chatpair>.pcol{display:flex;min-width:0;min-height:0;border-radius:18px;transition:opacity .15s}

@@ -750,9 +750,9 @@ function composer(v){
     chip = (v.ui.voice === 'Narrator' ? N.narrAv(30) : N.av({name:v.ui.voice, portrait:n ? N.npcFace(v.ui.voice, v.ui.ch) : null, color:'var(--c-npc)'},30)) + `<b class="only-dt">${esc(v.ui.voice)}</b>`;
     ph = v.ui.voice === 'Narrator' ? 'Narrate what happens…' : `As ${v.ui.voice}…`;
   } else {
-    const c = N.charOf(v.role);
-    chip = N.av({name:c.short, portrait:c.built?c.portrait:null, color:c.color},30) + `<b class="only-dt">${esc(c.short)}</b>`;
-    ph = `Speak or act as ${c.short}. *Asterisks* for actions.`;
+    const c = N.charOf(v.role), pa = c.built ? N.pcAs(c) : {name:c.short, pic:null};
+    chip = N.av({name:pa.name, portrait:pa.pic, color:c.color},30) + `<b class="only-dt">${esc(pa.name)}</b>`;
+    ph = `Speak or act as ${pa.name}. *Asterisks* for actions.`;
   }
   if (v.ui.ch === 'gm') { chip = `<span class="ooc-ic">${IC('lock')}</span><b class="only-dt">Note</b>`; ph = 'A note only you can see…'; }
   const re = v.ui.reply && g.msgs.find(x => x.id === v.ui.reply);
@@ -765,6 +765,7 @@ function composer(v){
     <div class="box">
       ${gm && N.nlOn(v) ? `<button type="button" class="emob nlplus" data-a="sheet" data-v="actions" aria-label="Actions" title="Actions (Ctrl K)">${IC('plus')}</button>` : ''}
       ${v.ui.ch === 'gm' || meta ? `<span class="voice"${meta ? ' title="This chat is Meta only: you show by your own name"' : ''}>${chip}</span>` : gm ? `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as">${chip}${IC('caret','car')}</button>`
+        : N.charOf(v.role)?.built && N.pcAs(N.charOf(v.role)).many ? `<button type="button" class="voice" data-a="pop" data-v="voice" aria-label="Who you speak as: name, picture or Meta">${ooc ? `<span class="ooc-ic">${IC('chatL')}</span><b>Meta</b>` : chip}${IC('caret','car')}</button>`
         : `<button type="button" class="voice flip" data-a="voice" data-v="__flip" aria-label="${ooc ? 'Speaking Meta (out of character). Tap to speak in character' : 'Speaking in character. Tap to switch to Meta'}" title="Tap to switch">${chip}${IC('swap','car')}</button>`}
       <textarea id="ta-${v.id}" rows="1" data-i="draft" placeholder="${esc(ph)}" aria-label="Message" enterkeyhint="${N.enterSends() ? 'send' : 'enter'}">${esc(v.ui.draft)}</textarea>
       <button type="button" class="emob picb" data-a="picSend" aria-label="Send a picture" title="Send a picture">${IC('image')}</button>
@@ -928,8 +929,12 @@ function popHtml(v){
           : `<button type="button" class="opt more" data-a="voiceAll"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('users').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>Everyone else<small>${vf.rest.length} more NPC${vf.rest.length > 1 ? 's' : ''} not in this scene</small></span></button>`) : '');
       opts += `<button type="button" class="opt" data-a="newVoice"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('plus').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>New NPC voice</span></button>`;
     } else {
-      const c = N.charOf(v.role), sel = v.ui.mode === 'rp';
-      opts += `<button type="button" class="opt" data-a="voice" data-v="__me" aria-selected="${sel}">${N.av({name:c.short,portrait:c.built?c.portrait:null,color:c.color},30)}<span>As ${esc(c.short)}<small>In character</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`;
+      const c = N.charOf(v.role), sel = v.ui.mode === 'rp', l = N.pcLooks(c), pa = c.built ? N.pcAs(c) : {name:c.short, pic:null};
+      /* a PC with aliases or other pictures (Jake, Nov 25): pick the name and the picture the next lines go out with */
+      if (l.names.length > 1 || l.pics.length > 1) {
+        opts += `<div class="lbl">Speak in character as</div>` + l.names.map(n => { const on = sel && n === pa.name; return `<button type="button" class="opt" data-a="pcAs" data-k="n" data-v="${esc(n)}" aria-selected="${on}">${N.av({name:n,portrait:pa.pic,color:c.color},30)}<span>${esc(n)}<small>${n === c.short ? 'Their own name' : 'An alias'}</small></span>${on?`<span class="ck">${IC('check')}</span>`:''}</button>`; }).join('');
+        if (l.pics.length > 1) opts += `<div class="lbl">With the picture</div><div class="pcas-pics" role="group" aria-label="Picture to speak with">${l.pics.map((p, i) => `<button type="button" data-a="pcAs" data-k="p" data-v="${i}" aria-pressed="${p === pa.pic}" aria-label="${i ? 'Picture ' + (i + 1) : 'Main portrait'}">${N.av({name:pa.name,portrait:p,color:c.color},40)}</button>`).join('')}</div>`;
+      } else opts += `<button type="button" class="opt" data-a="voice" data-v="__me" aria-selected="${sel}">${N.av({name:c.short,portrait:c.built?c.portrait:null,color:c.color},30)}<span>As ${esc(c.short)}<small>In character</small></span>${sel?`<span class="ck">${IC('check')}</span>`:''}</button>`;
     }
     opts += `<div class="sep"></div><button type="button" class="opt" data-a="voice" data-v="__ooc" aria-selected="${v.ui.mode==='ooc'}"><span class="av" style="--s:30px;--c:var(--line-3);box-shadow:none;background:var(--accent-soft);color:var(--ink-2)">${IC('chatL').replace('<svg','<svg style="width:15px;height:15px"')}</span><span>Meta<small>Questions and table talk</small></span>${v.ui.mode==='ooc'?`<span class="ck">${IC('check')}</span>`:''}</button>`;
     return `<div class="pop" style="${pos}" role="listbox" aria-label="Speak as">${opts}</div>`;
@@ -1676,7 +1681,10 @@ N.alsLine = n => { const l = N.ALF.map(([f, lb]) => [lb, N.aliases(n, f).map(a =
 function npcBody(v, n){
   const rungs = [8,7,6,5,4,3,2,1,-1].map(x => [x, Object.entries(n.skills).filter(([,y]) => y === x).map(([k]) => k)]).filter(r => r[1].length);
   const trk = (k, l) => `<div class="trk"><span class="eyebrow">${l}</span><div class="boxes">${n.stressV[k].map((x,i)=>`<button type="button" class="sbox${n.stress[k][i]?' on':''}" data-a="npcStress" data-n="${n.id}" data-k="${k}" data-i="${i}" aria-pressed="${!!n.stress[k][i]}" aria-label="${l} ${x}">${x}</button>`).join('')}</div></div>`;
-  return `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:n.name,portrait:n.portrait,color:'var(--c-npc)'},84)}<div style="min-width:0"><h2>${esc(n.name)}</h2><div class="by">${esc(N.linkPlain(N.npcSub(n) || 'NPC'))}${n.nat?` · ${esc(n.nat)}`:''}${n.age?` · Age ${esc(n.age)}`:''} · ${n.type==='nameless'?'Nameless NPC':'Supporting NPC'}${N.nd.of(n) ? ` · ${IC('folder').replace('<svg','<svg style="width:13px;height:13px;vertical-align:-2px"')} ${esc(N.nd.name(n.dir))}` : ''}</div>${N.alsLine(n)}${N.pcTag(n)?`<div class="hc">${N.emoText(N.linkText(N.pcTag(n)))}</div>`:''}</div>
+  /* the GM sees the NPC's other pictures under its name, like a PC sheet (Jake, Nov 25): tap one to see it big */
+  const all = N.npcPics(n), pi = Math.min(((v.ui.kPic || {})[n.id]) || 0, Math.max(all.length - 1, 0));
+  const strip = all.length > 1 ? `<div class="kpics" role="group" aria-label="Pictures of ${esc(n.name)}">${all.map((p, i) => `<button type="button" data-a="kPic" data-v="${esc(n.id)}" data-n="${i}" aria-pressed="${i === pi}" aria-label="${i ? 'Picture ' + (i + 1) : 'Main portrait'}">${N.av({name:n.name, portrait:p, color:'var(--c-npc)'}, 40)}</button>`).join('')}</div>` : '';
+  return `<section class="pc-hero full" style="--who:var(--c-npc)">${N.av({name:n.name,portrait:all[pi] || n.portrait,color:'var(--c-npc)'},84)}<div style="min-width:0"><h2>${esc(n.name)}</h2><div class="by">${esc(N.linkPlain(N.npcSub(n) || 'NPC'))}${n.nat?` · ${esc(n.nat)}`:''}${n.age?` · Age ${esc(n.age)}`:''} · ${n.type==='nameless'?'Nameless NPC':'Supporting NPC'}${N.nd.of(n) ? ` · ${IC('folder').replace('<svg','<svg style="width:13px;height:13px;vertical-align:-2px"')} ${esc(N.nd.name(n.dir))}` : ''}</div>${N.alsLine(n)}${N.pcTag(n)?`<div class="hc">${N.emoText(N.linkText(N.pcTag(n)))}</div>`:''}${strip}</div>
     <div class="fp"><div class="res"><div><span class="eyebrow">Fate points · refresh ${n.refresh}</span><div class="coins">${Array.from({length:Math.max(n.fp, n.refresh)}, (_,i) => `<span class="coin${i<n.fp?'':' off'}"></span>`).join('')}<span class="mini"><button type="button" data-a="npcFp" data-n="${n.id}" data-d="-1" aria-label="Take a fate point from ${esc(n.name)}">−</button><button type="button" data-a="npcFp" data-n="${n.id}" data-d="1" aria-label="Give ${esc(n.name)} a fate point">+</button></span></div></div>${goldHtml(n, 'n', true)}${N.xferBtn('n', n.id)}</div><div class="gmbar"><button type="button" class="btn sm" data-a="npcEdit" data-v="${n.id}">${IC('pen')}Edit</button>${revBtn(n.id)}${N.figOk && N.figOk() ? `<button type="button" class="btn sm" data-a="figOpen" data-v="npc:${n.id}">${IC('hero')}${n.fig ? 'Figure' : 'Make figure'}</button>` : ''}${G().combat.state!=='off'?`<button type="button" class="btn sm" data-a="npcToFight" data-v="${n.id}">${IC('swords')}Add to fight</button>`:''}<button type="button" class="btn sm ghost" data-a="npcDup" data-v="${n.id}">${IC('copy')}Duplicate</button><button type="button" class="btn sm danger" data-a="sheet" data-v="npcDel" data-c="${n.id}">${IC('trash')}Delete</button></div></div></section>
     ${wikiSec(v, n.id)}
     <section class="sec"><h3>Aspects</h3><div class="asps">${asps(N.pcAspects(n).map((a,i)=>[`Aspect ${i+1}`,a])) || '<p class="muted">None yet.</p>'}</div></section>
