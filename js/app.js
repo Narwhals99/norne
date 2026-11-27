@@ -1064,6 +1064,10 @@ function input(v, el, ev){
       if (k === 'q') { const n = val.replace(/[^0-9]/g, '').slice(0, 4); if (n !== val) el.value = n; t.q = Math.max(1, parseInt(n, 10) || 1); return; }
       t.to = val; render(v); return; }
     case 'mapQ': v.ui.mapQ = val; render(v); return;
+    case 'whName': { const w = isGM(v) && curWheel(v); if (w) w.name = val.slice(0, 40); return; }
+    case 'whT': { const w = isGM(v) && curWheel(v), x = w && w.items.find(y => y.id === k); if (x) x.t = val.slice(0, 60); return; }
+    case 'mapFlName': { const m = isGM(v) && G().maps.find(x => x.id === el.dataset.c); if (!m) return; const f = (m.fl || []).find(x => x.id === el.dataset.f), t = val.trim().slice(0, 40);
+      if (t) { if (f) f.name = t; else m.fln = t; } else if (f) delete f.name; else delete m.fln; return; }
     case 'wikiQ': v.ui.wikiQ = val; render(v); return;
     case 'npcQ': v.ui.npcQ = val; render(v); return;
     case 'voiceQ': v.ui.voiceQ = val; render(v); return;
@@ -1166,7 +1170,7 @@ function change(v, el){
   if (i === 'slLoc' && v.ui.slEd) { const L = v.ui.slEd.sel; L[el.dataset.k] = val; if (el.dataset.k === 'c') { L.t = ''; L.n = ''; } if (el.dataset.k === 't') L.n = ''; render(v); }
   if (i === 'calCh') { v.ui.calCh = val; v.ui.calV = null; v.ui.calSel = null; render(v); }
   if (i === 'cdTo') v.ui.cd[+el.dataset.n].to = val;
-  if (i === 'mapName') renderAll();
+  if (i === 'mapName' || i === 'mapFlName' || i === 'whName' || i === 'whT') renderAll();
   if (i === 'gold' && isGM(v)) { const g = G(), o = el.dataset.c ? g.chars[el.dataset.c] : g.npcs.find(x => x.id === el.dataset.n);
     if (o) { const before = parseInt(o.gold, 10) || 0; o.gold = clamp(parseInt(val, 10) || 0, 0, N.GOLD_MAX); if (el.dataset.c) N.purseNote(o, 'gold', before); renderAll(); } }
   if (i === 'shopName' || i === 'shopPrice') renderAll();
@@ -1228,9 +1232,12 @@ N.giveItem = (who, name, ch) => {
 };
 function aspMarks(text, ch, cast, extras){
   const who = [...N.chPcs(ch).flatMap(c => [[c.short || c.name, c.short || c.name], [c.name, c.short || c.name]]), ...(cast || []).map(n => [n, n]), ...(extras || []).map(x => [x.name, x.name])].filter(([n]) => n);
-  return [...text.matchAll(ASP_RE)].map(x => { const raw = x[1].trim().replace(/\s+/g, ' '), i = raw.lastIndexOf(', ');
+  /* Jake: "; 2" at the end gives the aspect that many free invokes ($$Slippery floors; 1$$, $$Off Balance, Golem; 2$$) */
+  return [...text.matchAll(ASP_RE)].map(x => { let raw = x[1].trim().replace(/\s+/g, ' '), free = 0;
+    const fm = raw.match(/\s*;\s*(\d+)\s*$/); if (fm) { free = Math.min(9, +fm[1]); raw = raw.slice(0, fm.index).trim(); }
+    const i = raw.lastIndexOf(', ');
     const hit = i > 0 && who.find(([n]) => n.toLowerCase() === raw.slice(i + 2).trim().toLowerCase());
-    return {raw, t:(hit ? raw.slice(0, i) : raw).trim().slice(0, 80), on:hit ? hit[1] : ''}; }).filter(a => a.t);
+    return {raw, t:(hit ? raw.slice(0, i) : raw).trim().slice(0, 80), on:hit ? hit[1] : '', free}; }).filter(a => a.t);
 }
 const aspText = (text, ch, cast, extras) => { const l = aspMarks(text, ch, cast, extras); let i = 0; return text.replace(ASP_RE, () => { const a = l[i++]; return a ? `"${a.t}"` : ''; }); };
 /* the people << >> names: the one-off NPC it makes always starts with a capital (<<barkeeper>> -> "Barkeeper", Jake), the line keeps the words as typed */
@@ -1457,10 +1464,24 @@ function doRoll(v){
   if (v.dev === 'phone' && !fight) { v._rfx = {id:m.id, at:Date.now(), own:true}; setTimeout(() => render(v), N.RFX_MS + 60); }
   v.ui.fresh = m.id; v.ui.sheet = null; v.ui.targeting = null; v.ui.stick = true;
   if (fight) { if (secret) g.combat.acted = true; else afterFightRoll(v, r, m); }
+  else if (r.action === 'advantage' && isGM(v) && !ev) sceneAdvantage(v, r, m);
   if (ev && secret) toast(v, 'Secret roll saved in your fight log. Players don’t see it.');
   else if (secret && v.ui.ch !== 'gm') toast(v, 'Secret roll saved in GM notes.');
   else if (ch !== v.ui.ch || v.ui.tab !== 'chat') toast(v, `${name} rolled ${sgn(N.rollTotal(roll))} ${ladderWord(N.rollTotal(roll))}.`);
   renderAll();
+}
+/* Jake: Create an advantage out of a fight makes the aspect in the chat's scene when it works (on someone, if the GM picked
+   them): a success gives 1 free invoke, 3 shifts or more 2. A tie gives it 1 free invoke too (Fate's boost). With no
+   difficulty set it's against Fair (+2), as in a fight. Without a scene nothing is added. */
+function sceneAdvantage(v, r, m){
+  const g = G(), ch = v.ui.ch === 'gm' ? 'table' : v.ui.ch; if (!g.scenes[ch]) return;
+  if (m.roll.opp == null) m.roll.opp = 2;
+  const sh = N.rollTotal(m.roll) - m.roll.opp, t = (r.aspect || '').trim().replace(/\s+/g, ' ').slice(0, 80) || 'An Opening';
+  const on = r.aspOn && !r.aspOn.startsWith('tok:') ? r.aspOn : '', where = on ? ` on ${on}` : '', who = m.roll.who, out = m.ch;
+  if (sh < 0) { sys(`${who} tries to create “${t}”${where}, but it doesn’t come together.`, out); return; }
+  const free = sh >= 3 ? 2 : 1;
+  sceneAsp(v, ch, [{t, on, free}]);
+  sys(sh === 0 ? `${who} ties: “${t}”${where} is added to the scene as a boost, with 1 free invoke.` : `${who} creates “${t}”${where} with ${free} free invoke${free > 1 ? 's' : ''}. It’s in the scene’s situation aspects.`, out);
 }
 function afterFightRoll(v, r, m){
   const cb = G().combat, a = N.tokOfKey(m.roll.whoKey), tot = N.rollTotal(m.roll);
@@ -1482,7 +1503,8 @@ function afterFightRoll(v, r, m){
     const opp = m.roll.opp ?? 2; m.roll.opp = opp;
     const sh = tot - opp, name = (r.aspect || '').trim() || 'An Opening';
     /* made against someone on the board: the aspect (or the boost) is put on them */
-    const on = r.vsNpc && r.vsNpc.startsWith('tok:') ? N.tokById(r.vsNpc.slice(4)) : null;
+    const pick = r.aspOn && r.aspOn.startsWith('tok:') ? r.aspOn : r.vsNpc;
+    const on = pick && pick.startsWith('tok:') ? N.tokById(pick.slice(4)) : null;
     if (sh === 0) {
       N.addBoost(a, on, name);
       fsys(`${N.tokName(a)} ties: not a lasting aspect, but they get a boost, “${name}”${on ? ` on ${N.tokName(on)}` : ''}, good for one free invoke.`);
@@ -1665,7 +1687,16 @@ function track(v, e, d){
 
 /* ---------------- map ---------------- */
 const seeMap = (v, m) => isGM(v) || m.vis !== false;
-const curMap = v => { const ms = G().maps.filter(m => seeMap(v, m)); return ms.find(m => m.id === v.ui.mapId) || ms[0]; };
+/* Jake: a map can have several pictures (floors of a building): m.fl = [{id, name, src, w, h}] after the map's own picture
+   (named m.fln, "Floor 1" when not set). Each pin sits on one (p.fl, none = the map's own picture). Which one a viewer looks
+   at is theirs (v.ui.mapFl[map id]). On another floor the current map is a stand-in whose src, w and h are that floor's,
+   so the map code (zoom, pins, Replace picture) works on it unchanged; every other field is the map's own */
+N.mapFl = (v, m) => { const L = m && m.fl, id = (v.ui.mapFl || {})[m && m.id]; return L && L.length && id ? L.find(f => f.id === id) || null : null; };
+N.flName = (m, f) => f ? f.name || `Floor ${m.fl.indexOf(f) + 2}` : m.fln || 'Floor 1';
+const FLV = new WeakMap(), FLK = new Set(['src', 'w', 'h']);
+const curMap = v => { const ms = G().maps.filter(m => seeMap(v, m)), m = ms.find(m => m.id === v.ui.mapId) || ms[0], f = N.mapFl(v, m); if (!f) return m;
+  let c = FLV.get(f); if (!c || c.m !== m) { c = {m, p:new Proxy(m, {get:(t, k) => k === '__fl' ? f : FLK.has(k) ? f[k] : t[k], set:(t, k, x) => { (FLK.has(k) ? f : t)[k] = x; return true; }})}; FLV.set(f, c); }
+  return c.p; };
 function moveParty(m, rx, ry){
   const g = G(); let p = null;
   for (const x of g.maps) { const i = x.pins.findIndex(q => q.type === 'party'); if (i >= 0) { p = p || x.pins[i]; x.pins.splice(i, 1); } }
@@ -1912,12 +1943,13 @@ function pinGo(v, pid, force){
 function addPinAt(v, e){
   const m = curMap(v), T = v.ui.mapT, cv = v.root.querySelector('[data-mapcv]').getBoundingClientRect();
   const rx = ((e.clientX - cv.left) - T.x) / T.k / m.w, ry = ((e.clientY - cv.top) - T.y) / T.k / m.h;
-  const p = {id:uid('pin'), type:'note', label:'New place', note:'', rx, ry, vis:false};
+  const p = {id:uid('pin'), type:'note', label:'New place', note:'', rx, ry, vis:false, ...(m.__fl ? {fl:m.__fl.id} : {})};
   m.pins.push(p); v.ui.pinSel = p.id; v.ui.addPin = false;
   renderAll();
   setTimeout(() => { const f = v.root.querySelector(`#pinl-${v.id}`); if (f) { f.focus(); f.select(); } }, 30);
 }
 N.curMap = curMap;
+const curWheel = v => { const L = G().wheels || []; return L.find(x => x.id === v.ui.whSel) || L[0] || null; };
 window.addEventListener('resize', () => { clearTimeout(window._mr); window._mr = setTimeout(() => views.forEach(v => { hsArrows(v.root); if (v.ui.tab === 'map' || paneShows(v, 'map')) applyMap(v); }), 120); });
 
 /* ---------------- popovers ---------------- */
@@ -2496,10 +2528,24 @@ function act(v, a, el, e){
     const at = g.maps.findIndex(x => x.id === val), m = g.maps[at]; if (!m) break;
     g.maps.splice(at, 1); ui.sheet = null; ui.pinSel = null; ui.mapT = null; ui.mapEdit = false;
     if (ui.mapId === m.id) ui.mapId = g.maps[0]?.id || null;
-    const drop = setTimeout(() => N.dropImg(m.src), 6000);
+    const drop = setTimeout(() => [m.src, ...(m.fl || []).map(f => f.src)].forEach(N.dropImg), 6000);
     toast(v, `Deleted the ${m.name} map.`, () => { clearTimeout(drop); g.maps.splice(at, 0, m); ui.mapId = m.id; ui.mapT = null; });
     renderAll(); return;
   }
+  /* floors (Jake): step through a map's pictures, add one (an uploaded picture), rename one, delete one with its pins */
+  case 'mapFl': { const m = curMap(v); if (!m) break; const L = m.fl || [], ids = ['', ...L.map(f => f.id)], cur = m.__fl ? m.__fl.id : '';
+    const to = d.d ? ids[(ids.indexOf(cur) + (+d.d) + ids.length) % ids.length] : val || '';
+    ui.mapFl = {...(ui.mapFl || {}), [m.id]:to}; if (!to) delete ui.mapFl[m.id]; ui.mapT = null; ui.pinSel = null; break; }
+  case 'mapFlAdd': { const m = g.maps.find(x => x.id === val); if (!gm || !m) break; N.pickImage((img, f) => {
+      const fl = {id:uid('fl'), name:`Floor ${(m.fl || []).length + 2}`, src:N.storeImg(N.shrink(img, 2400), false), w:img.naturalWidth, h:img.naturalHeight};
+      m.fl = [...(m.fl || []), fl]; ui.mapFl = {...(ui.mapFl || {}), [m.id]:fl.id}; ui.mapT = null; ui.pinSel = null;
+      toast(v, `${fl.name} added to ${m.name}. Pins you add now go on this picture. Rename it with the pen.`); renderAll(); }); return; }
+  case 'mapFlDel': { const m = g.maps.find(x => x.id === d.c), at = m ? (m.fl || []).findIndex(x => x.id === d.f) : -1; if (!gm || at < 0) break;
+    const f = m.fl[at], pins = m.pins.filter(p => p.fl === f.id), nm = N.flName(m, f);
+    m.fl.splice(at, 1); m.pins = m.pins.filter(p => p.fl !== f.id); if (ui.mapFl) delete ui.mapFl[m.id]; ui.mapT = null; ui.sheet = null; ui.pinSel = null;
+    const drop = setTimeout(() => N.dropImg(f.src), 6000);
+    toast(v, `Deleted ${nm}${pins.length ? ` and its ${pins.length} pin${pins.length > 1 ? 's' : ''}` : ''}.`, () => { clearTimeout(drop); m.fl.splice(at, 0, f); m.pins.push(...pins); renderAll(); });
+    renderAll(); return; }
   case 'mapUpload': ui.pop = null; N.pickImage((img, f) => {
       const id = uid('map'), src = N.storeImg(N.shrink(img, 2400), false);
       g.maps.push({id, name:f.name.replace(/\.[^.]+$/, ''), src, w:img.naturalWidth, h:img.naturalHeight, vis:false, pins:[], ...(N.dirById(ui.mapDir) ? {dir:ui.mapDir} : {})});
@@ -2507,7 +2553,7 @@ function act(v, a, el, e){
     }); return;
   /* Jake: swap a map's picture for an edited one. Pins are kept as fractions of the picture (rx, ry), so they stay put;
      a picture of another shape stretches them with it, so the GM is told to check */
-  case 'mapReplace': { const m = g.maps.find(x => x.id === val); if (!m) break; N.pickImage(img => {
+  case 'mapReplace': { const m0 = curMap(v), m = m0 && m0.id === val ? m0 : g.maps.find(x => x.id === val); if (!m) break; N.pickImage(img => {
       const w = img.naturalWidth, h = img.naturalHeight, was = {src:m.src, w:m.w, h:m.h};
       m.src = N.storeImg(N.shrink(img, 2400), false); m.w = w; m.h = h; ui.mapT = null;
       const same = w === was.w && h === was.h, shape = Math.abs(w / h - was.w / was.h) < .01, n = m.pins.length;
@@ -2516,7 +2562,7 @@ function act(v, a, el, e){
         : `Picture replaced, but it’s a different shape (${w} × ${h}, was ${was.w} × ${was.h}). The places moved with it, so check them.`,
         () => { clearTimeout(drop); const nu = m.src; Object.assign(m, was); if (nu !== was.src) N.dropImg(nu); ui.mapT = null; renderAll(); });
       renderAll(); }); return; }
-  case 'findParty': ui.mapId = g.party.map; ui.mapT = null; ui.pinSel = '__party'; render(v); return;
+  case 'findParty': ui.mapId = g.party.map; if (ui.mapFl) delete ui.mapFl[g.party.map]; ui.mapT = null; ui.pinSel = '__party'; render(v); return;
   case 'pinClose': ui.pinSel = null; break;
   case 'pinMap': pinGo(v, val, true); return;
   case 'pinScene': { const m = curMap(v), p = m.pins.find(x => x.id === val); setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:p.label, where:m.name, place:{map:m.id, rx:p.rx, ry:p.ry}, aspects:[]}, true); renderAll(); return; }
@@ -3010,6 +3056,7 @@ function act(v, a, el, e){
   case 'rollVsSkill': { const r = ui.roll; r.vsSkill = r.vsSkill === val ? null : val; vsSkillMem[r.skill] = r.vsSkill; vsSkillSave(); const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
   case 'rollAllWho': ui.roll.allWho = !ui.roll.allWho; break;
   case 'rollAllVs': ui.roll.allVs = !ui.roll.allVs; break;
+  case 'rollAspOn': ui.roll.aspOn = val || null; break;
   case 'rollVsNpc': { const r = ui.roll; r.vsNpc = val || null; const n = N.vsFind(v, r, r.vsNpc); if (n && r.vsSkill) r.opp = n.skills[r.vsSkill] || 0; break; }
   case 'rollPassive': ui.roll.passive = ui.roll.passive === false; break;
   case 'rollSecret': ui.roll.secret = !ui.roll.secret; break;
@@ -3111,7 +3158,7 @@ function act(v, a, el, e){
     toast(v, o.to ? `You’re in ${o.l}. ${N.gmName()} hasn’t shared that map yet.` : `You’re in ${o.l}.`); return; }
   case 'locHere': { const loc = N.myLoc(v.role, ui.ch); if (!loc) break;
     const k = N.LOCK.find(k => loc[k] && g.maps.some(m => m.id === loc[k].m && seeMap(v, m))); if (!k) { toast(v, `You’re in ${N.locText(loc)}.`); return; }
-    ui.mapId = loc[k].m; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
+    ui.mapId = loc[k].m; if (ui.mapFl) delete ui.mapFl[loc[k].m]; ui.pop = null; ui.pinSel = null; ui.mapT = null; ui.mapType = 'all'; break; }
   case 'sdApply': { const s = ui.sd, back = castSnap(s.ch); sdKeep(s); setScene(v, s.ch, {title:s.title.trim(), where:s.where.trim(), date:s.date.trim(), tod:s.tod || '', art:s.art, place:s.place, aspects:s.aspects, loc:s.loc, share:s.share}, s.post, back); ui.sheet = null;
     /* the Narrator line that opened this window goes out now, in the chat it was written for */
     if (s.pend && s.pend.ch === s.ch && ui.ch === s.ch && ui.draft.trim() === s.pend.text.trim()) { s.pend = null; send(v, {again:true}); return; }
@@ -3218,6 +3265,7 @@ function act(v, a, el, e){
   case 'zoneEdit': ui.zoneSel = ui.zoneSel === val && v.dev === 'desktop' ? null : val; ui.cbTool = 'zone'; if (v.dev === 'phone') { ui.sheet = 'zone'; ui.sheetArg = val; } break;
   case 'zoneCol': cb.zones.find(z => z.id === d.z).col = val; renderAll(); return;
   case 'zoneDel': { const i = cb.zones.findIndex(z => z.id === d.z), z = cb.zones[i]; if (!z) return; if (cb.state === 'live' && cb.tokens.some(t => t.zone === z.id)) { toast(v, `Move everyone out of ${z.name} before deleting it.`); return; } cb.zones.splice(i, 1); const moved = cb.tokens.filter(t => t.zone === z.id); moved.forEach(t => t.zone = null); ui.zoneSel = null; ui.sheet = null; toast(v, `Deleted ${z.name}.`, () => { cb.zones.splice(i, 0, z); moved.forEach(t => t.zone = z.id); }); renderAll(); return; }
+  case 'cbFlat': if (!gm || cb.state !== 'setup') break; N.cbFlat(!N.noBoard()); ui.cbTool = 'move'; ui.zoneSel = null; ui.placing = null; renderAll(); return;
   case 'cbQuickZones': N.cbQuickZones(); ui.cbTool = 'move'; renderAll(); return;
   case 'cbInvite': { const i = cb.invited.indexOf(val); if (i >= 0) { cb.invited.splice(i, 1); cb.tokens = cb.tokens.filter(t => !(t.kind === 'pc' && t.ref === val)); if (ui.placing && !N.tokById(ui.placing)) ui.placing = null; if (ui.tokSel && !N.tokById(ui.tokSel)) { ui.tokSel = null; ui.sheet = null; } } else { cb.invited.push(val); cb.tokens.push(N.tokFromPc(g.chars[val])); N.cbPlacePcs(); } renderAll(); return; }
   case 'cbAddNpc': { const t = N.cbAddNpc(val, d.side, d.place ? cb.zones[0]?.id : null); if (!t) break; if (d.place) { ui.sheet = null; toast(v, `${t.name} added${t.zone ? ' to ' + N.zoneOf(t).name : ''}.`); } renderAll(); return; }
@@ -3257,6 +3305,22 @@ function act(v, a, el, e){
     const at = s.items.findIndex(x => x.it === it.id);
     if (at >= 0) s.items.splice(at, 1); else s.items.push(N.shopItem(it));
     renderAll(); return; }
+  /* the Encounter Wheel (js/wheel.js, sheet 'wheel') */
+  case 'whPick': ui.whSel = val; ui.whRes = null; break;
+  case 'whNew': { if (!gm) break; const w = {id:uid('wh'), name:'', items:[{id:uid('we'), t:'', w:1}, {id:uid('we'), t:'', w:1}]}; g.wheels = [...(g.wheels || []), w]; ui.whSel = w.id; ui.whRes = null; ui.sheet = 'wheel'; renderAll();
+    setTimeout(() => v.root.querySelector(`#whn-${v.id}`)?.focus(), 30); return; }
+  case 'whAdd': { const w = gm && curWheel(v); if (!w) break; const x = {id:uid('we'), t:'', w:1}; w.items.push(x); renderAll(); setTimeout(() => v.root.querySelector(`#wht-${x.id}-${v.id}`)?.focus(), 30); return; }
+  case 'whW': { const w = gm && curWheel(v), x = w && w.items.find(y => y.id === val); if (!x) break; x.w = clamp((x.w || 1) + (+d.d || 0), 1, 5); renderAll(); return; }
+  case 'whDel': { const w = gm && curWheel(v), at = w ? w.items.findIndex(y => y.id === val) : -1; if (at < 0) break; const [x] = w.items.splice(at, 1);
+    if (x.t.trim()) toast(v, `Removed ${x.t.trim()}.`, () => { w.items.splice(at, 0, x); renderAll(); }); renderAll(); return; }
+  case 'whRm': { const L = g.wheels || [], at = L.findIndex(y => y.id === val); if (!gm || at < 0) break; const [w] = L.splice(at, 1); ui.whSel = null; ui.whRes = null;
+    toast(v, `Deleted the ${w.name || 'encounter'} wheel.`, () => { L.splice(at, 0, w); ui.whSel = w.id; renderAll(); }); renderAll(); return; }
+  case 'whSpin': { const w = gm && curWheel(v); if (!w) break; const sp = N.wheelSpin(w.items.map(x => [x.t.trim().replace(/\s+/g, ' '), x.w || 1]));
+    if (!sp || sp.it.length < 2) { toast(v, 'Add at least two encounters first.'); break; }
+    const secret = val === 'secret' || ui.ch === 'gm', ch = secret ? 'gm' : ui.ch, nm = (w.name || '').trim() || 'Encounters', won = sp.it[sp.i][0];
+    const m = push({ch, kind:'sys', by:'gm', wheel:{n:nm, it:sp.it, i:sp.i, r:sp.r}, text:`The encounter wheel (${nm}) lands on: ${won}.`});
+    ui.whRes = m.id; renderAll(); setTimeout(() => { if (ui.whRes === m.id) renderAll(); }, N.WHEEL_MS + 80); return; }
+  case 'shopN': { const s = gm && N.shopOf(d.c), x = s && s.items.find(y => y.k === val); if (!x) break; x.n = clamp(N.shopN(x) + (+d.d || 0), Math.max(1, x.sold | 0), 999); renderAll(); return; }
   case 'shopRm': { const s = gm && N.shopOf(d.c); if (!s) break; const at = s.items.findIndex(x => x.k === val); if (at < 0) break;
     const [x] = s.items.splice(at, 1); toast(v, `${x.name} taken off the shelf.`, () => { s.items.splice(at, 0, x); renderAll(); }); renderAll(); return; }
   case 'shopKind': ui.shopK = val || ''; break;
@@ -3283,6 +3347,7 @@ function act(v, a, el, e){
     ui.sheet = null; toast(v, s.ch === 'gm' ? `${s.name} is open in GM notes. Only you see it.` : `${s.name} is open. ${s.ch.startsWith('dm-') ? N.chName(s.ch, 'gm') + ' sees' : 'Everyone in ' + N.chName(s.ch, 'gm') + ' sees'} it now.`); renderAll(); return; }
   /* Jake: a player asks to buy an item; nothing is paid until the GM confirms the request in the chat */
   case 'shopBuy': { const s = N.shopOpen(d.c), x = s && s.items.find(y => y.k === val), me = N.charOf(v.role); if (!x || gm || !me || !me.built || hushed(v, s.ch)) break;
+    if (!N.shopLeft(x)) { toast(v, `${x.name} is sold out.`); break; }
     const price = +x.price || 0;
     if ((parseInt(me.gold, 10) || 0) < price) { toast(v, `${me.short} doesn’t have enough gold for ${x.name}.`); break; }
     if (N.shopAsk(s.ch, me.id, x.k, 'buy')) { toast(v, 'Already asked. The GM still has to answer.'); break; }
@@ -3324,7 +3389,9 @@ function act(v, a, el, e){
     if (!c) { toast(v, 'That character card is gone.'); break; }
     const before = parseInt(c.gold, 10) || 0;
     if (before < b.price) { toast(v, `${c.short} has only ${N.goldTxt(before)} now. Decline it, or give them gold first.`); break; }
-    c.gold = before - b.price;
+    const sx = Object.values(g.shops || {}).find(y => y.id === b.shop)?.items.find(y => y.k === b.k);
+    if (sx && !N.shopLeft(sx)) { toast(v, `${b.name} is sold out. Add more in the store setup, or decline it.`); break; }
+    c.gold = before - b.price; if (sx) sx.sold = (sx.sold | 0) + 1;
     const it = N.itemById(b.it) || N.itemByName(b.name), note = it ? N.invNote(it) : '', ic = it ? it.ic || N.itemKind(it.kind)[2] : 'bag';
     if (!c.inv) c.inv = [];
     let row = c.inv.find(x => x[0].toLowerCase() === b.name.toLowerCase());
@@ -3526,8 +3593,9 @@ function sceneAsp(v, ch, list){
   const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene) return;
   const have = m.scene.aspects || [], add = list.filter((a, i) => !have.some(x => x.t.toLowerCase() === a.t.toLowerCase() && (x.on || '') === a.on) && list.findIndex(y => y.t === a.t && y.on === a.on) === i);
   if (!add.length) return;
-  m.scene = {...m.scene, aspects:[...have, ...add.map(a => ({t:a.t, free:0, k:uid('a'), ...(a.on ? {on:a.on} : {})}))]}; N.invalidateScenes();
-  toast(v, add.length === 1 ? `Situation aspect added: ${add[0].t}${add[0].on ? ` (on ${add[0].on})` : ''}.` : `${add.length} situation aspects added to the scene.`);
+  m.scene = {...m.scene, aspects:[...have, ...add.map(a => ({t:a.t, free:a.free || 0, k:uid('a'), ...(a.on ? {on:a.on} : {})}))]}; N.invalidateScenes();
+  const fr = a => a.free ? `, ${a.free} free invoke${a.free > 1 ? 's' : ''}` : '';
+  toast(v, add.length === 1 ? `Situation aspect added: ${add[0].t}${add[0].on || add[0].free ? ` (${[add[0].on ? 'on ' + add[0].on : '', fr(add[0]).slice(2)].filter(Boolean).join(', ')})` : ''}.` : `${add.length} situation aspects added to the scene.`);
 }
 function sceneMove(v, ch, loc){
   const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene) return;

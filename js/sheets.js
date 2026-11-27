@@ -81,6 +81,15 @@ N.rollers = v => {
    others on the board. Anywhere else, only who is in the chat's scene: its player characters, its NPCs and one-offs (no scene up:
    the player characters). r.allVs lists every character and NPC card instead.
    Ids are 'tok:<token>' for the board, 'pc:<id>' for a player character and the NPC card's own id otherwise */
+/* who a created advantage can go on: in a live fight, everyone still on the board (id tok:<id>); otherwise the scene's
+   player characters, NPCs and one-offs (id = the name the scene's aspect list uses) */
+N.aspOnCands = (v, r) => {
+  const g = G(), cb = g.combat;
+  if (r.ctx === 'cb' && cb.state === 'live') return cb.tokens.filter(t => !t.out).map(t => ({...N.tokObj(t), id:'tok:' + t.id, name:N.tokName(t)}));
+  const ch = v.ui.ch === 'gm' ? 'table' : v.ui.ch; if (!g.scenes[ch]) return [];
+  const f = N.sceneFolk(ch);
+  return [...f.pcs.map(c => ({id:c.short || c.name, name:c.short || c.name, portrait:c.portrait, color:c.color})), ...f.npcs.map(n => ({id:n.name, name:n.name, portrait:n.portrait, color:'var(--c-npc)'})), ...f.once.map(x => ({id:x.name, name:x.name, color:'var(--c-npc)'}))];
+};
 N.vsCands = (v, r) => {
   const g = G(), cb = g.combat, cast = N.castOf(v.ui.ch === 'gm' ? 'table' : v.ui.ch) || [];
   const pcs = N.pcs().filter(c => c.built).map(c => ({id:'pc:' + c.id, name:c.short, portrait:c.portrait, color:c.color, skills:c.skills || {}, pc:true}));
@@ -166,6 +175,9 @@ N.sheetHtml = function(v){
         <h4>${vsN ? 'Difficulty' : 'Set a difficulty'}</h4>${oppChips}
         <button type="button" class="toggle" data-a="rollPassive" aria-pressed="${r.passive !== false}">${IC('defend')}<span>Passive<small>${r.opp == null ? `Pick a difficulty above. On, ${vsN ? esc(vsN.name) : 'the other side'} doesn’t roll; off, they roll 4 Fate dice on top of it.` : r.passive !== false ? `${vsN ? esc(vsN.name) : 'The other side'} doesn’t roll. You roll against ${sgn(r.opp)}.` : `${vsN ? esc(vsN.name) : 'The other side'} rolls 4 Fate dice ${sgn(r.opp)} too, and you roll against their total.`}</small></span><span class="sw"></span></button>
         ${vsN ? `<p class="vsnote">${!r.vsSkill ? `Pick the skill ${esc(vsN.name)} rolls against and the difficulty follows it.` : r.opp === vsVal ? `${esc(vsN.name)}’s ${esc(r.vsSkill)} is ${sgn(vsVal)}, so that’s ${r.passive !== false ? 'the difficulty' : 'what they roll'}.` : `Set by hand. ${esc(vsN.name)}’s ${esc(r.vsSkill)} is ${sgn(vsVal)}.`}</p>` : ''}</div>` : '';
+    /* Jake: Create an advantage can put the aspect on someone in the scene (or on the board in a fight); none = on the scene */
+    const aspOnHtml = () => { if (!gm || ev || contest) return ''; const L = N.aspOnCands(v, r); if (!L.length) return '';
+      return `<div><h4>Put it on (optional)</h4><div class="who-row asp-on"><button type="button" data-a="rollAspOn" data-v="" aria-pressed="${!r.aspOn}"><span class="av" style="--s:44px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('flag').replace('<svg','<svg style="width:18px;height:18px"')}</span><span>${r.ctx === 'cb' && cb.state === 'live' ? 'Their zone' : 'The scene'}</span></button>${L.map(o => `<button type="button" data-a="rollAspOn" data-v="${esc(o.id)}" aria-pressed="${r.aspOn === o.id}">${N.av(o,44)}<span>${esc(o.name)}</span></button>`).join('')}</div></div>`; };
     const whoAv = o => o.other ? `<span class="av" style="--s:44px;--c:var(--line-3);box-shadow:none;background:var(--sunk);color:var(--ink-3)">${IC('person-plus').replace('<svg','<svg style="width:20px;height:20px"')}</span>` : N.av(o,44);
     const body = `
       ${gm ? `<div><h4>Who rolls</h4><div class="who-row">${N.rollers(v).map(o => `<button type="button" data-a="rollWho" data-v="${o.key}" aria-pressed="${o.key===who.key}">${whoAv(o)}<span>${esc(o.name)}</span></button>`).join('')}</div>${moreWho}</div>` : ''}
@@ -175,7 +187,7 @@ N.sheetHtml = function(v){
       ${ev ? `<label class="field"><span>What’s happening</span><input class="inp" id="rev-${v.id}" data-i="rollEv" value="${esc(r.evText||'')}" placeholder="e.g. Mind magic: reaches into the guard’s thoughts"></label>` : ''}
       <div><h4>What are you doing?</h4><div class="acts">${N.ACTIONS.filter(a => !(ev || ((r.ctx === 'cb' && cb.state === 'live') && N.cbKind() !== 'fight')) || (a[1] !== 'attack' && (ev || a[1] !== 'defend'))).map(([l,k]) => `<button type="button" class="act" data-a="rollAct" data-v="${k}" aria-pressed="${r.action===k}">${IC(k)}${l.replace('Create an advantage','Advantage')}</button>`).join('')}</div></div>
       ${r.action === 'attack' && inFight ? `<div><h4>Target</h4>${targets.length ? `<div class="tgts">${targets.map(t => { const z = t.zone !== tokOfWho.zone && N.zoneOf(t); return `<button type="button" class="tgt" data-a="rollTgt" data-v="${t.id}" aria-pressed="${r.target===t.id}">${N.av(N.tokObj(t),32)}${esc(N.tokName(t))}${N.sideOf(t) === N.sideOf(tokOfWho) ? '<small class="ff">Own side</small>' : ''}${z ? `<small class="ff fz" style="--zc:${z.col}">${esc(z.name)}</small>` : ''}</button>`; }).join('')}</div>` : `<div class="note">${IC('info')}Nobody else is on the board.</div>`}</div>` : ''}
-      ${r.action === 'advantage' ? `<label class="field"><span>Aspect you’re creating</span><input class="inp" id="rasp-${v.id}" data-i="rollAsp" value="${esc(r.aspect||'')}" placeholder="e.g. Blinded by Spilled Ale"></label>` : ''}
+      ${r.action === 'advantage' ? `<label class="field"><span>Aspect you’re creating</span><input class="inp" id="rasp-${v.id}" data-i="rollAsp" value="${esc(r.aspect||'')}" placeholder="e.g. Blinded by Spilled Ale"></label>${aspOnHtml()}` : ''}
       ${other ? '' : `<div><h4>Skill</h4><div class="skills">${skills.map(([n,x]) => `<button type="button" class="sk" data-a="rollSkill" data-v="${esc(n)}" aria-pressed="${r.skill===n}"><span><b>${esc(n)}</b><small>${ladderWord(x)}</small></span><span class="v">${sgn(x)}</span></button>`).join('')}
         ${r.all || !skills.length ? rest.map(n => `<button type="button" class="sk" data-a="rollSkill" data-v="${n}" aria-pressed="${r.skill===n}"><span><b>${n}</b><small>Mediocre</small></span><span class="v">+0</span></button>`).join('') : ''}</div>
         ${r.all || !skills.length ? '' : `<button type="button" class="btn sm ghost" data-a="rollAll" style="margin-top:8px">Show every skill (${rest.length} more at +0)</button>`}</div>`}
@@ -685,6 +697,39 @@ N.sheetHtml = function(v){
     return sheet(dir ? `The ${esc(dir.name)} folder` : 'New NPC folder', body,
       `${dir ? `<button type="button" class="btn danger" data-a="nfDel" data-v="${esc(dir.id)}" style="flex:0 0 auto" title="${n ? `Its ${n} ${n === 1 ? 'NPC moves' : 'NPCs move'} up a level` : ''}">${IC('trash')}Delete</button>` : ''}<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn primary" data-a="nfSave" ${nf.name.trim() ? '' : 'disabled'}>${IC('check')}${dir ? 'Save' : 'Make folder'}</button>`);
   }
+  /* Jake: the Encounter Wheel. The GM fills one or more wheels with possible encounters, then spins one secretly or for the players */
+  case 'wheel': {
+    if (!gm) return '';
+    const L = g.wheels || [], w = L.find(x => x.id === v.ui.whSel) || L[0], ch = v.ui.ch === 'gm' ? 'gm' : v.ui.ch;
+    const pick = L.length > 1 || w ? `<div class="chips itc-chips wh-pick" role="group" aria-label="Wheels">${L.map(x => `<button type="button" class="cchip" data-a="whPick" data-v="${esc(x.id)}" aria-current="${x === w}">${IC('wheel')}${esc(x.name || 'Encounters')} <small>${x.items.length}</small></button>`).join('')}<button type="button" class="cchip" data-a="whNew">${IC('plus')}New wheel</button></div>` : '';
+    if (!w) return sheet('Encounter wheel', `<div class="quiet wh-empty"><span class="wh-big">${IC('wheel')}</span><p>Fill a wheel with the encounters that could happen, like Bandits on the road, A lost merchant or Wolves at night. Then spin it, secretly or for the players to watch.</p><button type="button" class="btn primary" data-a="whNew">${IC('plus')}Make a wheel</button></div>`, `<button type="button" class="btn" data-a="closeSheet">Close</button>`);
+    const items = w.items.map(x => [x.t.trim(), x.w || 1]).filter(x => x[0]);
+    const last = v.ui.whRes && g.msgs.find(x => x.id === v.ui.whRes);
+    const row = (x, i) => `<div class="wh-row" style="--h:${Math.round((i * 360 / Math.max(items.length, 1) + 18) % 360)}"><i></i><input class="inp" id="wht-${esc(x.id)}-${v.id}" data-i="whT" data-k="${esc(x.id)}" value="${esc(x.t)}" placeholder="e.g. Bandits block the road" maxlength="60" autocomplete="off" aria-label="Encounter ${i + 1}">
+      <span class="wh-wt" role="group" aria-label="How likely"><button type="button" class="ibtn sm" data-a="whW" data-v="${esc(x.id)}" data-d="-1" aria-label="Less likely" ${(x.w || 1) <= 1 ? 'disabled' : ''}>${IC('minus')}</button><b title="Slices on the wheel">×${x.w || 1}</b><button type="button" class="ibtn sm" data-a="whW" data-v="${esc(x.id)}" data-d="1" aria-label="More likely" ${(x.w || 1) >= 5 ? 'disabled' : ''}>${IC('plus')}</button></span>
+      <button type="button" class="ibtn sm" data-a="whDel" data-v="${esc(x.id)}" aria-label="Remove this encounter">${IC('trash')}</button></div>`;
+    const body = `${pick}
+      <div class="wh-grid"><div class="wh-left">
+        <label class="field"><span>Wheel name</span><input class="inp" id="whn-${v.id}" data-i="whName" value="${esc(w.name || '')}" placeholder="e.g. Forest road at night" maxlength="40" autocomplete="off"></label>
+        <div><h4>Encounters <small>${items.length}</small></h4><div class="wh-list">${w.items.map(row).join('')}</div>
+          <div class="shop-acts"><button type="button" class="btn sm" data-a="whAdd">${IC('plus')}Add an encounter</button><button type="button" class="btn sm ghost" data-a="whRm" data-v="${esc(w.id)}">${IC('trash')}Delete this wheel</button></div>
+          <p class="muted wh-tip">× is how many slices it gets: ×3 comes up three times as often as ×1.</p></div>
+      </div><div class="wh-right">
+        ${last && last.wheel ? N.wheelCard(last, true) : items.length ? `<div class="wheelm idle"><div class="wh-w"><span class="wh-ptr"></span><div class="wh-rot">${N.wheelSvg(items, 200)}</div></div></div>` : `<div class="note">${IC('info')}Add at least two encounters to spin.</div>`}
+      </div></div>`;
+    const ok = items.length >= 2;
+    const foot = `<button type="button" class="btn" data-a="whSpin" data-v="secret" ${ok ? '' : 'disabled'}>${IC('eyeoff')}Spin secretly</button><button type="button" class="btn primary" data-a="whSpin" data-v="show" ${ok && ch !== 'gm' ? '' : 'disabled'} title="${ch === 'gm' ? 'Open a players’ chat to spin it for them' : ''}">${IC('wheel')}Spin for ${ch === 'gm' ? 'the players' : esc(N.chName(ch, 'gm'))}</button>`;
+    return sheet('Encounter wheel', body, foot, {wide:true});
+  }
+  /* Jake: one picture (floor) of a map with several: rename it, or delete it with the pins on it (the first picture is the map's own) */
+  case 'mapFloor': {
+    const m = gm && g.maps.find(x => x.id === arg); if (!m) return '';
+    const f = N.mapFl(v, m), n = m.pins.filter(p => (p.fl || '') === (f ? f.id : '')).length;
+    const body = `<label class="field"><span>Name of this picture</span><input class="inp" id="mfl-${v.id}" data-i="mapFlName" data-c="${esc(m.id)}" data-f="${f ? esc(f.id) : ''}" value="${esc(N.flName(m, f))}" placeholder="e.g. Ground floor, Cellar, Upstairs" maxlength="40" autocomplete="off"></label>
+      <p class="muted" style="margin:0;font:600 13px/1.45 var(--f-ui)">${n} pin${n === 1 ? '' : 's'} on this picture. Pins you add go on the picture you’re looking at. Players with this map see every picture and step through them with the arrows.</p>
+      ${f ? '' : `<div class="note">${IC('info')}This is the map’s own picture, so it can’t be deleted here. Use Replace picture to change it.</div>`}`;
+    return sheet(`${esc(m.name)} · ${esc(N.flName(m, f))}`, body, `${f ? `<button type="button" class="btn danger" data-a="mapFlDel" data-c="${esc(m.id)}" data-f="${esc(f.id)}" style="flex:0 0 auto">${IC('trash')}Delete picture</button>` : ''}<button type="button" class="btn primary" data-a="closeSheet">Done</button>`);
+  }
   case 'mapDel': {
     const m = g.maps.find(x => x.id === arg); if (!m) return '';
     const n = m.pins.filter(p => p.type !== 'party').length, party = m.pins.some(p => p.type === 'party');
@@ -857,7 +902,8 @@ N.sheetHtml = function(v){
       ${npcNames.length ? '' : solo ? `<p class="muted shop-tip">No NPC cards yet. Make the shopkeeper in Cast and they show up here.</p>` : `<p class="muted shop-tip">No NPCs in this chat’s scene. Add the shopkeeper to the scene in the Scene changer and they show up here.</p>`}`;
     const row = x => `<div class="itc-row shop-row"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
       <span class="itc-t"><b>${N.emoText(N.marks(esc(x.name)))}</b><small>${esc(x.path || N.itemKind(x.kind)[1])}${(x.gears || []).map(([k, r]) => { const gk = N.ITEM_RATE.find(y => y[0] === k); return gk ? ` <span class="itc-g" title="${gk[1]}">${IC(gk[2])}+${r}</span>` : ''; }).join('')}${x.silver ? ' <span class="itc-tag">Silver</span>' : ''}</small>${x.d ? `<span class="itc-d">${N.emoText(N.marks(esc(x.d)))}</span>` : ''}${N.invGm(v, [x.name])}</span>
-      <span class="itc-a shop-price"><label><span class="coin"></span><input class="inp" id="sp-${esc(x.k)}-${v.id}" data-i="shopPrice" data-c="${c}" data-k="${esc(x.k)}" value="${x.price ? x.price : ''}" placeholder="0" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" aria-label="Price of ${esc(x.name)} in gold"></label><button type="button" class="ibtn sm" data-a="shopRm" data-c="${c}" data-v="${esc(x.k)}" aria-label="Take ${esc(x.name)} off the shelf" title="Take it off the shelf">${IC('x')}</button></span></div>`;
+      <span class="itc-a shop-price"><label><span class="coin"></span><input class="inp" id="sp-${esc(x.k)}-${v.id}" data-i="shopPrice" data-c="${c}" data-k="${esc(x.k)}" value="${x.price ? x.price : ''}" placeholder="0" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" aria-label="Price of ${esc(x.name)} in gold"></label><button type="button" class="ibtn sm" data-a="shopRm" data-c="${c}" data-v="${esc(x.k)}" aria-label="Take ${esc(x.name)} off the shelf" title="Take it off the shelf">${IC('x')}</button>
+        <span class="shop-n" role="group" aria-label="How many for sale"><small>For sale</small><button type="button" class="ibtn sm" data-a="shopN" data-c="${c}" data-v="${esc(x.k)}" data-d="-1" aria-label="One fewer" ${N.shopN(x) <= 1 ? 'disabled' : ''}>${IC('minus')}</button><b>${N.shopN(x)}</b><button type="button" class="ibtn sm" data-a="shopN" data-c="${c}" data-v="${esc(x.k)}" data-d="1" aria-label="One more">${IC('plus')}</button></span>${x.sold ? `<small class="shop-sold">${N.shopLeft(x) ? `${x.sold} sold · ${N.shopLeft(x)} left` : `Sold out (${x.sold} sold)`}</small>` : ''}</span></div>`;
     const travel = `<label class="shop-travel"><input type="checkbox" data-a="shopTravel" data-c="${c}" ${sh.travel ? 'checked' : ''}><span><b>Traveling merchant</b><small>Offered in every place, not just where it opened</small></span></label>`;
     const body = `<div class="note">${IC(open ? 'users' : 'lock')}${solo ? `${open ? 'Open' : 'Set up'} in GM notes. Only you see this store, even once it’s open. Use it to plan a store or try one out.` : open ? `Open in ${where}. Changes reach the players right away.` : `Only you see this until you open the store. Then everyone in ${where} sees it.`}</div>
       <label class="shop-f"><span class="eyebrow">Store name</span><input class="inp" id="sn-${v.id}" data-i="shopName" data-c="${c}" value="${esc(sh.name || '')}" placeholder="Like The Rusty Anvil" autocomplete="off" maxlength="60"></label>
@@ -897,7 +943,7 @@ N.sheetHtml = function(v){
     const shown = items.filter(x => !k || x.kind === k), me = !gm && N.charOf(v.role), pcs = N.shopPcs(sh), keep = sh.npcs || [];
     /* Jake: Purchase sends the GM a request (paid only once they confirm), greyed out without enough gold; Bargain asks for a roll */
     const purse = me && me.built ? parseInt(me.gold, 10) || 0 : 0, open = sh.state === 'open';
-    const buyBtns = x => { if (!me || !me.built || !open) return '';
+    const buyBtns = x => { if (!me || !me.built || !open || !N.shopLeft(x)) return '';
       const asked = N.shopAsk(sh.ch, me.id, x.k, 'buy'), haggled = N.shopAsk(sh.ch, me.id, x.k, 'haggle'), short = purse < (+x.price || 0);
       return `<span class="shop-buy"><button type="button" class="btn sm gold" data-a="shopBuy" data-c="${esc(sh.ch)}" data-v="${esc(x.k)}" ${asked || short ? 'disabled' : ''}>${IC(asked ? 'clock' : 'coins')}${asked ? 'Waiting for the GM' : 'Purchase'}</button>${short && !asked ? `<small>Not enough gold</small>` : ''}<button type="button" class="btn sm" data-a="shopHaggle" data-c="${esc(sh.ch)}" data-v="${esc(x.k)}" ${haggled ? 'disabled' : ''}>${IC('hand')}${haggled ? 'Bargain sent' : 'Bargain'}</button></span>`; };
     /* Jake: sell to the shop. The player names a price for one of an item; the GM answers Buy or Bargain in the chat */
@@ -909,11 +955,11 @@ N.sheetHtml = function(v){
           ${pick ? `<span class="sell-form"><label class="sell-p"><span class="coin"></span><input class="inp" id="sellp-${v.id}" data-i="sellPrice" inputmode="numeric" value="${esc(v.ui.sellPrice || '')}" placeholder="Your price" aria-label="Your price in gold" autocomplete="off"><small>gold for one</small></label><button type="button" class="btn sm gold" data-a="sellGo" data-c="${esc(sh.ch)}" data-v="${esc(r[0])}">${IC('check')}Offer</button></span>` : ''}</div>`; };
       return `<section class="shop-sell"><h4>${IC('coins')}Sell to ${esc(sh.name || 'the store')}</h4><p class="muted">Pick an item and name your price. The GM buys it or bargains.</p>
         ${rows.length ? `<div class="sell-list">${rows.map(one).join('')}</div>` : `<div class="note">${IC('info')}Nothing in your inventory to sell.</div>`}</section>`; };
-    const card = x => `<article class="shop-it"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
+    const card = x => `<article class="shop-it${N.shopLeft(x) ? '' : ' gone'}"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
       <div class="shop-it-t"><b>${N.emoText(N.marks(esc(x.name)))}</b><small>${esc(x.path || N.itemKind(x.kind)[1])}</small>
         ${(x.gears || []).length || x.silver ? `<span class="shop-rates">${(x.gears || []).map(([kk, r]) => { const gk = N.ITEM_RATE.find(y => y[0] === kk); return gk ? `<span class="itc-g">${IC(gk[2])}${gk[1]} +${r}</span>` : ''; }).join('')}${x.silver ? '<span class="itc-tag">Silver</span>' : ''}</span>` : ''}
         ${x.d ? `<p>${N.emoText(N.marks(esc(x.d)))}</p>` : ''}${N.invPv(v, x.name)}</div>
-      <span class="shop-tag${x.price ? '' : ' free'}">${x.price ? `<span class="coin"></span>${N.goldTxt(x.price)}` : 'Free'}</span>${buyBtns(x)}</article>`;
+      <span class="shop-tag${x.price ? '' : ' free'}">${x.price ? `<span class="coin"></span>${N.goldTxt(x.price)}` : 'Free'}</span><span class="shop-left${N.shopLeft(x) ? '' : ' out'}">${N.shopLeft(x) ? `${N.shopLeft(x)} left` : 'Sold out'}</span>${buyBtns(x)}</article>`;
     const people = keep.length || pcs.length ? `<div class="shop-folk">${keep.length ? `<span><span class="avs">${keep.map(n => N.av({name:n.name, portrait:n.portrait, color:'var(--c-npc)'}, 32)).join('')}</span><span class="tx"><small>${keep.length > 1 ? 'Shopkeepers' : 'Shopkeeper'}</small><b>${esc(keep.map(n => n.name).join(', '))}</b></span></span>` : ''}${pcs.length ? `<span><span class="avs">${pcs.map(p => N.av(p, 32)).join('')}</span><span class="tx"><small>Shopping</small><b>${esc(pcs.map(p => p.name).join(', '))}</b></span></span>` : ''}</div>` : '';
     const body = `${gm ? `<div class="note">${IC('eye')}${sh.state === 'open' ? 'This is what the players see.' : 'This is what the players will see once you open the store.'}</div>` : ''}
       ${people}${me && me.built ? `<div class="shop-purse"><span class="coin"></span>${esc(me.short)} has <b>${N.goldTxt(me.gold)}</b></div>` : ''}

@@ -3529,3 +3529,69 @@
 .app .deadck>span{display:inline-flex;align-items:center;gap:5px}
 .app .deadck svg{width:15px;height:15px}
 .app .deadck small{flex-basis:100%;padding-left:28px;font:600 12px/1.35 var(--f-ui);color:var(--ink-3)}
+
+/* Jake: a contest or challenge without the board, just who's in it (js/combat.js flatHtml) */
+.app .flatwrap{padding:0 10px}
+.app .flatb{display:grid;gap:10px;padding:12px;border-radius:20px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
+.app .flt{display:grid;gap:8px;padding:10px 12px;border-radius:14px;background:color-mix(in srgb,var(--tc) 9%,transparent);box-shadow:inset 3px 0 0 var(--tc)}
+.app .flh{display:flex;align-items:center;gap:6px;font:800 11px/1 var(--f-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2)}
+.app .flh i{width:9px;height:9px;border-radius:50%;background:var(--tc)}
+.app .flr{display:flex;flex-wrap:wrap;gap:10px 6px}
+.app .flr .tok{width:64px}
+.app .flr .tok .av{--s:46px}
+.app .flr .tok .nm{max-width:64px}
+.app .flr .tok .st{top:34px}
+.app .flsasp{display:flex;flex-wrap:wrap;gap:6px}
+.app .setup .toggle{margin-top:8px}
+/* Jake: how many of an item a store has; sold out greys the card */
+.app .shop-n{display:inline-flex;align-items:center;gap:4px}
+.app .shop-n small{font:700 11px/1 var(--f-ui);color:var(--ink-3);margin-right:2px}
+.app .shop-n b{min-width:22px;text-align:center;font:800 14px/1 var(--f-ui);font-variant-numeric:tabular-nums;color:var(--ink)}
+.app .shop-sold{font:700 11px/1.2 var(--f-ui);color:var(--ink-3)}
+.app .shop-left{grid-column:2;justify-self:start;font:700 11.5px/1 var(--f-ui);color:var(--ink-3)}
+.app .shop-left.out{display:inline-flex;align-items:center;height:22px;padding:0 10px;border-radius:999px;background:var(--ember);color:#fff;font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;margin-top:4px}
+.app .shop-it.gone>:not(.shop-left){filter:grayscale(1);opacity:.5}
+/* Jake: a map with several pictures (floors): the switcher over the map */
+.app .mapfl{grid-row:3;justify-self:center;align-self:end;display:flex;align-items:center;gap:4px;padding:5px;border-radius:999px;max-width:calc(100% - 16px);pointer-events:auto}
+.app .mapfl-l{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.app .mapfl-b{flex:none;height:32px;padding:0 12px;border-radius:999px;font:700 12.5px/1 var(--f-ui);color:var(--ink-2);white-space:nowrap}
+.app .mapfl-b[aria-pressed="true"]{background:var(--gold-soft);color:var(--gold-tx);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-tx) 45%,transparent)}
+/* Jake: the Encounter Wheel (js/wheel.js): the GM's sheet and the spinning card in the chat */
+.app .wh-grid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr) auto;align-items:start}
+@container dev (max-width:700px){ .app .wh-grid{grid-template-columns:minmax(0,1fr)} .app .wh-right{order:-1;justify-self:center} }
+.app .wh-left{display:grid;gap:12px;min-width:0}
+.app .wh-list{display:grid;gap:6px;margin-bottom:8px}
+.app .wh-row{display:flex;align-items:center;gap:8px}
+.app .wh-row>i{width:12px;height:12px;border-radius:4px;flex:none;background:hsl(var(--h) 55% 52%)}
+.app .wh-row .inp{flex:1;min-width:0;height:40px}
+.app .wh-wt{display:inline-flex;align-items:center;gap:2px;flex:none}
+.app .wh-wt b{min-width:26px;text-align:center;font:800 13px/1 var(--f-ui);color:var(--ink-2);font-variant-numeric:tabular-nums}
+.app .wh-tip{margin:6px 0 0;font:600 12px/1.4 var(--f-ui)}
+.app .wh-pick{margin-bottom:12px}
+.app .wh-empty{display:grid;justify-items:center;gap:12px;text-align:center;padding:12px}
+.app .wh-big svg{width:64px;height:64px;color:var(--gold-tx)}
+.app .wheelm{display:grid;justify-items:center;gap:10px;margin:6px auto;padding:14px 16px 16px;border-radius:20px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);max-width:300px;width:100%}
+.app .wheelm.idle{background:none;box-shadow:none;padding:0}
+.app .wheelm.secret{box-shadow:inset 0 0 0 1px var(--line),inset 0 0 0 4px color-mix(in srgb,var(--ember) 18%,transparent)}
+.app .wh-h{display:flex;align-items:center;gap:8px;justify-self:stretch}
+.app .wh-h svg{width:22px;height:22px;color:var(--gold-tx);flex:none}
+.app .wh-h small{display:block;font:700 10.5px/1.2 var(--f-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.app .wh-h b{font:700 15px/1.2 var(--f-display);color:var(--ink)}
+.app .wh-w{position:relative;width:200px;height:200px}
+.app .wh-ptr{position:absolute;left:50%;top:-6px;translate:-50% 0;width:0;height:0;border-left:11px solid transparent;border-right:11px solid transparent;border-top:20px solid var(--gold);z-index:2;filter:drop-shadow(0 2px 2px rgba(0,0,0,.4))}
+.app .wh-rot{width:200px;height:200px;transform:rotate(var(--r,0deg))}
+.app .wheelm.spin .wh-rot{animation:whspin 4.2s cubic-bezier(.12,.8,.18,1) both}
+@keyframes whspin{from{transform:rotate(0deg)}to{transform:rotate(var(--r,0deg))}}
+.app .whsvg{display:block;width:100%;height:100%}
+.app .whsvg .wsl path,.app .whsvg .wsl circle{fill:hsl(var(--h) 52% 46%);stroke:rgba(0,0,0,.35);stroke-width:.8}
+.app[data-theme="day"] .whsvg .wsl path,.app[data-theme="day"] .whsvg .wsl circle{fill:hsl(var(--h) 60% 62%)}
+.app .whsvg text{font:700 8.5px var(--f-ui);fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.45);stroke-width:2px}
+.app .whsvg .whrim{fill:none;stroke:var(--gold);stroke-width:3}
+.app .whsvg .whhub{fill:var(--gold);stroke:rgba(0,0,0,.4);stroke-width:1}
+.app .wh-res{display:grid;justify-items:center;gap:2px;text-align:center}
+.app .wh-res small{font:700 10.5px/1.2 var(--f-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.app .wh-res b{font:700 18px/1.25 var(--f-display);color:var(--gold-tx)}
+.app .wheelm.spin .wh-res{animation:whres .4s ease-out both}
+@keyframes whres{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.app .boardwrap.flatwrap{width:min(760px,100%);justify-self:center;align-self:start;margin-top:12px}
+.app .flatwrap .flatb{width:100%;box-sizing:border-box}

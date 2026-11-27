@@ -524,9 +524,9 @@ function syncNow(){
     const pubLink = (k, id) => k !== 'wiki' || (g.wiki.some(e => e.id === id && N.audOf(e, 'wiki') !== 'gm') || (wikiHas(id) ? 'lock' : false));
     const seatLink = st => (k, id) => k === 'wiki' ? wikiFor(id, st) || (wikiHas(id) ? 'lock' : false) : nameFor(id, st);
     if (LOADED.has('gm/maps')) {
-      for (const m of g.maps) {
-        if (!m.src?.startsWith('fs:')) continue;
-        const id = m.src.slice(3), a = N.audOf(m, 'map'), vis = a === '*', aud = Array.isArray(a) ? a : [], k = visKey(vis, aud);
+      for (const m of g.maps) for (const src of [m.src, ...(m.fl || []).map(f => f.src)]) {
+        if (!src?.startsWith('fs:')) continue;
+        const id = N.picBase(src).slice(3), a = N.audOf(m, 'map'), vis = a === '*', aud = Array.isArray(a) ? a : [], k = visKey(vis, aud);
         if (MVIS.get(id) !== k) { MVIS.set(id, k); track(F.setDoc(dref('mapimgs/' + id), {vis, aud}, {merge:true})); }
       }
       writeUnits('gm/maps', asUnits(g.maps, (m,i) => ({...m, pins:m.pins.map(p => pinOut(m, p)), o:i})));
@@ -575,7 +575,7 @@ function syncNow(){
       if (Object.keys(iv).length) only[st].iv = iv; }
     writeUnits('gm/shops', {...(g.shops || {}), _lib:g.shopLib || []});
     writeUnits('gm/crafts', {...(g.crafts || {})});
-    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, wl:g.wlinks || {}, hlocs:g.hlocs || {}, rnotes:g.rnotes || {}, npcdirs:g.npcDirs || [], cal:g.calEv || [], cpics:g.cpics || {}, sdrafts:g.sdrafts || [], pcx:g.pcx || {}});
+    writeUnits('gm/misc', {npcs:g.quick, foes:g.foes, recent:g.recent, pics:g.pics, casts:g.casts, extras:g.extras, rev2:g.rev || {}, wl:g.wlinks || {}, hlocs:g.hlocs || {}, rnotes:g.rnotes || {}, npcdirs:g.npcDirs || [], cal:g.calEv || [], cpics:g.cpics || {}, sdrafts:g.sdrafts || [], pcx:g.pcx || {}, wheels:g.wheels || []});
     /* a roll's GM note goes to the players the GM picked for it: just the words, keyed by the roll's message */
     for (const st of N.seats()) { if (!only[st]) continue; const rn = {};
       for (const [id, n] of Object.entries(g.rnotes || {})) if (n && n.t && (n.see || []).includes(st)) rn[id] = n.t;
@@ -937,7 +937,7 @@ async function start(role){
     'gm/crafts': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.crafts = o; },
     'gm/shops': u => { const o = {}; for (const [ch, j] of Object.entries(u)) { if (ch === '_lib') continue; const x = JSON.parse(j); if (x && x.id) o[ch] = x; } g.shops = o; g.shopLib = u._lib ? JSON.parse(u._lib) : []; },
     'gm/items': u => { g.items = vals(u).map(({o, ...x}) => N.ammoFix(x)).sort((a,b) => a.name.localeCompare(b.name)); },
-    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.wlinks = u.wl ? JSON.parse(u.wl) : {}; g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.rnotes = u.rnotes ? JSON.parse(u.rnotes) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; g.calEv = u.cal ? JSON.parse(u.cal) : []; g.cpics = u.cpics ? JSON.parse(u.cpics) : {}; g.sdrafts = u.sdrafts ? JSON.parse(u.sdrafts) : []; g.pcx = u.pcx ? JSON.parse(u.pcx) : {}; },
+    'gm/misc': u => { g.quick = u.npcs ? JSON.parse(u.npcs) : []; g.foes = u.foes ? JSON.parse(u.foes) : []; g.recent = u.recent ? JSON.parse(u.recent) : []; g.pics = u.pics ? JSON.parse(u.pics) : []; g.casts = u.casts ? JSON.parse(u.casts) : {}; g.extras = u.extras ? JSON.parse(u.extras) : {}; g.rev = u.rev2 ? JSON.parse(u.rev2) : revFrom1(u.rev); g.wlinks = u.wl ? JSON.parse(u.wl) : {}; g.hlocs = u.hlocs ? JSON.parse(u.hlocs) : {}; g.rnotes = u.rnotes ? JSON.parse(u.rnotes) : {}; g.npcDirs = u.npcdirs ? JSON.parse(u.npcdirs) : []; g.calEv = u.cal ? JSON.parse(u.cal) : []; g.cpics = u.cpics ? JSON.parse(u.cpics) : {}; g.sdrafts = u.sdrafts ? JSON.parse(u.sdrafts) : []; g.pcx = u.pcx ? JSON.parse(u.pcx) : {}; g.wheels = u.wheels ? JSON.parse(u.wheels) : []; },
     'game/news': u => { PUB.news = u; mergeView(); },
     'gm/news': u => { for (const k of Object.keys(GMNEWS)) delete GMNEWS[k]; Object.assign(GMNEWS, u); mergeView(); },
     'game/maps': u => { PUB.maps = u; mergeView(); },
@@ -1076,7 +1076,7 @@ N.importLore = file => file.text().then(txt => {
       g.wiki[i] = e; } else g.wiki.push(e); }
   for (const m0 of d.maps) { const m = normMap(m0), i = g.maps.findIndex(x => x.id === m.id); if (i >= 0) { const old = g.maps[i]; if (old.dir && !m.dir) m.dir = old.dir; /* re-import keeps the GM's level and default */ if (old.lvl != null && m.lvl == null) m.lvl = old.lvl; if (old.def) m.def = true;
       /* and what the GM changed on the map in the app: its name, its picture (Replace picture) and who sees it */
-      m.name = old.name || m.name; if (old.src && old.src !== m.src) { m.src = old.src; m.w = old.w; m.h = old.h; }
+      m.name = old.name || m.name; if (old.src && old.src !== m.src) { m.src = old.src; m.w = old.w; m.h = old.h; } if (old.fl) m.fl = old.fl; if (old.fln) m.fln = old.fln;
       for (const k of ['vis', 'see']) { if (old[k] === undefined) delete m[k]; else m[k] = Array.isArray(old[k]) ? [...old[k]] : old[k]; }
       /* a place keeps the map the GM linked it to, and whether it is shown (pins the GM revealed or hid during play) */
       for (const p of m.pins) { const was = old.pins.find(x => x.id === p.id); if (was && was.to && !p.to) p.to = was.to; if (was && was.sub && !p.sub) p.sub = was.sub; if (was && was.wiki && !p.wiki) p.wiki = was.wiki; if (was && was.cap && p.cap == null) p.cap = true;

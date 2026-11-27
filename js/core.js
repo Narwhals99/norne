@@ -544,7 +544,12 @@ N.locOpts = (k, sel) => {
   const g = N.G, at = key => { const [mi, pi] = (key || '').split('|'), m = g.maps.find(x => x.id === mi), p = m && m.pins.find(x => x.id === pi); return p ? {m, p} : null; };
   if (k === 'c') return g.maps.flatMap(m => locPins(m).filter(o => m.pins.find(p => p.id === o.p).type === 'nation'));
   const up = at(sel[k === 't' ? 'c' : 't']); if (!up) return [];
-  return locPins(g.maps.find(x => x.id === N.pinTo(up.m, up.p)));
+  const m = g.maps.find(x => x.id === N.pinTo(up.m, up.p)); if (k === 'n' || !m) return locPins(m);
+  /* Jake: a country can be cut into regions (Nation > Region > City), so its cities sit one map further down: the city step
+     lists the country map's own places plus the places on each Region pin's map */
+  const out = locPins(m), seen = new Set(out.map(N.locKey));
+  for (const p of m.pins.filter(x => x.type === 'region')) { const rm = g.maps.find(x => x.id === N.pinTo(m, p)); if (rm && rm.id !== m.id) for (const o of locPins(rm)) if (!seen.has(N.locKey(o))) { seen.add(N.locKey(o)); out.push(o); } }
+  return out.sort((a, b) => a.l.localeCompare(b.l));
 };
 N.locKey = o => o ? o.m + '|' + o.p : '';
 /* picked keys -> what the scene keeps: each step's map, spot and name, and the map it opens (players may not have the pins) */
@@ -561,8 +566,10 @@ N.placeFind = (name, inside) => {
   const seen = new Map();
   for (const m of g.maps) for (const p of m.pins || []) {
     if (p.type === 'party' || low(p.label) !== want) continue;
-    const chain = [{m, p}];
-    while (chain[0].p.type !== 'nation' && chain.length < 4) { const a = parent(chain[0].m.id); if (!a || chain.some(x => x.p === a.p)) break; chain.unshift(a); }
+    let chain = [{m, p}];
+    while (chain[0].p.type !== 'nation' && chain.length < 5) { const a = parent(chain[0].m.id); if (!a || chain.some(x => x.p === a.p)) break; chain.unshift(a); }
+    /* a Region pin between the country and the city (Port Naris on the Commonhold's map) is not a step of its own */
+    chain = chain.filter((x, i) => i === 0 || i === chain.length - 1 || x.p.type !== 'region');
     if (chain[0].p.type !== 'nation' || chain.length > 3) continue;
     const sel = {c:'', t:'', n:''}; chain.forEach((x, i) => { sel[N.LOCK[i]] = x.m.id + '|' + x.p.id; });
     const loc = N.locBuild(sel); if (!loc || !loc[N.LOCK[chain.length - 1]]) continue;
@@ -1059,10 +1066,13 @@ N.shopOpen = ch => { const s = N.shopOf(ch); return s && s.state === 'open' ? s 
 N.shopOk = ch => ch === 'gm' || (!!N.chKey(ch) && !N.metaOnly(ch));
 /* a player's open request in a store chat: kind 'buy' (Purchase, waits for the GM to confirm) or 'haggle' (Bargain) */
 N.shopAsk = (ch, cid, k, kind) => N.G.msgs.find(m => m.ch === ch && m[kind] && m[kind].c === cid && m[kind].k === k && m[kind].st === 'ask') || null;
+/* Jake: how many of an item the store has (x.n, 1 when not set) and how many are left after confirmed purchases (x.sold) */
+N.shopN = x => Math.max(1, x.n | 0 || 1);
+N.shopLeft = x => Math.max(0, N.shopN(x) - (x.sold | 0));
 N.shopItem = it => ({k:N.uid('si'), it:it.id, name:it.name, kind:N.itemKind(it.kind)[0], ic:it.ic || '',
   /* items from Jake's lists carry their class as the description, so like the catalog they show only the class line */
   d:it.cls ? '' : String(it.d || '').trim(), path:[...new Set([it.cls, it.sub, it.disc].filter(Boolean))].join(' · '),
-  gears:N.itemGears(it).map(([k]) => [k, +it[k]]), ...(it.silver ? {silver:1} : {}), price:0});
+  gears:N.itemGears(it).map(([k]) => [k, +it[k]]), ...(it.silver ? {silver:1} : {}), price:0, n:1});
 /* what the players of the chat receive: names and pictures instead of card ids */
 N.shopOut = s => ({id:s.id, ch:s.ch, state:s.state, name:s.name || '', t:s.t || 0,
   pcs:(s.pcs || []).map(id => { const c = N.G.chars[id]; return c && c.built ? {id, name:c.short || c.name, portrait:c.portrait || null, color:c.color || ''} : null; }).filter(Boolean),
