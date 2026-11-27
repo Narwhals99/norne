@@ -27,12 +27,13 @@ function tokHtml(v, t, size){
   const mine = N.isMine(t, v.role);
   if (mine) cls.push('me');
   /* standing as a 3D figure (js/figboard.js): the circle hides, the name and stress boxes stay */
-  if (N.figHas && N.figHas(v, t)) cls.push('fig');
+  if (N.figHas && !N.noBoard() && N.figHas(v, t)) cls.push('fig');
   return `<button type="button" class="${cls.join(' ')}" data-tok="${t.id}" aria-label="${esc(name)}${out?' (taken out)':''}"${hit}>${N.av(o, size)}<span class="nm">${mine?'You':esc(name)}</span>${out?'':`<span class="st">${st.v.map((x,i)=>`<i class="${on(i)?'on':''}"></i>`).join('')}</span>`}${t.kind==='npc'&&N.sideOf(t)==='ally'?`<span class="ji" title="Ally">${IC('heart')}</span>`:''}${N.isCrowd(t) && !out ? `<span class="crowdn" title="${t.crowd} in the crowd">×${t.crowd}</span>` : ''}</button>`;
 }
 N.tokHtml = tokHtml;
 
 function boardHtml(v){
+  if (N.noBoard()) return flatHtml(v);
   const g = G(), cb = g.combat, gm = isGM(v);
   const tool = gm ? (v.ui.cbTool || 'move') : 'move';
   const actor = N.actorTok(v) || (gm && v.ui.targeting ? N.curTok() : null);
@@ -69,6 +70,18 @@ function boardHtml(v){
   </div></div>`;
 }
 
+/* no board (Jake): everyone in it as a row of cards, one row per team, with the situation aspects under them */
+function flatHtml(v){
+  const cb = G().combat, K = N.kw(), toks = cb.tokens.filter(t => t.zone);
+  const rows = N.teams().map(tm => ({tm, l:toks.filter(t => N.sideOf(t) === tm.id)})).filter(x => x.l.length);
+  const asp = a => `<span class="icard${a.boost?' boost':''}">${a.boost?`<span class="k">Boost · ${esc(a.by)}</span>`:a.on?`<span class="k">On ${esc(a.on)}</span>`:''}<span>${N.emoText(N.marks(esc(a.t || 'Unnamed boost')))}</span>${a.free?`<span class="fi">${'<i></i>'.repeat(a.free)}</span>`:''}</span>`;
+  const za = cb.zones.filter(z => z.aspect).map(z => ({t:z.aspect, free:z.free}));
+  return `<div class="boardwrap flatwrap"><div class="flatb" aria-label="Who’s in the ${esc(K.w)}">
+    ${rows.length ? rows.map(({tm, l}) => `<div class="flt" style="--tc:${tm.col}"><span class="flh"><i></i>${esc(tm.name)}</span><div class="flr">${l.map(t => tokHtml(v, t)).join('')}</div></div>`).join('') : `<p class="muted">Nobody is in it yet.</p>`}
+    ${za.length || cb.aspects.length ? `<div class="sasp flsasp">${[...za, ...cb.aspects].map(asp).join('')}</div>` : ''}
+  </div>${diceFx(v)}</div>`;
+}
+
 /* the newest roll in the fight tumbles across the board on every screen, once, as it arrives.
    Each redraw restarts the animation with a negative delay, so it carries on where it was. */
 const FX_MS = N.FX_MS = 2600;
@@ -99,7 +112,7 @@ function orderStrip(v, ph){
 /* GM tools: a rail beside the board on desktop, one button on the board on phones that opens them */
 function toolList(v){
   const cb = G().combat, tool = v.ui.cbTool || 'move', k = N.cbKind();
-  return [[`data-a="cbTool" data-v="move" aria-pressed="${tool==='move'}"`, 'hand', 'Move'], [`data-a="cbTool" data-v="zone" aria-pressed="${tool==='zone'}"`, 'zone', 'Zones'],
+  return [...(N.noBoard() ? [] : [[`data-a="cbTool" data-v="move" aria-pressed="${tool==='move'}"`, 'hand', 'Move'], [`data-a="cbTool" data-v="zone" aria-pressed="${tool==='zone'}"`, 'zone', 'Zones']]),
     [`data-a="sheet" data-v="addFoe"`, 'person-plus', 'Add'], [`data-a="sheet" data-v="cbAspect"`, 'cards', 'Situation aspect'], [`data-a="sheet" data-v="cbBoost"`, 'sparkle', 'Boost'],
     k !== 'challenge' && cb.state === 'live' ? [`data-a="sheet" data-v="cbTeams"`, 'users', 'Teams'] : null, k !== 'challenge' && cb.state === 'live' && cb.phase !== 'notice' ? [`data-a="cbOrderOpen"`, 'list', 'Turn order'] : null,
     cb.state === 'live' ? [`data-a="sheet" data-v="cbEnd"`, 'stop', `End ${N.kw().w}`, 1] : null].filter(Boolean)
@@ -492,22 +505,24 @@ N.setupPanel = function(v){
       <div class="seg" role="group" aria-label="Who scores"><button type="button" data-a="ctBy" data-v="team" aria-pressed="${cb.scoreBy !== 'each'}">${IC('users')}Each team</button><button type="button" data-a="ctBy" data-v="each" aria-pressed="${cb.scoreBy === 'each'}">${IC('user')}Each person</button></div>
       <small>Every round the highest contest roll wins: 1 point, 2 if it beats the next best by 3 or more. A tie for the top scores nothing.${cb.scoreBy === 'each' ? '' : ' Each team’s best roll counts.'}</small>`) : '';
   const rolls = kind === 'challenge' ? step(n0 + 1, tasks.length >= 2, 'Rolls in the challenge', `<small>Two or more skill rolls everyone works through together. When each comes up you pick who rolls, the difficulty and passive or not, and can swap the skill.</small>${N.chalSetup(v)}`) : '';
-  const startOk = cb.zones.length && placed.length && (kind !== 'challenge' || tasks.length >= 2);
+  const flat = N.noBoard();
+  const startOk = flat ? cb.tokens.length && (kind !== 'challenge' || tasks.length >= 2) : cb.zones.length && placed.length && (kind !== 'challenge' || tasks.length >= 2);
+  const boardTog = kind === 'fight' ? '' : `<button type="button" class="toggle" data-a="cbFlat" aria-pressed="${!flat}">${IC('zone')}<span>Board with zones and figures<small>${flat ? `Off: no zones or figures, just a list of who’s in it. Turn it on if where people stand matters.` : `On: draw zones and place everyone, as in a fight. Turn it off if this ${K.w} doesn’t need it.`}</small></span><span class="sw"></span></button>`;
   return `<div class="setup">
     ${v.dev==='phone' ? `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui);display:flex;gap:6px;align-items:center">${IC('lock').replace('<svg','<svg style="width:14px;height:14px;flex:none"')}${cb.ch === 'gm' ? `A GM notes ${K.w}: only you ever see it.` : 'Players see nothing until you press Start.'}</p>` : ''}
     <div class="steps">
       ${cb.ch === 'gm' ? step(1, true, 'Only you', `<small>This ${K.w} stays in GM notes from start to finish. No player is in it and nobody else sees the board, the rolls or the results. Put NPCs on both sides in step 4.</small>`) : step(1, cb.invited.length > 0, 'Players', `<div class="inv-chips">${pcs.map(c => c.built
           ? `<button type="button" data-a="cbInvite" data-v="${c.id}" aria-pressed="${cb.invited.includes(c.id)}">${N.av(c,30)}${esc(c.short)}${cb.invited.includes(c.id)?IC('check'):''}</button>`
           : `<button type="button" disabled style="opacity:.55">${N.av({name:g.P[c.player]?.name||'?',color:c.color},30)}${esc(g.P[c.player]?.name||'?')} · no card</button>`).join('') || '<span class="muted" style="font:600 13px/1.4 var(--f-ui)">Nobody has a seat yet.</span>'}</div>
-          <small>They stand in the first zone you draw. You roll for everyone; players watch.</small>`)}
-      ${step(2, true, kind === 'fight' ? 'Battlefield' : 'Name and backdrop', `<label class="field"><span class="vh">Name of the ${K.w}</span><input class="inp" id="cbt-${v.id}" data-i="cbTitle" value="${esc(cb.title)}" placeholder="${kind === 'fight' ? 'Where the fight happens' : kind === 'contest' ? 'e.g. Race to the bell tower' : 'e.g. Get the cart over the pass'}"></label>
+          <small>${N.noBoard() ? 'They’re in it as soon as they’re picked.' : 'They stand in the first zone you draw.'} You roll for everyone; players watch.</small>`)}
+      ${step(2, true, kind === 'fight' ? 'Battlefield' : 'Name and backdrop', `<label class="field"><span class="vh">Name of the ${K.w}</span><input class="inp" id="cbt-${v.id}" data-i="cbTitle" value="${esc(cb.title)}" placeholder="${kind === 'fight' ? 'Where the fight happens' : kind === 'contest' ? 'e.g. Race to the bell tower' : 'e.g. Get the cart over the pass'}"></label>${boardTog}
         <div class="hscroll"><button type="button" class="thumb up" data-a="cbBgUpload" style="width:128px"><span>${IC('upload')}Upload</span></button>${bgs.map(b => `<button type="button" class="thumb${cb.bg===b.src?' on':''}" data-a="cbBg" data-v="${esc(b.src)}" style="width:128px">${N.bgPic(b.src)}<span>${esc(b.label)}<small>${esc(b.sub)}</small></span>${cb.bg===b.src?`<span class="ck">${IC('check')}</span>`:''}</button>`).join('')}</div>${cb.bg ? `<div><button type="button" class="btn sm ghost fr-adj" data-a="picFrame" data-v="fight">${IC('fit')}Adjust framing</button></div>` : ''}`)}
-      ${step(3, cb.zones.length > 0, 'Zones', `<small>${(v.ui.cbTool||'move')==='zone' ? 'Drag on the map to draw a zone. Drag a name to move it, the corner to resize.' : kind === 'fight' ? 'Zones are what matter: people can only attack inside their own zone.' : 'Zones are where everyone stands. One zone is enough.'}</small>
+      ${flat ? '' : step(3, cb.zones.length > 0, 'Zones', `<small>${(v.ui.cbTool||'move')==='zone' ? 'Drag on the map to draw a zone. Drag a name to move it, the corner to resize.' : kind === 'fight' ? 'Zones are what matter: people can only attack inside their own zone.' : 'Zones are where everyone stands. One zone is enough.'}</small>
         ${cb.zones.length ? `<div class="zlist">${cb.zones.map(z => `<div class="zi" style="--zc:${z.col}${v.ui.zoneSel===z.id?';box-shadow:inset 0 0 0 1.5px var(--gold)':''}"><i></i><span>${esc(z.name)}${z.aspect?`<small>${esc(z.aspect)}</small>`:''}</span><button type="button" class="ibtn sm" data-a="zoneEdit" data-v="${z.id}" aria-label="Edit ${esc(z.name)}">${IC('pen')}</button></div>`).join('')}</div>` : ''}
         ${zs && v.dev==='desktop' ? zoneForm(v, zs) : ''}
         <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm ${(v.ui.cbTool||'move')==='zone'?'primary':''}" data-a="cbTool" data-v="${(v.ui.cbTool||'move')==='zone'?'move':'zone'}">${IC('zone')}${(v.ui.cbTool||'move')==='zone'?'Done drawing':'Draw zones'}</button>${cb.zones.length?'':`<button type="button" class="btn sm ghost" data-a="cbQuickZones">${IC('sparkle')}Quick: 3 zones</button>`}</div>`)}
       ${step(4, cb.tokens.some(t => t.kind === 'npc'), kind === 'fight' ? 'Enemies and allies' : kind === 'contest' ? 'Rivals and others' : 'NPCs who help (optional)', `${kind !== 'challenge' ? N.teamLine(v) : ''}${N.foeList(false, v)}<div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm ghost" data-a="npcNew">${IC('plus')}Make a new NPC</button>${kind !== 'challenge' ? `<button type="button" class="btn sm" data-a="crowdNew">${IC('users')}Add a crowd</button>` : ''}</div>${N.figRows ? N.figRows(v) : ''}`)}
-      ${step(5, tray.length === 0 && placed.length > 0, 'Place everyone', `<small>${tray.length ? 'Drag onto a zone, or tap a token and then a zone.' : placed.length ? 'Everyone is on the board. Drag tokens to rearrange.' : (cb.ch === 'gm' ? 'Add NPCs first.' : 'Invite players or add foes first.')}</small>
+      ${flat ? '' : step(5, tray.length === 0 && placed.length > 0, 'Place everyone', `<small>${tray.length ? 'Drag onto a zone, or tap a token and then a zone.' : placed.length ? 'Everyone is on the board. Drag tokens to rearrange.' : (cb.ch === 'gm' ? 'Add NPCs first.' : 'Invite players or add foes first.')}</small>
         <div class="tray" data-tray="1">${tray.length ? tray.map(t => tokHtml(v, t)).join('') : '<span class="empty">Nobody waiting</span>'}</div>`)}
       ${scoring}${rolls}
     </div>
@@ -660,6 +675,17 @@ N.cbQuickZones = function(){
   [['West bank',3,18,31,48],['The bridge',36,24,24,50],['East bank',62,14,35,58]].forEach(([name,x,y,w,h],i) => cb.zones.push({id:N.uid('z'), name, x, y, w, h, col:N.ZCOL[i], aspect:''}));
   N.cbPlacePcs();
 };
+/* Jake: a contest or challenge can run without the board (cb.noBoard): no zones to draw and no figures, just who's in it.
+   Underneath everyone stands in one zone, so turns, teams and rolls work the same; switching the board back on in setup
+   takes that zone away and everyone waits to be placed again */
+N.cbFlat = on => {
+  const cb = G().combat; if (cb.state !== 'setup' && cb.state !== 'live') return;
+  if (on) { cb.noBoard = true; if (!cb.zones.length) cb.zones.push({id:N.uid('z'), name:'Everyone', x:2, y:4, w:96, h:92, col:N.ZCOL[0], aspect:'', flat:true});
+    const z = cb.zones[0]; cb.tokens.forEach(t => { if (!t.zone) t.zone = z.id; }); return; }
+  delete cb.noBoard; const fz = cb.zones.filter(z => z.flat).map(z => z.id);
+  if (fz.length) { cb.zones = cb.zones.filter(z => !z.flat); cb.tokens.forEach(t => { if (fz.includes(t.zone)) t.zone = null; }); }
+};
+N.noBoard = (cb = G().combat) => !!cb.noBoard && N.cbKind(cb) !== 'fight';
 /* the players picked for a fight stand in the first zone as soon as there is one */
 N.cbPlacePcs = () => { const cb = G().combat, z = cb.zones[0]; if (z) cb.tokens.forEach(t => { if (t.kind === 'pc' && !t.zone) t.zone = z.id; }); };
 N.cbAddNpc = function(nid, side, zone){
@@ -732,7 +758,7 @@ N.cbGo = function(){
   const cur = N.curTok(); if (cur) sys(`${N.tokName(cur)} goes first.`);
 };
 /* someone added once the turn order is rolled rolls Notice right away */
-N.cbLateInit = t => { const cb = G().combat; if (cb.state !== 'live' || cb.phase === 'notice' || t.init != null || N.cbKind() === 'challenge') return; N.rollInit(t); sys(`${N.tokName(t)} rolls Notice for their turn: ${sgn(t.init)} ${ladderWord(t.init)}.`); };
+N.cbLateInit = t => { const cb = G().combat; if (cb.noBoard && !t.zone && cb.zones[0]) t.zone = cb.zones[0].id; if (cb.state !== 'live' || cb.phase === 'notice' || t.init != null || N.cbKind() === 'challenge') return; N.rollInit(t); sys(`${N.tokName(t)} rolls Notice for their turn: ${sgn(t.init)} ${ladderWord(t.init)}.`); };
 N.cbNext = function(){
   N.curTok();   /* first settle whose turn it is in the order as it is now */
   const cb = G().combat, n = N.order().length, contest = N.cbKind() === 'contest';
