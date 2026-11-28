@@ -1282,6 +1282,8 @@ const aspText = (text, ch, cast, extras) => { const l = aspMarks(text, ch, cast,
 const meetNames = text => [...new Set([...text.matchAll(/<<([^<>]+)>>/g)].map(x => x[1].trim().replace(/\s+/g, ' ').slice(0, 60)).filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)))];
 /* ##Time of day## and --Scene name-- (Jake): the words sit right inside the marks, so "wait -- no --" stays a dash */
 const TOD_RE = /##(?=\S)([^#\n]*\S)##/g, NAME_RE = /--(?=[^\s-])([^\n]*?[^\s-])--/g;
+/* any Narrator mark with ~ right after it: done quietly, not shown in the line (Jake, Nov 27) */
+const QUIET_RE = /(\[\[(?!(?:pc|npc|wiki):)[^\[\]|\n]+\]\]|\{\{[^{}]+\}\}|\$\$[^$\n]+\$\$|<<[^<>]+>>|\^\^(?=\S)[^\^\n]*\S\^\^|--(?=[^\s-])(?:(?!--)[^\n])*?[^\s-]--|##(?=\S)[^#\n]*\S##)~/g;
 const todFind = w => { const k = String(w || '').toLowerCase().replace(/[^a-z]/g, ''); return k ? N.TODS.find(t => t[0] === k || t[1].toLowerCase().replace(/[^a-z]/g, '') === k) || null : null; };
 const titleCase = w => String(w || '').trim().replace(/\s+/g, ' ').slice(0, 80).replace(/(^|[\s(\-"“'])(\p{L})/gu, (x, a, b) => a + b.toUpperCase());
 /* Jake: a Narrator line with scene marks (<<NPC>>, [[Location]], {{Map pin}}) in a chat with no scene yet opens the scene
@@ -1329,6 +1331,11 @@ function send(v, opt = {}){
   if (!devCommand && v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
   const narr = gm && m.kind === 'rp' && m.as === 'Narrator';
   if (narr && !g.scenes[ch] && !opt.again && (/\{\{[^{}]+\}\}|<<[^<>]+>>|\$\$[^$\n]+\$\$/.test(text) || [...text.matchAll(WHERE_RE)].length || [...text.matchAll(TOD_RE)].length || [...text.matchAll(NAME_RE)].length)) { sceneFirst(v, ch, text); return; }
+  /* Jake (Nov 27): a Narrator mark ending in ~ ($$Drunk, Sylvaris$$~, --New friends--~) does its job but leaves no words in the
+     line. The mark is fenced with \u0002…\u0003 here, every mark below is read as usual, and the fenced bits are cut before
+     sending. A line that was only hidden marks sends no message at all */
+  const hid = narr && /~/.test(text);
+  if (hid) text = text.replace(QUIET_RE, (x, w) => '\u0002' + w + '\u0003');
   /* sent again after the scene window started the scene: the marks only read as words, the scene already holds what they said */
   if (opt.again) {
     text = aspText(text, ch, N.castOf(ch) || [], N.extrasOf(ch)).replace(TOD_RE, (x, w) => w.trim()).replace(NAME_RE, (x, w) => w.trim());
@@ -1385,7 +1392,8 @@ function send(v, opt = {}){
       const start = !all.slice(0, at).trim() || /[.!?:"“]\s*$/.test(all.slice(0, at));
       const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && !N.properWord(words[0], w) && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
   }
-  push(Object.assign(m, {ch, by:v.role, text}));
+  if (hid) text = text.replace(/\u0002[^\u0003]*\u0003/g, '').replace(/[\u0002\u0003]/g, '').replace(/[ \t]{2,}/g, ' ').replace(/ +([,.!?;:])/g, '$1').replace(/^[ \t]+|[ \t]+$/gm, '').trim();
+  if (text) push(Object.assign(m, {ch, by:v.role, text}));
   if (gifts.length) { const got = gifts.map(x => x.purse ? N.givePurse(x.who, x.purse, x.n) : N.giveItem(x.who, x.name, ch)); toast(v, got.map(x => x.txt || `Gave ${x.item} to ${x.to}`).join('. ') + '.'); }
   if (tod) sceneTod(v, ch, tod);
   if (sname) sceneTitle(v, ch, sname);
@@ -1467,7 +1475,7 @@ function openRoll(v, o={}){
   }
   const r = N.rollerOf(v, who);
   const best = r ? Object.entries(r.skills).sort((a,b)=>b[1]-a[1])[0]?.[0] : 'Notice';
-  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0, mod:0, contest:!!o.contest, chal:o.chal || null};
+  v.ui.roll = {who:r ? r.key : who, skill:o.skill || best || 'Notice', action:o.action || 'overcome', opp:o.opp ?? null, target:o.target || null, secret:!!o.secret || v.ui.ch === 'gm', all:false, ctx:o.ctx || null, aspect:'', otherName:'', otherBonus:2, vsNpc:null, vsSkill:null, passive:true, event:!!o.event, evText:'', dist:g.combat.distLast ?? 0, mod:0, contest:!!o.contest, chal:o.chal || null, why:o.why || ''};
   { const r = v.ui.roll; if (r.skill in vsSkillMem) r.vsSkill = vsSkillMem[r.skill]; }
   v.ui.sheet = 'roll'; v.ui.pop = null;
 }
@@ -1485,6 +1493,7 @@ function doRoll(v){
   const fight = isGM(v) && g.combat.state === 'live' && (r.ctx === 'cb' || (r.action === 'attack' && !!tgt));
   const roll = {who:name, whoKey:who.key, skill, bonus, action:label, target:tgt ? N.tokName(tgt) : null, opp:fight && r.action === 'attack' && tgt ? null : fight && r.contest && r.action === 'overcome' && !r.event ? null : r.opp, dice:N.rollDice(), invokes:[]};
   if (fight) roll.fight = true;
+  if (r.why && r.who === who.key && r.skill === skill) roll.why = r.why;
   /* a contest roll competes with the others this round; a challenge roll is one part of the challenge */
   if (fight && r.contest && r.action === 'overcome' && !r.event) roll.contest = g.combat.id;
   if (fight && r.chal && !r.event) { const k = (g.combat.tasks || []).find(x => x.id === r.chal); if (k) { roll.chal = k.id; if (k.label) roll.chalL = k.label; } }
@@ -2543,6 +2552,11 @@ function act(v, a, el, e){
   case 'applyScene': { const r = g.recent.find(x => x.id === val); if (!r) break; setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:r.title, where:r.where, art:r.art, place:r.place, aspects:[]}, true); if (ui.sheet === 'gm') ui.sheet = null; renderAll(); return; }
   case 'saspAdd': { if (!gm) break; const o = conOwner(d); if (!o) break; o.sasp = [...(o.sasp || []), '']; renderAll(); setTimeout(() => v.root.querySelector(`#sasp-${o.sasp.length - 1}-${o.id}-${v.id}`)?.focus(), 30); return; }
   case 'saspDel': { if (!gm) break; const o = conOwner(d); if (!o || !o.sasp) break; const [x] = o.sasp.splice(+d.x, 1); if (!o.sasp.length) delete o.sasp; renderAll(); if (x && x.trim()) toast(v, `Removed ${x.trim()}.`, () => { o.sasp = o.sasp || []; o.sasp.splice(+d.x, 0, x); renderAll(); }); return; }
+  /* Jake: Attempt to heal / start recovery / prevent worsening: the roll window opens as an Overcome with Strength,
+     the difficulty taken from the one set on that consequence for its state */
+  case 'conRoll': { if (!gm) break; const o = conOwner(d); if (!o) break; const st = N.conSt(o, d.k); if (!N.CON_ROLL[st]) break;
+    const sl = N.consSlots(o.skills || {}).find(x => x.k === d.k), who = d.c ? 'pc:' + d.c : d.n ? 'npc:' + d.n : 'tok:' + d.t;
+    openRoll(v, {who, skill:'Strength', action:'overcome', opp:N.conDf(o, d.k, st), why:`${N.CON_ROLL[st]} · ${(o.cons || {})[d.k]}${sl ? ` (${sl.l.toLowerCase()} consequence)` : ''}`}); break; }
   case 'conDf': { if (!gm) break; const o = conOwner(d); if (!o) break; const st = N.conSt(o, d.k); if (!N.CON_DF[st]) break; N.setConDf(o, d.k, st, N.conDf(o, d.k, st) + (+d.d || 0)); renderAll(); return; }
   case 'conSt': { if (!gm) break; const o = conOwner(d); if (!o) break; N.setConSt(o, d.k, val); renderAll(); return; }
   case 'stress': { const c = g.chars[d.c], on = c.stress[d.k][+d.i] = !c.stress[d.k][+d.i];
@@ -2992,6 +3006,8 @@ function act(v, a, el, e){
   case 'itdPic': if (!gm) break; pickFramed(v, 'item', (img, f) => { if (!ui.itd) return; ui.itd.pic = N.withFrame(N.storeImg(N.shrink(img, 512, 160000), true), f); render(v); }); return;
   case 'itdPicAdj': if (!gm || !ui.itd?.pic) break; reframe(v, 'item', ui.itd.pic, nu => { if (ui.itd) { ui.itd.pic = nu; render(v); } }); return;
   case 'itdPicDel': if (ui.itd) delete ui.itd.pic; break;
+  /* Jake: the made-up picture looks wrong, so step to the next shape the item's words point to (saved with the item) */
+  case 'itdPh': if (!gm || !ui.itd) break; ui.itd.phx = N.itemPhNext(ui.itd); break;
   case 'itSave': {
     const d = ui.itd, name = (d?.name || '').trim(); if (!name) break;
     if (!g.items) g.items = [];
@@ -2999,7 +3015,7 @@ function act(v, a, el, e){
     if (dup) { toast(v, `There is already an item called ${dup.name}.`); break; }
     /* fields this sheet doesn't show (Jake's rule flags from an items file) are kept as they were */
     const it = {...d, id:d.id || uid('it'), name, kind:N.itemKind(d.kind)[0], ic:d.ic && d.ic !== N.itemKind(d.kind)[2] ? d.ic : '', d:(d.d || '').trim(), gm:(d.gm || '').trim(), cls:(d.cls || '').trim(), disc:(d.disc || '').trim()};
-    for (const k of ['cls', 'disc', 'silver', 'pic']) if (!it[k]) delete it[k];
+    for (const k of ['cls', 'disc', 'silver', 'pic', 'phx']) if (!it[k]) delete it[k];
     it.pv = (d.pv || []).map(p => ({id:p.id || uid('pv'), text:String(p.text || '').trim(), see:[...(p.see || [])]})).filter(p => p.text); if (!it.pv.length) delete it.pv;
     for (const [k] of N.ITEM_RATE) if (+d[k] > 0) it[k] = +d[k]; else delete it[k];
     N.ammoFix(it);
@@ -3555,7 +3571,7 @@ function act(v, a, el, e){
   case 'craftMake': { const cr = gm && N.craftOf(d.c); if (!cr || !N.itemById(val)) break; cr.make = val; openSheet(v, 'craft', {c:cr.ch}); renderAll(); return; }
   case 'craftKind': ui.craftK = val || ''; break;
   case 'craftQ': { const cr = gm && N.craftOf(d.c); if (!cr) break; cr.q = clamp((+cr.q || 1) + (+d.d || 0), 1, 999); renderAll(); return; }
-  case 'craftDiff': { const cr = gm && N.craftOf(d.c); if (!cr) break; cr.diff = clamp(+val || 0, -1, 12); renderAll(); return; }
+  case 'craftDiff': { const cr = gm && N.craftOf(d.c); if (!cr) break; cr.diff = val === 'none' ? null : clamp(+val || 0, -1, 12); renderAll(); return; }
   case 'craftMod': { const cr = gm && N.craftOf(d.c); if (!cr) break; cr.mod = clamp(+val || 0, -6, 6); renderAll(); return; }
   case 'craftEnd': { const ch = d.c, cr = gm && N.craftOf(ch); if (!cr) break; delete g.crafts[ch]; ui.sheet = null;
     toast(v, 'Crafting setup deleted.', () => { g.crafts[ch] = cr; renderAll(); }); renderAll(); return; }
@@ -3566,7 +3582,7 @@ function act(v, a, el, e){
     if (!who) { toast(v, 'Pick who does the crafting first.'); break; }
     if (!it) { toast(v, 'Pick what they are making from the item catalog first.'); break; }
     const sk = +(who.o.skills || {}).Crafting || 0, mod = clamp(+cr.mod || 0, -6, 6), q = clamp(+cr.q || 1, 1, 999);
-    const roll = {who:who.name, whoKey:who.roller, skill:'Crafting', bonus:sk + mod, action:'Overcome', target:null, opp:clamp(+cr.diff || 0, -1, 12), dice:N.rollDice(), invokes:[], craft:cr.id};
+    const roll = {who:who.name, whoKey:who.roller, skill:'Crafting', bonus:sk + mod, action:'Overcome', target:null, opp:cr.diff == null ? null : clamp(+cr.diff || 0, -1, 12), dice:N.rollDice(), invokes:[], craft:cr.id};
     if (mod) roll.mod = mod;
     const ch = cr.ch === 'gm' ? 'gm' : cr.ch, rm = push({ch, kind:'roll', by:v.role, roll});
     if (who.o.portrait) rm.pt = who.o.portrait;
@@ -3574,13 +3590,14 @@ function act(v, a, el, e){
     const used = [];
     for (const x of N.craftUsed(cr)) { const row = x.row; row[1] -= x.use; used.push([row[0], x.use, x.w.name]);
       if (row[1] <= 0) { const at = x.w.o.inv.indexOf(row); if (at >= 0) x.w.o.inv.splice(at, 1); if (N.invX(row).eq) N.applyGear(x.w.o); } }
-    const o = N.outcome(roll), st = o.k === 'fail' ? 'fail' : o.k === 'tie' ? 'tie' : 'ok';
-    const card = {id:cr.id, roll:rm.id, who:who.name, by:who.k, it:it.id, name:it.name, ic:it.ic || N.itemKind(it.kind)[2], q, used, st, style:o.k === 'style', given:false};
+    /* no difficulty: nothing to beat, so it waits for the GM's pick like a tie */
+    const o = N.outcome(roll) || {k:'tie'}, st = o.k === 'fail' ? 'fail' : o.k === 'tie' ? 'tie' : 'ok';
+    const card = {id:cr.id, roll:rm.id, who:who.name, by:who.k, it:it.id, name:it.name, ic:it.ic || N.itemKind(it.kind)[2], q, used, st, style:o.k === 'style', given:false, ...(roll.opp == null ? {nod:1} : {})};
     const m = push({ch, kind:'sys', by:'gm', craft:card, text:''});
     if (st === 'ok') craftGive(m);
     m.text = craftText(card);
     delete g.crafts[cr.ch]; ui.sheet = null; v.ui.fresh = rm.id; v.ui.stick = true;
-    toast(v, st === 'ok' ? `${who.name} made ${it.name} ×${q}. It’s in their inventory.${card.style ? ' With style: grant more, or give some ingredients back.' : ''}` : st === 'tie' ? 'A tie. Pick how it ends on the crafting card.' : `${who.name} failed. The ingredients are used up.`);
+    toast(v, st === 'ok' ? `${who.name} made ${it.name} ×${q}. It’s in their inventory.${card.style ? ' With style: grant more, or give some ingredients back.' : ''}` : st === 'tie' ? (card.nod ? `${who.name} rolled ${sgn(N.rollTotal(roll))}. Pick how it ends on the crafting card.` : 'A tie. Pick how it ends on the crafting card.') : `${who.name} failed. The ingredients are used up.`);
     renderAll(); return; }
   case 'craftTie': { const m = gm && g.msgs.find(x => x.id === d.m), c = m && m.craft; if (!c) break;
     if (val === 'ok' && !c.given) craftGive(m); if (val !== 'ok' && c.given) craftTake(m);
@@ -3603,7 +3620,7 @@ function act(v, a, el, e){
 /* crafting: the line a crafting card leaves in exports and notifications, and putting the product in (or back out of) the crafter's inventory */
 function craftText(c){
   const what = `${c.name} ×${c.q}`;
-  return c.st === 'ok' ? `${c.who} crafted ${what}${c.style ? ' with style' : ''}.` : c.st === 'tie' ? `${c.who}’s crafting of ${what} is a tie. The GM decides.`
+  return c.st === 'ok' ? `${c.who} crafted ${what}${c.style ? ' with style' : ''}.` : c.st === 'tie' ? `${c.who}’s crafting of ${what} ${c.nod ? 'has no difficulty' : 'is a tie'}. The GM decides.`
     : c.st === 'hand' ? `${c.who}’s crafting of ${what}: the GM settles it by hand.` : `${c.who} failed to craft ${what}. The ingredients are used up.`;
 }
 function craftGive(m){

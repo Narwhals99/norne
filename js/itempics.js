@@ -62,13 +62,38 @@ N.itemGlyph = (name, kind) => {
   const hit = RULES.find(r => r[0] === k && r[1].test(n)) || RULES.find(r => r[1].test(n));
   return hit ? hit[2] : KIND_GLYPH[k] || 'swap-bag';
 };
+/* Jake (Nov 27): the picture reads the item's name, then what it does, then the GM's and players' notes (and its class),
+   so "Heirloom" described as "a curved blade" still gets a blade. Every shape those words point to is a candidate, then the
+   kind's own shape, then the kind's other shapes; the GM's Try another picture steps through them (it.phx, catalog only).
+   The GM device writes the result on inventory rows and store items as ph = "shape|colour", because players have no catalog */
+const FAMS = [['broadsword', 'gladius', 'two-handed-sword', 'stiletto', 'plain-dagger', 'thrown-daggers'], ['battle-axe', 'war-axe', 'hatchet', 'wood-axe'],
+  ['flanged-mace', 'spiked-mace', 'warhammer', 'spiked-bat', 'wood-club', 'bo'], ['glaive', 'halberd', 'spear-feather', 'thrown-spear', 'trident'],
+  ['bow-arrow', 'pocket-bow', 'crossbow', 'sling'], ['arrow-cluster', 'quiver', 'stone-sphere'], ['breastplate', 'chain-mail', 'scale-mail', 'leather-armor', 'visored-helm'],
+  ['round-shield', 'checked-shield'], ['potion-ball', 'standing-potion', 'round-bottom-flask', 'poison-bottle', 'wine-bottle', 'jug'],
+  ['cape', 'robe', 'hood', 'gloves', 'leather-boot', 'sandal', 'trousers', 'pointy-hat', 'wool'], ['diamond-ring', 'gem-necklace', 'gem-pendant', 'pearl-necklace', 'crown', 'emerald', 'crystal-cluster'],
+  ['magic-swirl', 'crystal-ball', 'crystal-wand', 'wizard-staff', 'rune-stone', 'spell-book'], ['book-cover', 'scroll-quill', 'scroll-unfurled', 'spell-book'],
+  ['herbs-bundle', 'mushrooms', 'feather', 'tooth'], ['bread', 'cheese-wedge', 'meat', 'ham-shank', 'roast-chicken', 'bowl-of-rice'], ['ore', 'metal-bar', 'gold-bar', 'rock'],
+  ['backpack', 'light-backpack', 'swap-bag', 'locked-chest'], ['torch', 'old-lantern']];
+const textsOf = it => [it.name, it.d, it.gm, ...(it.pv || []).map(p => p && p.text), it.cls, it.disc, it.sub].map(low).filter(Boolean);
+N.itemGlyphs = it => {
+  const k = N.itemKind(it.kind)[0], out = [], put = g => { if (g && !out.includes(g) && (!window.ITEM_GLYPHS || window.ITEM_GLYPHS[g])) out.push(g); };
+  for (const t of textsOf(it)) { for (const r of RULES) if (r[0] === k && r[1].test(t)) put(r[2]); for (const r of RULES) if (r[1].test(t)) put(r[2]); }
+  /* the next tries look like what the words said: another blade after a blade, another bottle after a bottle */
+  for (const g of [...out]) for (const f of FAMS) if (f.includes(g)) f.forEach(put);
+  put(KIND_GLYPH[k]); for (const r of RULES) if (r[0] === k) put(r[2]); put('swap-bag');
+  return out;
+};
+N.itemLook = it => { const L = N.itemGlyphs(it), gl = it.phx && L.includes(it.phx) ? it.phx : L[0];
+  const mat = textsOf(it).map(t => N.itemMat(t)).find(Boolean) || ''; return gl + (mat ? '|' + mat : ''); };
+N.itemPhNext = it => { const L = N.itemGlyphs(it), cur = N.itemLook(it).split('|')[0]; return L[(L.indexOf(cur) + 1) % L.length]; };
 N.itemMat = name => { const n = low(name); let best = null, at = 1e9;
   for (const [w, c] of MATS) { const re = new RegExp('\\b' + w + '\\b'), m = re.exec(n); if (m && m.index < at) { at = m.index; best = c; } } return best; };
 /* a dark colour gets a light outline so it still reads on the tile */
 const dark = hex => { const v = parseInt(hex.slice(1), 16); return ((v >> 16) * .3 + ((v >> 8) & 255) * .59 + (v & 255) * .11) < 70; };
 const PH = new Map();
-N.itemPh = (name, kind) => {
-  const k = N.itemKind(kind)[0], gl = N.itemGlyph(name, k), fill = N.itemMat(name) || KIND_TONE[k], key = gl + fill + k;
+N.itemPh = (name, kind, ph) => {
+  const [pg, pm] = String(ph || '').split('|'), k = N.itemKind(kind)[0], gl = pg && (window.ITEM_GLYPHS || {})[pg] ? pg : N.itemGlyph(name, k);
+  const fill = (pm && /^#[0-9a-f]{6}$/i.test(pm) ? pm : '') || (pg ? '' : N.itemMat(name)) || KIND_TONE[k], key = gl + fill + k;
   if (PH.has(key)) return PH.get(key);
   const tone = KIND_TONE[k] || '#5a5a5a', d = (window.ITEM_GLYPHS || {})[gl] || '', edge = dark(fill) ? '#efe6d2' : '#221b16';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs><radialGradient id="g" cx="50%" cy="42%" r="70%"><stop offset="0" stop-color="#f6efdd"/><stop offset=".62" stop-color="#e6d8b8"/><stop offset="1" stop-color="${tone}"/></radialGradient></defs>`
@@ -90,15 +115,15 @@ if (typeof document !== 'undefined') document.addEventListener('error', e => {
 }, true);
 /* what an item looks like: a catalog item, a store item or an inventory row ([name, qty, note, icon, x]) */
 const facts = x => {
-  if (Array.isArray(x)) { const xx = N.invX(x), it = N.rowItem(x); return {name:x[0], kind:N.rowKind(x), pic:(it && it.pic) || xx.pic || ''}; }
+  if (Array.isArray(x)) { const xx = N.invX(x), it = N.rowItem(x); return {name:x[0], kind:N.rowKind(x), pic:(it && it.pic) || xx.pic || '', ph:it ? N.itemLook(it) : xx.ph || ''}; }
   const it = x && x.it && typeof x.it === 'string' && N.itemById(x.it);
-  return {name:x && x.name, kind:x && x.kind, pic:(x && x.pic) || (it && it.pic) || ''};
+  return {name:x && x.name, kind:x && x.kind, pic:(x && x.pic) || (it && it.pic) || '', ph:it ? N.itemLook(it) : x && x.ph ? x.ph : x && x.name ? N.itemLook(x) : ''};
 };
 N.itemPicOf = x => facts(x).pic || '';
 /* the picture as an <img> in a square box. size: '' (the small square in lists), 'big' (store cards, the editor) */
 N.itemPic = (x, size) => {
   const f = facts(x), up = f.pic ? N.show(N.imgUrl(f.pic)) : '';
-  const src = up || N.itemPh(f.name, f.kind);
+  const src = up || N.itemPh(f.name, f.kind, f.ph);
   return `<span class="ipic${size ? ' ' + size : ''}${up ? ' up' : ''}"><img src="${esc(src)}" alt="" loading="lazy" decoding="async"${up ? ` style="${N.frameCss(f.pic)}"` : ''}></span>`;
 };
 })();

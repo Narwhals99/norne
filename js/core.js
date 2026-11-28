@@ -1040,8 +1040,8 @@ N.invTagAll = () => {
   for (const o of N.invOwners()) for (const row of o.inv || []) {
     if (!Array.isArray(row)) continue;
     const x = N.invX(row), it = (x.it && byId.get(x.it)) || byName.get(N.pvKey(row[0])); if (!it) continue;
-    const cl = N.itemClass(it), k = N.itemKind(it.kind)[0], sl = N.itemSlot(it) || null, pic = it.pic || null;
-    if (x.it !== it.id || x.cl !== cl || x.k !== k || (x.sl || null) !== sl || (x.pic || null) !== pic) N.invSetX(row, {it:it.id, cl, k, sl, pic});
+    const cl = N.itemClass(it), k = N.itemKind(it.kind)[0], sl = N.itemSlot(it) || null, pic = it.pic || null, ph = N.itemLook ? N.itemLook(it) : null;
+    if (x.it !== it.id || x.cl !== cl || x.k !== k || (x.sl || null) !== sl || (x.pic || null) !== pic || (x.ph || null) !== ph) N.invSetX(row, {it:it.id, cl, k, sl, pic, ph});
     /* an ammo item made before its 0..4 count existed (Jake): its copies start full */
     if (it.ammo && N.invX(row).am == null) N.invSetX(row, {am:N.AMMO_MAX});
   }
@@ -1059,7 +1059,7 @@ N.itemSync = (it, oldName) => {
       if (linked ? x.it !== it.id : !keys.has(N.pvKey(row[0]))) continue;
       hit = true; if (x.eq || x.eq2) eq = true;
       row[0] = it.name; while (row.length < 3) row.push(''); row[2] = N.invNote(it); row[3] = ic;
-      N.invSetX(row, {it:it.id, cl:N.itemClass(it), k:N.itemKind(it.kind)[0], sl:sl || null, pic:it.pic || null, w:sl ? 1 : 0, ...(sl ? {} : {eq:0, eq2:0}), ...(it.ammo ? (x.am == null ? {am:N.AMMO_MAX} : {}) : {am:null})});
+      N.invSetX(row, {it:it.id, cl:N.itemClass(it), k:N.itemKind(it.kind)[0], sl:sl || null, pic:it.pic || null, ph:N.itemLook ? N.itemLook(it) : null, w:sl ? 1 : 0, ...(sl ? {} : {eq:0, eq2:0}), ...(it.ammo ? (x.am == null ? {am:N.AMMO_MAX} : {}) : {am:null})});
     }
     if (hit) { n++; if (eq) N.applyGear(o); }
   }
@@ -1088,7 +1088,7 @@ N.shopAsk = (ch, cid, k, kind) => N.G.msgs.find(m => m.ch === ch && m[kind] && m
 /* Jake: how many of an item the store has (x.n, 1 when not set) and how many are left after confirmed purchases (x.sold) */
 N.shopN = x => Math.max(1, x.n | 0 || 1);
 N.shopLeft = x => Math.max(0, N.shopN(x) - (x.sold | 0));
-N.shopItem = it => ({k:N.uid('si'), it:it.id, name:it.name, kind:N.itemKind(it.kind)[0], ic:it.ic || '', ...(it.pic ? {pic:it.pic} : {}),
+N.shopItem = it => ({k:N.uid('si'), it:it.id, name:it.name, kind:N.itemKind(it.kind)[0], ic:it.ic || '', ...(it.pic ? {pic:it.pic} : {}), ...(N.itemLook ? {ph:N.itemLook(it)} : {}),
   /* items from Jake's lists carry their class as the description, so like the catalog they show only the class line */
   d:it.cls ? '' : String(it.d || '').trim(), path:[...new Set([it.cls, it.sub, it.disc].filter(Boolean))].join(' · '), ...(it.cls ? {cls:it.cls} : {}),
   gears:N.itemGears(it).map(([k]) => [k, +it[k]]), ...(it.silver ? {silver:1} : {}), price:0, n:1});
@@ -1097,7 +1097,7 @@ N.shopOut = s => ({id:s.id, ch:s.ch, state:s.state, name:s.name || '', t:s.t || 
   pcs:(s.pcs || []).map(id => { const c = N.G.chars[id]; return c && c.built ? {id, name:c.short || c.name, portrait:c.portrait || null, color:c.color || ''} : null; }).filter(Boolean),
   npcs:(s.npcs || []).map(n => ({name:n.name, portrait:n.portrait || null})), items:(s.items || []).map(x => { const {it, ...o} = x, cat = it && N.itemById(it);
     /* the item's picture as the catalog has it now (Jack: the GM can add or change one after the store was set up) */
-    if (cat) { if (cat.pic) o.pic = cat.pic; else delete o.pic; } return o; })});
+    if (cat) { if (cat.pic) o.pic = cat.pic; else delete o.pic; if (N.itemLook) o.ph = N.itemLook(cat); } return o; })});
 /* the people of a store as {name, portrait, color}: on the GM's device from the cards, on a player's from the copy */
 N.shopPcs = s => (s.pcs || []).map(x => typeof x === 'string' ? (c => c && c.built ? {id:x, name:c.short || c.name, portrait:c.portrait, color:c.color} : null)(N.G.chars[x]) : x).filter(Boolean);
 /* ---------- crafting sessions (Jake): the GM sets up one crafting roll in a chat, like a store ----------
@@ -1167,7 +1167,12 @@ N.revParts = (c, pc) => {
   add('pic', 'Who they are', 'Picture', c.portrait ? 'Their portrait' : 'No picture yet');
   add('race', 'Who they are', 'Race', c.race || 'Not set');
   add('nat', 'Who they are', 'Nationality', c.nat || 'Not set');
-  add('job', 'Who they are', 'Job or faction', c.job || 'Not set');
+  /* several jobs (Jake, Nov 27): each one is its own part jb:<job>, and each job alias too (jb~:<alias id>), so revealing
+     one never reveals the others. One job (or none) stays the single part job, with the truth-or-alias picker like before */
+  const jobs = N.jobsOf(c);
+  if (jobs.length > 1) { jobs.forEach((j, i) => add('jb:' + j, 'Who they are', `Job or faction ${i + 1}`, j));
+    N.aliases(c, 'job').forEach(a => add('jb~:' + a.id, 'Who they are', 'Job or faction (alias)', a.v)); }
+  else add('job', 'Who they are', 'Job or faction', c.job || 'Not set');
   /* Deceased (Jake, Nov 25): ticked here, the player sees “Deceased” and a skull by the name, but only while the card is marked dead */
   if (!pc) add('dead', 'Who they are', 'Deceased', c.dead ? 'Marked deceased · they see it with a skull' : 'Alive · nothing shows until you tick Deceased on the card');
   add('age', 'Who they are', 'Age', c.age ? 'Age ' + c.age : 'Not set');
@@ -1182,7 +1187,10 @@ N.revParts = (c, pc) => {
   return out;
 };
 /* older reveal lists (before names were their own part) used about, cons and gear for whole groups */
-N.revKeys = (c, keys) => keys.flatMap(k => k === 'about' ? ['race', 'nat', 'age'] : k === 'cons' ? consSlots(c.skills || {}).map(sl => 'cn:' + sl.k) : k === 'gear' ? N.GEARK.map(g => 'g:' + g[0]) : [k]);
+N.revKeys = (c, keys) => { const many = N.jobsOf(c).length > 1, ja = many && N.asOf(keys, 'job');
+  /* a card that now has several jobs: an older single job part becomes every job (or the alias the GM had picked) */
+  const jobK = k => !many ? [k] : k === 'job' ? (ja ? ['jb~:' + ja] : N.jobsOf(c).map(j => 'jb:' + j)) : k.startsWith('as:job:') ? [] : [k];
+  return [...new Set(keys.flatMap(k => k === 'about' ? ['race', 'nat', 'age'] : k === 'cons' ? consSlots(c.skills || {}).map(sl => 'cn:' + sl.k) : k === 'gear' ? N.GEARK.map(g => 'g:' + g[0]) : jobK(k)))]; };
 /* what one player is told about a card: only the parts in keys, nothing at all without the name */
 N.revealed = (c, pc, keys0) => {
   const keys = N.revKeys(c, keys0), has = k => keys.includes(k), val = f => N.alVal(c, keys, f);
@@ -1191,6 +1199,8 @@ N.revealed = (c, pc, keys0) => {
   const r = {id:c.id, name:ns[0]}; if (ns.length > 1) r.aka = ns.slice(1);
   if (has('pic')) { const ps = N.picVals(c, keys); if (ps[0]) r.portrait = ps[0]; if (ps.length > 1) r.pics = ps.slice(1); }
   for (const f of ['race', 'nat', 'job', 'age']) { const x = has(f) && val(f); if (x) r[f] = x; }
+  if (N.jobsOf(c).length > 1) { const js = [...N.jobsOf(c).filter(j => has('jb:' + j)), ...N.aliases(c, 'job').filter(a => has('jb~:' + a.id)).map(a => a.v)];
+    if (js.length) r.job = js.join(' · '); }
   const asp = N.pcAspects(c).map((a, i) => [i, a]).filter(([i]) => has('a:' + i)); if (asp.length) r.aspects = asp;
   const sk = N.revSkills(c).filter(([n]) => has('sk:' + n)).map(([n, x]) => [n, x, discOf(c, n)]); if (sk.length) r.skills = sk;
   const st = (c.stunts || []).filter(([n, d]) => has('st:' + (n || d))); if (st.length) r.stunts = st;
