@@ -131,7 +131,7 @@ N.mount = function(root, o){
       const p = localStorage.getItem('norne-nlp'); if (p) { v.pal = p; localStorage.setItem('norne-pal', p); } }
     localStorage.removeItem('norne-nl'); localStorage.removeItem('norne-nlp'); } catch(e) { v.lay = v.lay || 'classic'; }
   try { const r = localStorage.getItem('norne-rail'); if (r) v.ui.rail = r === '1'; } catch(e) {}
-  try { for (const k of ['railW','railWc','rcH','rcHc','shelfW']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1';
+  try { for (const k of ['railW','railWc','rcH','rcHc','shelfW','sceneH']) { const n = +localStorage.getItem('norne-' + k.toLowerCase()); if (n) v.ui[k] = n; } v.ui.recentOff = localStorage.getItem('norne-recent') === '0'; for (const k of ['railOff','railOffc','shelfOff']) v.ui[k] = localStorage.getItem('norne-' + k.toLowerCase()) === '1';
     for (const k of ['paneA','paneB','paneAc','paneBc']) { const p = localStorage.getItem('norne-' + k.toLowerCase()); if (p) v.ui[k] = p; } } catch(e) {}
   views.push(v); bind(v); render(v);
   return v;
@@ -548,7 +548,9 @@ function bind(v){
   const GRIPS = {
     railgrip:{box:g => g.closest('.page'), key:b => b.dataset.wk || 'railW', css:'--railw', size:(r, ev) => Math.min(r.width - 380, Math.max(260, r.right - ev.clientX))},
     rowgrip:{box:g => g.closest('.rail'), key:b => b.closest('.page').dataset.hk || 'rcH', css:'--rch', size:(r, ev) => Math.min(r.height - 140, Math.max(120, r.bottom - ev.clientY))},
-    shelfgrip:{box:g => g.closest('.shelf'), key:() => 'shelfW', css:'--shelfw', host:b => b.closest('.shell'), size:(r, ev) => Math.min(420, Math.max(190, ev.clientX - r.left))}
+    shelfgrip:{box:g => g.closest('.shelf'), key:() => 'shelfW', css:'--shelfw', host:b => b.closest('.shell'), size:(r, ev) => Math.min(420, Math.max(190, ev.clientX - r.left))},
+    /* the scene banner's bottom edge: from a slim strip up to two thirds of the chat */
+    scenegrip:{box:g => g.closest('.scene'), key:() => 'sceneH', css:'--sceneh', size:(r, ev, box) => Math.max(120, Math.min(ev.clientY - r.top, Math.max(160, (box.parentElement?.clientHeight || 600) * .66)))}
   };
   const gripOf = t => { for (const c in GRIPS) { const g = t.closest('.' + c); if (g) return [g, GRIPS[c]]; } return []; };
   root.addEventListener('pointerdown', e => {
@@ -557,7 +559,9 @@ function bind(v){
     e.preventDefault(); grip.setPointerCapture(e.pointerId);
     const page = grip.closest('.page') || grip.closest('.shell'); page.classList.add('resizing'); grip.classList.add('on');
     const r = box.getBoundingClientRect(), k = G2.key(box), host = G2.host ? G2.host(box) : box;
-    const move = ev => { v.ui[k] = Math.round(G2.size(r, ev)); host.style.setProperty(G2.css, v.ui[k] + 'px'); if (paneShows(v, 'map')) mapFrame(v); };
+    /* a chat read at its newest line stays at its newest line while the scene above it grows or shrinks */
+    const ml = grip.classList.contains('scenegrip') && box.parentElement?.querySelector(':scope > .msgs'), low = ml && ml.scrollHeight - ml.scrollTop - ml.clientHeight < 60;
+    const move = ev => { v.ui[k] = Math.round(G2.size(r, ev, box)); host.style.setProperty(G2.css, v.ui[k] + 'px'); if (low) ml.scrollTop = ml.scrollHeight; if (paneShows(v, 'map')) mapFrame(v); };
     const up = () => { grip.removeEventListener('pointermove', move); page.classList.remove('resizing'); grip.classList.remove('on'); try { localStorage.setItem('norne-' + k.toLowerCase(), v.ui[k]); } catch(err) {} };
     grip.addEventListener('pointermove', move); grip.addEventListener('pointerup', up, {once:true}); grip.addEventListener('pointercancel', up, {once:true});
   });
