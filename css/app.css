@@ -3736,3 +3736,9 @@
 .app .itc-picbox h4 small{display:block;margin-left:0;font:600 12px/1.35 var(--f-ui);color:var(--ink-3);margin-top:2px;text-transform:none;letter-spacing:0}
 @media (max-width:520px){.app .ipic.big{width:96px;height:96px}}
 .app .shop-sec .shop-it .ipic{grid-row:1/span 2;width:56px;height:56px;border-radius:13px}
+/* Jake (Nov 27): roll buttons by a consequence's state */
+.app .cq-roll{margin-top:6px;gap:6px;min-height:32px;font-size:12.5px}
+.app .cq-roll svg{width:15px;height:15px}
+.app .cq-roll.st-recovering{border-color:color-mix(in srgb,var(--ok, #3a8a4a) 55%,transparent)}
+.app .cq-roll.st-active{border-color:color-mix(in srgb,var(--danger, #b0413e) 50%,transparent)}
+.app .roll .evt.why svg{color:var(--danger, #b0413e)}
