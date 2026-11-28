@@ -11,6 +11,10 @@ N.now = () => { const ms = G().msgs; const last = ms.length ? ms[ms.length - 1].
 N.msgEditable = m => ['rp','ooc','meta','note','dev'].includes(m.kind) && typeof m.text === 'string';
 /* the GM can edit any typed message, a player only their own */
 N.canEdit = (v, m) => N.msgEditable(m) && (isGM(v) || m.by === v.role);
+/* the GM can delete any message; a player only what they typed or sent themselves (words, pictures, GIFs),
+   never a roll or a card the game made, so a fight or a scene can't lose its record */
+N.ownDelKinds = ['rp','ooc','meta','pic','gif'];
+N.canDel = (v, m) => !!m && (isGM(v) || (m.by === v.role && N.ownDelKinds.includes(m.kind)));
 /* the voice a typed message went out in can be changed afterwards (sent as Meta by mistake, or as the wrong NPC):
    not in GM notes, fight talk or Meta-only chats, where there is only one voice */
 N.voiceFixable = m => ['rp','ooc','meta'].includes(m.kind) && typeof m.text === 'string' && m.ch !== 'gm' && !m.fc && !N.metaOnly(m.ch);
@@ -2534,7 +2538,7 @@ function act(v, a, el, e){
   case 'medLook': if (ui.med) { if (d.k === 'n') ui.med.an = val; else { const m = g.msgs.find(x => x.id === ui.med.id), p = N.pcLooks(N.charOf(m?.by)).pics[+val]; if (p) ui.med.ap = p; } } break;
 
   case 'msgDelGo': {
-    const m = g.msgs.find(x => x.id === val); ui.sheet = null; if (!gm || !m) break;
+    const m = g.msgs.find(x => x.id === val); ui.sheet = null; if (!m || !N.canDel(v, m)) break;
     N.delMsg(m.id);
     toast(v, 'Message deleted.', () => { if (!g.msgs.some(x => x.id === m.id)) { g.msgs.push(m); g.msgs.sort((a,b) => a.t - b.t || (a.id < b.id ? -1 : 1)); N.invalidateScenes(); } });
     renderAll(); return;
