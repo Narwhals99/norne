@@ -3389,7 +3389,12 @@ function act(v, a, el, e){
   case 'shopRm': { const s = gm && N.shopOf(d.c); if (!s) break; const at = s.items.findIndex(x => x.k === val); if (at < 0) break;
     const [x] = s.items.splice(at, 1); toast(v, `${x.name} taken off the shelf.`, () => { s.items.splice(at, 0, x); renderAll(); }); renderAll(); return; }
   case 'shopKind': ui.shopK = val || ''; break;
-  case 'storeKind': ui.storeK = val || ''; break;
+  case 'storeKind': ui.storeK = val || '';
+    /* Jack: a scrolled-down store jumps back up to the top of the picked section, under the tabs */
+    requestAnimationFrame(() => { const sb = document.querySelector('.sheet .sh-b'), sec = sb && sb.querySelector('.shop-sec'), tabs = sb && sb.querySelector('.shop-tabs-w');
+      if (!sec || !tabs) return; const gap = sec.getBoundingClientRect().top - tabs.getBoundingClientRect().bottom - 8;
+      if (gap < 0) sb.scrollTop = Math.max(0, sb.scrollTop + gap); });
+    break;
   /* saved storefronts: start from one used here before (or a traveling merchant), mark this one as traveling, forget one */
   case 'shopUse': { const s = gm && N.shopOf(d.c), x = (g.shopLib || []).find(y => y.id === val); if (!s || !x || s.state === 'open') break;
     Object.assign(s, {name:x.name, items:JSON.parse(JSON.stringify(x.items || [])), npcs:JSON.parse(JSON.stringify(x.npcs || [])), travel:!!x.travel, lib:x.id});
