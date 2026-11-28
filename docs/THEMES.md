@@ -91,13 +91,22 @@ home-screen splash). Nothing updates them per style or theme yet.
 
 ### 2.5 Text size (per device)
 
-Profile > **Text size** (`N.FONT_SIZES`) multiplies every font size. When it is not Normal, `fzSet` in `js/app.js` rewrites every
-`px` font size and line height in every same-origin stylesheet once to `calc(px * var(--fz))`, and `fzInline` does the same to
-inline styles after each draw. So:
+Profile > **Text size** (`N.FONT_SIZES`, .9 to 1.4) sets `--fzu` on the app. `fzSet` in `js/app.js` rewrites every `px` font
+size and line height in every same-origin stylesheet once to `calc(px * var(--fz))` (on every setting, Normal too), and
+`fzInline` does the same to inline styles after each draw. Font sizes under 10.5px are raised to 10.5px.
+
+`--fz` differs per area (Jack, 2026-11-28, block "text size per area" in `css/app.css`): the chat messages, the typing box and
+pages that fill the screen (and sheets on phones) grow by the whole step, and the chat starts bigger (x1.12 desktop, x1.06 phone);
+side panels, the chat list, menus, the tab bar, the chat header, the scene banner and popups on a computer grow by half (`--fzh`).
+A new area that is narrow should get `--fz:var(--fzh)`. The audit behind it: /mnt/project-files/text-size-audit/. So:
 
 - Write font sizes in **px** as usual; they scale for free, also in a new style sheet.
 - Use **rem** only for a size that must *not* scale.
 - A new stylesheet must be same-origin (in `css/`) to be rewritten.
+- Don't follow a `font:` shorthand that uses `var()` with another `font-*` or `line-height` in the same rule: the browser then
+  reads every font size in that rule back as empty and it never scales. Write longhands instead (`font-weight`, `font-size`,
+  `line-height`, `font-family`).
+- Side panels are a one-column grid with `minmax(0,1fr)`, so give long labels room to wrap rather than `white-space:nowrap`.
 
 ### 2.6 Container queries, not media queries
 

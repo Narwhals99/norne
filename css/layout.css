@@ -16,7 +16,7 @@
 .app:where([data-lay="new"]) .nl-seg{display:inline-flex;background:var(--raise);border-radius:9px;padding:2px;gap:0}
 .app:where([data-lay="new"]) .nl-seg button{height:30px;min-width:96px;padding:0 14px;border-radius:7px;font:600 13px/1 var(--f-ui);color:var(--ink-2);display:inline-flex;align-items:center;justify-content:center;gap:6px}
 .app:where([data-lay="new"]) .nl-seg button[aria-pressed="true"]{background:var(--page-solid);color:var(--ink);box-shadow:0 0 0 1px var(--line-2)}
-.app:where([data-lay="new"]) .nl-n{font:700 11px/16px var(--f-ui);font-style:normal;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--nlb);color:var(--gold-ink)}
+.app:where([data-lay="new"]) .nl-n{font-weight:700;font-size:11px;line-height:16px;font-family:var(--f-ui);font-style:normal;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--nlb);color:var(--gold-ink)}
 
 /* the scene: one line */
 .app:where([data-lay="new"]) .nl-scene{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);min-width:0}
