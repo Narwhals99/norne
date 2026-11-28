@@ -149,9 +149,11 @@ function shelfRow(v, c){
 N.shelfHtml = v => shelfHtml(v);
 /* Jack (2026-11-28): the chat list is split into one panel per kind of chat, each with its own colour, icon and heading,
    so Everyone, the party, chats with just the GM, player-to-player roleplay, Meta chats and GM notes never look alike.
-   A group chat with only one player in it (a "Solo" chat) is a chat with the GM, so it sits with the private chats */
-N.grpSolo = c => { const gr = N.grpOf(c); return !!gr && !gr.party && !gr.meta && (gr.seats || []).length === 1; };
-N.shSec = c => c === 'table' ? 'all' : c === 'gm' ? 'notes' : c.startsWith('dm-') ? 'gm' : N.grpOf(c)?.party ? 'party' : N.grpOf(c)?.meta ? 'meta' : N.grpSolo(c) ? 'gm' : 'pp';
+   A group chat or party with only one person in it (a "Solo" chat or Solo party; several characters of the same account
+   count as one person) is a chat with the GM, so it sits with the private chats */
+N.grpSolo = c => { const gr = N.grpOf(c); if (!gr || gr.meta) return false;
+  const who = new Set((gr.seats || []).map(s => N.G.P[s]?.uid || s)); return who.size === 1; };
+N.shSec = c => c === 'table' ? 'all' : c === 'gm' ? 'notes' : c.startsWith('dm-') ? 'gm' : N.grpOf(c)?.meta ? 'meta' : N.grpSolo(c) ? 'gm' : N.grpOf(c)?.party ? 'party' : 'pp';
 function shSecs(v){
   const gm = isGM(v);
   return [
