@@ -2420,14 +2420,17 @@ function act(v, a, el, e){
     /* a player is in one party at a time: putting them in this one takes them out of any other. A party whose
        players all come along (a Solo party) stays as their group chat with all its history, so the 1-on-1
        roleplay with the GM is never lost; from a bigger party only the players who move leave. */
-    if (gr.party) for (const o of g.groups.filter(x => x.party && x.id !== gr.id && x.seats.some(s => seats.includes(s)))) {
+    const added = old ? seats.filter(s => !old.seats.includes(s)) : [], hist = d.hist !== false;
+    /* the new party is saved first, with its players' cards in the same save (N.saveGroup), and only then do the old
+       parties let go of them: a save cut off halfway leaves a card in two places, never in none */
+    const others = gr.party ? g.groups.filter(x => x.party && x.id !== gr.id && x.seats.some(s => seats.includes(s))) : [];
+    N.saveGroup(gr, old ? old.seats : null, hist);
+    for (const o of others) {
       const was = [...o.seats], left = o.seats.filter(s => !seats.includes(s));
       if (left.length) { N.saveGroup({...o, seats:left}, was); continue; }
       const {party, ...chat} = o; N.saveGroup(chat, was);
       sys(`${N.namesOf(was)} joined the party ${name}. This chat stays open as a group chat.`, 'grp-' + o.id);
     }
-    const added = old ? seats.filter(s => !old.seats.includes(s)) : [], hist = d.hist !== false;
-    N.saveGroup(gr, old ? old.seats : null, hist);
     if (!old) sys(`${N.gmName()} made this group chat for ${N.namesOf(seats)}.`, 'grp-' + gr.id);
     else if (added.length) sys(`${N.gmName()} added ${N.namesOf(added)} to the chat${hist ? '' : '. They see only what is said from here on'}.`, 'grp-' + gr.id);
     if (!old ? gr.meta : !!old.meta !== !!gr.meta) sys(gr.meta ? `${N.gmName()} made this chat Meta only: everyone shows as themselves, no characters and no fights.` : `${N.gmName()} turned Meta only off: characters can speak here again.`, 'grp-' + gr.id);
@@ -2926,7 +2929,8 @@ function act(v, a, el, e){
   case 'pdStep': ui.pd[d.k] = clamp(ui.pd[d.k] + (+d.d), 0, 10); break;
   case 'pcSave': savePc(v); return;
   case 'pcDelete': {
-    const old = g.chars[val]; g.chars[val] = N.decorate(N.blankChar(val, old.player));
+    /* cleared: emptied on purpose, so Norne doesn't bring back an older filled-in copy of this card (sync.js mergeChars) */
+    const old = g.chars[val]; g.chars[val] = N.decorate({...N.blankChar(val, old.player), cleared:true});
     if (old.mpic) g.chars[val].mpic = old.mpic; /* the player's Meta picture is theirs, not the card's */
     const ox = (g.pcx || {})[val]; if (ox) delete g.pcx[val];
     ui.sheet = null; toast(v, `${old.short}’s card is empty again.`, () => { g.chars[val] = old; if (ox) g.pcx[val] = ox; }); renderAll(); return;

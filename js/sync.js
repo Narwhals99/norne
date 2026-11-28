@@ -204,13 +204,29 @@ N.wipeChat = ch => {
 /* ---------- group chats: one document each (groups/<id>: name, seats). Players see only the groups they are in. ---------- */
 let GROUPS_OK = false, GROUPS_DONE = false;
 /* characters arrive from game/chars plus each party document this person can read */
-const CH = {base:{}, party:{}};
+/* spare (GM only): the parties/<id> documents of group chats that are not parties now (a Solo party whose player moved on,
+   a party switched off). The card a player had there stays in that document, so it is never really gone */
+const CH = {base:{}, party:{}, spare:{}};
+let HEALED = new Set();
 function mergeChars(){
   const all = {...CH.base}; for (const u of Object.values(CH.party)) Object.assign(all, u);
   const g = G(), prev = g.chars || {}, next = Object.fromEntries(Object.entries(all).map(([k, j]) => [k, N.decorate(JSON.parse(j))]));
   /* the GM never loses a seated player's card just because its document moved (party made, changed, deleted or
      switched off): without this the card vanished here, ensureChars made a blank one and the save wrote the blank over it */
   if (isGM()) for (const s of N.seats()) { const id = g.P[s]?.char; if (id && !next[id] && prev[id]) next[id] = prev[id]; }
+  /* 2026-11-28 Sylvaris: moved into a party, the copy to the new party never landed, so Norne made a blank card there
+     while the real one sat in his old Solo chat's document. A seated card that is missing or blank (and not emptied on
+     purpose with Delete card) comes back from any other document that still has the filled-in card; the next save puts
+     it where it belongs */
+  if (isGM() && charsReady()) for (const s of N.seats()) {
+    const id = g.P[s]?.char, cur = id && next[id]; if (!id || (cur && (cur.built || cur.cleared))) continue;
+    const found = [CH.base, ...Object.values(CH.party), ...Object.values(CH.spare)].map(u => u && u[id]).filter(Boolean)
+      .map(j => { try { return JSON.parse(j); } catch(e) { return null; } }).filter(c => c && c.built && c.id === id)
+      .sort((a, b) => JSON.stringify(b).length - JSON.stringify(a).length)[0];
+    if (!found) continue;
+    next[id] = N.decorate(found);
+    if (!HEALED.has(id)) { HEALED.add(id); console.warn('card put back', id); setTimeout(() => { if (V) N.toast(V, `${found.short || found.name}’s card was missing and has been put back.`); queueSync(); }, 0); }
+  }
   g.chars = next;
   nameSeats(); keepSeatCard();
   if (isGM() && N.lvlNotes) setTimeout(N.lvlNotes, 0);
@@ -232,7 +248,9 @@ N.seatCard = s => { try { return JSON.parse(localStorage.getItem(SCKEY(s)) || 'n
 function listenParty(id){
   const path = 'parties/' + id;
   if (PARTY_ON.has(path)) return; PARTY_ON.add(path);
-  listenDoc(path, u => { if (!G().groups.some(x => x.id === id && x.party)) return; CH.party[id] = u; mergeChars(); ensureChars(); changed(); }, true).then(() => { if (isGM()) queueSync(); });
+  listenDoc(path, u => {
+    if (!G().groups.some(x => x.id === id && x.party)) { if (!isGM()) return; CH.spare[id] = u; mergeChars(); changed(); return; }
+    delete CH.spare[id]; CH.party[id] = u; mergeChars(); ensureChars(); changed(); }, true).then(() => { if (isGM()) queueSync(); });
 }
 const PARTY_ON = new Set();
 /* the GM writes character cards only once it knows every party and has read every party's document,
@@ -246,9 +264,11 @@ function listenGroups(){
     if (GROUPS_OK && !snap.docChanges().length) { res(); return; }
     GROUPS_OK = GROUPS_DONE = true;
     G().groups = snap.docs.map(d => ({id:d.id, name:d.data().name || 'Group chat', seats:d.data().seats || [], t:d.data().t || 0, ...(d.data().party ? {party:true} : {}), ...(d.data().meta ? {meta:true} : {}), ...(d.data().paused ? {paused:true} : {}), ...(d.data().archived ? {archived:true} : {}), ...(d.data().pic ? {pic:d.data().pic} : {})}));
-    for (const gr of G().groups) { listenFight(gr.id); if (gr.party) listenParty(gr.id); }
-    /* a party this person is no longer in takes its cards with it */
-    let gone = false; for (const id of Object.keys(CH.party)) if (!G().groups.some(x => x.id === id && x.party)) { delete CH.party[id]; gone = true; }
+    /* the GM also keeps an eye on the card documents of group chats that are not parties (any card left behind there) */
+    for (const gr of G().groups) { listenFight(gr.id); if (gr.party || isGM()) listenParty(gr.id); }
+    /* a party this person is no longer in takes its cards with it (the GM keeps them as spares, see mergeChars) */
+    let gone = false; for (const id of Object.keys(CH.party)) if (!G().groups.some(x => x.id === id && x.party)) { if (isGM() && G().groups.some(x => x.id === id)) CH.spare[id] = CH.party[id]; delete CH.party[id]; gone = true; }
+    if (isGM()) for (const id of Object.keys(CH.spare)) { const gr = G().groups.find(x => x.id === id); if (!gr) { delete CH.spare[id]; continue; } if (gr.party && KNOWN.get('parties/' + id)) { CH.party[id] = {...KNOWN.get('parties/' + id).units}; delete CH.spare[id]; gone = true; } }
     if (gone) mergeChars(); setCombat(); setShops(); if (live) changed(); res();
   }, err => { heard('groups', false); console.warn('groups', err?.code); GROUPS_DONE = true; res(); }));
 }
@@ -259,9 +279,19 @@ N.groupsReady = () => GROUPS_OK;
    readers, so someone let in without the history earlier still doesn't get it when another member is added with it. */
 N.saveGroup = (gr, before, hist = true) => {
   if (!isGM()) return;
-  const g = G(), i = g.groups.findIndex(x => x.id === gr.id); if (i < 0) g.groups.push(gr); else g.groups[i] = gr;
-  track(F.setDoc(dref('groups/' + gr.id), {name:gr.name, seats:gr.seats, t:gr.t || Date.now(), party:!!gr.party, meta:!!gr.meta, paused:!!gr.paused, archived:!!gr.archived, ...(gr.pic ? {pic:gr.pic} : {})}));
-  if (gr.party) listenParty(gr.id);
+  const g = G(), i = g.groups.findIndex(x => x.id === gr.id), wasParty = i >= 0 && !!g.groups[i].party; if (i < 0) g.groups.push(gr); else g.groups[i] = gr;
+  /* a party gets its players' cards in the same save as the seat change, so a card can never be left behind by half a save
+     (the group saved, the card copy lost to a closed tab or a full daily allowance). Only filled-in cards are copied */
+  const b = F.writeBatch(db), cards = {};
+  b.set(dref('groups/' + gr.id), {name:gr.name, seats:gr.seats, t:gr.t || Date.now(), party:!!gr.party, meta:!!gr.meta, paused:!!gr.paused, archived:!!gr.archived, ...(gr.pic ? {pic:gr.pic} : {})});
+  const coming = gr.party ? gr.seats.filter(s => !wasParty || !before || !before.includes(s)) : [];
+  for (const c of Object.values(g.chars || {})) if (c && c.built && coming.includes(c.player)) cards[c.id] = JSON.stringify(c);
+  if (Object.keys(cards).length) {
+    b.set(dref('parties/' + gr.id), cards, {merge:true});
+    const k = KNOWN.get('parties/' + gr.id); if (k) { Object.assign(k.units, cards); CH.party[gr.id] = {...k.units}; }
+  }
+  track(b.commit());
+  if (gr.party || isGM()) listenParty(gr.id);
   if (before && before.join() !== gr.seats.join()) {
     const added = gr.seats.filter(s => !before.includes(s));
     for (const m of g.msgs) if (m.ch === 'grp-' + gr.id && MKNOWN.has(m.id)) {
@@ -278,9 +308,13 @@ N.dropGroup = id => {
   if (!isGM()) return;
   const g = G(); g.groups = g.groups.filter(x => x.id !== id);
   for (const m of [...g.msgs]) if (m.ch === 'grp-' + id) N.delMsg(m.id);
-  /* a deleted party's cards go back to game/chars on the next save */
-  const was = CH.party[id]; delete CH.party[id]; if (was) { KNOWN.delete('parties/' + id); LOADED.delete('parties/' + id); }
-  track(F.deleteDoc(dref('groups/' + id))); track(F.deleteDoc(dref('fights/' + id))); track(F.deleteDoc(dref('parties/' + id)));
+  /* a deleted party's filled-in cards go back to game/chars in the same save that deletes it, so none is lost in between */
+  const was = CH.party[id] || CH.spare[id]; delete CH.party[id]; delete CH.spare[id]; if (was) { KNOWN.delete('parties/' + id); LOADED.delete('parties/' + id); }
+  const b = F.writeBatch(db), back = {};
+  for (const [k, j] of Object.entries(was || {})) { try { if (JSON.parse(j).built) back[k] = j; } catch(e) {} }
+  b.delete(dref('groups/' + id)); b.delete(dref('fights/' + id)); b.delete(dref('parties/' + id));
+  if (Object.keys(back).length && LOADED.has('game/chars')) { b.set(dref('game/chars'), back, {merge:true}); const k = KNOWN.get('game/chars'); Object.assign(k.units, back); CH.base = {...k.units}; }
+  track(b.commit());
 };
 
 /* ---------- push addresses: one document per phone or computer that has notifications on ---------- */
