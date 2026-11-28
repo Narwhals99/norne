@@ -1334,6 +1334,8 @@
 .app .tok{width:calc(var(--tk,42px) + 12px)}
 .app .tok .av{--s:var(--tk,42px)}
 .app .tok .st{top:calc(var(--tk,42px) - 10px)}
+/* each zone sets its own --tk from its size and how many stand in it (zoneTk in js/combat.js), between these two */
+.app .board{--tkmin:clamp(20px, 6cqw, 30px);--tkmax:clamp(40px, 15cqw, 96px)}
 .app .zone{--tk:clamp(28px, 8.6cqw, 50px)}
 .app .zone .ztoks{padding:14px 6px 16px;gap:6px 4px}
 .app .zone .tok .nm{max-width:calc(var(--tk,42px) + 22px)}
@@ -1804,7 +1806,7 @@
 .app .board.figs .zone .ztoks.sides .zs{row-gap:calc(var(--tk,42px) * .45)}
 .app .tok.fig .av{opacity:0}
 /* desktop: figures stand a bit bigger than the phone's (Jack, 2026-11-24); phones keep the size above */
-.app[data-dev="desktop"] .board.figs .zone{--tk:clamp(34px, 10.8cqw, 64px)}
+.app[data-dev="desktop"] .board{--tkmin:clamp(24px, 4.4cqw, 38px);--tkmax:clamp(64px, 17cqw, 150px)}
 .app .tok.fig.target{animation:none}
 .app .tok.fig.out{filter:none;opacity:1}
 .app .tok.fig.out .nm{opacity:.6}

@@ -1642,7 +1642,7 @@ function zoneClick(v, zid){
   }
   if (v.ui.tokSel) { v.ui.tokSel = null; render(v); }
 }
-const zoneAt = (px, py) => { const zs = G().combat.zones; for (let i = zs.length - 1; i >= 0; i--) { const z = zs[i]; if (px >= z.x && px <= z.x + z.w && py >= z.y && py <= z.y + z.h) return z; } return null; };
+const zoneAt = (px, py, v) => { const zs = G().combat.zones, edit = isGM(v) && v.ui.cbTool === 'zone'; for (let i = zs.length - 1; i >= 0; i--) { const z = N.zoneBox(zs[i], edit), zz = zs[i]; if (px >= z.x && px <= z.x + z.w && py >= z.y && py <= z.y + z.h) return zz; } return null; };
 
 /* ---------------- pointer: drag tokens, draw zones, pan the map ---------------- */
 /* desktop: grab a sideways row with the mouse and drag it; a real drag doesn't also click the chip under the mouse */
@@ -1697,7 +1697,7 @@ function track(v, e, d){
       ghost.style.left = p.x + 'px'; ghost.style.top = p.y + 'px';
       const board = v.root.querySelector('[data-board]');
       if (drop) drop.classList.remove('drop'); drop = null;
-      if (board) { const br = board.getBoundingClientRect(); const z = zoneAt((ev.clientX - br.left)/br.width*100, (ev.clientY - br.top)/br.height*100); if (z) { drop = board.querySelector(`[data-zone="${z.id}"]`); drop && drop.classList.add('drop'); } d.zone = z; }
+      if (board) { const br = board.getBoundingClientRect(); const z = zoneAt((ev.clientX - br.left)/br.width*100, (ev.clientY - br.top)/br.height*100, v); if (z) { drop = board.querySelector(`[data-zone="${z.id}"]`); drop && drop.classList.add('drop'); } d.zone = z; }
     } else if (d.kind === 'rs' || d.kind === 'zmove') {
       const p = d.pt(ev), dx = p.x - d.p0.x, dy = p.y - d.p0.y, z = d.z;
       if (d.kind === 'rs') { z.w = clamp(d.z0.w + dx, 8, 100 - z.x); z.h = clamp(d.z0.h + dy, 10, 100 - z.y); }
