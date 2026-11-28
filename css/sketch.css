@@ -585,3 +585,8 @@
 /* green stays for success only: things that used the success colour for something else stay pencil grey */
 .app:where([data-style="sketch"]) .tok .ji{color:var(--accent-ink);background:var(--ink)}
 .app:where([data-style="sketch"]) .inv-chips button[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--ink);background:var(--k-h-diag) 0 0/48px,var(--accent-soft)}
+/* chat list panels (2026-11-28): Sketchbook stays black and white, so every kind of chat is told apart by its icon, heading and edge */
+.app:where([data-style="sketch"])[data-theme] .shsec[data-k]{--sk:var(--ink);--sk-tx:var(--ink);border-radius:6px;background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.app:where([data-style="sketch"]) .shsec:is([data-k="gm"],[data-k="meta"]){box-shadow:none;outline:1.5px dashed color-mix(in srgb,var(--ink) 40%,transparent);outline-offset:-1.5px}
+.app:where([data-style="sketch"]) .shsec[data-k="party"]::before{width:5px}
+.app:where([data-style="sketch"]) .shsec .shsh .shi{border-radius:6px}

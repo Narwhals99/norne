@@ -545,3 +545,5 @@
 .app:where([data-style="parchment"]) .emo,.app:where([data-style="parchment"]) .emo-it,.app:where([data-style="parchment"]) .emo-new{border-radius:5px}
 .app:where([data-style="parchment"]) .m.gifm .gifbox{border-radius:6px}
 .app:where([data-style="parchment"]) .m.gifm .gif{border-radius:3px}
+/* chat list panels (2026-11-28) */
+.app:where([data-style="parchment"]) .shsec{border-radius:7px}.app:where([data-style="parchment"]) .shsec .shsh .shi{border-radius:5px}
