@@ -38,8 +38,9 @@ N.zoneBox = (z, edit) => (!edit && !z.flat && G().combat.zones.length === 1) ? {
 /* Jack: figures (and token circles) are sized to the zone they stand in: small in a board of six zones, big in a
    one-zone 3 v 2. The size is the biggest that fits everyone in the zone, as CSS so it follows the board's width (cqw,
    the board is 3:2, so a zone is h * 2/3 cqw tall), held between --tkmin and --tkmax (set per device in app.css).
-   teams: how many stand on each side (one entry when the zone holds one team). figs: they stand as tall 3D figures */
-function zoneTk(b, teams, figs){
+   teams: how many stand on each side (one entry when the zone holds one team). figs: they stand as tall 3D figures.
+   fill: a one-zone fight filling the board, whose figures stand lower (app.css .zone.fill) */
+function zoneTk(b, teams, figs, fill){
   const W = b.w, H = b.h * 2 / 3, n = teams.reduce((a, x) => a + x, 0);
   if (!n) return 'var(--tkmin)';
   /* every layout to try: [columns, rows]. Sides keep their fixed columns; one team can wrap into any number */
@@ -50,7 +51,7 @@ function zoneTk(b, teams, figs){
      over the top row; a circle row needs its size plus its name */
   const fits = lay.map(([c, r]) => {
     const w = `(${W.toFixed(2)}cqw - ${Math.round(c * 18 + 16)}px) / ${c.toFixed(2)}`;
-    const h = figs ? `(${H.toFixed(2)}cqw - ${Math.round(34 + (r - 1) * 2)}px) / ${(1.05 + 1.45 * r).toFixed(2)}`
+    const h = figs ? `(${H.toFixed(2)}cqw - ${Math.round((fill ? 50 : 34) + (r - 1) * 2)}px) / ${((fill ? 1.15 : 1.05) + 1.45 * r).toFixed(2)}`
                    : `(${H.toFixed(2)}cqw - ${Math.round(30 + r * 16)}px) / ${r}`;
     return `min(${w}, ${h})`;
   });
@@ -71,6 +72,7 @@ function boardHtml(v){
   const zones = cb.zones.map(z => {
     const b = N.zoneBox(z, edit);
     const cls = ['zone'];
+    if (b !== z) cls.push('fill');
     if (v.ui.targeting === 'attack' && actor) cls.push(z.id === actor.zone ? 'reach' : 'far');
     if (v.ui.targeting === 'move' && actor) cls.push(z.id === actor.zone ? 'sel' : 'reach');
     if (v.ui.placing) cls.push('reach');
@@ -78,7 +80,7 @@ function boardHtml(v){
     /* in a zone with more than one team in it, each team stands together: players' side on the left, foes on the right, any
        extra teams (Jake's three-way fights) in between */
     const toks = cb.tokens.filter(t => t.zone === z.id), tms = N.teams(), byTeam = [tms[0], ...tms.slice(2), tms[1]].map(tm => toks.filter(t => N.sideOf(t) === tm.id)).filter(a => a.length);
-    return `<div class="${cls.join(' ')}" data-zone="${z.id}" style="left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%;--zc:${z.col};--tk:${zoneTk(b, byTeam.map(a => a.length), figs)}">
+    return `<div class="${cls.join(' ')}" data-zone="${z.id}" style="left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%;--zc:${z.col};--tk:${zoneTk(b, byTeam.map(a => a.length), figs, b !== z)}">
       <span class="zl" data-zl="${z.id}">${esc(z.name)}${toks.length?` <i>${toks.filter(t=>!t.out || N.fxHold?.(v, t)?.up).length}</i>`:''}</span>
       ${byTeam.length > 1 ? `<div class="ztoks sides">${byTeam.map((a, i) => grp(a, i === 0 ? 'l' : i === byTeam.length - 1 ? 'r' : 'm')).join('')}</div>` : `<div class="ztoks">${toks.map(t => tokHtml(v, t)).join('')}</div>`}
       ${z.aspect ? `<div class="za"><span class="icard" style="--rot:-1deg"><span>${N.emoText(N.marks(esc(z.aspect)))}</span>${z.free?`<span class="fi">${'<i></i>'.repeat(z.free)}</span>`:''}</span></div>` : ''}

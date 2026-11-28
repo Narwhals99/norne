@@ -1804,6 +1804,8 @@
 .app .board.figs .zone .za{bottom:auto;top:calc(100% + 15px);right:-4px}
 .app .board.figs .zone .ztoks{padding-top:calc(var(--tk,42px) * 1.1 + 10px);padding-bottom:18px;row-gap:calc(var(--tk,42px) * .45)}
 .app .board.figs .zone .ztoks.sides .zs{row-gap:calc(var(--tk,42px) * .45)}
+/* a one-zone fight filling the board: the figures stand lower, so the top row's names and stress boxes stay on the board */
+.app .board.figs .zone.fill .ztoks{padding-top:calc(var(--tk,42px) * 1.6 + 26px)}
 .app .tok.fig .av{opacity:0}
 /* desktop: figures stand a bit bigger than the phone's (Jack, 2026-11-24); phones keep the size above */
 .app[data-dev="desktop"] .board{--tkmin:clamp(24px, 4.4cqw, 38px);--tkmax:clamp(64px, 17cqw, 150px)}
