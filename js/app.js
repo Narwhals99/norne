@@ -486,10 +486,14 @@ function pastCheck(v, el){
   if (neu) neu.classList.add('swap');
   /* the list's top edge moves by however much taller or shorter the new banner is; the scroll moves with it, so the lines
      stay put on screen (not during a jump, which is gliding to its own message) */
-  const hold = !ref || ref !== v._jump?.id, y0 = hold ? el.getBoundingClientRect().top : 0;
+  /* Jack (2026-11-28, desktop): the scroll is set from where it was before the swap, never "+=" after it. Taking a banner
+     away at the very bottom makes the list taller, so the browser has already pulled the scroll back by the banner's height
+     to fit; adding the difference again pushed the list a banner's height up from the bottom, the old scene's lines came
+     back under the 60% line and their banner returned, so the chat bounced back up every time he scrolled down */
+  const hold = !ref || ref !== v._jump?.id, y0 = hold ? el.getBoundingClientRect().top : 0, s0 = el.scrollTop;
   if (old && neu) old.replaceWith(neu); else if (old) old.remove();
   else if (neu && box) box.insertBefore(neu, box.querySelector(':scope > .fightbar') || el);
-  if (hold) { const d = el.getBoundingClientRect().top - y0; if (Math.abs(d) >= 1) el.scrollTop += d; }
+  if (hold) { const d = el.getBoundingClientRect().top - y0; if (Math.abs(d) >= 1) el.scrollTop = s0 + d; }
 }
 N.pastCheck = pastCheck;
 
