@@ -44,11 +44,18 @@ pn.load = (s, data, fromServer) => {
   for (const [k, j] of Object.entries(d)) if (k.startsWith('n_') && typeof j === 'string') { try { const n = JSON.parse(j); if (n && n.id) notes[n.id] = n; } catch(e) {} }
   for (const [k, val] of Object.entries(p)) if (k.startsWith('n_')) { const id = k.slice(2); if (val) notes[id] = b.notes[id]; else delete notes[id]; }
   b.notes = notes;
+  if (!('kdirs' in p)) { try { const k = d.kdirs ? JSON.parse(d.kdirs) : null; if (k) b.kdirs = k; } catch(e) {} }
   /* a brand new notebook gets the three folders Jack named, saved once the server says it is really empty */
   if (fromServer && !data) { seed(b); saveDirs(s); }
   b.ready = true;
   N.renderAll && N.renderAll();
 };
+
+/* Jake: folders a player sorts the characters they know into (Character tab), kept in the same private notebook as
+   one field: kdirs = {dirs:[{id,name}], of:{<character id>:<folder id>}}. Only that player sees them */
+pn.kd = s => { const b = book(s); return b.kdirs || (b.kdirs = {dirs:[], of:{}}); };
+pn.kdSave = s => { const k = pn.kd(s); put(s, 'kdirs', JSON.stringify(k)); };
+pn.kdNew = (s, name) => { const k = pn.kd(s), d = {id:'k' + uid(), name:(name || '').trim().slice(0, 30) || 'New folder'}; k.dirs.push(d); pn.kdSave(s); return d; };
 
 /* the server said no: almost always the new security rules aren't published yet */
 pn.denied = s => { const b = book(s); b.denied = true; N.renderAll && N.renderAll(); };

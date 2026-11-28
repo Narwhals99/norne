@@ -697,6 +697,7 @@ function bind(v){
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.target.dataset.i === 'draft' && N.enterSends()) { e.preventDefault(); send(v); }
     if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'fcDraft') { e.preventDefault(); fcSend(v); }
     if (e.key === 'Enter' && !e.isComposing && e.target.dataset.i === 'dOth') { e.preventDefault(); e.target.parentElement.querySelector('button')?.click(); }
+    if (e.key === 'Enter' && !e.isComposing && e.target.dataset.enter) { e.preventDefault(); e.target.parentElement.querySelector(`[data-a="${e.target.dataset.enter}"]`)?.click(); }
     if (e.key === 'Enter' && e.target.dataset.i === 'gold') { e.preventDefault(); e.target.blur(); }
     if (e.key === 'Enter' && !e.isComposing && N.pn && N.pn.enter(v, e.target)) e.preventDefault();
     if (e.key === 'Escape') { if (v.ui.shelf) v.ui.shelf = false; else if (v.ui.pop) v.ui.pop = null; else if (v.ui.sheet) v.ui.sheet = v.ui.sheet === 'scenePics' ? 'scene' : null; else if (v.ui.reply) v.ui.reply = null; else { v.ui.targeting = null; v.ui.placing = null; v.ui.tokSel = null; } render(v); }
@@ -1037,6 +1038,8 @@ function input(v, el, ev){
   switch (i) {
     case 'draft': if (el.id === 'ta-' + v.id + 's') { if (v.ui.s2) v.ui.s2.draft = val; grow(el); return; } v.ui.draft = val; grow(el); typed(v, ev); return;
     case 'fcDraft': v.ui.fcDraft = val; return;
+    case 'sasp': { if (!isGM(v)) return; const o = conOwner(el.dataset); if (o && o.sasp) o.sasp[+el.dataset.x] = val; return; }
+    case 'kdName': { if (!N.pn || !N.pn.on(v)) return; const d2 = N.pn.kd(v.role).dirs.find(x => x.id === el.dataset.k); if (d2) { d2.name = val.slice(0, 30) || d2.name; N.pn.kdSave(v.role); } return; }
     case 'pnQ': case 'pnDirName': case 'pnRenName': case 'pnTitle': case 'pnText': N.pn.input(v, el, i); return;
     case 'muDir': case 'muRen': case 'muVol': case 'muMyVol': N.mu.input(v, el, i); return;
     case 'ndLead': if (v.ui.nd) v.ui.nd.lead = val; return;
@@ -1122,12 +1125,14 @@ function input(v, el, ev){
     case 'dOth': { (v.ui.dOth = v.ui.dOth || {})[el.dataset.act + '|' + el.dataset.s] = val; const b = el.parentElement.querySelector('button'); if (b) b.disabled = !val.trim(); return; }
     case 'pd': {
       const d = v.ui.pd, n = +el.dataset.n;
+      if (k === 'jobn') { const L = d.jobs || (d.jobs = N.jobsOf(d)); L[n] = val; d.job = L.map(t => t.trim()).filter(Boolean).join(' · '); return; }
       if (k === 'al') { const a = (d.al?.[el.dataset.f] || [])[n]; if (a) a.v = val; return; }
       if (k === 'asp') d.aspects[n] = val; else if (k === 'stn') d.stunts[n][0] = val; else if (k === 'std') d.stunts[n][1] = val; else d[k] = val;
       if (k === 'name' || k === 'hc') render(v); return;
     }
     case 'nd': {
       const d = v.ui.nd, n = +el.dataset.n;
+      if (k === 'jobn') { const L = d.jobs || (d.jobs = N.jobsOf(d)); L[n] = val; d.job = L.map(t => t.trim()).filter(Boolean).join(' · '); return; }
       if (k === 'al') { const a = (d.al?.[el.dataset.f] || [])[n]; if (a) a.v = val; return; }
       if (k === 'asp') d.aspects[n] = val; else if (k === 'stn') d.stunts[n][0] = val; else if (k === 'std') d.stunts[n][1] = val; else d[k] = val;
       if (k === 'name') render(v); return;
@@ -1148,6 +1153,12 @@ function input(v, el, ev){
 function change(v, el){
   const i = el.dataset.i, val = el.value;
   if (i === 'pnMove') { N.pn.change(v, el, i); return; }
+  if (i === 'sasp' && isGM(v)) { const o = conOwner(el.dataset); if (o && o.sasp) { o.sasp = o.sasp.map(x => x.trim()).filter(Boolean); if (!o.sasp.length) delete o.sasp; } renderAll(); return; }
+  if (i === 'conDfN' && isGM(v)) { const o = conOwner(el.dataset), st = o && N.conSt(o, el.dataset.k); if (o && N.CON_DF[st]) { const n = parseInt(String(val).replace(/[−–]/g, '-'), 10); if (!isNaN(n)) N.setConDf(o, el.dataset.k, st, n); } renderAll(); return; }
+  if (i === 'kDir' && N.pn && N.pn.on(v)) { const id = el.dataset.v;
+    if (val === '+') { v.ui.kdAssign = id; v.ui.sheet = 'kdirs'; render(v); setTimeout(() => v.root.querySelector(`#kdn-${v.id}`)?.focus(), 30); return; }
+    const k = N.pn.kd(v.role); if (val) k.of[id] = val; else delete k.of[id]; N.pn.kdSave(v.role); renderAll(); return; }
+  if (i === 'kdName' && N.pn && N.pn.on(v)) { renderAll(); return; }
   if (i === 'muVol' || i === 'muMyVol' || i === 'muMove') { N.mu.change(v, el, i); return; }
   if (i === 'pdSkill' && val) { v.ui.pd.skills[val] = +el.dataset.x; render(v); }
   if (i === 'ndSkill' && val) { v.ui.nd.skills[val] = +el.dataset.x; render(v); }
@@ -1213,9 +1224,21 @@ function itemMarks(text){
     const name = i > 0 ? raw.slice(0, i).trim() : '', to = i > 0 ? raw.slice(i + 1).trim() : '';
     /* no item or nobody after the comma ("^^rope,^^") is a mistake, not the first character without a short name */
     if (!name || !to) return {name:'', who:null};
+    /* Jake: ^^+1 coins, Xira^^ and ^^-1 Fate, Xira^^ change gold or Fate points instead (the line reads "1 gold", "1 Fate point") */
+    const pm = name.match(/^([+\-−–]?)\s*(\d{1,4})\s*(coins?|gold|fate(?:\s*points?)?)$/i);
+    if (pm) { const pc = Object.values(g.chars).find(c => c.built && (low(c.short) === low(to) || low(c.name) === low(to))), npc = !pc && g.npcs.find(n => low(n.name) === low(to)), n = +pm[2] * (pm[1] && pm[1] !== '+' ? -1 : 1), fp = /^f/i.test(pm[3]);
+      return {name, to, purse:fp ? 'fp' : 'gold', n, show:fp ? `${Math.abs(n)} Fate point${Math.abs(n) === 1 ? '' : 's'}` : `${Math.abs(n)} gold`, who:pc || npc ? {o:pc || npc, pc:!!pc} : null}; }
     const pc = Object.values(g.chars).find(c => c.built && (low(c.short) === low(to) || low(c.name) === low(to))), npc = !pc && g.npcs.find(n => low(n.name) === low(to));
     return {name, to, who:pc || npc ? {o:pc || npc, pc:!!pc} : null}; });
 }
+/* ^^+2 coins, Name^^ / ^^-1 Fate, Name^^: gold (0 up) or Fate points (0 to 10) go up or down; the player gets the usual purse note */
+N.givePurse = (who, k, n) => {
+  const o = who.o, label = who.pc ? o.short || o.name : o.name, before = k === 'fp' ? (+o.fp || 0) : (parseInt(o.gold, 10) || 0);
+  const now = k === 'fp' ? clamp(before + n, 0, 10) : clamp(before + n, 0, N.GOLD_MAX); if (k === 'fp') o.fp = now; else o.gold = now;
+  if (who.pc && now !== before) N.purseNote(o, k, before);
+  const what = k === 'fp' ? 'Fate points' : 'gold';
+  return {txt:`${label}’s ${what}: ${before} → ${now}${now - before !== n ? ` (${k === 'fp' ? 'Fate points stop at 0 and 10' : 'gold can’t go below 0'})` : ''}`};
+};
 /* put one of an item in o's inventory (who = {o, pc}): the catalog item of that name, or a new plain one. A player gets a note */
 N.giveItem = (who, name, ch) => {
   const g = G(), o = who.o, it = (g.items || []).find(x => N.pvKey(x.name) === N.pvKey(name)), label = who.pc ? o.short || o.name : o.name;
@@ -1242,6 +1265,10 @@ function aspMarks(text, ch, cast, extras){
 const aspText = (text, ch, cast, extras) => { const l = aspMarks(text, ch, cast, extras); let i = 0; return text.replace(ASP_RE, () => { const a = l[i++]; return a ? `"${a.t}"` : ''; }); };
 /* the people << >> names: the one-off NPC it makes always starts with a capital (<<barkeeper>> -> "Barkeeper", Jake), the line keeps the words as typed */
 const meetNames = text => [...new Set([...text.matchAll(/<<([^<>]+)>>/g)].map(x => x[1].trim().replace(/\s+/g, ' ').slice(0, 60)).filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)))];
+/* ##Time of day## and --Scene name-- (Jake): the words sit right inside the marks, so "wait -- no --" stays a dash */
+const TOD_RE = /##(?=\S)([^#\n]*\S)##/g, NAME_RE = /--(?=[^\s-])([^\n]*?[^\s-])--/g;
+const todFind = w => { const k = String(w || '').toLowerCase().replace(/[^a-z]/g, ''); return k ? N.TODS.find(t => t[0] === k || t[1].toLowerCase().replace(/[^a-z]/g, '') === k) || null : null; };
+const titleCase = w => String(w || '').trim().replace(/\s+/g, ' ').slice(0, 80).replace(/(^|[\s(\-"“'])(\p{L})/gu, (x, a, b) => a + b.toUpperCase());
 /* Jake: a Narrator line with scene marks (<<NPC>>, [[Location]], {{Map pin}}) in a chat with no scene yet opens the scene
    window filled in from the marks. The line waits in the box and is sent once the GM starts the scene (sd.pend). */
 function sceneFirst(v, ch, text){
@@ -1251,8 +1278,10 @@ function sceneFirst(v, ch, text){
   openSheet(v, 'scene');
   const sd = v.ui.sd; sd.ch = ch; sdLoad(sd, 'new');
   if (w) sd.where = (w[0].toUpperCase() + w.slice(1)).slice(0, 80);
+  const td = [...text.matchAll(TOD_RE)].map(x => todFind(x[1])).filter(Boolean).pop(); if (td) sd.tod = td[0];
+  const tn = [...text.matchAll(NAME_RE)].map(x => titleCase(x[1])).filter(Boolean).pop(); if (tn) { sd.title = tn; sd.autoTitle = false; }
   if (loc) { sd.loc = N.locKeys(loc); sd.share = true; if (!w) sd.where = N.locText(loc);
-    const spot = loc.n || loc.t || loc.c; if (spot) sd.place = {map:spot.m, rx:spot.rx, ry:spot.ry}; }
+    const spot = loc.n || loc.t || loc.c, art = locArt(loc); if (art) { sd.art = art; sd.place = null; } else if (spot) sd.place = {map:spot.m, rx:spot.rx, ry:spot.ry}; }
   for (const name of meetNames(text)) { const n = g.npcs.find(x => x.name.toLowerCase() === name.toLowerCase());
     if (n) { if (!sd.cast.includes(n.name)) sd.cast = N.withSidekicks(ch, [...sd.cast, n.name]); }
     else if (!sd.extras.some(e => e.name.toLowerCase() === name.toLowerCase())) sd.extras.push({id:uid('o'), name, skills:{}}); }
@@ -1284,10 +1313,10 @@ function send(v, opt = {}){
   else m = {kind:'rp', as:g.P[v.role].name};
   if (!devCommand && v.ui.reply && g.msgs.some(x => x.id === v.ui.reply && x.ch === ch)) m.re = v.ui.reply;
   const narr = gm && m.kind === 'rp' && m.as === 'Narrator';
-  if (narr && !g.scenes[ch] && !opt.again && (/\{\{[^{}]+\}\}|<<[^<>]+>>|\$\$[^$\n]+\$\$/.test(text) || [...text.matchAll(WHERE_RE)].length)) { sceneFirst(v, ch, text); return; }
+  if (narr && !g.scenes[ch] && !opt.again && (/\{\{[^{}]+\}\}|<<[^<>]+>>|\$\$[^$\n]+\$\$/.test(text) || [...text.matchAll(WHERE_RE)].length || [...text.matchAll(TOD_RE)].length || [...text.matchAll(NAME_RE)].length)) { sceneFirst(v, ch, text); return; }
   /* sent again after the scene window started the scene: the marks only read as words, the scene already holds what they said */
   if (opt.again) {
-    text = aspText(text, ch, N.castOf(ch) || [], N.extrasOf(ch));
+    text = aspText(text, ch, N.castOf(ch) || [], N.extrasOf(ch)).replace(TOD_RE, (x, w) => w.trim()).replace(NAME_RE, (x, w) => w.trim());
     text = text.replace(/\{\{([^{}]+)\}\}/g, (x, w) => w.split(',')[0].trim()).replace(WHERE_RE, (x, t) => { t = t.trim().replace(/\s+/g, ' '); const e = g.wiki.find(y => y.title.toLowerCase() === t.toLowerCase()); return e ? `[[wiki:${e.id}|${t}]]` : t; });
     text = text.replace(/<<([^<>]+)>>/g, (x, w, at, all) => { w = w.trim().replace(/\s+/g, ' '); const start = !all.slice(0, at).trim() || /[.!?:"“]\s*$/.test(all.slice(0, at));
       const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && !N.properWord(words[0], w) && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
@@ -1298,8 +1327,14 @@ function send(v, opt = {}){
   if (narr && /\^\^(?=\S)[^\^\n]*\S\^\^/.test(text)) {
     gifts = itemMarks(text);
     const bad = gifts.find(x => !x.who); if (bad) { toast(v, bad.name ? `No character called “${bad.to}”. Write ^^${bad.name}, Name^^ with the name of a character or NPC.` : 'Write ^^Item, Name^^: the item, a comma, then who gets it.'); render(v); return; }
-    text = text.replace(ITEM_RE, (x, w) => { const i = w.lastIndexOf(','); return (i > 0 ? w.slice(0, i) : w).trim().replace(/\s+/g, ' '); });
+    let gi = 0; text = text.replace(ITEM_RE, (x, w) => { const gx = gifts[gi++]; if (gx && gx.purse) return gx.show; const i = w.lastIndexOf(','); return (i > 0 ? w.slice(0, i) : w).trim().replace(/\s+/g, ' '); });
   }
+  /* Jake: ##evening## sets the scene's time of day, --hitting the road-- renames the scene ("Hitting The Road"); the line keeps the words */
+  let tod = null, sname = null;
+  if (narr && g.scenes[ch] && text.search(TOD_RE) >= 0) { const ws = [...text.matchAll(TOD_RE)].map(x => x[1]), t = todFind(ws[ws.length - 1]);
+    if (!t) { toast(v, `“${ws[ws.length - 1].trim()}” isn’t a time of day. Use one of: ${N.TODS.map(x => x[1]).join(', ')}.`); render(v); return; }
+    tod = t[0]; text = text.replace(TOD_RE, (x, w) => w.trim()); }
+  if (narr && g.scenes[ch] && text.search(NAME_RE) >= 0) { const ws = [...text.matchAll(NAME_RE)].map(x => x[1]); sname = titleCase(ws[ws.length - 1]); text = text.replace(NAME_RE, (x, w) => w.trim()); }
   /* the GM's narrator can move the scene: {{Little Eundir, Prince City}} reads "Little Eundir" and the scene's map location goes there */
   let move = null;
   if (gm && m.kind === 'rp' && m.as === 'Narrator' && /\{\{[^{}]+\}\}/.test(text)) {
@@ -1336,7 +1371,9 @@ function send(v, opt = {}){
       const words = w.split(' '); const card = g.npcs.some(x => x.name.toLowerCase() === w.toLowerCase()); return !start && !card && !N.properWord(words[0], w) && words.length > 1 && words.slice(1).every(y => y === y.toLowerCase()) ? w[0].toLowerCase() + w.slice(1) : w; });
   }
   push(Object.assign(m, {ch, by:v.role, text}));
-  if (gifts.length) { const got = gifts.map(x => N.giveItem(x.who, x.name, ch)); toast(v, got.map(x => `${x.item} to ${x.to}`).join(', ').replace(/^/, 'Gave ') + '.'); }
+  if (gifts.length) { const got = gifts.map(x => x.purse ? N.givePurse(x.who, x.purse, x.n) : N.giveItem(x.who, x.name, ch)); toast(v, got.map(x => x.txt || `Gave ${x.item} to ${x.to}`).join('. ') + '.'); }
+  if (tod) sceneTod(v, ch, tod);
+  if (sname) sceneTitle(v, ch, sname);
   if (move) sceneMove(v, ch, move);
   if (where) sceneWhere(v, ch, where);
   if (asps.length) sceneAsp(v, ch, asps);
@@ -1841,7 +1878,7 @@ function applyMap(v){
   if (!v.ui.mapT || v.ui.mapT.id !== m.id || v.ui.mapT.bw !== b.w || v.ui.mapT.bh !== b.h) {
     const keep = v.ui.mapT && v.ui.mapT.id === m.id;
     /* a map with your location beacon opens on the beacon */
-    const loc = keep ? null : N.myLoc(isGM(v) ? 'gm' : v.role, v.ui.ch), bk = loc && N.LOCK.find(k => loc[k] && loc[k].m === m.id);
+    const loc = keep ? null : N.myLoc(isGM(v) ? 'gm' : v.role, v.ui.ch), bk = loc && N.LOCB.find(k => loc[k] && loc[k].m === m.id);
     /* on desktop a map opens fully zoomed out, the whole map in view (Jack, 2026-11-06); a phone opens it filling the
        screen and closer in on your beacon or party */
     const desk = v.dev !== 'phone';
@@ -2455,6 +2492,9 @@ function act(v, a, el, e){
   }
   /* GM screen */
   case 'applyScene': { const r = g.recent.find(x => x.id === val); if (!r) break; setScene(v, ui.ch === 'gm' ? 'table' : ui.ch, {title:r.title, where:r.where, art:r.art, place:r.place, aspects:[]}, true); if (ui.sheet === 'gm') ui.sheet = null; renderAll(); return; }
+  case 'saspAdd': { if (!gm) break; const o = conOwner(d); if (!o) break; o.sasp = [...(o.sasp || []), '']; renderAll(); setTimeout(() => v.root.querySelector(`#sasp-${o.sasp.length - 1}-${o.id}-${v.id}`)?.focus(), 30); return; }
+  case 'saspDel': { if (!gm) break; const o = conOwner(d); if (!o || !o.sasp) break; const [x] = o.sasp.splice(+d.x, 1); if (!o.sasp.length) delete o.sasp; renderAll(); if (x && x.trim()) toast(v, `Removed ${x.trim()}.`, () => { o.sasp = o.sasp || []; o.sasp.splice(+d.x, 0, x); renderAll(); }); return; }
+  case 'conDf': { if (!gm) break; const o = conOwner(d); if (!o) break; const st = N.conSt(o, d.k); if (!N.CON_DF[st]) break; N.setConDf(o, d.k, st, N.conDf(o, d.k, st) + (+d.d || 0)); renderAll(); return; }
   case 'conSt': { if (!gm) break; const o = conOwner(d); if (!o) break; N.setConSt(o, d.k, val); renderAll(); return; }
   case 'stress': { const c = g.chars[d.c], on = c.stress[d.k][+d.i] = !c.stress[d.k][+d.i];
     /* a box the GM ticks by hand goes in the open chat's actions, so the table can see what happened */
@@ -2777,6 +2817,15 @@ function act(v, a, el, e){
     if (!ui.shelfOff) { ui.shelfOff = true; ui.shelfSplit = true; } break; }
   /* close the column the button is in (a press there already made it the active one): the other chat is left */
   case 'split2Off': if (ui.s2) { N.splitSwap(v); ui.s2 = null; ui.side = 'L'; if (ui.shelfSplit) { ui.shelfOff = false; ui.shelfSplit = false; } } break;
+  case 'pinArt': case 'pinArtX': { const m = gm && curMap(v), p = m && m.pins.find(x => x.id === ui.pinSel); if (!p) break; if (a === 'pinArt') p.art = val; else delete p.art; if (ui.sheet === 'pinArt') ui.sheet = null; renderAll(); return; }
+  case 'pinArtUp': { const m = gm && curMap(v), p = m && m.pins.find(x => x.id === ui.pinSel); if (!p) break; uploadPicture(v, src => { p.art = src; ui.sheet = null; renderAll(); }); return; }
+  case 'charF': ui.charF = ui.charF === val ? '' : val; break;
+  case 'kdAdd': { if (!N.pn || !N.pn.on(v)) break; const el2 = v.root.querySelector(`#kdn-${v.id}`), nm = (el2 && el2.value || '').trim(); if (!nm) { el2 && el2.focus(); return; }
+    const d2 = N.pn.kdNew(v.role, nm); if (ui.kdAssign) { N.pn.kd(v.role).of[ui.kdAssign] = d2.id; N.pn.kdSave(v.role); ui.kdAssign = null; ui.sheet = null; toast(v, `Filed in ${d2.name}.`); }
+    renderAll(); setTimeout(() => v.root.querySelector(`#kdn-${v.id}`)?.focus(), 30); return; }
+  case 'kdDel': { if (!N.pn || !N.pn.on(v)) break; const k = N.pn.kd(v.role), at = k.dirs.findIndex(x => x.id === val); if (at < 0) break; const [x] = k.dirs.splice(at, 1);
+    const had = Object.entries(k.of).filter(([, y]) => y === x.id).map(([c]) => c); had.forEach(c => delete k.of[c]); if (ui.charF === 'd:' + x.id) ui.charF = ''; N.pn.kdSave(v.role);
+    toast(v, `Deleted the ${x.name} folder. The characters in it stay known.`, () => { k.dirs.splice(at, 0, x); had.forEach(c => { k.of[c] = x.id; }); N.pn.kdSave(v.role); renderAll(); }); renderAll(); return; }
   case 'kPic': ui.kPic = {...(ui.kPic || {}), [val]:+d.n || 0}; break;
   case 'castSeg': ui.castSeg = val; ui.castSel = null; break;
   case 'castSel': ui.castSel = val; ui.heroStats = null; ui.statEd = false; break;
@@ -2788,6 +2837,8 @@ function act(v, a, el, e){
   case 'pdAltAdd': if ((ui.pd.pics || []).length >= 8) { toast(v, 'Eight other pictures at most.'); break; } uploadFace(v, src => { ui.pd.pics = [...(ui.pd.pics || []), src]; }); return;
   case 'pdAltDel': ui.pd.pics = (ui.pd.pics || []).filter((_, i) => i !== +val); break;
   case 'pdAltMain': { const ps = ui.pd.pics || [], p = ps[+val]; if (!p) break; ps[+val] = ui.pd.portrait; ui.pd.pics = ps.filter(Boolean); ui.pd.portrait = p; break; }
+  case 'pdJobAdd': { const d2 = ui.pd, L = d2.jobs || (d2.jobs = N.jobsOf(d2)); L.push(''); renderAll(); setTimeout(() => v.root.querySelector(`#pdj-${L.length - 1}-${v.id}`)?.focus(), 30); return; }
+  case 'pdJobDel': { const d2 = ui.pd, L = d2.jobs || (d2.jobs = N.jobsOf(d2)); L.splice(+d.n, 1); d2.job = L.map(t => t.trim()).filter(Boolean).join(' · '); break; }
   case 'pdAlAdd': { const al = ui.pd.al = ui.pd.al || {}; (al[val] = al[val] || []).push({id:Date.now().toString(36) + Math.random().toString(36).slice(2, 5), v:''}); break; }
   case 'pdAlDel': if (ui.pd.al?.[val]) ui.pd.al[val].splice(+d.n, 1); break;
   case 'pdFrame': if (ui.pd?.portrait) reframe(v, 'face', ui.pd.portrait, nu => { ui.pd.portrait = nu; render(v); }); return;
@@ -2961,6 +3012,8 @@ function act(v, a, el, e){
   /* other pictures on an NPC card, picked per scene (Jake) */
   case 'ndAltAdd': if ((ui.nd.pics || []).length >= 8) { toast(v, 'Eight other pictures at most.'); break; } uploadFace(v, src => { ui.nd.pics = [...(ui.nd.pics || []), src]; }); return;
   /* aliases on an NPC (Jake): false names and stories, picked per player in Reveal */
+  case 'ndJobAdd': { const d2 = ui.nd, L = d2.jobs || (d2.jobs = N.jobsOf(d2)); L.push(''); renderAll(); setTimeout(() => v.root.querySelector(`#ndj-${L.length - 1}-${v.id}`)?.focus(), 30); return; }
+  case 'ndJobDel': { const d2 = ui.nd, L = d2.jobs || (d2.jobs = N.jobsOf(d2)); L.splice(+d.n, 1); d2.job = L.map(t => t.trim()).filter(Boolean).join(' · '); break; }
   case 'ndAlAdd': { const al = ui.nd.al = ui.nd.al || {}; (al[val] = al[val] || []).push({id:Date.now().toString(36) + Math.random().toString(36).slice(2, 5), v:''}); break; }
   case 'ndAlDel': if (ui.nd.al?.[val]) ui.nd.al[val].splice(+d.n, 1); break;
   case 'ndAltDel': ui.nd.pics = (ui.nd.pics || []).filter((_, i) => i !== +val); break;
@@ -3309,6 +3362,9 @@ function act(v, a, el, e){
   case 'whPick': ui.whSel = val; ui.whRes = null; break;
   case 'whNew': { if (!gm) break; const w = {id:uid('wh'), name:'', items:[{id:uid('we'), t:'', w:1}, {id:uid('we'), t:'', w:1}]}; g.wheels = [...(g.wheels || []), w]; ui.whSel = w.id; ui.whRes = null; ui.sheet = 'wheel'; renderAll();
     setTimeout(() => v.root.querySelector(`#whn-${v.id}`)?.focus(), 30); return; }
+  case 'whCopy': { const L = g.wheels || [], at = L.findIndex(y => y.id === val); if (!gm || at < 0) break; const src = L[at], nm = (src.name || '').trim() || 'Encounters';
+    const w = {id:uid('wh'), name:`${nm} (copy)`.slice(0, 40), items:src.items.map(x => ({id:uid('we'), t:x.t, w:x.w || 1}))}; L.splice(at + 1, 0, w); g.wheels = L; ui.whSel = w.id; ui.whRes = null; renderAll();
+    toast(v, `Copied ${nm}. Change what you need.`); setTimeout(() => { const e = v.root.querySelector(`#whn-${v.id}`); e && (e.focus(), e.select()); }, 30); return; }
   case 'whAdd': { const w = gm && curWheel(v); if (!w) break; const x = {id:uid('we'), t:'', w:1}; w.items.push(x); renderAll(); setTimeout(() => v.root.querySelector(`#wht-${x.id}-${v.id}`)?.focus(), 30); return; }
   case 'whW': { const w = gm && curWheel(v), x = w && w.items.find(y => y.id === val); if (!x) break; x.w = clamp((x.w || 1) + (+d.d || 0), 1, 5); renderAll(); return; }
   case 'whDel': { const w = gm && curWheel(v), at = w ? w.items.findIndex(y => y.id === val) : -1; if (at < 0) break; const [x] = w.items.splice(at, 1);
@@ -3588,6 +3644,14 @@ function sceneWhere(v, ch, w){
   m.scene = {...m.scene, where:w}; N.invalidateScenes();
   toast(v, `Scene location is now ${w}.`);
 }
+function sceneTod(v, ch, tod){
+  const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene || m.scene.tod === tod) return;
+  m.scene = {...m.scene, tod}; N.invalidateScenes(); toast(v, `Time of day is now ${N.todName(tod)}.`);
+}
+function sceneTitle(v, ch, t){
+  const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene || !t || m.scene.title === t) return;
+  m.scene = {...m.scene, title:t}; N.invalidateScenes(); toast(v, `Scene renamed: ${t}.`);
+}
 /* $$Aspect, Name$$ from the Narrator: new situation aspects on the scene (one already there with the same words and person is kept) */
 function sceneAsp(v, ch, list){
   const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene) return;
@@ -3597,12 +3661,15 @@ function sceneAsp(v, ch, list){
   const fr = a => a.free ? `, ${a.free} free invoke${a.free > 1 ? 's' : ''}` : '';
   toast(v, add.length === 1 ? `Situation aspect added: ${add[0].t}${add[0].on || add[0].free ? ` (${[add[0].on ? 'on ' + add[0].on : '', fr(add[0]).slice(2)].filter(Boolean).join(', ')})` : ''}.` : `${add.length} situation aspects added to the scene.`);
 }
+/* Jake: the picture the place the scene moves to carries (pin.art), the deepest place first (Downtown before Port Naris) */
+function locArt(loc){ const g = G(); for (const k of ['n', 't', 'r', 'c']) { const o = loc && loc[k], mp = o && g.maps.find(x => x.id === o.m), p = mp && mp.pins.find(x => x.id === o.p); if (p && p.art) return p.art; } return null; }
 function sceneMove(v, ch, loc){
   const g = G(), cur = g.scenes[ch], m = cur && g.msgs.find(x => x.id === cur.msg && x.kind === 'scene'); if (!m || !m.scene) return;
   const old = m.scene.loc || g.hlocs[m.id] || null, hidden = !m.scene.loc && !!g.hlocs[m.id];
   const sc = {...m.scene}; delete sc.loc;
   if (!sc.where || (old && sc.where === N.locText(old))) sc.where = N.locText(loc);
   if (hidden) g.hlocs[m.id] = loc; else { delete g.hlocs[m.id]; sc.loc = loc; }
+  const art = locArt(loc); if (art) { sc.art = art; delete sc.place; }
   m.scene = sc; N.invalidateScenes();
   toast(v, `Scene moved to ${N.locText(loc).split(', ').slice(0, 2).join(', ')}${hidden ? ' (not shown to players)' : ''}.`);
 }

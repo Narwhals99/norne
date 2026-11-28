@@ -252,7 +252,15 @@ N.conSt = (o, k) => o && (o.cons || {})[k] ? ((o.conSt || {})[k] || 'active') : 
 N.conStL = st => (N.CON_ST.find(x => x[0] === st) || N.CON_ST[0])[1];
 N.setConSt = (o, k, st) => { if (!o) return; const m = o.conSt = {...(o.conSt || {})};
   if (st && st !== 'active' && (o.cons || {})[k]) m[k] = st; else delete m[k];
-  if (!Object.keys(m).length) delete o.conSt; };
+  if (!Object.keys(m).length) delete o.conSt;
+  if (!(o.cons || {})[k] && o.conDf) { delete o.conDf[k]; if (!Object.keys(o.conDf).length) delete o.conDf; } };
+/* Jake: GM-only difficulties beside a consequence, one per state: Heal (Recovering, -1..+7), Recover (Stable, filled in from
+   how bad it is: Mild +2, Moderate +3, Severe +4, still editable) and Worsening (Active, +1..+12). o.conDf = {<slot>:{<state>:n}},
+   so going back to a state brings back the number it had */
+N.CON_DF = {recovering:['Heal difficulty', -1, 7], stable:['Recover difficulty', -1, 7], active:['Worsening difficulty', 1, 12]};
+N.conDfBase = k => /^severe/.test(k) ? 4 : /^moderate/.test(k) ? 3 : 2;
+N.conDf = (o, k, st) => { const r = N.CON_DF[st]; if (!r) return null; const x = o && o.conDf && o.conDf[k] ? o.conDf[k][st] : null; return clamp(x == null ? N.conDfBase(k) : +x, r[1], r[2]); };
+N.setConDf = (o, k, st, n) => { const r = N.CON_DF[st]; if (!o || !r) return; const d = o.conDf = {...(o.conDf || {})}; d[k] = {...(d[k] || {}), [st]:clamp(Math.round(+n || 0), r[1], r[2])}; };
 Object.assign(N, {LADDER, ladderWord, MUNDANE, stressVals, ACTIONS, diceSum, plusInvokes, rollTotal, outcome});
 /* locked so N.rollDice can't be replaced from the console to load the dice */
 Object.defineProperty(N, 'rollDice', {value:rollDice, enumerable:true});
@@ -556,7 +564,16 @@ N.locKey = o => o ? o.m + '|' + o.p : '';
 N.locBuild = sel => {
   const out = {};
   for (const k of N.LOCK) { const o = N.locOpts(k, sel).find(x => N.locKey(x) === sel[k]); if (!o) break; out[k] = o; }
-  return out.c ? out : null;
+  return out.c ? N.locFull(out) : null;
+};
+/* Jake: regions are an optional step. When the city sits on a Region's map (Port Naris on the Commonhold), the country's map
+   also gets a beacon, on the Region pin, so the way down never skips a map. Kept as loc.r (players may not have the pins);
+   older scenes without it work it out from the maps this viewer has */
+N.LOCB = ['c', 'r', 't', 'n'];
+N.locFull = loc => {
+  if (!loc || loc.r || !loc.c || !loc.t || !loc.c.to || loc.t.m === loc.c.to) return loc;
+  const cm = N.G.maps.find(x => x.id === loc.c.to), rp = cm && (cm.pins || []).find(p => p.type === 'region' && N.pinTo(cm, p) === loc.t.m);
+  return rp ? {...loc, r:{m:cm.id, p:rp.id, l:rp.label, rx:rp.rx, ry:rp.ry, to:loc.t.m}} : loc;
 };
 /* a place by name (the GM's {{Little Eundir, Prince City}} in a narrator line): every pin with that name that sits in a
    country > city > neighborhood chain, narrowed by the place after the comma (the city or country it is in) */
@@ -597,7 +614,8 @@ N.msgCard = (m, role) => {
 N.locKeys = loc => ({c:N.locKey(loc?.c), t:N.locKey(loc?.t), n:N.locKey(loc?.n)});
 N.locText = loc => loc ? N.LOCK.map(k => loc[k]?.l).filter(Boolean).reverse().join(', ') : '';
 /* where you are: a player sees the newest shared location of a scene in their chats; the GM sees the open chat's (shared or not) */
-N.myLoc = (role, ch) => {
+N.myLoc = (role, ch) => N.locFull(myLoc0(role, ch));
+const myLoc0 = (role, ch) => {
   const g = N.G, sc = g.scenes;
   if (role === 'gm') { const c = !ch || ch === 'gm' ? 'table' : ch, s = sc[c]; return s ? s.loc || g.hlocs[s.msg] || null : null; }
   let best = null, bt = -1;
@@ -789,6 +807,7 @@ N.withSidekicks = (ch, cast, from) => {
   return out;
 };
 N.voices = () => { const names = N.G.npcs.map(n => n.name.trim()).filter(Boolean); return [...new Set([...names, ...N.G.quick.filter(Boolean)])]; };
+N.jobsOf = x => String((x && x.job) || '').split(/\s*·\s*/).map(t => t.trim()).filter(Boolean);
 N.npcSub = n => n ? [n.race, n.job].filter(Boolean).join(' · ') : 'Quick voice';
 
 /* who can roll / be shown */

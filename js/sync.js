@@ -1079,7 +1079,7 @@ N.importLore = file => file.text().then(txt => {
       m.name = old.name || m.name; if (old.src && old.src !== m.src) { m.src = old.src; m.w = old.w; m.h = old.h; } if (old.fl) m.fl = old.fl; if (old.fln) m.fln = old.fln;
       for (const k of ['vis', 'see']) { if (old[k] === undefined) delete m[k]; else m[k] = Array.isArray(old[k]) ? [...old[k]] : old[k]; }
       /* a place keeps the map the GM linked it to, and whether it is shown (pins the GM revealed or hid during play) */
-      for (const p of m.pins) { const was = old.pins.find(x => x.id === p.id); if (was && was.to && !p.to) p.to = was.to; if (was && was.sub && !p.sub) p.sub = was.sub; if (was && was.wiki && !p.wiki) p.wiki = was.wiki; if (was && was.cap && p.cap == null) p.cap = true;
+      for (const p of m.pins) { const was = old.pins.find(x => x.id === p.id); if (was && was.to && !p.to) p.to = was.to; if (was && was.sub && !p.sub) p.sub = was.sub; if (was && was.wiki && !p.wiki) p.wiki = was.wiki; if (was && was.art && !p.art) p.art = was.art; if (was && was.cap && p.cap == null) p.cap = true;
         if (was) for (const k of ['vis', 'see']) { if (was[k] === undefined) delete p[k]; else p[k] = Array.isArray(was[k]) ? [...was[k]] : was[k]; } }
       /* pins the GM added in the app (notes, You are here, the party) aren't in the file: they stay */
       for (const p of old.pins) if (!m.pins.some(x => x.id === p.id)) m.pins.push(p);
