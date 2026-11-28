@@ -3635,3 +3635,30 @@
 .app .lad .rung{padding:9px 0;border-top:2px solid var(--line-2)}
 .app .lad .rung:first-child{border-top:0;padding-top:2px}
 .app .lad .rung .lv{align-self:stretch;display:flex;flex-direction:column;justify-content:center;border-right:2px solid var(--line-2);padding-right:8px}
+/* Jack: store sorted into kinds. Tabs stay at the top while the shelves scroll; each kind gets its own heading */
+/* (a plain div holds the tabs: a wrapping flex row straight in the sheet's grid got a one-line row and spilled onto the first heading) */
+.app .shop-tabs-w{position:sticky;top:-4px;z-index:3;margin:0 -18px;padding:8px 0 10px;background:linear-gradient(180deg,var(--page-solid) 80%,color-mix(in srgb,var(--page-solid) 0%,transparent))}
+.app .shop-tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 18px;-webkit-overflow-scrolling:touch}
+.app .shop-tabs::-webkit-scrollbar{display:none}
+.app .shop-tabs button{flex:none;display:inline-flex;align-items:center;gap:7px;height:42px;padding:0 13px 0 5px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 14px/1 var(--f-ui);color:var(--ink-2);white-space:nowrap}
+.app .shop-tabs .st-ic{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--sunk)}
+.app .shop-tabs .st-ic svg{width:17px;height:17px}
+.app .shop-tabs small{font:700 12px/1 var(--f-ui);color:var(--ink-3);font-variant-numeric:tabular-nums}
+.app .shop-tabs button[aria-current="true"]{color:var(--ink);background:var(--gold-soft);box-shadow:inset 0 0 0 1.5px var(--gold-tx)}
+.app .shop-tabs button[aria-current="true"] .st-ic{background:color-mix(in srgb,var(--gold-tx) 22%,transparent);color:var(--gold-tx)}
+.app .shop-tabs button[aria-current="true"] small{color:var(--gold-tx)}
+.app .shop-sec{display:grid;gap:10px}
+.app .sheet h4.shop-h{display:flex;align-items:center;gap:8px;margin:0;padding-bottom:8px;border-bottom:1px solid var(--line);font:700 17px/1.2 var(--f-display);letter-spacing:0;text-transform:none;color:var(--ink)}
+.app .sheet h4.shop-h svg{width:20px;height:20px;color:var(--gold-tx)}
+.app .sheet h4.shop-h small{margin-left:auto;font:700 12.5px/1 var(--f-ui);color:var(--ink-3)}
+.app .shop-sub{margin:6px 0 0;font:800 10.5px/1.2 var(--f-ui);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3)}
+/* rows instead of tall cards: picture, name and what it is, price on the right */
+.app .shop-sec .shop-it{grid-template-columns:auto minmax(0,1fr) auto;padding:10px 12px;border-radius:14px}
+.app .shop-sec .shop-it .itc-ic{grid-row:1/span 2}
+.app .shop-sec .shop-it-t{grid-row:1/span 2}
+.app .shop-sec .shop-tag{grid-column:3;grid-row:1;justify-self:end;margin-top:0}
+.app .shop-sec .shop-left{grid-column:3;grid-row:2;justify-self:end;align-self:start}
+.app .shop-sec .shop-it .shop-buy{grid-row:3;flex-direction:row;flex-wrap:wrap;margin-top:4px}
+.app .shop-sec .shop-it .shop-buy .btn{width:auto;flex:1 1 140px}
+.app .shop-sec .shop-it .shop-buy small{flex-basis:100%;order:3}
+@media (min-width:760px){ .app .sheet.wide .shop-tabs-w{margin:0} .app .sheet.wide .shop-tabs{flex-wrap:wrap;overflow:visible;padding:0} }

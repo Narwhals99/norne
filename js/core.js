@@ -1090,7 +1090,7 @@ N.shopN = x => Math.max(1, x.n | 0 || 1);
 N.shopLeft = x => Math.max(0, N.shopN(x) - (x.sold | 0));
 N.shopItem = it => ({k:N.uid('si'), it:it.id, name:it.name, kind:N.itemKind(it.kind)[0], ic:it.ic || '',
   /* items from Jake's lists carry their class as the description, so like the catalog they show only the class line */
-  d:it.cls ? '' : String(it.d || '').trim(), path:[...new Set([it.cls, it.sub, it.disc].filter(Boolean))].join(' · '),
+  d:it.cls ? '' : String(it.d || '').trim(), path:[...new Set([it.cls, it.sub, it.disc].filter(Boolean))].join(' · '), ...(it.cls ? {cls:it.cls} : {}),
   gears:N.itemGears(it).map(([k]) => [k, +it[k]]), ...(it.silver ? {silver:1} : {}), price:0, n:1});
 /* what the players of the chat receive: names and pictures instead of card ids */
 N.shopOut = s => ({id:s.id, ch:s.ch, state:s.state, name:s.name || '', t:s.t || 0,
