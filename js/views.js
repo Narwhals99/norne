@@ -403,7 +403,10 @@ function sceneBanner(v, sc, ch, past){
   const nl = N.nlOn(v), min = nl ? !v.ui.sceneBig : v.ui.sceneMin;
   if (nl && min) return N.nl.sceneLine(v, sc, ch, past);
   const onlyWho = !priv ? '' : ch.startsWith('grp-') ? `${esc(N.chName(ch, v.role))} scene` : gm ? `Only ${esc(G().P[ch.slice(3)]?.name || 'them')} sees this scene` : 'Your private scene';
-  return `<section class="scene${min?' min':''}${past?' past':''}" aria-label="${past ? 'Scene at the time' : 'Scene'}" data-scn="${sc.msg || ''}">
+  /* Jack (2026-11-28): on a computer the banner is as tall as the screen allows (see app.css), and its bottom edge drags to
+     make it taller or shorter; the height is kept on this device (v.ui.sceneH, saved as norne-sceneh), double-click resets */
+  const sh = !min && v.ui.sceneH ? ` style="--sceneh:${v.ui.sceneH}px"` : '';
+  return `<section class="scene${min?' min':''}${past?' past':''}" aria-label="${past ? 'Scene at the time' : 'Scene'}" data-scn="${sc.msg || ''}"${sh}>
     <div class="art${sc.place?' map':''}" style="${N.sceneArt(sc)}">${N.scenePic(sc)}</div>
     <div class="in">
       ${min ? `<span class="star4"></span>` : `<span class="eyebrow">${STAR.replace('<svg','<svg style="width:11px;height:11px"')}<span>${priv ? onlyWho : 'Scene'}</span>${past ? `<span class="then">· Earlier</span>` : ''}${sc.date?`<span style="color:var(--ink-3);letter-spacing:.1em">· ${esc(sc.date)}</span>`:''}</span>`}
@@ -413,6 +416,7 @@ function sceneBanner(v, sc, ch, past){
       ${sc.aspects?.length ? `<div class="icards">${sc.aspects.map((a,i)=>{ const f = N.sceneFreeLeft(sc, i); return `<span class="icard" style="--rot:${i%2?.8:-.9}deg">${a.on?`<span class="k">On ${esc(a.on)}</span>`:''}<span>${N.emoText(N.marks(esc(a.t)))}</span>${f?`<span class="fi">${'<i></i>'.repeat(f)}</span>`:''}</span>`; }).join('')}</div>` : ''}
     </div>
     <div class="ctl">${past ? `<button type="button" class="btn sm" data-a="sceneLive" aria-label="Back to the newest messages and the scene now">${IC('caret')}<span>Now</span></button>` : gm ? `<button type="button" class="btn sm" data-a="sheet" data-v="tod" aria-label="Time of day" title="Time of day">${IC('clock')}<span class="only-dt">Time</span></button><button type="button" class="btn sm" data-a="sheet" data-v="scene">${IC('image')}<span class="only-dt">Edit scene</span><span class="only-ph">Scene</span></button>` : ''}<button type="button" class="btn sm" data-a="sceneMin" aria-label="${min?'Show the scene':'Shrink the scene'}" style="padding:0 9px">${IC(min?'caret':'caret').replace('<svg', `<svg style="rotate:${min?0:180}deg"`)}</button></div>
+    ${min ? '' : `<div class="scenegrip" role="separator" aria-orientation="horizontal" aria-label="Drag to make the scene picture taller or shorter" title="Drag to resize · double-click to reset"></div>`}
   </section>`;
 }
 /* fight rolls, fight results and table notices; on a computer they live in the side panel's Recent actions instead of the chat */

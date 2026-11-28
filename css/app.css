@@ -1195,6 +1195,9 @@
   .app .chat .top{display:none}
   .app .top .chips{display:none}
   .app .scene{margin:12px 12px 0;min-height:150px;border-radius:20px}
+  /* Jack (2026-11-28): a fixed 150px read as minimized on a big screen. The banner now takes about a third of the screen's
+     height (≈230px on a laptop, ≈320px at 1080p, at most 400px), or the height its bottom edge was dragged to */
+  .app .scene:not(.min):not(.empty){min-height:var(--sceneh,clamp(190px,30vh,400px))}
   .app .scene h2{font-size:30px}
   .app .scene .in{padding:16px 20px 16px}
   .app .scene.min{min-height:52px}
@@ -2192,6 +2195,19 @@
 .app :is(.shell,.page).resizing *{pointer-events:none}
 .app :is(.shell,.page).resizing :is(.railgrip,.rowgrip,.shelfgrip).on{pointer-events:auto}
 .app .page.resizing:has(.rowgrip.on){cursor:row-resize}
+.app .page.resizing:has(.scenegrip.on){cursor:row-resize}
+.app .page.resizing .scene{transition:none}
+.app :is(.shell,.page).resizing .scenegrip.on{pointer-events:auto}
+/* the scene banner's bottom edge (only with a mouse, on the wide layout) */
+.app .scenegrip{display:none}
+@media (hover:hover) and (pointer:fine){
+  @container dev (min-width: 760px){
+    .app .scenegrip{display:block;position:absolute;z-index:3;left:0;right:0;bottom:0;height:12px;cursor:row-resize;touch-action:none}
+    .app .scenegrip::after{content:"";position:absolute;left:50%;bottom:4px;width:44px;height:4px;margin-left:-22px;border-radius:4px;background:rgba(255,255,255,.28);opacity:0;transition:opacity .15s,background .12s}
+    .app .scene:hover .scenegrip::after{opacity:1}
+    .app .scenegrip:hover::after,.app .scenegrip.on::after{opacity:1;background:var(--accent)}
+  }
+}
 /* the line between the card and the actions below it */
 .app .rail{grid-template-rows:minmax(0,1fr) var(--rch,52%)}
 .app .rail.rc-off{grid-template-rows:minmax(0,1fr) auto}
