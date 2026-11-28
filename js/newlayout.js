@@ -179,7 +179,7 @@ function actionList(v){
     ['npc', 'An NPC', 'A new card in the cast', 'npc', 'npcNew', '', ''],
     ['news', 'A news issue', 'Write for one of the papers', 'newsL', 'writeNews', '', ''],
     ['wiki', 'A wiki entry', '', 'quill', 'wNew', '', ''],
-    ['pic', 'A picture', 'Upload a background for scenes and fights', 'upload', 'picUpload', '', ''],
+    ['pic', 'Pictures', 'Upload as many as you like to your picture library', 'upload', 'picUpload', '', ''],
   ];
   return [
     {h:`In ${here}`, rows:[
@@ -194,6 +194,7 @@ function actionList(v){
       ['cast', 'Cast', 'Characters and NPCs', 'cast', 'tab', 'cast', ''],
       ['map', 'Edit the map', 'Pins, reveals and folders', 'map', 'mapEditGo', '', ''],
       ['items', 'Item catalog', '', 'items', 'sheet', 'items', ''],
+      ['piclib', 'Picture library', 'Your uploaded pictures, in folders', 'image', 'picLib', '', ''],
       ['players', waiting ? `Players · ${waiting} waiting` : 'Players', 'Let people in, rename or remove them', 'userplus', 'sheet', 'players', ''],
       ['emoji', 'Emoji and GIFs', '', 'smile', 'sheet', 'emoji', ''],
       ['export', 'Export the log', '', 'export', 'sheet', 'export', ''],

@@ -566,7 +566,7 @@ function rMsg(v, m, prev, firstNarr){
   if (m.kind === 'pic') {
     const p = metaObj(m), pc = m.pic || {};
     /* a picture someone sent: tap it to see it big */
-    return `<div class="m ooc gifm picm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><button type="button" class="gifbox" data-a="picView" data-v="${m.id}" aria-label="Open the picture"><img class="gif" src="${esc(N.show(pc.u))}" alt="${esc(m.text || 'Picture')}" loading="lazy" ${pc.w && pc.h ? `style="aspect-ratio:${+pc.w}/${+pc.h}"` : ''}></button>${m.text ? `<div class="bub">${N.emoText(fmt(m.text))}${m.ed ? ' <span class="ed">edited</span>' : ''}</div>` : ''}</div></div>`;
+    return `<div class="m ooc gifm picm${mine?' mine':''}">${N.av(p,32)}<div class="body"><div class="who" style="--who:var(--ink-3)">${esc(p.name)}<span class="tag">Meta</span> ${time}</div><button type="button" class="gifbox" data-a="picView" data-v="${m.id}" aria-label="Open the picture"><img class="gif" src="${esc(N.show(N.imgUrl(pc.u)))}" alt="${esc(m.text || 'Picture')}" loading="lazy" ${pc.w && pc.h ? `style="aspect-ratio:${+pc.w}/${+pc.h}"` : ''}></button>${m.text ? `<div class="bub">${N.emoText(fmt(m.text))}${m.ed ? ' <span class="ed">edited</span>' : ''}</div>` : ''}</div></div>`;
   }
   if (m.kind === 'ooc' || m.kind === 'meta' || N.metaRp(m)) {
     const p = metaObj(m);
@@ -810,7 +810,7 @@ function gmScreen(v){
   const pcs = N.pcs(), npc1 = g.npcs[0], waiting = N.MEMBERS.filter(m => m.role === 'pending').length;
   const tiles = [['roll', 'eyeoff', 'Secret roll', 'data-secret="1"'], ['roll', 'dice', 'Roll for an NPC', npc1 ? `data-npc="${npc1.id}"` : ''], ['npcNew', 'npc', 'New NPC', ''],
     ['writeNews', 'newsL', 'Write news', ''], ['wNew', 'quill', 'New wiki entry', ''], ['mapEditGo', 'map', 'Edit the map', ''],
-    ['sheet', 'items', 'Item catalog', 'data-v="items"'], ['sheet', 'wheel', 'Encounter wheel', 'data-v="wheel"'], ['sheet', 'star', 'Level up', 'data-v="lvlGive"'],
+    ['sheet', 'items', 'Item catalog', 'data-v="items"'], ['picLib', 'image', 'Picture library', ''], ['sheet', 'wheel', 'Encounter wheel', 'data-v="wheel"'], ['sheet', 'star', 'Level up', 'data-v="lvlGive"'],
     ['sheet', 'userplus', waiting ? `Players · ${waiting} waiting` : 'Players', 'data-v="players"'], ['sheet', 'export', 'Export logs, wiki, news', 'data-v="export"'], ['sheet', 'smile', 'Emoji and GIFs', 'data-v="emoji"'], ['sheet', 'upload', 'Import lore', 'data-v="import"'], ['sheet', 'trash', 'Wipe a chat', 'data-v="wipe"']];
   const scenes = N.channelsFor('gm').filter(c => c !== 'gm' && g.scenes[c]).length;
   return `<div class="gs">
@@ -828,14 +828,13 @@ function gmScreen(v){
     ${picShelf(v)}
   </div>`;
 }
-/* backgrounds the GM uploaded, kept for scenes and fights until deleted */
+/* the GM's picture library on the GM screen: the newest few, and the whole library a tap away (sheets.js 'piclib') */
 function picShelf(v){
-  const g = G(), cb = g.combat, sel = g.pics.find(p => p.id === v.ui.picSel);
-  const acts = sel ? `<div class="pic-acts">${cb.state !== 'off' ? `<button type="button" class="btn sm primary" data-a="picFight" data-v="${sel.id}">${IC('swords')}Use for the fight</button>` : ''}<button type="button" class="btn sm" data-a="picScene" data-v="${sel.id}">${IC('image')}Use as scene</button><button type="button" class="btn sm" data-a="picFrame" data-v="${sel.id}">${IC('fit')}Adjust framing</button><button type="button" class="btn sm danger" data-a="picDel" data-v="${sel.id}">${IC('trash')}Delete</button></div>` : '';
-  return `<section class="gs-sec gs-pics"><div class="gs-h"><h3>Your pictures</h3>${g.pics.length ? `<small class="muted">${g.pics.length}</small>` : ''}</div>
-      <p class="muted gs-note">Backgrounds you upload for scenes and fights stay here. Tap one to use it or delete it.</p>
-      <div class="thumbs"><button type="button" class="thumb up" data-a="picUpload"><span>${IC('upload')}Upload a picture</span></button>${g.pics.map(p => `<button type="button" class="thumb${sel === p ? ' on' : ''}" data-a="picSel" data-v="${p.id}" aria-pressed="${sel === p}" aria-label="Your picture">${N.bgPic(p.src)}${cb.bg === p.src && cb.state !== 'off' ? '<span><small>In the fight</small></span>' : ''}${sel === p ? `<span class="ck">${IC('check')}</span>` : ''}</button>`).join('')}</div>
-      ${acts}
+  const g = G(), cb = g.combat, n = g.pics.length, dirs = (g.picDirs || []).length, few = g.pics.slice(0, v.dev === 'phone' ? 4 : 8);
+  return `<section class="gs-sec gs-pics"><div class="gs-h"><h3>Picture library</h3>${n ? `<small class="muted">${n} picture${n === 1 ? '' : 's'}${dirs ? ` · ${dirs} folder${dirs === 1 ? '' : 's'}` : ''}</small>` : ''}</div>
+      <p class="muted gs-note">Upload as many pictures as you like and keep them for later: scene and fight pictures, map places, or one to send in a chat.</p>
+      ${few.length ? `<div class="thumbs">${few.map(p => `<button type="button" class="thumb" data-a="picLib" data-v="${p.id}" aria-label="${esc(p.name || 'Picture')}">${N.bgPic(p.src)}${p.name ? `<span>${esc(p.name)}</span>` : ''}${cb.bg === p.src && cb.state !== 'off' ? '<em class="pl-tag">In the fight</em>' : ''}</button>`).join('')}</div>` : ''}
+      <div class="pic-acts"><button type="button" class="btn sm primary" data-a="picUpload">${IC('upload')}Upload pictures</button>${n ? `<button type="button" class="btn sm" data-a="picLib">${IC('image')}Open the library${n > few.length ? ` (${n})` : ''}</button>` : ''}</div>
     </section>`;
 }
 function gmPage(v){
