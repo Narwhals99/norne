@@ -2112,7 +2112,7 @@ function act(v, a, el, e){
   const g = G(), ui = v.ui, d = el.dataset, val = d.v, cb = g.combat, gm = isGM(v);
   const close = () => { ui.sheet = null; ui.pop = null; };
   /* anything tapped in the phone's chat drawer closes it */
-  if (ui.shelf && a !== 'shelf' && a !== 'shFilt') ui.shelf = false;
+  if (ui.shelf && a !== 'shelf' && a !== 'shFold') ui.shelf = false;
   switch (a) {
   /* account */
   case 'signIn': N.signIn(); return;
@@ -2186,7 +2186,7 @@ function act(v, a, el, e){
   case 'shelf': ui.shelf = !ui.shelf; ui.pop = null; break;
   case 'mode': if (val === 'cb') { ui.fightOpen = true; ui.fightPane = 'fight'; } else { ui.fightOpen = false; ui.fightPane = 'chat'; ui.tokSel = null; ui.targeting = null; ui.stick = true; } break;
   case 'railFold': ui[d.v] = !ui[d.v]; try { localStorage.setItem('norne-' + d.v.toLowerCase(), ui[d.v] ? '1' : '0'); } catch(e) {} break;
-  case 'shFilt': { const off = N.shHide(); off.has(val) ? off.delete(val) : off.add(val); try { localStorage.setItem('norne-shf', JSON.stringify([...off])); } catch(e) {} break; }
+  case 'shFold': { const f = N.shFolds(); f.has(val) ? f.delete(val) : f.add(val); try { localStorage.setItem('norne-shfold', JSON.stringify([...f])); } catch(e) {} break; }
   case 'shelfDt': ui.shelfOff = !ui.shelfOff; ui.shelfSplit = false; try { localStorage.setItem('norne-shelfoff', ui.shelfOff ? '1' : '0'); } catch(e) {} break;
   case 'recentFold': ui.recentOff = !ui.recentOff; try { localStorage.setItem('norne-recent', ui.recentOff ? '0' : '1'); } catch(e) {} break;
   /* desktop side panels: show another page in the top (0) or bottom (1) panel; the page the other panel shows swaps over.
