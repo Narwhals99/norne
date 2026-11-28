@@ -63,12 +63,14 @@ N.appHtml = function(v){
   const me = N.personObj(v.role);
 
   const shelfOn = v.ui.tab === 'chat' && !(nl && !ph);
+  /* desktop (old layout): the nav is always the slim icon rail, on every tab, so it never jumps between a labelled list and icons (Jack, 2026-11-28). The chat list sits beside it on the Chat tab only. */
+  const railOn = v.dev === 'desktop' && !nl;
   const nav = `<nav class="nav" aria-label="Sections">
     <div class="mark">${MARK}<b>N<small>ORNE</small></b></div>
     <div class="navl scroll">
       ${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? `<button type="button" class="ni shopen" data-a="shelfDt" title="Show the chat list" aria-label="Show the chat list">${IC('list')}<span>Chats</span></button>` : ''}
-      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${cur(id)?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm)&&!nl&&otherUnread?'<span class="dot"></span>':''}${(id==='news'||(nl&&id==='world'))&&newsNew?`<span class="badge gold">${newsNew}</span>`:''}${id===lvlTab&&lvlN?`<span class="badge gold" title="Level up">${lvlN}</span>`:''}</span></button>
-        ${id==='chat' && !shelfOn && (!gm || nl) ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).filter(c => !N.chArchived(c) || c === v.ui.ch).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
+      ${tabs.map(([id,l,ic]) => `<button type="button" class="ni" title="${l}" data-a="tab" data-v="${id}" ${cur(id)?'aria-current="page"':''}>${IC(ic)}<span>${l}</span><span class="end">${id==='chat'&&fightLive?`<span class="tag ember">${IC('swords')}Fight</span>`:''}${id==='chat'&&(shelfOn||gm||railOn)&&!nl&&otherUnread?'<span class="dot"></span>':''}${(id==='news'||(nl&&id==='world'))&&newsNew?`<span class="badge gold">${newsNew}</span>`:''}${id===lvlTab&&lvlN?`<span class="badge gold" title="Level up">${lvlN}</span>`:''}</span></button>
+        ${id==='chat' && !shelfOn && !railOn && (!gm || nl) ? `<div class="sub" role="group" aria-label="Chats">${N.channelsFor(v.role).filter(c => !N.chArchived(c) || c === v.ui.ch).map(c => chanBtn(v,c)).join('')}</div>` : ''}`).join('')}
     </div>
     <div class="art" aria-hidden="true"></div>
     <button type="button" class="who" data-a="sheet" data-v="profile">${N.av(me,38)}<span><b>${esc(me.name)}</b><small>${gm?'Game master':'Player'}</small></span><span class="end">${IC('gear')}</span></button>
@@ -88,7 +90,7 @@ N.appHtml = function(v){
 
   const tip = nl ? N.nl.tipHtml(v, page) : '';
   return `<div class="stars" aria-hidden="true"></div>${glintsHtml()}${tip}${N.TEST ? `<div class="testbar" role="status"><b>GM test mode</b><span>A pretend table. Nothing here is saved or sent.</span><button type="button" data-a="gmTest" data-v="off">Leave</button></div>` : ''}
-    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${shelfOn && v.dev === 'desktop' ? ' shelved' : ''}${shelfOn && v.dev === 'desktop' && v.ui.shelfOff ? ' shelf-off' : ''}"${v.ui.shelfW ? ` style="--shelfw:${v.ui.shelfW}px"` : ''}>${nav}${shelfOn && v.dev === 'desktop' && !v.ui.shelfOff ? shelfHtml(v) : ''}${page}${tabbar}</div>${todGlow(v)}
+    <div class="shell${v.dev === 'desktop' && v.ui.tab === 'chat' && N.fightAvail(v) && v.ui.fightOpen ? ' compact' : ''}${railOn ? ' shelved' : ''}${railOn && (!shelfOn || v.ui.shelfOff) ? ' shelf-off' : ''}"${v.ui.shelfW ? ` style="--shelfw:${v.ui.shelfW}px"` : ''}>${nav}${shelfOn && v.dev === 'desktop' && !v.ui.shelfOff ? shelfHtml(v) : ''}${page}${tabbar}</div>${todGlow(v)}
     ${shelfOn && v.dev === 'phone' && v.ui.shelf ? `<div class="scrim shelf-scrim" data-a="shelf"></div>${shelfHtml(v)}` : ''}
     ${v.ui.sheet ? `<div class="scrim" data-a="closeSheet"></div>${N.sheetHtml(v)}` : ''}
     ${v.ui.pop ? `<div class="scrim" style="background:transparent;backdrop-filter:none" data-a="closePop"></div>${popHtml(v)}` : ''}
