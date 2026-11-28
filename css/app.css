@@ -848,6 +848,8 @@
 .app .pin.dotp.go .pl.two svg{display:none}
 .app .pincard .hd .pcsub{display:block;margin-top:2px;font:600 13px/1.3 var(--f-ui);color:var(--ink-2)}
 .app .pincard{position:absolute;left:10px;right:10px;bottom:10px;z-index:6;border-radius:22px;padding:14px 14px 12px;display:grid;gap:10px;animation:rise .25s ease both}
+/* a long place card (GM editing) scrolls inside itself instead of running off the screen; it stops under the top row so Done stays reachable */
+.app .pincard{max-height:calc(100% - 72px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;align-content:start}
 .app .pincard .hd{display:flex;align-items:flex-start;gap:10px}
 .app .pincard .hd b{display:block;font:600 20px/1.15 var(--f-display)}
 .app .pincard p{margin:0;font:500 14px/1.45 var(--f-ui);color:var(--ink-2)}
@@ -1231,7 +1233,7 @@
   .app .fight-chat .narr p{font-size:16px}
   .app .setup-panel{position:absolute;right:12px;top:12px;bottom:12px;width:340px;z-index:7;border-radius:22px;overflow:auto}
 
-  .app .pincard{left:auto;right:14px;bottom:auto;top:70px;width:340px}
+  .app .pincard{left:auto;right:14px;bottom:auto;top:70px;width:340px;max-height:calc(100% - 84px)}
   .app .mapov{padding:14px}
 
   .app .world{grid-template-columns:340px 1fr}
@@ -2996,7 +2998,7 @@
 .app .pane-c .top.dt{padding:8px 12px 2px}
 .app .pane-c .top.dt h1{font-size:20px}
 .app .pane-c .mapov{padding:8px}
-.app .pane-c .pincard{left:8px;right:8px;top:auto;bottom:8px;width:auto}
+.app .pane-c .pincard{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:calc(100% - 72px)}
 .app .pane-pop .opt small{display:block}
 .app .pane-c .cast .ttl{font-size:20px!important}
 .app .pane.pa .rcnt.rc-in{padding:0 12px 12px}
