@@ -258,7 +258,7 @@
 .app:where([data-style="sketch"]) .scene.empty::before{display:none}
 
 /* messages */
-.app:where([data-style="sketch"]) .day-div{font:700 12.5px/1 var(--f-hand);font-size:17px;letter-spacing:.04em;text-transform:none;color:var(--ink-3)}
+.app:where([data-style="sketch"]) .day-div{font-style:normal;font-weight:700;font-size:12.5px;line-height:1;font-family:var(--f-hand);font-size:17px;letter-spacing:.04em;text-transform:none;color:var(--ink-3)}
 .app:where([data-style="sketch"]) .day-div::before,.app:where([data-style="sketch"]) .day-div::after{height:5px;background:url("../art/ui/sketch/hatch-horiz-night.png") 0 0/48px;opacity:.9}
 .app:where([data-style="sketch"])[data-theme="day"] .day-div::before,.app:where([data-style="sketch"])[data-theme="day"] .day-div::after{background-image:url("../art/ui/sketch/hatch-horiz-day.png")}
 .app:where([data-style="sketch"]) .m .who{font:700 13px/1 var(--f-ui)}
@@ -302,7 +302,7 @@
 /* narration: the story itself, written out longhand with a hatched initial */
 .app:where([data-style="sketch"]) .narr::before{width:1.5px;left:5px;background:var(--ink-3);box-shadow:3px 0 0 var(--line-2);border-radius:0}
 .app:where([data-style="sketch"]) .narr .who{font:700 11.5px/1 var(--f-ui);letter-spacing:.16em;color:var(--ink-2)}
-.app:where([data-style="sketch"]) .narr p{font:400 17.5px/1.55 var(--f-body);font-variation-settings:normal;color:var(--ink)}
+.app:where([data-style="sketch"]) .narr p{font-style:normal;font-weight:400;font-size:17.5px;line-height:1.55;font-family:var(--f-body);font-variation-settings:normal;color:var(--ink)}
 .app:where([data-style="sketch"]) .narr p em{font-family:var(--f-hand);font-style:normal;font-size:1.2em;font-weight:500}
 .app:where([data-style="sketch"]) .narr.first p::first-letter{font:400 54px/.82 var(--f-mark);color:var(--ink);margin:6px 9px 0 0}
 .app:where([data-style="sketch"]) .mw.on{background:var(--accent-soft);box-shadow:0 0 0 6px var(--accent-soft)}

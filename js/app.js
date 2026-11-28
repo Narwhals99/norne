@@ -138,30 +138,38 @@ N.mount = function(root, o){
 };
 
 /* ---------------- text size ----------------
-   The stylesheets and the inline styles give font sizes in px. The first time a device picks a size other than Normal,
-   every px font size and line height in the app's own stylesheets is rewritten once to calc(<px> * var(--fz,1)),
-   so changing the size afterwards only changes --fz on the app. On Normal nothing is touched. */
-const FZ_PX = /(\d*\.?\d+)px/g, fzCalc = s => s.replace(FZ_PX, 'calc($1px * var(--fz,1))');
+   The stylesheets and the inline styles give font sizes in px. Every px font size and line height in the app's own
+   stylesheets is rewritten once to calc(<px> * var(--fz,1)), so a size only ever changes through --fz.
+   --fz differs per area (Jack, 2026-11-28, see "text size per area" in app.css): Profile > Text size sets --fzu on the
+   app, the chat and pages that fill the screen grow by the whole step, side panels, chat list, menus and banners by half.
+   Font sizes under 10.5px are raised to 10.5px (line heights are left alone).
+   A rule that mixes a font: shorthand using var() with a later font-* longhand loses its sizes in the browser's copy
+   (they read back empty), so write those as longhands; docs/THEMES.md has the note. */
+const FZ_MIN = 10.5, FZ_PX = /(\/\s*)?(\d*\.?\d+)px/g;
+const fzCalc = (s, size) => s.replace(FZ_PX, (m, sl, n) => `${sl || ''}calc(${size && !sl && +n > 0 && +n < FZ_MIN ? FZ_MIN : n}px * var(--fz,1))`);
 function fzDecl(st){
   for (const k of ['font', 'font-size', 'line-height']) {
     const val = st.getPropertyValue(k);
     if (!val || !val.includes('px') || val.includes('--fz')) continue;
-    st.setProperty(k, fzCalc(val), st.getPropertyPriority(k));
+    st.setProperty(k, fzCalc(val, k !== 'line-height'), st.getPropertyPriority(k));
     if (k === 'font') break;
   }
 }
+/* each stylesheet is rewritten once, as soon as it has loaded (one still loading is picked up on a later draw) */
+const fzDone = new WeakSet();
 let fzSheets = false;
 function fzSet(v){
-  const k = N.fzK(v.fz);
-  if (k !== 1 && !fzSheets) {
-    fzSheets = true;
-    const walk = rules => { for (const r of rules) { if (r.cssRules) walk(r.cssRules); if (r.style) fzDecl(r.style); } };
-    for (const sh of document.styleSheets) { let rs; try { rs = sh.cssRules; } catch(e) { continue; } walk(rs); }
+  fzSheets = true;
+  const walk = rules => { for (const r of rules) { if (r.cssRules) walk(r.cssRules); if (r.style) fzDecl(r.style); } };
+  for (const sh of document.styleSheets) {
+    if (fzDone.has(sh)) continue;
+    let rs; try { rs = sh.cssRules; } catch(e) { continue; }
+    if (!rs || (!rs.length && sh.ownerNode && sh.ownerNode.tagName === 'LINK')) continue;
+    fzDone.add(sh); walk(rs);
   }
   v.root.dataset.fz = v.fz;
-  v.root.style.setProperty('--fz', k);
+  v.root.style.setProperty('--fzu', N.fzK(v.fz));
 }
-/* inline style="font:…px" in the markup gets the same treatment after each draw */
 const fzInline = v => { if (fzSheets) v.root.querySelectorAll('[style*="px"]').forEach(e => fzDecl(e.style)); };
 
 /* A redraw changes only what really changed on screen.

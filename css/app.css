@@ -165,16 +165,16 @@
 /* ---------- index cards (Fate aspects) ---------- */
 .app .icard{--rot:0deg;position:relative;display:inline-flex;flex-direction:column;gap:2px;min-width:0;max-width:100%;padding:7px 11px 7px;border-radius:4px;
   background:repeating-linear-gradient(180deg,transparent 0 15px,var(--card-line) 15px 16px) 0 18px/100% calc(100% - 18px) no-repeat,var(--card-paper);
-  color:var(--card-ink);font:600 13.5px/1.25 var(--f-display);font-style:italic;rotate:var(--rot);
+  color:var(--card-ink);font-weight:600;font-size:13.5px;line-height:1.25;font-family:var(--f-display);font-style:italic;rotate:var(--rot);
   box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 6px 14px -8px rgba(0,0,0,.7),0 0 0 1px rgba(0,0,0,.08);text-align:left}
 .app .icard::before{content:"";position:absolute;left:0;right:0;top:15px;height:1px;background:var(--card-rule);opacity:.75}
-.app .icard .k{font:800 8.5px/1 var(--f-ui);font-style:normal;letter-spacing:.14em;text-transform:uppercase;color:#7a5c3a;margin-bottom:5px;white-space:nowrap}
+.app .icard .k{font-weight:800;font-size:8.5px;line-height:1;font-family:var(--f-ui);font-style:normal;letter-spacing:.14em;text-transform:uppercase;color:#7a5c3a;margin-bottom:5px;white-space:nowrap}
 .app .icard .fi{position:absolute;right:-6px;top:-6px;display:flex;gap:2px}
 .app .icard .fi i{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3c4,#f2b84f 55%,#b4731d);box-shadow:0 1px 3px rgba(0,0,0,.5)}
 .app button.icard{cursor:pointer;transition:transform .15s,box-shadow .15s}
 .app button.icard:hover{transform:translateY(-2px) rotate(calc(var(--rot) * -1));box-shadow:0 1px 0 rgba(255,255,255,.6) inset,0 12px 20px -10px rgba(0,0,0,.7)}
 .app .icards{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
-.app .icard.add{background:transparent;color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2);font:700 12.5px/1.2 var(--f-ui);font-style:normal;flex-direction:row;align-items:center;gap:6px;min-height:34px}
+.app .icard.add{background:transparent;color:var(--ink-3);box-shadow:inset 0 0 0 1.5px var(--line-2);font-weight:700;font-size:12.5px;line-height:1.2;font-family:var(--f-ui);font-style:normal;flex-direction:row;align-items:center;gap:6px;min-height:34px}
 .app .icard.add::before{display:none}.app .icard.add svg{width:15px;height:15px}
 
 /* ---------- shell ---------- */
@@ -328,7 +328,7 @@
 .app .narr::before{content:"";position:absolute;left:4px;top:4px;bottom:4px;width:2px;border-radius:2px;background:linear-gradient(180deg,var(--gold),color-mix(in srgb,var(--gold) 0%,transparent))}
 .app .narr .who{display:flex;align-items:center;gap:7px;margin-bottom:5px;font:800 10.5px/1 var(--f-ui);letter-spacing:.16em;text-transform:uppercase;color:var(--gold-tx)}
 .app .narr .who time{letter-spacing:0;text-transform:none;font-weight:600;color:var(--ink-4)}
-.app .narr p{margin:0;overflow-wrap:anywhere;font:400 17.5px/1.55 var(--f-display);font-variation-settings:"opsz" 14,"SOFT" 50;color:var(--ink)}
+.app .narr p{margin:0;overflow-wrap:anywhere;font-style:normal;font-weight:400;font-size:17.5px;line-height:1.55;font-family:var(--f-display);font-variation-settings:"opsz" 14,"SOFT" 50;color:var(--ink)}
 .app .narr p+p{margin-top:8px}
 .app .narr.first p::first-letter{float:left;font:600 46px/0.86 var(--f-display);color:var(--gold-tx);margin:4px 8px 0 0}
 
@@ -634,7 +634,7 @@
 .app .hero-top small{font:600 12px/1.3 var(--f-ui);color:var(--ink-3)}
 .app .quick-sk{display:flex;flex-wrap:wrap;gap:6px}
 .app .quick-sk :is(button,span){display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 6px 0 11px;border-radius:999px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line);font:700 12.5px/1 var(--f-ui)}
-.app .quick-sk :is(button,span) i{font:700 13px/1 var(--f-display);font-style:normal;color:var(--gold-tx);background:var(--gold-soft);padding:4px 6px;border-radius:999px}
+.app .quick-sk :is(button,span) i{font-weight:700;font-size:13px;line-height:1;font-family:var(--f-display);font-style:normal;color:var(--gold-tx);background:var(--gold-soft);padding:4px 6px;border-radius:999px}
 .app .quick-sk button:hover{box-shadow:inset 0 0 0 1.5px var(--accent)}
 
 /* ---------- combat ---------- */
@@ -930,7 +930,7 @@
 .app .article .rule{display:flex;align-items:center;gap:10px;color:var(--gold-tx)}
 .app .article .rule::before,.app .article .rule::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--gold) 55%,transparent))}
 .app .article .rule::after{background:linear-gradient(270deg,transparent,color-mix(in srgb,var(--gold) 55%,transparent))}
-.app .article .b{margin:0;font:400 16.5px/1.65 var(--f-display);font-variation-settings:"opsz" 12;color:var(--ink)}
+.app .article .b{margin:0;font-style:normal;font-weight:400;font-size:16.5px;line-height:1.65;font-family:var(--f-display);font-variation-settings:"opsz" 12;color:var(--ink)}
 .app .article h3{margin:8px 0 0;font:700 13px/1.2 var(--f-ui);letter-spacing:.12em;text-transform:uppercase;color:var(--gold-tx)}
 .app .article ul{margin:0;padding-left:20px;display:grid;gap:6px;font:400 15.5px/1.55 var(--f-display)}
 .app .article ul li::marker{color:var(--gold-tx)}
@@ -1441,7 +1441,7 @@
 /* scene picker: free-invoke dots and remove on aspect cards */
 .app .icard .fib{display:inline-flex;align-items:center;gap:2px;min-width:22px;height:22px;padding:0 3px;border-radius:999px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
 .app .icard .fib i{width:12px;height:12px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff3c4,#f2b84f 55%,#b4731d)}
-.app .icard .fib em{font:800 11px/1 var(--f-ui);font-style:normal;color:#9a7a55;padding:0 4px}
+.app .icard .fib em{font-weight:800;font-size:11px;line-height:1;font-family:var(--f-ui);font-style:normal;color:#9a7a55;padding:0 4px}
 .app .icard .xb{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;color:#7a6446}
 .app .icard .xb svg{width:13px;height:13px}
 .app .icard .xb:hover{background:rgba(0,0,0,.08)}
@@ -1608,7 +1608,7 @@
 .app .nb-st i{width:9px;height:9px;border-radius:3px;background:var(--sunk);box-shadow:inset 0 0 0 1.3px var(--line-3)}
 .app .nb-st i.on{background:var(--ember);box-shadow:0 0 8px -2px var(--ember)}
 .app .nb-st.big{gap:3px}
-.app .nb-st.big i{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font:800 10px/1 var(--f-ui);font-style:normal;color:var(--ink-3)}
+.app .nb-st.big i{width:20px;height:20px;border-radius:6px;display:grid;place-items:center;font-weight:800;font-size:10px;line-height:1;font-family:var(--f-ui);font-style:normal;color:var(--ink-3)}
 .app .nb-st.big i.on{color:#fff}
 .app .nb-zt{display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:999px;font:800 10.5px/1 var(--f-ui);color:var(--ink-2);background:color-mix(in srgb,var(--zc) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zc) 50%,transparent);white-space:nowrap}
 .app .nb-zt::before{content:"";width:7px;height:7px;border-radius:2px;background:var(--zc)}
@@ -1777,7 +1777,7 @@
 .app .fxsvg{position:absolute;left:0;top:0;overflow:visible;pointer-events:none;z-index:6}
 .app .fxt{position:absolute;left:0;top:0;z-index:7;pointer-events:none;display:grid;justify-items:center;gap:2px;white-space:nowrap;opacity:0;transform-origin:50% 100%;will-change:transform,opacity;
   --o:#170c05;text-shadow:0 2px 0 var(--o),2px 0 0 var(--o),-2px 0 0 var(--o),0 -2px 0 var(--o),1.5px 1.5px 0 var(--o),-1.5px 1.5px 0 var(--o),1.5px -1.5px 0 var(--o),-1.5px -1.5px 0 var(--o),0 4px 0 var(--o),0 7px 14px rgba(0,0,0,.6)}
-.app .fxt b{font:700 var(--fs,22px)/1 var(--f-display);font-variation-settings:"SOFT" 100;letter-spacing:.02em;color:var(--k)}
+.app .fxt b{font-style:normal;font-weight:700;font-size:var(--fs,22px);line-height:1;font-family:var(--f-display);font-variation-settings:"SOFT" 100;letter-spacing:.02em;color:var(--k)}
 .app .fxt small{font:900 calc(var(--fs,22px) * .44)/1.1 var(--f-ui);letter-spacing:.07em;text-transform:uppercase;color:#fff8ea}
 .app:where([data-style="parchment"]) .fxt b{font-family:"Alegreya",Georgia,serif;font-weight:900;font-variation-settings:normal}
 /* 3D figures on the board (js/figboard.js): the canvas sits over the zones and under the names, stress boxes,
@@ -1820,7 +1820,7 @@
 .app .ff.talk{color:var(--ink-3)}
 .app .ff.res .ffi{color:var(--jade)}.app .ff.res.hit .ffi{color:var(--ember)}.app .ff.res.tie .ffi{color:var(--gold-tx)}
 .app .ff .ffd{display:inline-flex;gap:2px}
-.app .ff .ffd i{width:13px;height:13px;border-radius:4px;display:grid;place-items:center;background:#e9e0c6;color:#2a2418;font:800 10px/1 var(--f-ui);font-style:normal}
+.app .ff .ffd i{width:13px;height:13px;border-radius:4px;display:grid;place-items:center;background:#e9e0c6;color:#2a2418;font-weight:800;font-size:10px;line-height:1;font-family:var(--f-ui);font-style:normal}
 .app .ff .ffd i.p{color:#1f7a4c}.app .ff .ffd i.m{color:#b23b2a}
 .app .ff .ffv{flex:none;font:600 16px/1 var(--f-display);color:var(--gold-tx)}
 .app .ff .ffb{flex:none;display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border-radius:999px;background:var(--raise-2);box-shadow:inset 0 0 0 1px var(--line-2);font:700 11px/1 var(--f-ui);color:var(--ink-2)}
@@ -2017,7 +2017,7 @@
 .app .rcnt .ff:last-child{background:none}
 
 /* ---------- desktop: Roleplay | Combat switch and the combat screen ---------- */
-.app .modeseg .nb{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--ember);color:#fff;font:800 10.5px/1 var(--f-ui);font-style:normal}
+.app .modeseg .nb{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--ember);color:#fff;font-weight:800;font-size:10.5px;line-height:1;font-family:var(--f-ui);font-style:normal}
 .app .top.dt .modeseg{flex:none}
 .app .fight-h .modeseg{flex:none;margin-left:auto}
 @container dev (min-width: 760px){ .app .page.with-rail:has(>.fight.cmd){grid-template-columns:minmax(0,1fr) var(--railw,330px)} }
@@ -2092,7 +2092,7 @@
 .app .rl{align-self:center;display:flex;align-items:center;gap:8px;max-width:100%;margin:10px auto 4px;padding:6px 10px 6px 8px;border-radius:14px;background:var(--raise);box-shadow:inset 0 0 0 1px var(--line-2);font:600 12.5px/1.25 var(--f-ui);color:var(--ink-2);text-align:left}
 .app .mwb:has(>.rl){align-self:center;display:flex;justify-content:center;max-width:100%}
 .app .rl .rld{flex:none;display:inline-flex;align-items:center;gap:2px}
-.app .rl .rld i{width:15px;height:15px;border-radius:4px;display:grid;place-items:center;background:#e9e0c6;color:#2a2418;font:800 11px/1 var(--f-ui);font-style:normal}
+.app .rl .rld i{width:15px;height:15px;border-radius:4px;display:grid;place-items:center;background:#e9e0c6;color:#2a2418;font-weight:800;font-size:11px;line-height:1;font-family:var(--f-ui);font-style:normal}
 .app .rl .rld i.p{color:#1f7a4c}.app .rl .rld i.m{color:#b23b2a}
 .app .rl .rlt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .app .rl .rlt b{color:var(--ink);font-weight:800}
@@ -2116,7 +2116,7 @@
   55%{transform:translate3d(12px,-18px,0) rotateX(60deg) rotateY(-40deg) rotateZ(-10deg)}
   78%{transform:translate3d(-4px,4px,0) rotateX(-12deg) rotateY(8deg)}
   100%{transform:none}}
-.app .rfx .f{position:absolute;inset:0;display:grid;place-items:center;border-radius:11px;background:linear-gradient(145deg,#f6eed8,#d8ccab);color:#2a2418;font:800 30px/1 var(--f-ui);font-style:normal;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),inset 0 -4px 8px rgba(0,0,0,.12);backface-visibility:hidden}
+.app .rfx .f{position:absolute;inset:0;display:grid;place-items:center;border-radius:11px;background:linear-gradient(145deg,#f6eed8,#d8ccab);color:#2a2418;font-weight:800;font-size:30px;line-height:1;font-family:var(--f-ui);font-style:normal;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12),inset 0 -4px 8px rgba(0,0,0,.12);backface-visibility:hidden}
 .app .rfx .f.p{color:#1f7a4c}.app .rfx .f.m{color:#b23b2a}
 .app .rfx .fr{transform:translateZ(25px)}.app .rfx .bk{transform:rotateY(180deg) translateZ(25px)}
 .app .rfx .rt{transform:rotateY(90deg) translateZ(25px)}.app .rfx .lf{transform:rotateY(-90deg) translateZ(25px)}
@@ -2159,6 +2159,24 @@
 .app .fzpick .fzs b{color:var(--ink)}
 /* iPhones zoom into any box with text under 16px, so Small keeps typing boxes at 16px (1rem, which the resize leaves alone) */
 .app[data-dev="phone"][data-fz="s"] :is(input,textarea,select){font-size:1rem!important}
+/* ---------- text size per area (Jack, 2026-11-28) ----------
+   Every px font size is multiplied by --fz (see "text size" in app.js). --fzu is the Profile > Text size step
+   (.9 to 1.4). The chat, the typing box and pages that fill the screen have room, so they grow by the whole step;
+   side panels, the chat list, menus, the tab bar, the chat header, the scene banner and popups on a computer
+   grow by half, so they stay readable without spilling off the screen. The chat also starts a little bigger. */
+.app{--fzh:calc(1 + (var(--fzu,1) - 1) * .5);--fz:var(--fzh)}
+.app .page,.app[data-dev="phone"] .sheet,.app .composer textarea{--fz:var(--fzu,1)}
+/* the side panels keep their width at any text size instead of growing off the right edge of the screen */
+.app .rail{grid-template-columns:minmax(0,1fr)}
+.app .rail .gs{grid-template-columns:minmax(0,1fr)}
+.app .rail .tools{grid-template-columns:repeat(3,minmax(0,1fr))}
+.app .rail .tools button{overflow-wrap:anywhere}
+.app .rail .gm-solo{white-space:normal;text-align:center;height:auto;min-height:34px;padding-block:6px;line-height:1.25;text-wrap:balance}
+.app .rail .roll .rb{flex-wrap:wrap}
+.app .chat .msgs{--fz:calc(var(--fzu,1) * 1.12)}
+.app[data-dev="phone"] .chat .msgs{--fz:calc(var(--fzu,1) * 1.06)}
+.app :is(.rail,.chat>.top,.chat>header,.chat>.scene,.chat>.nl-scene,.composer),.app .rail .msgs{--fz:var(--fzh)}
+.app .composer textarea{--fz:var(--fzu,1)}
 
 /* ---------- desktop: every panel line drags, every side panel folds ---------- */
 .app .page.resizing .railgrip:not(.on)::after{background:transparent}
@@ -2268,7 +2286,7 @@
 /* consequences in a fight: small cards on the fighter card and the player's card, marks on the phone bar */
 .app .cq-list{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
 .app .cq{display:inline-grid;gap:2px;min-width:0;max-width:100%;padding:5px 9px;border-radius:10px;font:italic 500 13px/1.25 var(--f-display);background:var(--sunk);box-shadow:inset 0 0 0 1.3px var(--line);color:var(--ink-3);overflow-wrap:anywhere}
-.app .cq b{font:800 9.5px/1.1 var(--f-ui);letter-spacing:.1em;text-transform:uppercase;font-style:normal;color:var(--ink-3)}
+.app .cq b{font-style:normal;font-weight:800;font-size:9.5px;line-height:1.1;font-family:var(--f-ui);letter-spacing:.1em;text-transform:uppercase;font-style:normal;color:var(--ink-3)}
 .app .cq b i{font-style:normal;font-weight:700;letter-spacing:0}
 .app .cq.full{background:var(--card-paper);color:var(--card-ink);box-shadow:inset 3px 0 0 var(--card-rule),0 1px 0 rgba(0,0,0,.12)}
 .app .cq.full b{color:var(--card-ink)}
@@ -2390,7 +2408,7 @@
 .app .scenem.end .th{display:grid;place-items:center;background:var(--sunk);color:var(--ink-3);box-shadow:0 0 0 2px var(--line-2)}
 .app .scenem.end .th svg{width:15px;height:15px}
 /* scene sheet: who a scene aspect sits on */
-.app .icard .aspon-sel{font:700 11.5px/1.2 var(--f-ui);font-style:normal;color:inherit;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.18);border-radius:4px;padding:3px 4px;max-width:140px;min-height:26px}
+.app .icard .aspon-sel{font-weight:700;font-size:11.5px;line-height:1.2;font-family:var(--f-ui);font-style:normal;color:inherit;background:rgba(0,0,0,.06);border:1px solid rgba(0,0,0,.18);border-radius:4px;padding:3px 4px;max-width:140px;min-height:26px}
 /* Who rolls / Against someone: show everyone, not only the scene */
 .app .morewho{margin-top:8px}
 /* emoji (and later formatting) for long forms: stays in reach while the form scrolls */
@@ -2498,11 +2516,11 @@
 .app .pc-hero .fp .res{display:flex;align-items:flex-end;gap:12px 22px;flex-wrap:wrap}
 .app .goldf .eyebrow{display:block;margin-bottom:6px}
 .app .gold-ro{display:flex;align-items:center;gap:7px;min-height:24px}
-.app .gold-ro b,.app .gs-gold b{font:700 18px/1 var(--f-display);color:var(--gold-tx);font-variant-numeric:tabular-nums}
+.app .gold-ro b,.app .gs-gold b{font-style:normal;font-weight:700;font-size:18px;line-height:1;font-family:var(--f-display);color:var(--gold-tx);font-variant-numeric:tabular-nums}
 .app .gold-ed{display:flex;align-items:center;gap:4px}
 .app .gold-ed button{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--sunk);font:800 15px/1 var(--f-ui);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line)}
 .app .gold-ed button:disabled{opacity:.4}
-.app .gold-ed .inp{width:76px;height:30px;min-height:30px;padding:0 6px;text-align:center;font:700 16px/1 var(--f-display);color:var(--gold-tx);font-variant-numeric:tabular-nums}
+.app .gold-ed .inp{width:76px;height:30px;min-height:30px;padding:0 6px;text-align:center;font-style:normal;font-weight:700;font-size:16px;line-height:1;font-family:var(--f-display);color:var(--gold-tx);font-variant-numeric:tabular-nums}
 .app .gs-gold{display:flex;align-items:center;gap:7px;margin-top:8px;font:700 12px/1 var(--f-ui);color:var(--ink-3)}
 .app .gs-gold b{font-size:16px}
 @media (min-width:900px){.app .pc-hero .fp .res{justify-content:flex-end}}
@@ -2749,7 +2767,7 @@
 .app .craft-own{display:grid;gap:6px}
 .app .craft-own h5{margin:2px 0 0;font:700 11px/1.2 var(--f-ui);letter-spacing:.1em;text-transform:uppercase;color:var(--gold-tx)}
 .app .craft-q{display:flex;align-items:center;gap:6px;flex:none}
-.app .craft-q .seg b{min-width:30px;text-align:center;font:700 14px/32px var(--f-ui);color:var(--ink);font-variant-numeric:tabular-nums}
+.app .craft-q .seg b{min-width:30px;text-align:center;font-style:normal;font-weight:700;font-size:14px;line-height:32px;font-family:var(--f-ui);color:var(--ink);font-variant-numeric:tabular-nums}
 .app .craft-q .seg button{padding:0 10px}
 .app .craft-q .seg button[disabled]{opacity:.4}
 .app .craft-row.on{box-shadow:inset 3px 0 0 var(--gold-tx)}
@@ -2770,7 +2788,7 @@
 .app .shop-it-t small{font:600 12px/1.35 var(--f-ui);color:var(--ink-3)}
 .app .shop-it-t p{margin:4px 0 0;font:500 13.5px/1.45 var(--f-ui);color:var(--ink-2);overflow-wrap:anywhere}
 .app .shop-rates{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:2px;font:600 12px/1.3 var(--f-ui)}
-.app .shop-tag{grid-column:2;justify-self:start;display:inline-flex;align-items:center;gap:6px;margin-top:6px;height:28px;padding:0 12px 0 7px;border-radius:999px;background:var(--gold-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-tx) 45%,transparent);font:800 13.5px/1 var(--f-ui);color:var(--gold-tx);font-variant-numeric:tabular-nums}
+.app .shop-tag{grid-column:2;justify-self:start;display:inline-flex;align-items:center;gap:6px;margin-top:6px;height:28px;padding:0 12px 0 7px;border-radius:999px;background:var(--gold-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-tx) 45%,transparent);font-style:normal;font-weight:800;font-size:13.5px;line-height:1;font-family:var(--f-ui);color:var(--gold-tx);font-variant-numeric:tabular-nums}
 .app .shop-tag .coin{width:16px;height:16px}
 .app .shop-tag.free{padding:0 12px;background:var(--sunk);color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--line-2)}
 .app .fightbar.shopbar{margin-top:8px}
@@ -2945,7 +2963,7 @@
 .app .st-active{--st:var(--ember)}
 .app .st-stable{--st:var(--gold)}
 .app .st-recovering{--st:var(--accent)}
-.app .cst-tag{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:2px 8px;border-radius:999px;font:800 9.5px/1.3 var(--f-ui);letter-spacing:.08em;text-transform:uppercase;font-style:normal;vertical-align:1px;box-shadow:inset 0 0 0 1px currentColor;opacity:.85}
+.app .cst-tag{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:2px 8px;border-radius:999px;font-style:normal;font-weight:800;font-size:9.5px;line-height:1.3;font-family:var(--f-ui);letter-spacing:.08em;text-transform:uppercase;font-style:normal;vertical-align:1px;box-shadow:inset 0 0 0 1px currentColor;opacity:.85}
 .app .cst-tag::before{opacity:1}
 .app .cq .cst-tag{margin:2px 0 0;justify-self:start}
 .app .cq-ed .cst button{min-height:26px;padding:0 9px;font-size:11.5px}
@@ -3052,7 +3070,7 @@
 .app .gslot .gt b i{font-style:normal;color:var(--ink-3);font-weight:600}
 .app .gslot .gt b .none{color:var(--ink-3);font-weight:600}
 .app .gslot .gt small{font:600 11.5px/1.3 var(--f-ui);color:var(--ink-3)}
-.app .gslot .gr{min-width:38px;height:30px;padding:0 8px;border-radius:999px;display:grid;place-items:center;background:var(--gold);color:var(--gold-ink);font:800 15px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.app .gslot .gr{min-width:38px;height:30px;padding:0 8px;border-radius:999px;display:grid;place-items:center;background:var(--gold);color:var(--gold-ink);font-style:normal;font-weight:800;font-size:15px;line-height:1;font-family:var(--f-display);font-variant-numeric:tabular-nums}
 .app .gslot .gr.z{background:var(--sunk);color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--line)}
 .app .gpips{display:flex;gap:4px;margin-top:3px}
 .app .gpips i{width:9px;height:9px;border-radius:50%;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line)}
@@ -3548,7 +3566,7 @@
 /* Jake: how many of an item a store has; sold out greys the card */
 .app .shop-n{display:inline-flex;align-items:center;gap:4px}
 .app .shop-n small{font:700 11px/1 var(--f-ui);color:var(--ink-3);margin-right:2px}
-.app .shop-n b{min-width:22px;text-align:center;font:800 14px/1 var(--f-ui);font-variant-numeric:tabular-nums;color:var(--ink)}
+.app .shop-n b{min-width:22px;text-align:center;font-style:normal;font-weight:800;font-size:14px;line-height:1;font-family:var(--f-ui);font-variant-numeric:tabular-nums;color:var(--ink)}
 .app .shop-sold{font:700 11px/1.2 var(--f-ui);color:var(--ink-3)}
 .app .shop-left{grid-column:2;justify-self:start;font:700 11.5px/1 var(--f-ui);color:var(--ink-3)}
 .app .shop-left.out{display:inline-flex;align-items:center;height:22px;padding:0 10px;border-radius:999px;background:var(--ember);color:#fff;font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;margin-top:4px}
@@ -3567,7 +3585,7 @@
 .app .wh-row>i{width:12px;height:12px;border-radius:4px;flex:none;background:hsl(var(--h) 55% 52%)}
 .app .wh-row .inp{flex:1;min-width:0;height:40px}
 .app .wh-wt{display:inline-flex;align-items:center;gap:2px;flex:none}
-.app .wh-wt b{min-width:26px;text-align:center;font:800 13px/1 var(--f-ui);color:var(--ink-2);font-variant-numeric:tabular-nums}
+.app .wh-wt b{min-width:26px;text-align:center;font-style:normal;font-weight:800;font-size:13px;line-height:1;font-family:var(--f-ui);color:var(--ink-2);font-variant-numeric:tabular-nums}
 .app .wh-tip{margin:6px 0 0;font:600 12px/1.4 var(--f-ui)}
 .app .wh-pick{margin-bottom:12px}
 .app .wh-empty{display:grid;justify-items:center;gap:12px;text-align:center;padding:12px}
