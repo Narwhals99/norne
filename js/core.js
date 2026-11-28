@@ -1040,8 +1040,8 @@ N.invTagAll = () => {
   for (const o of N.invOwners()) for (const row of o.inv || []) {
     if (!Array.isArray(row)) continue;
     const x = N.invX(row), it = (x.it && byId.get(x.it)) || byName.get(N.pvKey(row[0])); if (!it) continue;
-    const cl = N.itemClass(it), k = N.itemKind(it.kind)[0], sl = N.itemSlot(it) || null;
-    if (x.it !== it.id || x.cl !== cl || x.k !== k || (x.sl || null) !== sl) N.invSetX(row, {it:it.id, cl, k, sl});
+    const cl = N.itemClass(it), k = N.itemKind(it.kind)[0], sl = N.itemSlot(it) || null, pic = it.pic || null;
+    if (x.it !== it.id || x.cl !== cl || x.k !== k || (x.sl || null) !== sl || (x.pic || null) !== pic) N.invSetX(row, {it:it.id, cl, k, sl, pic});
     /* an ammo item made before its 0..4 count existed (Jake): its copies start full */
     if (it.ammo && N.invX(row).am == null) N.invSetX(row, {am:N.AMMO_MAX});
   }
@@ -1059,7 +1059,7 @@ N.itemSync = (it, oldName) => {
       if (linked ? x.it !== it.id : !keys.has(N.pvKey(row[0]))) continue;
       hit = true; if (x.eq || x.eq2) eq = true;
       row[0] = it.name; while (row.length < 3) row.push(''); row[2] = N.invNote(it); row[3] = ic;
-      N.invSetX(row, {it:it.id, cl:N.itemClass(it), k:N.itemKind(it.kind)[0], sl:sl || null, w:sl ? 1 : 0, ...(sl ? {} : {eq:0, eq2:0}), ...(it.ammo ? (x.am == null ? {am:N.AMMO_MAX} : {}) : {am:null})});
+      N.invSetX(row, {it:it.id, cl:N.itemClass(it), k:N.itemKind(it.kind)[0], sl:sl || null, pic:it.pic || null, w:sl ? 1 : 0, ...(sl ? {} : {eq:0, eq2:0}), ...(it.ammo ? (x.am == null ? {am:N.AMMO_MAX} : {}) : {am:null})});
     }
     if (hit) { n++; if (eq) N.applyGear(o); }
   }
@@ -1088,14 +1088,16 @@ N.shopAsk = (ch, cid, k, kind) => N.G.msgs.find(m => m.ch === ch && m[kind] && m
 /* Jake: how many of an item the store has (x.n, 1 when not set) and how many are left after confirmed purchases (x.sold) */
 N.shopN = x => Math.max(1, x.n | 0 || 1);
 N.shopLeft = x => Math.max(0, N.shopN(x) - (x.sold | 0));
-N.shopItem = it => ({k:N.uid('si'), it:it.id, name:it.name, kind:N.itemKind(it.kind)[0], ic:it.ic || '',
+N.shopItem = it => ({k:N.uid('si'), it:it.id, name:it.name, kind:N.itemKind(it.kind)[0], ic:it.ic || '', ...(it.pic ? {pic:it.pic} : {}),
   /* items from Jake's lists carry their class as the description, so like the catalog they show only the class line */
   d:it.cls ? '' : String(it.d || '').trim(), path:[...new Set([it.cls, it.sub, it.disc].filter(Boolean))].join(' · '), ...(it.cls ? {cls:it.cls} : {}),
   gears:N.itemGears(it).map(([k]) => [k, +it[k]]), ...(it.silver ? {silver:1} : {}), price:0, n:1});
 /* what the players of the chat receive: names and pictures instead of card ids */
 N.shopOut = s => ({id:s.id, ch:s.ch, state:s.state, name:s.name || '', t:s.t || 0,
   pcs:(s.pcs || []).map(id => { const c = N.G.chars[id]; return c && c.built ? {id, name:c.short || c.name, portrait:c.portrait || null, color:c.color || ''} : null; }).filter(Boolean),
-  npcs:(s.npcs || []).map(n => ({name:n.name, portrait:n.portrait || null})), items:(s.items || []).map(x => { const {it, ...o} = x; return o; })});
+  npcs:(s.npcs || []).map(n => ({name:n.name, portrait:n.portrait || null})), items:(s.items || []).map(x => { const {it, ...o} = x, cat = it && N.itemById(it);
+    /* the item's picture as the catalog has it now (Jack: the GM can add or change one after the store was set up) */
+    if (cat) { if (cat.pic) o.pic = cat.pic; else delete o.pic; } return o; })});
 /* the people of a store as {name, portrait, color}: on the GM's device from the cards, on a player's from the copy */
 N.shopPcs = s => (s.pcs || []).map(x => typeof x === 'string' ? (c => c && c.built ? {id:x, name:c.short || c.name, portrait:c.portrait, color:c.color} : null)(N.G.chars[x]) : x).filter(Boolean);
 /* ---------- crafting sessions (Jake): the GM sets up one crafting roll in a chat, like a store ----------

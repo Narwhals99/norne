@@ -12,6 +12,7 @@ const ZMAX = 5;
 const KINDS = {
   face:  {r:1, round:true, title:'Frame the portrait', hint:'Drag to move, pinch or scroll to zoom. The circle is what everyone sees.'},
   emoji: {r:1, title:'Frame the emoji', hint:'Drag to move, pinch or scroll to zoom. The square becomes the emoji.'},
+  item:  {r:1, title:'Frame the item picture', hint:'Drag to move, pinch or scroll to zoom. The square is what players see in stores and inventories.'},
   bg:    {r:3/2, title:'Frame the background', hint:'Drag to move, pinch or scroll to zoom. The box is the battle board; the scene banner shows the middle strip.'},
   wiki:  {title:'Frame the picture', hint:'Pick a shape, then drag to move and pinch or scroll to zoom.'},
 };

@@ -767,7 +767,7 @@ N.sheetHtml = function(v){
     /* a kind with classes (Jake's lists) gets a second row to narrow it to one class */
     const classes = k ? [...new Set(all.filter(it => inK(it) && it.cls).map(it => it.cls))] : [];
     const row = it => { const [, kl] = N.itemKind(it.kind), gs = N.itemGears(it);
-      return `<div class="itc-row"><span class="itc-ic">${IC(it.ic || N.itemKind(it.kind)[2])}</span>
+      return `<div class="itc-row">${N.itemPic(it)}
         <span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(it.cls ? [it.sub, it.disc].filter(Boolean).join(' · ') || kl : kl)}${gs.map(([kk, l, ic]) => ` <span class="itc-g" title="${l}">${IC(ic)}+${+it[kk]}</span>`).join('')}${it.silver ? ' <span class="itc-tag">Silver</span>' : ''}</small>${it.d && !it.cls ? `<span class="itc-d">${N.emoText(N.marks(esc(it.d)))}</span>` : ''}${it.gm ? `<span class="itc-gm">${lockIc}${N.emoText(N.marks(esc(it.gm)))}</span>` : ''}${N.invPv(v, it.name)}</span>
         <span class="itc-a"><button type="button" class="btn sm" data-a="itGive" data-v="${esc(it.id)}">${IC('hand')}Give</button><button type="button" class="ibtn sm" data-a="itEdit" data-v="${esc(it.id)}" aria-label="Edit ${esc(it.name)}">${IC('pen')}</button></span></div>`; };
     /* grouped by class (then rating, then name); items without a class come last under their kind */
@@ -872,11 +872,11 @@ N.sheetHtml = function(v){
       ${by && N.discOf(by.o, 'Crafting').length ? `<p class="muted shop-tip">${esc(by.name)}’s Crafting disciplines: ${esc(N.discOf(by.o, 'Crafting').join(', '))}.</p>` : ''}` : `<p class="muted shop-tip">Pick who is involved first.</p>`;
     const pool = N.craftPool(cr), used = pool.filter(x => x.use > 0);
     const row = x => { const [n, q, note, ic] = x.row;
-      return `<div class="itc-row craft-row${x.use ? ' on' : ''}"><span class="itc-ic">${IC(ic || 'bag')}</span><span class="itc-t"><b>${N.emoText(N.marks(esc(n)))}</b><small>${esc(x.w.name)} has ${q}${note ? ' · ' + esc(note) : ''}</small></span>
+      return `<div class="itc-row craft-row${x.use ? ' on' : ''}">${N.itemPic(x.row)}<span class="itc-t"><b>${N.emoText(N.marks(esc(n)))}</b><small>${esc(x.w.name)} has ${q}${note ? ' · ' + esc(note) : ''}</small></span>
         <span class="itc-a craft-q"><span class="seg"><button type="button" data-a="craftUse" data-c="${c}" data-v="${esc(x.key)}" data-d="-1" aria-label="Use one less ${esc(n)}" ${x.use ? '' : 'disabled'}>${IC('minus')}</button><b aria-live="polite">${x.use}</b><button type="button" data-a="craftUse" data-c="${c}" data-v="${esc(x.key)}" data-d="1" aria-label="Use one more ${esc(n)}" ${x.use >= q ? 'disabled' : ''}>${IC('plus')}</button></span>${q > 1 ? `<button type="button" class="btn sm ghost" data-a="craftAll" data-c="${c}" data-v="${esc(x.key)}">${x.use >= q ? 'None' : 'All'}</button>` : ''}</span></div>`; };
     const groups = owners.map(w => { const rows = pool.filter(x => x.w.k === w.k); return `<div class="craft-own"><h5>${esc(w.name)}</h5>${rows.length ? `<div class="itc-list">${rows.map(row).join('')}</div>` : `<p class="muted shop-tip">Nothing in their inventory.</p>`}</div>`; }).join('');
     const it = N.itemById(cr.make);
-    const make = it ? `<div class="itc-row craft-make"><span class="itc-ic">${IC(it.ic || N.itemKind(it.kind)[2])}</span><span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemPath(it) || N.itemKind(it.kind)[1])}</small></span>
+    const make = it ? `<div class="itc-row craft-make">${N.itemPic(it)}<span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemPath(it) || N.itemKind(it.kind)[1])}</small></span>
         <span class="itc-a craft-q"><span class="seg"><button type="button" data-a="craftQ" data-c="${c}" data-d="-1" aria-label="Make one less" ${cr.q > 1 ? '' : 'disabled'}>${IC('minus')}</button><b aria-live="polite">×${cr.q}</b><button type="button" data-a="craftQ" data-c="${c}" data-d="1" aria-label="Make one more">${IC('plus')}</button></span><button type="button" class="btn sm" data-a="sheet" data-v="craftMake" data-c="${c}">Change</button></span></div>`
       : `<button type="button" class="btn sm primary" data-a="sheet" data-v="craftMake" data-c="${c}">${IC('plus')}Pick from the item catalog</button>`;
     const diff = N.clamp(+cr.diff || 0, -1, 12), mod = N.clamp(+cr.mod || 0, -6, 6);
@@ -901,7 +901,7 @@ N.sheetHtml = function(v){
     const list = all.filter(it => (!k || N.itemKind(it.kind)[0] === k) && hit(it));
     const count = kk => all.filter(it => N.itemKind(it.kind)[0] === kk && hit(it)).length;
     const row = it => { const on = cr.make === it.id;
-      return `<div class="itc-row"><span class="itc-ic">${IC(it.ic || N.itemKind(it.kind)[2])}</span><span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemPath(it) || N.itemKind(it.kind)[1])}</small></span>
+      return `<div class="itc-row">${N.itemPic(it)}<span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemPath(it) || N.itemKind(it.kind)[1])}</small></span>
         <span class="itc-a"><button type="button" class="btn sm${on ? ' gold' : ''}" data-a="craftMake" data-c="${c}" data-v="${esc(it.id)}" aria-pressed="${on}">${on ? `${IC('check')}Picked` : 'Pick'}</button></span></div>`; };
     const body = `<div class="itc-bar"><label class="itc-q">${IC('search')}<input class="inp" id="cmq-${v.id}" data-i="craftQs" value="${esc(v.ui.craftQs || '')}" placeholder="Search the catalog" autocomplete="off" aria-label="Search the item catalog"></label></div>
       ${all.length ? `<div class="chips itc-chips" role="group" aria-label="Show"><button type="button" class="cchip" data-a="craftKind" data-v="" aria-current="${!k}">All <small>${all.filter(hit).length}</small></button>${N.ITEMK.filter(([kk]) => count(kk) || kk === k).map(([kk, l, ic]) => `<button type="button" class="cchip" data-a="craftKind" data-v="${kk}" aria-current="${k === kk}">${IC(ic)}${l} <small>${count(kk)}</small></button>`).join('')}</div>` : ''}
@@ -919,7 +919,7 @@ N.sheetHtml = function(v){
       ${folk.pcs.map(p => `<button type="button" data-a="shopWho" data-c="${c}" data-v="pc:${esc(p.id)}" aria-pressed="${sh.pcs.includes(p.id)}">${N.av(p, 28)}${esc(p.short)}</button>`).join('')}
       ${npcNames.map(nm => { const n = N.npcByName(nm); return `<button type="button" data-a="shopWho" data-c="${c}" data-v="npc:${esc(nm)}" aria-pressed="${sh.npcs.some(x => x.name === nm)}">${N.av({name:nm, portrait:n?.portrait, color:'var(--c-npc)'}, 28)}${esc(nm)}<small>${n ? 'NPC' : 'One-off'}</small></button>`; }).join('')}</div>
       ${npcNames.length ? '' : solo ? `<p class="muted shop-tip">No NPC cards yet. Make the shopkeeper in Cast and they show up here.</p>` : `<p class="muted shop-tip">No NPCs in this chat’s scene. Add the shopkeeper to the scene in the Scene changer and they show up here.</p>`}`;
-    const row = x => `<div class="itc-row shop-row"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
+    const row = x => `<div class="itc-row shop-row">${N.itemPic(x)}
       <span class="itc-t"><b>${N.emoText(N.marks(esc(x.name)))}</b><small>${esc(x.path || N.itemKind(x.kind)[1])}${(x.gears || []).map(([k, r]) => { const gk = N.ITEM_RATE.find(y => y[0] === k); return gk ? ` <span class="itc-g" title="${gk[1]}">${IC(gk[2])}+${r}</span>` : ''; }).join('')}${x.silver ? ' <span class="itc-tag">Silver</span>' : ''}</small>${x.d ? `<span class="itc-d">${N.emoText(N.marks(esc(x.d)))}</span>` : ''}${N.invGm(v, [x.name])}</span>
       <span class="itc-a shop-price"><label><span class="coin"></span><input class="inp" id="sp-${esc(x.k)}-${v.id}" data-i="shopPrice" data-c="${c}" data-k="${esc(x.k)}" value="${x.price ? x.price : ''}" placeholder="0" inputmode="numeric" pattern="[0-9]*" enterkeyhint="done" autocomplete="off" aria-label="Price of ${esc(x.name)} in gold"></label><button type="button" class="ibtn sm" data-a="shopRm" data-c="${c}" data-v="${esc(x.k)}" aria-label="Take ${esc(x.name)} off the shelf" title="Take it off the shelf">${IC('x')}</button>
         <span class="shop-n" role="group" aria-label="How many for sale"><small>For sale</small><button type="button" class="ibtn sm" data-a="shopN" data-c="${c}" data-v="${esc(x.k)}" data-d="-1" aria-label="One fewer" ${N.shopN(x) <= 1 ? 'disabled' : ''}>${IC('minus')}</button><b>${N.shopN(x)}</b><button type="button" class="ibtn sm" data-a="shopN" data-c="${c}" data-v="${esc(x.k)}" data-d="1" aria-label="One more">${IC('plus')}</button></span>${x.sold ? `<small class="shop-sold">${N.shopLeft(x) ? `${x.sold} sold · ${N.shopLeft(x)} left` : `Sold out (${x.sold} sold)`}</small>` : ''}</span></div>`;
@@ -949,7 +949,7 @@ N.sheetHtml = function(v){
     const list = all.filter(it => (!k || N.itemKind(it.kind)[0] === k) && hit(it));
     const count = kk => all.filter(it => N.itemKind(it.kind)[0] === kk && hit(it)).length;
     const row = it => { const on = sh.items.some(x => x.it === it.id), gs = N.itemGears(it);
-      return `<div class="itc-row"><span class="itc-ic">${IC(it.ic || N.itemKind(it.kind)[2])}</span><span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemPath(it) || N.itemKind(it.kind)[1])}${gs.map(([kk, l, ic]) => ` <span class="itc-g" title="${l}">${IC(ic)}+${+it[kk]}</span>`).join('')}</small>${N.invGm(v, [it.name])}</span>
+      return `<div class="itc-row">${N.itemPic(it)}<span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemPath(it) || N.itemKind(it.kind)[1])}${gs.map(([kk, l, ic]) => ` <span class="itc-g" title="${l}">${IC(ic)}+${+it[kk]}</span>`).join('')}</small>${N.invGm(v, [it.name])}</span>
         <span class="itc-a"><button type="button" class="btn sm${on ? ' gold' : ''}" data-a="shopAdd" data-c="${c}" data-v="${esc(it.id)}" aria-pressed="${on}">${on ? `${IC('check')}In the store` : `${IC('plus')}Add`}</button></span></div>`; };
     const body = `<div class="itc-bar"><label class="itc-q">${IC('search')}<input class="inp" id="saq-${v.id}" data-i="shopQ" value="${esc(v.ui.shopQ || '')}" placeholder="Search the catalog" autocomplete="off" aria-label="Search the item catalog"></label></div>
       ${all.length ? `<div class="chips itc-chips" role="group" aria-label="Show"><button type="button" class="cchip" data-a="shopKind" data-v="" aria-current="${!k}">All <small>${all.filter(hit).length}</small></button>${N.ITEMK.filter(([kk]) => count(kk) || kk === k).map(([kk, l, ic]) => `<button type="button" class="cchip" data-a="shopKind" data-v="${kk}" aria-current="${k === kk}">${IC(ic)}${l} <small>${count(kk)}</small></button>`).join('')}</div>` : ''}
@@ -970,13 +970,13 @@ N.sheetHtml = function(v){
     const sellBox = () => { if (!me || !me.built || !open) return '';
       const rows = (me.inv || []).filter(r => Array.isArray(r) && r[0] && r[1] > 0);
       const one = r => { const asked = N.shopAsk(sh.ch, me.id, r[0], 'sell'), pick = v.ui.sellRow === r[0] && !asked, x = N.invX(r);
-        return `<div class="sell-row${pick ? ' on' : ''}"><span class="itc-ic">${IC(r[3] || 'bag')}</span><span class="sell-t"><b>${N.emoText(N.marks(esc(r[0])))}</b><small>×${r[1]}${x.eq || x.eq2 ? ' · equipped' : ''}</small></span>
+        return `<div class="sell-row${pick ? ' on' : ''}">${N.itemPic(r)}<span class="sell-t"><b>${N.emoText(N.marks(esc(r[0])))}</b><small>×${r[1]}${x.eq || x.eq2 ? ' · equipped' : ''}</small></span>
           ${asked ? `<span class="sell-wait">${IC('clock')}Offered ${N.goldTxt(asked.sell.price)}</span>` : `<button type="button" class="btn sm${pick ? ' primary' : ''}" data-a="sellPick" data-v="${esc(r[0])}" aria-expanded="${pick}">${IC('coins')}${pick ? 'Selling' : 'Sell'}</button>`}
           ${pick ? `<span class="sell-form"><label class="sell-p"><span class="coin"></span><input class="inp" id="sellp-${v.id}" data-i="sellPrice" inputmode="numeric" value="${esc(v.ui.sellPrice || '')}" placeholder="Your price" aria-label="Your price in gold" autocomplete="off"><small>gold for one</small></label><button type="button" class="btn sm gold" data-a="sellGo" data-c="${esc(sh.ch)}" data-v="${esc(r[0])}">${IC('check')}Offer</button></span>` : ''}</div>`; };
       return `<section class="shop-sell"><h4>${IC('coins')}Sell to ${esc(sh.name || 'the store')}</h4><p class="muted">Pick an item and name your price. The GM buys it or bargains.</p>
         ${rows.length ? `<div class="sell-list">${rows.map(one).join('')}</div>` : `<div class="note">${IC('info')}Nothing in your inventory to sell.</div>`}</section>`; };
     const card = (x, under) => { const path = String(x.path || '').split(' · ').filter(p => p && p !== under).join(' · ');
-      return `<article class="shop-it${N.shopLeft(x) ? '' : ' gone'}"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
+      return `<article class="shop-it${N.shopLeft(x) ? '' : ' gone'}">${N.itemPic(x, 'shop')}
       <div class="shop-it-t"><b>${N.emoText(N.marks(esc(x.name)))}</b>${path ? `<small>${esc(path)}</small>` : ''}
         ${(x.gears || []).length || x.silver ? `<span class="shop-rates">${(x.gears || []).map(([kk, r]) => { const gk = N.ITEM_RATE.find(y => y[0] === kk); return gk ? `<span class="itc-g">${IC(gk[2])}${gk[1]} +${r}</span>` : ''; }).join('')}${x.silver ? '<span class="itc-tag">Silver</span>' : ''}</span>` : ''}
         ${x.d ? `<p>${N.emoText(N.marks(esc(x.d)))}</p>` : ''}${N.invPv(v, x.name)}</div>
@@ -995,14 +995,16 @@ N.sheetHtml = function(v){
   }
   case 'itemEd': {
     const d = v.ui.itd; if (!gm || !d) return '';
-    const ic = d.ic || N.itemKind(d.kind)[2], all = g.items || [];
+    const all = g.items || [];
     const opts = key => [...new Set(all.map(x => x[key]).filter(Boolean))].sort().map(x => `<option value="${esc(x)}">`).join('');
     const body = `<label class="field"><span>Name</span><input class="inp" id="itn-${v.id}" data-i="itd" data-k="name" value="${esc(d.name)}" placeholder="e.g. Silver dagger" autocomplete="off"></label>
       <div><h4>Kind</h4><div class="chips itc-chips" role="group" aria-label="Kind">${N.ITEMK.map(([kk, l, i2]) => `<button type="button" class="cchip" data-a="itdKind" data-v="${kk}" aria-current="${N.itemKind(d.kind)[0] === kk}">${IC(i2)}${l}</button>`).join('')}</div></div>
       <div class="itc-two"><label class="field"><span>Class · optional</span><input class="inp" id="itc-${v.id}" data-i="itd" data-k="cls" value="${esc(d.cls || '')}" list="itcl-${v.id}" placeholder="e.g. Small one-handed weapons" autocomplete="off"><datalist id="itcl-${v.id}">${opts('cls')}</datalist></label>
         <label class="field"><span>Discipline · optional</span><input class="inp" id="itdi-${v.id}" data-i="itd" data-k="disc" value="${esc(d.disc || '')}" list="itdl-${v.id}" placeholder="e.g. Swords & Blades" autocomplete="off"><datalist id="itdl-${v.id}">${opts('disc')}</datalist></label></div>
       <button type="button" class="wipe-ok itc-ok" data-a="itdSilver" aria-pressed="${!!d.silver}"><span class="bx">${d.silver ? IC('check') : ''}</span><span><b>Silver</b> · +1 shift on hits against vampires and werewolves</span></button>
-      <div><h4>Picture</h4><div class="ied-ics itc-ics" role="group" aria-label="Picture">${N.ITEM_IC.map(x => `<button type="button" data-a="itdIc" data-v="${x}" aria-pressed="${ic === x}" aria-label="${x}">${IC(x)}</button>`).join('')}</div></div>
+      <div class="itc-picbox"><h4>Picture<small>${d.pic ? 'Players see it in stores and inventories' : 'Made from its name until you upload one'}</small></h4>
+        <div class="itc-pic">${N.itemPic(d, 'big')}<div class="itc-pic-b"><button type="button" class="btn sm ${d.pic ? '' : 'primary'}" data-a="itdPic">${IC('upload')}${d.pic ? 'Change picture' : 'Upload a picture'}</button>
+          ${d.pic ? `<button type="button" class="btn sm ghost" data-a="itdPicAdj">${IC('fit')}Adjust</button><button type="button" class="btn sm ghost" data-a="itdPicDel">${IC('trash')}Use the placeholder</button>` : ''}</div></div></div>
       <label class="field"><span>What it does · players read this when they get it</span><textarea class="inp" id="itdd-${v.id}" data-i="itd" data-k="d" rows="3" placeholder="e.g. A light blade that is easy to hide">${esc(d.d || '')}</textarea></label>
       <div class="itc-pv"><h4>${IC('eye').replace('<svg','<svg style="width:13px;height:13px;display:inline;vertical-align:-2px;margin-right:4px"')}For some players · optional</h4><p class="muted" style="margin:0 0 8px;font:600 12.5px/1.4 var(--f-ui)">Text only the players you pick can read, wherever they see this item: their inventory, a store, a fighter card. Everyone else sees the item without it.</p>
         ${(d.pv || []).map((p, i) => `<div class="pv-ed"><div class="pv-top"><span class="eyebrow">Note ${i + 1}</span><button type="button" class="ibtn sm" data-a="itdPvDel" data-v="${esc(p.id)}" aria-label="Remove note ${i + 1}" title="Remove this note">${IC('trash')}</button></div>
@@ -1020,7 +1022,7 @@ N.sheetHtml = function(v){
     const t = v.ui.itg, it = t && N.itemById(t.id); if (!gm || !it) return '';
     const pcs = N.pcs().filter(c => c.built), npcs = g.npcs, gs = N.itemCardGears(it);
     const who = t.to ? N.itemTo(t.to) : null;
-    const body = `<div class="itc-row one"><span class="itc-ic">${IC(it.ic || N.itemKind(it.kind)[2])}</span><span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemKind(it.kind)[1])}</small>${N.itemNote(it) ? `<span class="itc-d">${N.emoText(N.marks(esc(N.itemNote(it))))}</span>` : ''}</span></div>
+    const body = `<div class="itc-row one">${N.itemPic(it)}<span class="itc-t"><b>${N.emoText(N.marks(esc(it.name)))}</b><small>${esc(N.itemKind(it.kind)[1])}</small>${N.itemNote(it) ? `<span class="itc-d">${N.emoText(N.marks(esc(N.itemNote(it))))}</span>` : ''}</span></div>
       <label class="field"><span>Give it to</span><select class="inp" id="itgt-${v.id}" data-i="itg" data-k="to"><option value="">Pick someone…</option>
         ${pcs.length ? `<optgroup label="Player characters">${pcs.map(c => `<option value="c:${esc(c.id)}" ${t.to === 'c:' + c.id ? 'selected' : ''}>${esc(c.short)} (${esc(G().P[c.player]?.name || 'player')})</option>`).join('')}</optgroup>` : ''}
         ${npcs.length ? `<optgroup label="NPCs">${npcs.map(n => `<option value="n:${esc(n.id)}" ${t.to === 'n:' + n.id ? 'selected' : ''}>${esc(n.name)}</option>`).join('')}</optgroup>` : ''}</select></label>
