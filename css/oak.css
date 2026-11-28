@@ -573,3 +573,5 @@
 .app:where([data-style="oak"]) .rxp{background:var(--raise)}
 .app:where([data-style="oak"]) .composer .replying{border-radius:6px}
 .app:where([data-style="oak"]) .emo,.app:where([data-style="oak"]) .emo-it,.app:where([data-style="oak"]) .emo-new{border-radius:5px}
+/* chat list panels (2026-11-28) */
+.app:where([data-style="oak"]) .shsec{border-radius:8px}.app:where([data-style="oak"]) .shsec .shsh .shi{border-radius:6px}

@@ -2969,6 +2969,41 @@
 .app .shg .shsub ~ .shsub{margin-top:10px}
 .app .shelf.mini .shg .shsub{font-size:0;padding:0;margin:4px 14px;height:1px;background:var(--line);gap:0}
 .app .shelf.mini .shg .shsub svg{display:none}
+/* Jack (2026-11-28): one panel per kind of chat, each with its own colour (--sk), icon and heading */
+.app .shl:has(.shsec){gap:10px}
+.app .shsec{--sk:#e3b45a;--sk-tx:color-mix(in srgb,var(--sk) 68%,var(--ink));position:relative;gap:0;padding:4px 4px 5px;border-radius:16px;
+  background:linear-gradient(180deg,color-mix(in srgb,var(--sk) 13%,transparent),color-mix(in srgb,var(--sk) 4%,transparent) 70%);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sk) 28%,transparent)}
+.app .shsec[data-k="party"]{--sk:#e2604e}
+.app .shsec[data-k="gm"]{--sk:#a98bff}
+.app .shsec[data-k="pp"]{--sk:#35b98a}
+.app .shsec[data-k="meta"]{--sk:#4aa3f0}
+.app .shsec[data-k="notes"]{--sk:#9aa0ad}
+.app[data-theme="day"] .shsec{--sk-tx:color-mix(in srgb,var(--sk) 55%,var(--ink))}
+.app .shsec::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:var(--sk);opacity:.9;pointer-events:none}
+.app .shsh{display:flex;align-items:center;gap:9px;min-height:38px;padding:5px 8px 7px 7px;border-bottom:1px solid color-mix(in srgb,var(--sk) 20%,transparent);margin-bottom:3px}
+.app .shsh .shi{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--sk) 24%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sk) 42%,transparent);color:var(--sk-tx)}
+.app .shsh .shi svg{width:15px;height:15px}
+.app .shsh .shht{flex:1;min-width:0;display:grid;gap:3px}
+.app .shsec .shsh h3{padding:0;color:var(--sk-tx);font:800 11px/1.1 var(--f-ui);letter-spacing:.13em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .shsh small{font:600 11.5px/1.2 var(--f-ui);color:var(--ink-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app .shsh .shn{flex:none;display:grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:color-mix(in srgb,var(--sk) 18%,transparent);color:var(--sk-tx);font:800 11px/1 var(--f-ui)}
+.app .shsh .shdot{flex:none;width:8px;height:8px;border-radius:50%;background:var(--sk);box-shadow:0 0 8px var(--sk)}
+.app .shsec .shrs{display:grid;gap:2px}
+.app .shsec .shr .cic{background:color-mix(in srgb,var(--sk) 16%,var(--sunk));color:var(--sk-tx)}
+.app .shsec .shr:hover{background:color-mix(in srgb,var(--sk) 15%,transparent)}
+.app .shsec .shr[aria-current="true"]{background:linear-gradient(90deg,color-mix(in srgb,var(--sk) 30%,transparent),color-mix(in srgb,var(--sk) 8%,transparent));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--sk) 45%,transparent)}
+.app .shsec .shr[aria-current="true"]::before{left:-4px;background:var(--sk);box-shadow:0 0 10px var(--sk)}
+.app .shsec .shr.new::before{left:-4px;background:var(--sk-tx)}
+.app .shsec .shr.shnew .cic{background:transparent;color:var(--ink-3)}
+.app .shnewg{padding:0 4px}
+.app .shelf.drawer .shsec .shr{min-height:56px}
+/* beside a fight the list is only pictures: each panel keeps its colour and icon */
+.app .shelf.mini .shsec{padding:4px 0 5px;justify-items:center}
+.app .shelf.mini .shsec::before{display:none}
+.app .shelf.mini .shsh{justify-content:center;padding:4px 0 6px;min-height:0}
+.app .shelf.mini .shsh :is(.shht,.shn){display:none}
+.app .shelf.mini .shsh .shdot{position:absolute;top:4px;right:6px}
+.app .shelf.mini .shsec .shrs{justify-items:center}
 /* Next day: the GM's date picker and the line it posts */
 .app .ndunk{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);cursor:pointer}
 .app .ndunk input{width:20px;height:20px;accent-color:var(--gold);flex:none}
