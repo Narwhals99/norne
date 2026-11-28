@@ -257,6 +257,15 @@ N.sheetHtml = function(v){
     return sheet('Shifts on the result', body, `<button type="button" class="btn ghost" data-a="closeSheet">Cancel</button><button type="button" class="btn gold" data-a="shApply" ${n === was ? 'disabled' : ''}>${IC('check')}Apply ${n ? sgn(n) : 'no'} shift${Math.abs(n) === 1 ? '' : 's'}</button>`);
   }
   /* ---------------- one picture folder of the scene window (GM): pick a picture and go back ---------------- */
+  /* Jake: the picture a map place brings with it. A {{Place}} line that moves the scene there also changes the scene's picture */
+  case 'pinArt': {
+    const m = gm && N.curMap(v), p = m && m.pins.find(x => x.id === v.ui.pinSel); if (!p) return '';
+    const th = (src, title, sub) => `<button type="button" class="thumb${p.art === src ? ' on' : ''}" data-a="pinArt" data-v="${esc(src)}" style="${N.sceneArt({art:src})}">${N.scenePic({art:src})}<span>${esc(title)}<small>${esc(sub)}</small></span>${p.art === src ? `<span class="ck">${IC('check')}</span>` : ''}</button>`;
+    return sheet(`Scene picture · ${esc(p.label)}`, `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">When a Narrator line moves the scene here with {{${esc(p.label)}}}, the scene picture changes to this one.</p>
+      <h4 style="margin:4px 0 0">Your uploads</h4><div class="thumbs">${g.pics.map(u => th(u.src, '', 'Your upload')).join('')}<button type="button" class="thumb up" data-a="pinArtUp"><span>${IC('upload')}Upload a picture</span></button></div>
+      <h4 style="margin:4px 0 0">Norne art</h4><div class="thumbs">${N.ARTLIB.map(a => th(a.art, a.label, 'Norne art')).join('')}</div>`,
+      `${p.art ? `<button type="button" class="btn ghost" data-a="pinArtX">${IC('x')}No picture</button>` : ''}<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true});
+  }
   case 'scenePics': {
     const d = v.ui.sd; if (!d) return '';
     const up = arg === 'up', pics = up ? g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your upload', up:true})) : N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Norne art'}));
@@ -712,7 +721,7 @@ N.sheetHtml = function(v){
       <div class="wh-grid"><div class="wh-left">
         <label class="field"><span>Wheel name</span><input class="inp" id="whn-${v.id}" data-i="whName" value="${esc(w.name || '')}" placeholder="e.g. Forest road at night" maxlength="40" autocomplete="off"></label>
         <div><h4>Encounters <small>${items.length}</small></h4><div class="wh-list">${w.items.map(row).join('')}</div>
-          <div class="shop-acts"><button type="button" class="btn sm" data-a="whAdd">${IC('plus')}Add an encounter</button><button type="button" class="btn sm ghost" data-a="whRm" data-v="${esc(w.id)}">${IC('trash')}Delete this wheel</button></div>
+          <div class="shop-acts"><button type="button" class="btn sm" data-a="whAdd">${IC('plus')}Add an encounter</button><button type="button" class="btn sm" data-a="whCopy" data-v="${esc(w.id)}">${IC('copy')}Copy this wheel</button><button type="button" class="btn sm ghost" data-a="whRm" data-v="${esc(w.id)}">${IC('trash')}Delete this wheel</button></div>
           <p class="muted wh-tip">× is how many slices it gets: ×3 comes up three times as often as ×1.</p></div>
       </div><div class="wh-right">
         ${last && last.wheel ? N.wheelCard(last, true) : items.length ? `<div class="wheelm idle"><div class="wh-w"><span class="wh-ptr"></span><div class="wh-rot">${N.wheelSvg(items, 200)}</div></div></div>` : `<div class="note">${IC('info')}Add at least two encounters to spin.</div>`}
@@ -722,6 +731,16 @@ N.sheetHtml = function(v){
     return sheet('Encounter wheel', body, foot, {wide:true});
   }
   /* Jake: one picture (floor) of a map with several: rename it, or delete it with the pins on it (the first picture is the map's own) */
+  /* Jake: a player's own folders for the characters they know (only they see them) */
+  case 'kdirs': {
+    if (!N.pn || !N.pn.on(v)) return '';
+    const kd = N.pn.kd(v.role), who = v.ui.kdAssign && g.known?.[v.ui.kdAssign], n = id => Object.values(kd.of).filter(x => x === id).length;
+    const rows = kd.dirs.map(d => `<div class="kd-row">${IC('folder')}<input class="inp" data-i="kdName" data-k="${esc(d.id)}" value="${esc(d.name)}" maxlength="30" autocomplete="off" aria-label="Folder name"><small>${n(d.id)}</small><button type="button" class="ibtn sm" data-a="kdDel" data-v="${esc(d.id)}" aria-label="Delete the ${esc(d.name)} folder">${IC('trash')}</button></div>`).join('');
+    const body = `${who ? `<p class="muted" style="margin:0;font:600 14px/1.45 var(--f-ui)">Make a folder for ${esc(who.name)}.</p>` : `<p class="muted" style="margin:0;font:600 14px/1.45 var(--f-ui)">Sort the characters you know into folders, like Allies, Suspects or Port Naris. Only you see them. Pick a folder on a character’s card.</p>`}
+      ${rows ? `<div class="kd-list">${rows}</div>` : ''}
+      <div class="kd-new"><input class="inp" id="kdn-${v.id}" placeholder="New folder name" maxlength="30" autocomplete="off" enterkeyhint="done" data-enter="kdAdd"><button type="button" class="btn${who || !rows ? ' primary' : ''}" data-a="kdAdd">${IC('plus')}${who ? 'Make and file' : 'Add folder'}</button></div>`;
+    return sheet(who ? 'New folder' : 'My folders', body, `<button type="button" class="btn${who ? '' : ' primary'}" data-a="closeSheet">${who ? 'Cancel' : 'Done'}</button>`);
+  }
   case 'mapFloor': {
     const m = gm && g.maps.find(x => x.id === arg); if (!m) return '';
     const f = N.mapFl(v, m), n = m.pins.filter(p => (p.fl || '') === (f ? f.id : '')).length;
@@ -1320,7 +1339,7 @@ function pcEditor(v){
       <label class="field"><span>Short name (chat and tokens)</span><input class="inp" id="pds-${v.id}" data-i="pd" data-k="short" value="${esc(d.short)}" placeholder="What the table calls them"></label>
       <label class="field"><span>Race</span><input class="inp" id="pdr-${v.id}" data-i="pd" data-k="race" list="races-${v.id}" value="${esc(d.race||'')}" placeholder="e.g. Dwarf"></label>
       <label class="field"><span>Nationality</span><input class="inp" id="pdt-${v.id}" data-i="pd" data-k="nat" list="nats-${v.id}" value="${esc(d.nat||'')}" placeholder="Optional" autocomplete="off"></label>
-      <label class="field"><span>Job or faction</span><input class="inp" id="pdj-${v.id}" data-i="pd" data-k="job" value="${esc(d.job||'')}" placeholder="Optional"></label>
+      ${jobEditor(v, d, 'pd')}
       <label class="field"><span>Age</span><input class="inp" id="pdg-${v.id}" data-i="pd" data-k="age" value="${esc(d.age||'')}" placeholder="Optional"></label>
     </div>
     ${aliasEditor(v, d, 'pd')}
@@ -1344,6 +1363,12 @@ function pcEditor(v){
     <label class="field"><span>Inventory notes</span><textarea class="inp" id="pdv-${v.id}" data-i="pd" data-k="invText" rows="3" placeholder="What they carry. Items you hand out go in the Inventory menu.">${esc(d.invText||'')}</textarea></label>`;
 }
 /* aliases (Jake): false names and stories the NPC tells. In Reveal the GM picks, per player, the truth or one of these */
+/* Jake: a character can have several real jobs and factions (Blacksmith, Iron Guild). Each is its own box; they are kept
+   joined with " · " in job, so cards, Reveal and aliases read them as before */
+function jobEditor(v, d, pre){
+  const L = d.jobs || (d.jobs = N.jobsOf(d)); if (!L.length) L.push('');
+  return `<div class="field jobs-f"><span>Job or faction</span><div class="jobs-l">${L.map((x, i) => `<span class="alv"><input class="inp" id="${pre}j-${i}-${v.id}" data-i="${pre}" data-k="jobn" data-n="${i}" value="${esc(x)}" placeholder="${i ? 'Another job or faction' : 'Optional'}" autocomplete="off">${L.length > 1 ? `<button type="button" class="xb" data-a="${pre}JobDel" data-n="${i}" aria-label="Remove this job or faction">${IC('x')}</button>` : ''}</span>`).join('')}<button type="button" class="btn sm ghost" data-a="${pre}JobAdd">${IC('plus')}Another</button></div></div>`;
+}
 function aliasEditor(v, d, pre){
   pre = pre || 'nd'; const pc = pre === 'pd', fs = pc ? N.PCALF : N.ALF;
   const al = d.al || {}, n = fs.reduce((x, [f]) => x + (al[f] || []).length, 0);
@@ -1363,7 +1388,7 @@ function npcEditor(v){
       <label class="field"><span>Name</span><input class="inp" id="ndn-${v.id}" data-i="nd" data-k="name" value="${esc(d.name)}" placeholder="Name or role"></label>
       <label class="field"><span>Race</span><input class="inp" id="ndr-${v.id}" data-i="nd" data-k="race" list="races-${v.id}" value="${esc(d.race)}" placeholder="Optional"></label>
       <label class="field"><span>Nationality</span><input class="inp" id="ndt-${v.id}" data-i="nd" data-k="nat" list="nats-${v.id}" value="${esc(d.nat||'')}" placeholder="Optional" autocomplete="off"></label>
-      <label class="field"><span>Job or faction</span><input class="inp" id="ndj-${v.id}" data-i="nd" data-k="job" value="${esc(d.job)}" placeholder="Optional"></label>
+      ${jobEditor(v, d, 'nd')}
       <label class="field"><span>Age</span><input class="inp" id="ndg-${v.id}" data-i="nd" data-k="age" value="${esc(d.age||'')}" placeholder="Optional"></label>
       ${N.nd.list().length ? `<label class="field"><span>Folder</span><select class="inp" id="ndf-${v.id}" data-i="nd" data-k="dir"><option value="">No folder</option>${N.nd.list().map(([id, name]) => `<option value="${esc(id)}" ${d.dir === id ? 'selected' : ''}>${esc(name)}</option>`).join('')}</select></label>` : ''}
     </div>
@@ -1439,17 +1464,19 @@ N.invokeOptions = function(v, m, x = N.invokeCtx(v, m)){
       out.push({t:a.t || 'Unnamed boost', free:a.free || 0, from:a.boost ? `${a.by}’s boost${own(a) || !me ? '' : ', if you allow it'}` : `Situation${a.on ? ` · on ${a.on}` : ''}`, kind:'cb', i}); });
     cb.zones.filter(z => z.aspect).forEach(z => out.push({t:z.aspect, free:z.free || 0, from:z.name, kind:'zone', z:z.id}));
   }
-  const pcAsp = c => [c.hc, c.trouble, ...c.aspects].filter(Boolean).forEach(a => out.push({t:a, free:0, from:gm ? `${c.short}’s aspect` : 'Your aspect'}));
+  const pcAsp = c => { [c.hc, c.trouble, ...c.aspects].filter(Boolean).forEach(a => out.push({t:a, free:0, from:gm ? `${c.short}’s aspect` : 'Your aspect'}));
+    (c.sasp || []).filter(Boolean).forEach(a => out.push({t:a, free:0, from:`Situation · on ${c.short || c.name}`})); };
+  const npcSasp = n => (n && n.sasp || []).filter(Boolean).forEach(a => out.push({t:a, free:0, from:`Situation · on ${n.name}`}));
   const k = r.whoKey || '';
   /* in the GM's hands both fighters' aspects are on offer: the invoker's own, and the other side's (a weakness to play on).
      A named NPC's come from its card, so edits made mid-fight show */
   const tokAsp = t => { if (t.kind === 'pc') { const c = g.chars[t.ref]; if (c) pcAsp(c); return; }
     const n = t.type !== 'nameless' && g.npcs.find(y => y.id === t.ref);
-    (n ? [n.hc, n.trouble, ...(n.aspects || [])] : t.aspects || []).filter(Boolean).forEach(a => out.push({t:a, free:0, from:`${t.name}’s aspect`})); };
+    (n ? [n.hc, n.trouble, ...(n.aspects || [])] : t.aspects || []).filter(Boolean).forEach(a => out.push({t:a, free:0, from:`${t.name}’s aspect`})); npcSasp(n); };
   if (x.by) { tokAsp(x.by); if (x.faces) tokAsp(x.faces); }
   else if (k.startsWith('pc:')) { const c = g.chars[k.slice(3)]; if (c) pcAsp(c); }
   else if (gm && k.startsWith('tok:')) { const t = N.tokById(k.slice(4)); (t?.aspects || []).filter(Boolean).forEach(a => out.push({t:a, free:0, from:'NPC aspect'})); }
-  else if (gm && k.startsWith('npc:')) { const n = g.npcs.find(x => x.id === k.slice(4)); if (n) [n.hc, n.trouble, ...n.aspects].filter(Boolean).forEach(a => out.push({t:a, free:0, from:'NPC aspect'})); }
+  else if (gm && k.startsWith('npc:')) { const n = g.npcs.find(x => x.id === k.slice(4)); if (n) { [n.hc, n.trouble, ...n.aspects].filter(Boolean).forEach(a => out.push({t:a, free:0, from:'NPC aspect'})); npcSasp(n); } }
   if (me) [me, x.faces].forEach(t => t && N.tokCons(t).filter(c => c.v).forEach(c => out.push({t:c.v, free:0, from:`${N.tokName(t)}’s ${c.l.toLowerCase()} consequence`})));
   const seen = new Set(x.onto.roll.invokes.map(i => i.aspect));
   const list = out.filter(o => !seen.has(o.t) && (seen.add(o.t), true));

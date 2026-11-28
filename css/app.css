@@ -3595,3 +3595,41 @@
 @keyframes whres{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 .app .boardwrap.flatwrap{width:min(760px,100%);justify-self:center;align-self:start;margin-top:12px}
 .app .flatwrap .flatb{width:100%;box-sizing:border-box}
+/* Jake's Nov 27 rows: Met / Heard of filter + folders in the characters dropdown, folder pick on a known card */
+.app .pop.charpop .charf{padding:2px 8px 8px;flex-wrap:wrap;gap:6px}
+.app .pop.charpop .charf .cchip{height:30px;padding:0 10px;font-size:12.5px}
+.app .pop.charpop .charf .cchip svg{width:13px;height:13px}
+.app .pop.charpop .charf .cchip small{opacity:.7;font-weight:700}
+.app .kdir{display:inline-flex;align-items:center;gap:6px;margin:10px 0 0 8px;vertical-align:top;color:var(--ink-3)}
+.app .kdir svg{width:15px;height:15px;flex:none}
+.app .kdir .inp{height:30px;min-height:30px;padding:0 28px 0 10px;border-radius:999px;font:700 13px/1 var(--f-ui);width:auto;max-width:200px}
+.app .kd-list{display:grid;gap:8px}
+.app .kd-row{display:flex;align-items:center;gap:8px}
+.app .kd-row>svg{width:18px;height:18px;color:var(--gold-tx);flex:none}
+.app .kd-row .inp{flex:1;min-width:0}
+.app .kd-row small{font:700 12px/1 var(--f-ui);color:var(--ink-3);min-width:16px;text-align:center}
+.app .kd-new{display:flex;gap:8px;align-items:center}
+.app .kd-new .inp{flex:1;min-width:0}
+.app .kd-new .btn{flex:none}
+/* several jobs or factions */
+.app .jobs-f{display:grid;gap:6px;grid-column:1/-1}
+.app .jobs-l{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.app .jobs-l>.btn{flex:none}
+/* a map place's scene picture */
+.app .pinart-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.app .pinart .pa-th{position:relative;width:64px;height:40px;border-radius:8px;overflow:hidden;display:block;background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px var(--line);flex:none}
+.app .pinart .pa-th img{width:100%;height:100%;object-fit:cover;display:block}
+/* consequence difficulties (GM) */
+.app .cdf{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+.app .cdf>span{font:700 12px/1.2 var(--f-ui);color:var(--ink-2);margin-right:2px}
+.app .cdf .inp{width:52px;min-height:30px;height:30px;padding:0 4px;text-align:center;font:700 14px/1 var(--f-ui);border-radius:8px}
+.app .cdf .ibtn:disabled{opacity:.35}
+/* situation aspects that stay on a character */
+.app .sasp-l{display:flex;flex-direction:column;gap:6px;align-items:stretch}
+.app .sasp-l .alv{flex:none}
+.app .sasp-l>.btn{align-self:flex-start}
+/* skill levels with hard lines between them, so a skill can't look like it sits on the next level */
+.app .lad{gap:0}
+.app .lad .rung{padding:9px 0;border-top:2px solid var(--line-2)}
+.app .lad .rung:first-child{border-top:0;padding-top:2px}
+.app .lad .rung .lv{align-self:stretch;display:flex;flex-direction:column;justify-content:center;border-right:2px solid var(--line-2);padding-right:8px}

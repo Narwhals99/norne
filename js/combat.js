@@ -189,7 +189,7 @@ N.tokConsSrc = t => {
   if (t.kind === 'pc') { const c = G().chars[t.ref]; return c ? {o:c, i:`data-i="con" data-c="${c.id}"`, own:`data-c="${c.id}"`} : null; }
   const n = t.type !== 'nameless' && G().npcs.find(x => x.id === t.ref);
   if (n) return {o:n, i:`data-i="npcCon" data-n="${n.id}"`, own:`data-n="${n.id}"`};
-  return {o:{skills:t.skills, cons:t.cons || {mild:t.mild || ''}, conSt:t.conSt}, i:`data-i="tokCon" data-t="${t.id}"`, own:`data-t="${t.id}"`};
+  return {o:{skills:t.skills, cons:t.cons || {mild:t.mild || ''}, conSt:t.conSt, conDf:t.conDf}, i:`data-i="tokCon" data-t="${t.id}"`, own:`data-t="${t.id}"`};
 };
 /* the object that keeps a fighter's consequences and their states (o.conSt): the card, or the nameless token itself */
 N.tokConsOwner = t => { const s = N.tokConsSrc(t); return !s ? null : s.own.startsWith('data-t') ? t : s.o; };
@@ -400,7 +400,7 @@ N.tokCard = function(v, t){
       })()}
       ${(() => {
         const cs = N.tokCons(t); if (N.isCrowd(t) || (!gm && t.kind !== 'pc' && !cs.some(x => x.v))) return '';
-        const src = N.tokConsSrc(t), ed = sl => `<div class="cq-ed"><label><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${src.i} data-k="${sl.k}" value="${esc(sl.v)}" placeholder="Empty"></label>${sl.v ? N.conStEd(src.own, sl, sl.st) : ''}</div>`;
+        const src = N.tokConsSrc(t), ed = sl => `<div class="cq-ed"><label><small>${sl.l}${sl.only ? ` · ${sl.only}` : ''}<i>${sl.lo}–${sl.hi}</i></small><input class="inp" id="tcon-${sl.k}-${t.id}-${v.id}" ${src.i} data-k="${sl.k}" value="${esc(sl.v)}" placeholder="Empty"></label>${sl.v ? N.conStEd(src.own, sl, sl.st, src.o) : ''}</div>`;
         return `<span class="kv-w">Consequences</span><span class="kv-w cq-list${gm ? ' ed' : ''}">${cs.map(sl => gm ? ed(sl) : N.cqChip(sl)).join('')}</span>`;
       })()}
       ${(() => { /* players see another character's skill levels only once the GM revealed them (Jake) */
