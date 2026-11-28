@@ -958,8 +958,9 @@ N.sheetHtml = function(v){
   }
   case 'store': {
     const sh = N.shopOf(arg); if (!sh || (!gm && sh.state !== 'open')) return '';
-    const items = sh.items || [], k = v.ui.storeK || '', kinds = N.ITEMK.filter(([kk]) => items.some(x => x.kind === kk));
-    const shown = items.filter(x => !k || x.kind === k), me = !gm && N.charOf(v.role), pcs = N.shopPcs(sh), keep = sh.npcs || [];
+    /* Jack: the store is sorted into its item kinds (the catalog's N.ITEMK), with tabs at the top and a heading per kind */
+    const items = sh.items || [], kOf = x => N.itemKind(x.kind)[0], kinds = N.ITEMK.filter(([kk]) => items.some(x => kOf(x) === kk));
+    const k = kinds.some(([kk]) => kk === v.ui.storeK) ? v.ui.storeK : '', inK = kk => items.filter(x => kOf(x) === kk), me = !gm && N.charOf(v.role), pcs = N.shopPcs(sh), keep = sh.npcs || [];
     /* Jake: Purchase sends the GM a request (paid only once they confirm), greyed out without enough gold; Bargain asks for a roll */
     const purse = me && me.built ? parseInt(me.gold, 10) || 0 : 0, open = sh.state === 'open';
     const buyBtns = x => { if (!me || !me.built || !open || !N.shopLeft(x)) return '';
@@ -974,16 +975,21 @@ N.sheetHtml = function(v){
           ${pick ? `<span class="sell-form"><label class="sell-p"><span class="coin"></span><input class="inp" id="sellp-${v.id}" data-i="sellPrice" inputmode="numeric" value="${esc(v.ui.sellPrice || '')}" placeholder="Your price" aria-label="Your price in gold" autocomplete="off"><small>gold for one</small></label><button type="button" class="btn sm gold" data-a="sellGo" data-c="${esc(sh.ch)}" data-v="${esc(r[0])}">${IC('check')}Offer</button></span>` : ''}</div>`; };
       return `<section class="shop-sell"><h4>${IC('coins')}Sell to ${esc(sh.name || 'the store')}</h4><p class="muted">Pick an item and name your price. The GM buys it or bargains.</p>
         ${rows.length ? `<div class="sell-list">${rows.map(one).join('')}</div>` : `<div class="note">${IC('info')}Nothing in your inventory to sell.</div>`}</section>`; };
-    const card = x => `<article class="shop-it${N.shopLeft(x) ? '' : ' gone'}"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
-      <div class="shop-it-t"><b>${N.emoText(N.marks(esc(x.name)))}</b><small>${esc(x.path || N.itemKind(x.kind)[1])}</small>
+    const card = (x, under) => { const path = String(x.path || '').split(' · ').filter(p => p && p !== under).join(' · ');
+      return `<article class="shop-it${N.shopLeft(x) ? '' : ' gone'}"><span class="itc-ic">${IC(x.ic || N.itemKind(x.kind)[2])}</span>
+      <div class="shop-it-t"><b>${N.emoText(N.marks(esc(x.name)))}</b>${path ? `<small>${esc(path)}</small>` : ''}
         ${(x.gears || []).length || x.silver ? `<span class="shop-rates">${(x.gears || []).map(([kk, r]) => { const gk = N.ITEM_RATE.find(y => y[0] === kk); return gk ? `<span class="itc-g">${IC(gk[2])}${gk[1]} +${r}</span>` : ''; }).join('')}${x.silver ? '<span class="itc-tag">Silver</span>' : ''}</span>` : ''}
         ${x.d ? `<p>${N.emoText(N.marks(esc(x.d)))}</p>` : ''}${N.invPv(v, x.name)}</div>
-      <span class="shop-tag${x.price ? '' : ' free'}">${x.price ? `<span class="coin"></span>${N.goldTxt(x.price)}` : 'Free'}</span><span class="shop-left${N.shopLeft(x) ? '' : ' out'}">${N.shopLeft(x) ? `${N.shopLeft(x)} left` : 'Sold out'}</span>${buyBtns(x)}</article>`;
+      <span class="shop-tag${x.price ? '' : ' free'}">${x.price ? `<span class="coin"></span>${N.goldTxt(x.price)}` : 'Free'}</span><span class="shop-left${N.shopLeft(x) ? '' : ' out'}">${N.shopLeft(x) ? `${N.shopLeft(x)} left` : 'Sold out'}</span>${buyBtns(x)}</article>`; };
     const people = keep.length || pcs.length ? `<div class="shop-folk">${keep.length ? `<span><span class="avs">${keep.map(n => N.av({name:n.name, portrait:n.portrait, color:'var(--c-npc)'}, 32)).join('')}</span><span class="tx"><small>${keep.length > 1 ? 'Shopkeepers' : 'Shopkeeper'}</small><b>${esc(keep.map(n => n.name).join(', '))}</b></span></span>` : ''}${pcs.length ? `<span><span class="avs">${pcs.map(p => N.av(p, 32)).join('')}</span><span class="tx"><small>Shopping</small><b>${esc(pcs.map(p => p.name).join(', '))}</b></span></span>` : ''}</div>` : '';
     const body = `${gm ? `<div class="note">${IC('eye')}${sh.state === 'open' ? 'This is what the players see.' : 'This is what the players will see once you open the store.'}</div>` : ''}
       ${people}${me && me.built ? `<div class="shop-purse"><span class="coin"></span>${esc(me.short)} has <b>${N.goldTxt(me.gold)}</b></div>` : ''}
-      ${kinds.length > 1 ? `<div class="chips itc-chips" role="group" aria-label="Show"><button type="button" class="cchip" data-a="storeKind" data-v="" aria-current="${!k}">All <small>${items.length}</small></button>${kinds.map(([kk, l, ic]) => `<button type="button" class="cchip" data-a="storeKind" data-v="${kk}" aria-current="${k === kk}">${IC(ic)}${l} <small>${items.filter(x => x.kind === kk).length}</small></button>`).join('')}</div>` : ''}
-      ${shown.length ? `<div class="shop-grid">${shown.map(card).join('')}</div>` : `<div class="note">${IC('info')}Nothing on the shelves right now.</div>`}
+      ${items.length ? `<div class="shop-tabs-w"><nav class="shop-tabs" aria-label="Store sections">${kinds.length > 1 ? `<button type="button" data-a="storeKind" data-v="" aria-current="${!k}"><span class="st-ic">${IC('items')}</span><span>All</span><small>${items.length}</small></button>` : ''}${kinds.map(([kk, l, ic]) => `<button type="button" data-a="storeKind" data-v="${kk}" aria-current="${k === kk || kinds.length === 1}"><span class="st-ic">${IC(ic)}</span><span>${l}</span><small>${inK(kk).length}</small></button>`).join('')}</nav></div>
+        ${(k ? kinds.filter(([kk]) => kk === k) : kinds).map(([kk, l, ic]) => { const xs = inK(kk), clsOf = x => x.cls || String(x.path || '').split(' · ')[0], cls = [...new Set(xs.map(clsOf))];
+          /* inside one kind, Jake's item classes (Small one-handed weapons...) get their own small headings */
+          const groups = cls.length > 1 ? cls.map(c => [c, xs.filter(x => clsOf(x) === c)]) : [['', xs]];
+          return `<section class="shop-sec"><h4 class="shop-h">${IC(ic)}${l}<small>${xs.length}</small></h4>${groups.map(([c, ys]) => `${cls.length > 1 ? `<h5 class="shop-sub">${esc(c || 'Other')}</h5>` : ''}<div class="shop-grid">${ys.map(x => card(x, c)).join('')}</div>`).join('')}</section>`; }).join('')}`
+      : `<div class="note">${IC('info')}Nothing on the shelves right now.</div>`}
       ${sellBox()}`;
     return sheet(esc(sh.name || 'The store'), body, gm ? `<button type="button" class="btn" data-a="sheet" data-v="shop" data-c="${esc(sh.ch)}">${IC('left')}Back to setup</button>` : `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true, lead:`<span class="shop-lead">${IC('coins')}</span>`});
   }
