@@ -1393,13 +1393,17 @@ function knownBody(v, k){
 }
 /* A character's lifetime stats, counted from the chat history the app already keeps: nothing new is saved and the GM does
    nothing. Only chats the character's player can read count (Everyone, their DM, their group chats and parties). */
+/* a player character's face for the stats lists, found by the name their line showed: their short or full name gives
+   their portrait and colour; an alias stays a plain initial so the list doesn't tell who was behind it */
+const pcFace = n => { const c = N.pcs().find(x => x.built && (x.short === n || x.name === n)), p = c && G().P[c.player];
+  return {name:n, portrait:c?.portrait || null, color:p?.color || c?.color || 'var(--ink-3)'}; };
 N.charStats = function(c){
   const g = G(), key = 'pc:' + c.id, names = new Set([c.short, c.name].filter(Boolean)), seat = c.player;
   const sees = m => m.ch === 'table' || m.ch === 'dm-' + seat || (N.grpOf(m.ch)?.seats || []).includes(seat);
   const mineRoll = r => r.whoKey ? r.whoKey === key : names.has(r.who);
   const st = {rolls:0, succ:0, style:0, tie:0, fail:0, open:0, best:null, skills:{}, invokes:0, fp:0,
     fights:0, attacks:0, hits:0, hitStyle:0, hitBy:0, defended:0, kills:0, killed:[], out:0, cons:0,
-    scenes:0, ic:0, places:{c:new Map(), t:new Map(), n:new Map()}, wheres:new Set(), npcs:new Map(), met:0, heard:0, first:null};
+    scenes:0, ic:0, places:{c:new Map(), t:new Map(), n:new Map()}, wheres:new Set(), npcs:new Map(), pcs:new Map(), met:0, heard:0, first:null};
   const lastClash = {}, fightIds = new Set(), prevLoc = {};
   const ms = g.msgs.filter(sees).sort((a, b) => a.t - b.t);
   for (const m of ms) {
@@ -1440,6 +1444,9 @@ N.charStats = function(c){
       if (m.scene.where) st.wheres.add(m.scene.where.trim());
     }
     if (m.kind === 'rp' && m.by === 'gm' && m.as && m.as !== 'Narrator') st.npcs.set(m.as, (st.npcs.get(m.as) || 0) + 1);
+    /* Jack: other player characters who spoke in character where this one could hear, by the name the chat showed
+       (an alias stays the alias, so a disguise isn't given away). Meta-only chats (Everyone) are table talk, not in character */
+    if (m.kind === 'rp' && m.by !== 'gm' && m.by !== seat && !N.metaOnly(m.ch)) { const n = m.as || g.P[m.by]?.name; if (n) st.pcs.set(n, (st.pcs.get(n) || 0) + 1); }
     if (m.kind === 'rp' && m.by === seat) st.ic++;
   }
   for (const k of Object.values(g.known || {})) { if (k.met === 'met') st.met++; else if (k.met === 'heard') st.heard++; }
@@ -1450,8 +1457,8 @@ N.charStats = function(c){
   /* Jake: the GM adds or removes places and NPCs by name, and changes their counts: sadj.pc / pt / pn (countries, cities,
      neighborhoods) and sadj.np (NPCs who spoke) hold {name: +/-n}; a place or NPC whose count reaches 0 drops off the list */
   const byName = (map, d) => { for (const [n, x] of Object.entries(d || {})) { const t = (map.get(n) || 0) + (+x || 0); if (t > 0) map.set(n, t); else map.delete(n); } };
-  byName(st.places.c, st.adj.pc); byName(st.places.t, st.adj.pt); byName(st.places.n, st.adj.pn); byName(st.npcs, st.adj.np);
-  st.nC = st.places.c.size; st.nT = st.places.t.size; st.nN = st.places.n.size; st.nNpc = st.npcs.size;
+  byName(st.places.c, st.adj.pc); byName(st.places.t, st.adj.pt); byName(st.places.n, st.adj.pn); byName(st.npcs, st.adj.np); byName(st.pcs, st.adj.pp);
+  st.nC = st.places.c.size; st.nT = st.places.t.size; st.nN = st.places.n.size; st.nNpc = st.npcs.size; st.nPc = st.pcs.size;
   return st;
 };
 function heroStats(v, c, mine){
@@ -1464,15 +1471,16 @@ function heroStats(v, c, mine){
   const fixed = Object.values(s.adj).some(x => x && typeof x === 'object' ? Object.values(x).some(y => +y) : +x);
   /* GM fixing mode for named lists (places, NPCs): each name gets − / + and a remove, and a box to add one the app missed */
   const nfix = (k, n, x) => `<span class="sfix"><button type="button" class="ibtn sm" data-a="sadjN" data-c="${c.id}" data-k="${k}" data-v="${esc(n)}" data-d="-1" aria-label="One less">${IC('minus')}</button><b>${x}</b><button type="button" class="ibtn sm" data-a="sadjN" data-c="${c.id}" data-k="${k}" data-v="${esc(n)}" data-d="1" aria-label="One more">${IC('plus')}</button><button type="button" class="ibtn sm sdel" data-a="sadjN" data-c="${c.id}" data-k="${k}" data-v="${esc(n)}" data-d="${-x}" aria-label="Remove ${esc(n)}" title="Remove">${IC('trash')}</button>${+(s.adj[k] || {})[n] ? `<small class="sgm">GM ${s.adj[k][n] > 0 ? '+' : '−'}${Math.abs(s.adj[k][n])}</small>` : ''}</span>`;
-  const nlist = (map, k, ic, what, list) => `<div class="snames">${[...map].sort((a, b) => b[1] - a[1]).map(([n, x]) => `<div class="srow ed sname">${k === 'np' ? N.av({name:n, portrait:N.npcByName(n)?.portrait || null, color:'var(--c-npc)'}, 26) : IC(ic)}<span>${esc(n)}</span>${nfix(k, n, x)}</div>`).join('')}
+  const nlist = (map, k, ic, what, list) => `<div class="snames">${[...map].sort((a, b) => b[1] - a[1]).map(([n, x]) => `<div class="srow ed sname">${k === 'np' ? N.av({name:n, portrait:N.npcByName(n)?.portrait || null, color:'var(--c-npc)'}, 26) : k === 'pp' ? N.av(pcFace(n), 26) : IC(ic)}<span>${esc(n)}</span>${nfix(k, n, x)}</div>`).join('')}
     <div class="sadd"><input class="inp" id="sadd-${k}-${v.id}" placeholder="Add ${what}" autocomplete="off" aria-label="Add ${what}"${list ? ` list="${list}"` : ''}><button type="button" class="btn sm" data-a="sadjAdd" data-c="${c.id}" data-k="${k}">${IC('plus')}Add</button></div></div>`;
-  const npcList = ed ? `<datalist id="sadl-${v.id}">${G().npcs.map(n => `<option value="${esc(n.name)}">`).join('')}</datalist>` : '';
+  const npcList = ed ? `<datalist id="sadl-${v.id}">${G().npcs.map(n => `<option value="${esc(n.name)}">`).join('')}</datalist><datalist id="sadp-${v.id}">${N.pcs().filter(x => x.built && x.id !== c.id).map(x => `<option value="${esc(x.short || x.name)}">`).join('')}</datalist>` : '';
   const decided = s.succ + s.tie + s.fail;
   const bar = decided ? `<div class="sbar" role="img" aria-label="${s.succ} successes, ${s.tie} ties, ${s.fail} fails">${[['succ', s.succ], ['tie', s.tie], ['fail', s.fail]].filter(x => x[1]).map(([k, n]) => `<i class="${k}" style="flex:${n}"></i>`).join('')}</div>
     <div class="skey"><span><i class="succ"></i>Success ${s.succ}${s.style ? ` <small>(${s.style} with style)</small>` : ''}</span><span><i class="tie"></i>Tie ${s.tie}</span><span><i class="fail"></i>Fail ${s.fail}</span></div>` : '<p class="muted">No rolls against a difficulty yet.</p>';
   const topSk = Object.entries(s.skills).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const chips = (map, ic) => map.size ? `<div class="schips">${[...map].sort((a, b) => b[1] - a[1]).map(([n, x]) => `<span class="schip">${IC(ic)}${esc(n)}${x > 1 ? ` <small>×${x}</small>` : ''}</span>`).join('')}</div>` : '<p class="muted">None yet.</p>';
-  const npcs = [...s.npcs].sort((a, b) => b[1] - a[1]);
+  const npcs = [...s.npcs].sort((a, b) => b[1] - a[1]), pcs = [...s.pcs].sort((a, b) => b[1] - a[1]);
+  const who = (L, face) => L.length ? `<div class="snpcs">${L.slice(0, 6).map(([n, x]) => `<div class="snpc">${N.av(face(n), 30)}<span>${esc(n)}</span><small>${x} line${x === 1 ? '' : 's'}</small></div>`).join('')}</div>` : '';
   const kills = [...s.killed.reduce((m, n) => m.set(n, (m.get(n) || 0) + 1), new Map())];
   const head = `<div class="top ph" style="display:flex"><button type="button" class="ibtn" data-a="heroStats" data-v="" aria-label="Back to the character sheet">${IC('left')}</button><h1>${own ? 'My stats' : `${nm}’s stats`}</h1>${gm ? `<button type="button" class="btn sm${ed ? ' primary' : ''}" data-a="statEd" aria-pressed="${ed}">${IC(ed ? 'check' : 'pen')}${ed ? 'Done' : 'Fix numbers'}</button>` : ''}<button type="button" class="btn sm" data-a="heroStats" data-v="">${IC('x')}Close</button></div>`;
   const gmBar = gm ? `<div class="full sgmbar">${IC('info')}<span>${ed ? 'Tap − or + to fix a number the app missed or counted wrong. New play keeps counting on top of it.' : `Only you can fix these. ${esc(pn(c))} sees the fixed numbers.`}</span>${ed && fixed ? `<button type="button" class="btn sm ghost" data-a="sadjReset" data-c="${c.id}">${IC('undo')}Undo all fixes</button>` : ''}</div>` : '';
@@ -1500,8 +1508,10 @@ function heroStats(v, c, mine){
         ${s.places.n.size || ed ? `<div class="ssub"><span class="eyebrow">Neighborhoods · ${s.nN}</span>${ed ? nlist(s.places.n, 'pn', 'pin', 'a neighborhood') : chips(s.places.n, 'pin')}</div>` : ''}</section>
       <section class="sec"><h3>People</h3>
         ${row(own ? 'NPCs who spoke with you' : `NPCs who spoke with ${nm}`, s.nNpc)}
+        ${ed ? `<div class="ssub"><span class="eyebrow">NPCs and lines</span>${nlist(s.npcs, 'np', 'npc', 'an NPC who spoke', 'sadl-' + v.id)}${npcList}</div>` : who(npcs, n => ({name:n, portrait:N.npcByName(n)?.portrait || null, color:'var(--c-npc)'}))}
+        ${row(own ? 'Player characters who spoke with you' : `Player characters who spoke with ${nm}`, s.nPc)}
+        ${ed ? `<div class="ssub"><span class="eyebrow">Player characters and lines</span>${nlist(s.pcs, 'pp', 'users', 'a player character who spoke', 'sadp-' + v.id)}</div>` : who(pcs, pcFace)}
         ${row('Characters met', s.met, s.heard ? `${s.heard} more heard of` : '', 'met')}
-        ${ed ? `<div class="ssub"><span class="eyebrow">NPCs and lines</span>${nlist(s.npcs, 'np', 'npc', 'an NPC who spoke', 'sadl-' + v.id)}${npcList}</div>` : npcs.length ? `<div class="snpcs">${npcs.slice(0, 6).map(([n, x]) => { const o = N.npcByName(n); return `<div class="snpc">${N.av({name:n, portrait:o?.portrait || null, color:'var(--c-npc)'}, 30)}<span>${esc(n)}</span><small>${x} line${x === 1 ? '' : 's'}</small></div>`; }).join('')}</div>` : ''}
         ${row('Lines said in character', s.ic, '', 'ic')}</section>
       <p class="full muted sfoot">${IC('info')}Counted automatically from the chat history${fixed ? `, with a few numbers fixed by ${esc(N.gmName())}` : ''}. Wins and losses aren’t counted, because the app doesn’t record who won a fight.</p>
     </div></div>`;

@@ -2102,12 +2102,12 @@ function act(v, a, el, e){
   case 'sadj': { const c = g.chars[d.c]; if (!gm || !c) break; if (+d.d < 0 && +d.n <= 0) break;
     const a2 = c.sadj = c.sadj || {}; a2[d.k] = (+a2[d.k] || 0) + (+d.d); if (!a2[d.k]) delete a2[d.k]; if (!Object.keys(a2).length) delete c.sadj; renderAll(); return; }
   /* places and NPCs by name: d.k pc|pt|pn|np, d.v the name, d.d how much (a remove passes minus the whole count) */
-  case 'sadjN': case 'sadjAdd': { const c = g.chars[d.c]; if (!gm || !c || !['pc', 'pt', 'pn', 'np'].includes(d.k)) break;
+  case 'sadjN': case 'sadjAdd': { const c = g.chars[d.c]; if (!gm || !c || !['pc', 'pt', 'pn', 'np', 'pp'].includes(d.k)) break;
     let name = val, dd = +d.d;
     if (a === 'sadjAdd') { const inp = v.root.querySelector(`#sadd-${d.k}-${v.id}`); name = (inp?.value || '').trim().slice(0, 80); dd = 1;
       if (!name) { toast(v, 'Type a name first.'); break; }
       /* a name already on the list (any capitals) gets one more instead of a second entry */
-      const cur = N.charStats(c), map = d.k === 'np' ? cur.npcs : cur.places[d.k[1]]; name = [...map.keys()].find(n => n.toLowerCase() === name.toLowerCase()) || name; }
+      const cur = N.charStats(c), map = d.k === 'np' ? cur.npcs : d.k === 'pp' ? cur.pcs : cur.places[d.k[1]]; name = [...map.keys()].find(n => n.toLowerCase() === name.toLowerCase()) || name; }
     if (!name || !dd) break;
     const a2 = c.sadj = c.sadj || {}, m2 = a2[d.k] = a2[d.k] || {}; m2[name] = (+m2[name] || 0) + dd;
     if (!m2[name]) delete m2[name]; if (!Object.keys(m2).length) delete a2[d.k]; if (!Object.keys(a2).length) delete c.sadj;
