@@ -2942,6 +2942,11 @@ function act(v, a, el, e){
   case 'itdPvSee': { const p = (ui.itd?.pv || []).find(x => x.id === d.k); if (!p) break; const s2 = new Set(p.see || []); s2.has(val) ? s2.delete(val) : s2.add(val); p.see = [...s2].sort((a, b) => a.slice(1) - b.slice(1)); break; }
   case 'itdPvDel': if (ui.itd?.pv) ui.itd.pv = ui.itd.pv.filter(x => x.id !== val); break;
   case 'itdIc': if (ui.itd) ui.itd.ic = val; break;
+  /* the item's picture (Jack): uploaded from the device, framed square, stored where every player may load it (stores and
+     inventories show it); Adjust reframes it, Remove goes back to the placeholder made from its name */
+  case 'itdPic': if (!gm) break; pickFramed(v, 'item', (img, f) => { if (!ui.itd) return; ui.itd.pic = N.withFrame(N.storeImg(N.shrink(img, 512, 160000), true), f); render(v); }); return;
+  case 'itdPicAdj': if (!gm || !ui.itd?.pic) break; reframe(v, 'item', ui.itd.pic, nu => { if (ui.itd) { ui.itd.pic = nu; render(v); } }); return;
+  case 'itdPicDel': if (ui.itd) delete ui.itd.pic; break;
   case 'itSave': {
     const d = ui.itd, name = (d?.name || '').trim(); if (!name) break;
     if (!g.items) g.items = [];
@@ -2949,7 +2954,7 @@ function act(v, a, el, e){
     if (dup) { toast(v, `There is already an item called ${dup.name}.`); break; }
     /* fields this sheet doesn't show (Jake's rule flags from an items file) are kept as they were */
     const it = {...d, id:d.id || uid('it'), name, kind:N.itemKind(d.kind)[0], ic:d.ic && d.ic !== N.itemKind(d.kind)[2] ? d.ic : '', d:(d.d || '').trim(), gm:(d.gm || '').trim(), cls:(d.cls || '').trim(), disc:(d.disc || '').trim()};
-    for (const k of ['cls', 'disc', 'silver']) if (!it[k]) delete it[k];
+    for (const k of ['cls', 'disc', 'silver', 'pic']) if (!it[k]) delete it[k];
     it.pv = (d.pv || []).map(p => ({id:p.id || uid('pv'), text:String(p.text || '').trim(), see:[...(p.see || [])]})).filter(p => p.text); if (!it.pv.length) delete it.pv;
     for (const [k] of N.ITEM_RATE) if (+d[k] > 0) it[k] = +d[k]; else delete it[k];
     N.ammoFix(it);
