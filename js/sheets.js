@@ -262,17 +262,17 @@ N.sheetHtml = function(v){
     const m = gm && N.curMap(v), p = m && m.pins.find(x => x.id === v.ui.pinSel); if (!p) return '';
     const th = (src, title, sub) => `<button type="button" class="thumb${p.art === src ? ' on' : ''}" data-a="pinArt" data-v="${esc(src)}" style="${N.sceneArt({art:src})}">${N.scenePic({art:src})}<span>${esc(title)}<small>${esc(sub)}</small></span>${p.art === src ? `<span class="ck">${IC('check')}</span>` : ''}</button>`;
     return sheet(`Scene picture · ${esc(p.label)}`, `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">When a Narrator line moves the scene here with {{${esc(p.label)}}}, the scene picture changes to this one.</p>
-      <h4 style="margin:4px 0 0">Your uploads</h4><div class="thumbs">${g.pics.map(u => th(u.src, '', 'Your upload')).join('')}<button type="button" class="thumb up" data-a="pinArtUp"><span>${IC('upload')}Upload a picture</span></button></div>
+      <h4 style="margin:4px 0 0">Your picture library</h4>${N.plBar(v)}<div class="thumbs">${N.plList(v).map(u => th(u.src, u.name || '', u.dir && !v.ui.plDir ? (N.plDir(u.dir) || {}).name || '' : '')).join('')}<button type="button" class="thumb up" data-a="pinArtUp"><span>${IC('upload')}Upload a picture</span></button></div>
       <h4 style="margin:4px 0 0">Norne art</h4><div class="thumbs">${N.ARTLIB.map(a => th(a.art, a.label, 'Norne art')).join('')}</div>`,
       `${p.art ? `<button type="button" class="btn ghost" data-a="pinArtX">${IC('x')}No picture</button>` : ''}<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true});
   }
   case 'scenePics': {
     const d = v.ui.sd; if (!d) return '';
-    const up = arg === 'up', pics = up ? g.pics.map(u => ({id:u.id, title:'', art:u.src, sub:'Your upload', up:true})) : N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Norne art'}));
-    return sheet(up ? 'Your uploads' : 'Norne art', `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Tap a picture to use it for the scene.</p>
+    const up = arg === 'up', pics = up ? N.plList(v).map(u => ({id:u.id, title:u.name || '', art:u.src, sub:u.dir && !v.ui.plDir ? (N.plDir(u.dir) || {}).name || '' : '', up:true})) : N.ARTLIB.map(a => ({id:a.id, title:a.label, art:a.art, sub:'Norne art'}));
+    return sheet(up ? 'Your picture library' : 'Norne art', `<p class="muted" style="margin:0;font:600 12.5px/1.4 var(--f-ui)">Tap a picture to use it for the scene.</p>${up ? N.plBar(v) : ''}
       <div class="thumbs">${pics.map(p => sdThumb(d, p)).join('')}
         ${up ? `<button type="button" class="thumb up" data-a="sdUpload"><span>${IC('upload')}Upload a picture</span></button>` : ''}
-        ${up && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui);align-self:center">Pictures you upload land here, and on the Your pictures shelf on the GM screen.</p>' : ''}</div>`,
+        ${up && !pics.length ? `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui);align-self:center">${g.pics.length ? 'No pictures here.' : 'Pictures you upload land here, and in your picture library on the GM screen.'}</p>` : ''}</div>`,
       `<button type="button" class="btn ghost" data-a="closeSheet">${IC("left")}Back to the scene</button>`, {wide:true});
   }
   /* ---------------- scene picker (GM) ---------------- */
@@ -298,7 +298,7 @@ N.sheetHtml = function(v){
         <p class="muted" style="margin:-6px 0 0;font:600 12.5px/1.4 var(--f-ui)">${edit ? `Changes fix up “${esc(has.title)}” in place. No new scene line in the chat, and free invokes already spent stay spent.` : `“${esc(has.title)}” ends and a fresh scene starts in this chat.`}</p>` : ''}
       <div><h4>Who it’s for</h4><div class="forwho">${forwho.map(c => `<button type="button" data-a="sdFor" data-v="${c}" aria-pressed="${d.ch===c}">${c==='table'?`<span class="cic">${IC('users')}</span>Everyone`:c.startsWith('grp-')?`<span class="cic">${IC('whisper')}</span>${esc(N.chName(c,'gm'))}`:N.av(N.personObj(c.slice(3)),28)+esc(pName(c.slice(3)))+' only'}</button>`).join('')}</div></div>
       <div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap"><h4 style="margin:0">Picture</h4><div class="seg"><button type="button" data-a="sdTab" data-v="recent" aria-pressed="${tab==='recent'}">Recent</button><button type="button" data-a="sdTab" data-v="pics" aria-pressed="${tab==='pics'}">Pictures</button><button type="button" data-a="sdTab" data-v="maps" aria-pressed="${tab==='maps'}">Map places</button></div></div>
-        ${tab==='pics' ? `<div class="sdfold" role="group" aria-label="Picture folders">${fold('app', 'Norne art', N.ARTLIB.length)}${fold('up', 'Your uploads', g.pics.length)}</div>` : ''}
+        ${tab==='pics' ? `<div class="sdfold" role="group" aria-label="Picture folders">${fold('app', 'Norne art', N.ARTLIB.length)}${fold('up', 'Your picture library', g.pics.length)}</div>` : ''}
         ${tab==='pics' ? '' : `<div class="thumbs">${pics.map(p => sdThumb(d, p)).join('')}
           ${tab==='recent' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">Scenes you set show up here for one-tap reuse.</p>' : ''}
           ${tab==='maps' && !pics.length ? '<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">No places on the maps yet.</p>' : ''}</div>`}
@@ -1151,11 +1151,36 @@ N.sheetHtml = function(v){
     return sheet(`Delete ${esc(gr.name)}?`, `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">The chat and everything said in it are deleted for everyone. This can’t be undone.</p>`,
       `<button type="button" class="btn ghost" data-a="closeSheet">Keep it</button><button type="button" class="btn danger" data-a="grpDelGo" data-v="${esc(gr.id)}">${IC('trash')}Delete</button>`);
   }
+  /* the GM's picture library (Jack): every picture Jake uploaded, in folders, to use for scenes, fights and map
+     places, or to send in a chat. Opened from the chat's picture button it sends there */
+  case 'piclib': {
+    if (!gm) return '';
+    const ui = v.ui, chat = arg === 'chat', list = N.plList(v), sel = g.pics.find(p => p.id === ui.picSel), cb = g.combat, dirs = g.picDirs || [];
+    const chn = esc(N.chName(ui.ch, v.role));
+    const th = p => `<button type="button" class="thumb plth${sel === p ? ' on' : ''}" data-a="picSel" data-v="${p.id}" aria-pressed="${sel === p}" aria-label="${esc(p.name || 'Picture')}">${N.bgPic(p.src)}${p.name || (p.dir && !ui.plDir) ? `<span>${esc(p.name || '')}${p.dir && !ui.plDir ? `<small>${esc((N.plDir(p.dir) || {}).name || '')}</small>` : ''}</span>` : ''}${cb.bg === p.src && cb.state !== 'off' ? '<em class="pl-tag">In the fight</em>' : ''}${sel === p ? `<span class="ck">${IC('check')}</span>` : ''}</button>`;
+    const selCard = sel ? `<div class="pl-sel" aria-label="Picked picture"><div class="pl-prev">${N.bgPic(sel.src)}</div><div class="pl-ed">
+        <label class="field"><span>Name</span><input class="inp" id="pln-${v.id}" data-i="plName" data-k="${sel.id}" value="${esc(sel.name || '')}" placeholder="e.g. The Drowned Lantern, back room" maxlength="40" autocomplete="off"></label>
+        <label class="field"><span>Folder</span><select class="inp" data-i="plMove" data-k="${sel.id}"><option value="">Unsorted</option>${dirs.map(d2 => `<option value="${d2.id}" ${sel.dir === d2.id ? 'selected' : ''}>${esc(d2.name)}</option>`).join('')}<option value="+">New folder…</option></select></label>
+      </div><div class="pl-acts">
+        <button type="button" class="btn sm primary" data-a="picChat" data-v="${sel.id}">${IC('send')}Send in ${chn}</button>
+        <button type="button" class="btn sm" data-a="picScene" data-v="${sel.id}">${IC('image')}Use as scene</button>
+        ${cb.state !== 'off' ? `<button type="button" class="btn sm" data-a="picFight" data-v="${sel.id}">${IC('swords')}Use for the fight</button>` : ''}
+        <button type="button" class="btn sm" data-a="picFrame" data-v="${sel.id}">${IC('fit')}Adjust framing</button>
+        <button type="button" class="btn sm danger" data-a="picDel" data-v="${sel.id}">${IC('trash')}Delete</button>
+      </div></div>` : '';
+    const body = `<p class="muted" style="margin:0;font:600 12.5px/1.45 var(--f-ui)">${chat ? `Tap a picture, then Send. It goes in ${chn}${(ui.draft || '').trim() ? ', with what you typed under it' : ''}.` : `Upload as many as you like. Use them as a scene or fight picture or for a map place, or send one in a chat as a look at where everyone is.`} Only you see the library.</p>
+      <div class="pl-top"><button type="button" class="btn primary" data-a="picUpload">${IC('upload')}Upload pictures</button>${chat ? `<button type="button" class="btn" data-a="picDevice">${IC('image')}Send one from this device</button>` : ''}</div>
+      ${N.plBar(v, true)}${selCard}
+      <div class="thumbs pl-grid">${list.map(th).join('')}</div>
+      ${!list.length ? `<p class="muted" style="margin:0;font:600 13px/1.4 var(--f-ui)">${g.pics.length ? (ui.plQ ? 'No picture has that name.' : 'This folder is empty. Pick a picture and choose this folder for it.') : 'No pictures yet. Upload a few places, people or moments you made, then use them whenever you like.'}</p>` : ''}`;
+    return sheet(`Picture library${g.pics.length ? ` <small class="muted">${g.pics.length}</small>` : ''}`, body, `<button type="button" class="btn primary" data-a="closeSheet">Done</button>`, {wide:true, cls:'pl-sheet'});
+  }
   /* a picture sent in chat, as big as the screen allows */
   case 'picView': {
     const m = g.msgs.find(x => x.id === arg); if (!m || !m.pic) return '';
-    return sheet(`${esc(N.msgPerson(m).name)}’s picture`, `<img class="picbig" src="${esc(N.show(m.pic.u))}" alt="${esc(m.text || 'Picture')}">${m.text ? `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">${N.emoText(N.fmt(m.text))}</p>` : ''}`,
-      `<a class="btn ghost" href="${esc(m.pic.u)}" download="norne-picture.jpg">${IC('download')}Save</a><button type="button" class="btn primary" data-a="closeSheet">Close</button>`, {wide:true});
+    const pu = N.imgUrl(m.pic.u);
+    return sheet(`${esc(N.msgPerson(m).name)}’s picture`, `<img class="picbig" src="${esc(N.show(pu))}" alt="${esc(m.text || 'Picture')}">${m.text ? `<p style="margin:0;font:500 15px/1.5 var(--f-ui);color:var(--ink-2)">${N.emoText(N.fmt(m.text))}</p>` : ''}`,
+      `<a class="btn ghost" href="${esc(pu)}" download="norne-picture.jpg">${IC('download')}Save</a><button type="button" class="btn primary" data-a="closeSheet">Close</button>`, {wide:true});
   }
   case 'msgDel': {
     const m = g.msgs.find(x => x.id === arg); if (!m) return '';
@@ -1210,6 +1235,19 @@ N.sheetHtml = function(v){
 };
 
 /* one picture tile in the scene window or one of its folders, ticked when it is the scene's picture */
+N.plIn = (p, f) => !!p && (!f || (f === '-' ? !p.dir || !N.plDir(p.dir) : p.dir === f));
+N.plList = v => { const f = v.ui.plDir || '', q = (v.ui.plQ || '').trim().toLowerCase();
+  return G().pics.filter(p => N.plIn(p, f) && (!q || (p.name || '').toLowerCase().includes(q) || ((N.plDir(p.dir) || {}).name || '').toLowerCase().includes(q))); };
+N.plBar = (v, edit) => {
+  const g = G(), ui = v.ui, dirs = g.picDirs || [], f = ui.plDir || '', cur = N.plDir(f), loose = g.pics.filter(p => N.plIn(p, '-')).length;
+  const chip = (k, l, n, ic) => `<button type="button" class="cchip" data-a="plDir" data-v="${esc(k)}" aria-pressed="${f === k}">${ic ? IC(ic) : ''}${esc(l)} <small>${n}</small></button>`;
+  const chips = `<div class="chips pl-dirs" role="group" aria-label="Folders">${chip('', 'All', g.pics.length)}${dirs.length ? chip('-', 'Unsorted', loose) : ''}${dirs.map(d2 => chip(d2.id, d2.name, g.pics.filter(p => p.dir === d2.id).length, 'folder')).join('')}${edit ? `<button type="button" class="cchip" data-a="plDirNew">${IC('plus')}New folder</button>` : ''}</div>`;
+  const nu = edit && ui.plNew ? `<div class="pl-row"><input class="inp" id="pldn-${v.id}" placeholder="${ui.plFile ? 'Folder for this picture' : 'Folder name, e.g. Taverns'}" maxlength="30" autocomplete="off" data-enter="plDirNew"><button type="button" class="btn sm primary" data-a="plDirNew">${IC('plus')}Add</button><button type="button" class="btn sm ghost" data-a="plDirCancel">Cancel</button></div>` : '';
+  const ed = edit && cur ? (ui.plDirEd ? `<div class="pl-row"><input class="inp" id="plde-${v.id}" data-i="plDirName" data-k="${cur.id}" value="${esc(cur.name)}" maxlength="30" aria-label="Folder name"><button type="button" class="btn sm primary" data-a="plDirEd">${IC('check')}Done</button><button type="button" class="btn sm danger" data-a="plDirDel" data-v="${cur.id}">${IC('trash')}Delete folder</button></div>`
+    : `<div class="pl-row pl-fold"><span>${IC('folder')}<b>${esc(cur.name)}</b></span><button type="button" class="btn sm ghost" data-a="plDirEd">${IC('pen')}Rename or delete</button></div>`) : '';
+  const q = g.pics.length > 8 ? `<label class="itc-q pl-q">${IC('search')}<input class="inp" id="plq-${v.id}" data-i="plQ" value="${esc(ui.plQ || '')}" placeholder="Search by name or folder" autocomplete="off" aria-label="Search pictures"></label>` : '';
+  return (g.pics.length || dirs.length || edit ? chips : '') + nu + ed + q;
+};
 function sdThumb(d, p){
   const on = p.place ? (d.place && d.place.map === p.place.map && d.place.rx === p.place.rx && d.place.ry === p.place.ry) : (d.art && d.art === p.art);
   return `<button type="button" class="thumb${on?' on':''}" ${p.up ? `data-a="sdPickUp" data-v="${esc(p.art)}"` : `data-a="sdPick" data-v="${esc(p.id)}"`} style="${N.sceneArt(p)};${p.place?'background-size:420% auto':''}">${N.scenePic(p)}<span>${esc(p.title)}<small>${esc(p.sub||'')}</small></span>${on?`<span class="ck">${IC('check')}</span>`:''}</button>`;

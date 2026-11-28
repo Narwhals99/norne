@@ -1042,6 +1042,9 @@ function input(v, el, ev){
   switch (i) {
     case 'draft': if (el.id === 'ta-' + v.id + 's') { if (v.ui.s2) v.ui.s2.draft = val; grow(el); return; } v.ui.draft = val; grow(el); typed(v, ev); return;
     case 'fcDraft': v.ui.fcDraft = val; return;
+    case 'plName': { if (!isGM(v)) return; const p = g.pics.find(x => x.id === k); if (p) { const n = val.trim().slice(0, 40); if (n) p.name = n; else delete p.name; } return; }
+    case 'plDirName': { if (!isGM(v)) return; const d2 = N.plDir(k); if (d2 && val.trim()) d2.name = val.trim().slice(0, 30); return; }
+    case 'plQ': v.ui.plQ = val; render(v); return;
     case 'sasp': { if (!isGM(v)) return; const o = conOwner(el.dataset); if (o && o.sasp) o.sasp[+el.dataset.x] = val; return; }
     case 'kdName': { if (!N.pn || !N.pn.on(v)) return; const d2 = N.pn.kd(v.role).dirs.find(x => x.id === el.dataset.k); if (d2) { d2.name = val.slice(0, 30) || d2.name; N.pn.kdSave(v.role); } return; }
     case 'pnQ': case 'pnDirName': case 'pnRenName': case 'pnTitle': case 'pnText': N.pn.input(v, el, i); return;
@@ -1163,6 +1166,10 @@ function change(v, el){
     if (val === '+') { v.ui.kdAssign = id; v.ui.sheet = 'kdirs'; render(v); setTimeout(() => v.root.querySelector(`#kdn-${v.id}`)?.focus(), 30); return; }
     const k = N.pn.kd(v.role); if (val) k.of[id] = val; else delete k.of[id]; N.pn.kdSave(v.role); renderAll(); return; }
   if (i === 'kdName' && N.pn && N.pn.on(v)) { renderAll(); return; }
+  if ((i === 'plName' || i === 'plDirName') && isGM(v)) { renderAll(); return; }
+  if (i === 'plMove' && isGM(v)) { const p = G().pics.find(x => x.id === el.dataset.k); if (!p) return;
+    if (val === '+') { v.ui.plNew = true; v.ui.plFile = true; render(v); setTimeout(() => v.root.querySelector(`#pldn-${v.id}`)?.focus(), 30); return; }
+    if (val) p.dir = val; else delete p.dir; toast(v, `Moved to ${val ? (N.plDir(val) || {}).name : 'Unsorted'}.`); renderAll(); return; }
   if (i === 'muVol' || i === 'muMyVol' || i === 'muMove') { N.mu.change(v, el, i); return; }
   if (i === 'pdSkill' && val) { v.ui.pd.skills[val] = +el.dataset.x; render(v); }
   if (i === 'ndSkill' && val) { v.ui.nd.skills[val] = +el.dataset.x; render(v); }
@@ -2023,9 +2030,43 @@ function metaPic(v, p){
 function picInUse(src){
   const g = G(), same = x => x && samePic(x, src);
   return g.msgs.some(m => m.kind === 'scene' && same(m.scene?.art)) || Object.values(N.allFights()).some(f => same(f?.bg))
-    || (g.sdrafts || []).some(d => same(d.art)) || (g.recent || []).some(r => same(r.art));
+    || (g.sdrafts || []).some(d => same(d.art)) || (g.recent || []).some(r => same(r.art))
+    || g.msgs.some(m => m.kind === 'pic' && same(m.pic?.u)) || g.maps.some(mp => (mp.pins || []).some(p => same(p.art)));
 }
-function keepPic(src){ const p = {id:uid('pic'), src}; G().pics = [p, ...G().pics]; return p; }
+function keepPic(src, o){ const p = {id:uid('pic'), src, ...(o || {})}; G().pics = [p, ...G().pics]; return p; }
+/* the GM's picture library (Jack): many pictures picked at once, each kept whole and named after its file (camera and
+   ChatGPT names like "IMG_2041" or "ChatGPT Image Nov 27" are left blank to name later). Framing can be set later */
+const PL_MAX = 40;
+const plName = f => { const n = String(f.name || '').replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return /^(chatgpt|dall|img|image|photo|screenshot|screen shot|pxl|dsc|mvimg|whatsapp|unnamed|download|generated)\b/i.test(n) || /^[\d\s-]+$/.test(n) ? '' : n.slice(0, 40); };
+const readImg = f => new Promise(res => { const rd = new FileReader(); rd.onload = () => { const img = new Image(); img.onload = () => res(img); img.onerror = () => res(null); img.src = rd.result; }; rd.onerror = () => res(null); rd.readAsDataURL(f); });
+function uploadMany(v, dir, done){
+  N.pickFiles('image/*', true, async fs => {
+    const take = fs.filter(f => !f.type || f.type.startsWith('image/')).slice(0, PL_MAX), got = []; let bad = 0;
+    if (!take.length) { toast(v, 'Those files aren’t pictures.'); return; }
+    if (take.length > 1) toast(v, `Adding ${take.length} pictures…`);
+    for (const f of take) {
+      const img = await readImg(f); if (!img || !img.naturalWidth) { bad++; continue; }
+      const src = N.storeImg(N.shrink(img, 1600, 700000), true), name = plName(f);
+      got.push({id:uid('pic'), src, ...(name ? {name} : {}), ...(dir ? {dir} : {}), w:img.naturalWidth, h:img.naturalHeight});
+    }
+    const g = G(); g.pics = [...got, ...g.pics];
+    const more = fs.length - take.length;
+    toast(v, `${got.length ? `Added ${got.length} picture${got.length === 1 ? '' : 's'}${dir ? ` to ${(N.plDir(dir) || {}).name || 'the folder'}` : ''}.` : 'No pictures were added.'}${bad ? ` ${bad} couldn’t be read.` : ''}${more > 0 ? ` Only ${PL_MAX} go in at once, so add the other ${more} next.` : ''}`);
+    if (done) done(got);
+    renderAll();
+  });
+}
+N.plDir = id => (G().picDirs || []).find(d => d.id === id);
+/* a library picture sent into the open chat: the message points at the stored picture (players may read it), so it
+   costs nothing to send again. Typed text in the chat box goes with it as a caption when it was sent from the chat */
+function plSend(v, p, cap){
+  const g = G(), ui = v.ui, ch = ui.ch; if (!ch || hushed(v, ch)) return false;
+  const m = {kind:'pic', ch, by:v.role, text:cap ? (ui.draft || '').trim() : '', pic:{u:N.picBase(p.src), ...(p.w && p.h ? {w:p.w, h:p.h} : {})}};
+  if (cap && ui.reply && g.msgs.some(x => x.id === ui.reply && x.ch === ch)) m.re = ui.reply;
+  push(m); if (cap) { ui.draft = ''; ui.reply = null; } ui.stick = true;
+  return true;
+}
 function uploadPicture(v, cb){ pickFramed(v, 'bg', (img, f) => { const src = N.withFrame(N.storeImg(N.shrink(img, 1600, 700000), true), f); keepPic(src); cb(src); render(v); }); }
 /* a reframed background changes everywhere it is in use right now */
 function reframePic(v, src){ reframe(v, 'bg', src, nu => {
@@ -2372,7 +2413,7 @@ function act(v, a, el, e){
   case 'seatAdd': { if (!gm) break; const m = N.MEMBERS.find(x => x.uid === val), s = N.addSeat(val); if (s) toast(v, `${m?.name || 'They'} got another character (seat ${s.slice(1)}). Fill in its card in Cast.`); break; }
   case 'seatDrop': if (gm) { const id = val, seat = d.s; N.dropSeat(id, seat); toast(v, 'Character taken away. Its card stays in Cast.', () => N.undropSeat(id, seat)); } break;
   case 'seatGo': { const c = g.chars[g.P[val]?.char || 'pc' + String(val).slice(1)], k = c?.built ? c : N.seatCard(val); toast(v, `Switching to ${k?.short || 'your other character'}…`); N.switchSeat(val); return; }
-  case 'picSend': sendPic(v); return;
+  case 'picSend': if (gm) { ui.pop = null; ui.plDir = ui.plDir || ''; openSheet(v, 'piclib', {v:'chat'}); break; } sendPic(v); return;
   case 'picView': openSheet(v, 'picView', {v:val}); break;
   case 'gifSend': { const r = (ui.gifRes || [])[+d.i]; if (r) sendGif(v, {u:r.u, w:r.w, h:r.h}); return; }
   case 'gifLink': { const u = (ui.gifUrl || '').trim(); if (!N.gifLinkOk(u)) break; ui.gifUrl = ''; sendGif(v, {u}); return; }
@@ -3310,9 +3351,25 @@ function act(v, a, el, e){
   case 'cbBg': cb.bg = val; renderAll(); return;
   /* picture shelf on the GM screen */
   case 'picSel': ui.picSel = ui.picSel === val ? null : val; break;
-  case 'picUpload': uploadPicture(v, src => { ui.picSel = g.pics[0].id; }); return;
+  case 'picUpload': { if (!gm) break; const dir = ui.sheet === 'piclib' && N.plDir(ui.plDir) ? ui.plDir : '';
+    uploadMany(v, dir, got => { if (got.length === 1) ui.picSel = got[0].id; if (ui.sheet !== 'piclib' && got.length) openSheet(v, 'piclib', {}); }); return; }
+  case 'picLib': if (!gm) break; ui.pop = null; ui.plDir = ui.plDir || ''; if (val) ui.picSel = val; openSheet(v, 'piclib', {v:d.m || ''}); break;
+  case 'plDir': ui.plDir = val || ''; ui.plDirEd = false; if (ui.picSel && !N.plIn(g.pics.find(x => x.id === ui.picSel), ui.plDir)) ui.picSel = null; break;
+  case 'plDirNew': { if (!gm) break; const el2 = v.root.querySelector(`#pldn-${v.id}`), nm = (el2 && el2.value || '').trim().slice(0, 30);
+    if (!nm) { ui.plNew = true; render(v); setTimeout(() => v.root.querySelector(`#pldn-${v.id}`)?.focus(), 30); return; }
+    const dd = {id:uid('pd'), name:nm}; g.picDirs = [...(g.picDirs || []), dd]; ui.plNew = false;
+    const sel = g.pics.find(x => x.id === ui.picSel); if (sel && ui.plFile) { sel.dir = dd.id; toast(v, `Moved to ${nm}.`); } ui.plFile = false;
+    ui.plDir = dd.id; renderAll(); return; }
+  case 'plDirCancel': ui.plNew = false; ui.plFile = false; break;
+  case 'plDirEd': ui.plDirEd = !ui.plDirEd; if (ui.plDirEd) { render(v); setTimeout(() => v.root.querySelector(`#plde-${v.id}`)?.focus(), 30); return; } renderAll(); return;
+  case 'plDirDel': { if (!gm) break; const at = (g.picDirs || []).findIndex(x => x.id === val); if (at < 0) break; const [x] = g.picDirs.splice(at, 1);
+    const had = g.pics.filter(p => p.dir === x.id); had.forEach(p => delete p.dir); ui.plDir = ''; ui.plDirEd = false;
+    toast(v, `Deleted the ${x.name} folder. Its ${had.length} picture${had.length === 1 ? '' : 's'} moved to Unsorted.`, () => { g.picDirs.splice(at, 0, x); had.forEach(p => { p.dir = x.id; }); renderAll(); }); renderAll(); return; }
+  case 'picChat': { const p = gm && g.pics.find(x => x.id === val); if (!p) break; const fromChat = ui.sheet === 'piclib' && ui.sheetArg === 'chat';
+    if (!plSend(v, p, fromChat)) break; toast(v, `Sent to ${N.chName(ui.ch, v.role)}.`); if (fromChat) { ui.sheet = null; ui.picSel = null; } renderAll(); return; }
+  case 'picDevice': ui.sheet = null; sendPic(v); return;
   case 'picFight': { const p = g.pics.find(x => x.id === val); if (!p || cb.state === 'off') break; cb.bg = p.src; ui.picSel = null; toast(v, `Fight background changed for ${cb.title}.`); renderAll(); return; }
-  case 'picScene': { const p = g.pics.find(x => x.id === val); if (!p) break; ui.picSel = null; openSheet(v, 'scene'); Object.assign(ui.sd, {art:p.src, place:null, touched:true, tab:'pics'}); render(v); return; }
+  case 'picScene': { const p = g.pics.find(x => x.id === val); if (!p) break; ui.picSel = null; openSheet(v, 'scene', {}); Object.assign(ui.sd, {art:p.src, place:null, touched:true, tab:'pics'}); render(v); return; }
   case 'picDel': {
     const i = g.pics.findIndex(x => x.id === val); if (i < 0) break;
     const p = g.pics[i]; let kept = false;
