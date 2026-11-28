@@ -182,11 +182,12 @@ N.saveRx = (m, who) => {
   const l = (m.rx || {})[who];
   track(F.updateDoc(dref('msgs/' + m.id), new F.FieldPath('rx', who), l && l.length ? l : F.deleteField()));
 };
-/* only the GM can take a message back (an undone scene change) */
+/* the GM can take any message back (an undone scene change); a player only their own typed words, pictures and GIFs */
 N.delMsg = id => {
   const g = G(), i = g.msgs.findIndex(m => m.id === id); if (i < 0) return;
+  const m = g.msgs[i], own = !isGM() && m.by === g.role && (N.ownDelKinds || []).includes(m.kind);
   g.msgs.splice(i, 1); N.invalidateScenes();
-  if (isGM() && MKNOWN.has(id)) { MKNOWN.delete(id); MDOCS.delete(id); track(F.deleteDoc(dref('msgs/' + id))); }
+  if ((isGM() || own) && MKNOWN.has(id)) { MKNOWN.delete(id); MDOCS.delete(id); track(F.deleteDoc(dref('msgs/' + id))); }
 };
 
 /* the GM wiping a whole chat: every message in it is deleted for good, in batches */

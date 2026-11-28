@@ -138,7 +138,10 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rx'])
             && request.resource.data.rx is map
             && request.resource.data.rx.diff(resource.data.get('rx', {})).affectedKeys().hasOnly(mySeats()));
-      allow delete: if isGM();
+      // A player may delete their own typed messages, pictures and GIFs (never rolls or game cards).
+      allow delete: if isGM()
+        || (isPlayer() && mine(resource.data.by)
+            && resource.data.get('kind', '') in ['rp', 'ooc', 'meta', 'pic', 'gif']);
     }
 
     // Things the GM shares with only some players (wiki entries, maps, news editions).
