@@ -149,9 +149,11 @@ function shelfRow(v, c){
 N.shelfHtml = v => shelfHtml(v);
 /* Jack (2026-11-28): the chat list is split into one panel per kind of chat, each with its own colour, icon and heading,
    so Everyone, the party, chats with just the GM, player-to-player roleplay, Meta chats and GM notes never look alike.
-   A group chat with only one player in it (a "Solo" chat) is a chat with the GM, so it sits with the private chats */
-N.grpSolo = c => { const gr = N.grpOf(c); return !!gr && !gr.party && !gr.meta && (gr.seats || []).length === 1; };
-N.shSec = c => c === 'table' ? 'all' : c === 'gm' ? 'notes' : c.startsWith('dm-') ? 'gm' : N.grpOf(c)?.party ? 'party' : N.grpOf(c)?.meta ? 'meta' : N.grpSolo(c) ? 'gm' : 'pp';
+   A group chat or party with only one person in it (a "Solo" chat or Solo party; several characters of the same account
+   count as one person) is a chat with the GM, so it sits with the private chats */
+N.grpSolo = c => { const gr = N.grpOf(c); if (!gr || gr.meta) return false;
+  const who = new Set((gr.seats || []).map(s => N.G.P[s]?.uid || s)); return who.size === 1; };
+N.shSec = c => c === 'table' ? 'all' : c === 'gm' ? 'notes' : c.startsWith('dm-') ? 'gm' : N.grpOf(c)?.meta ? 'meta' : N.grpSolo(c) ? 'gm' : N.grpOf(c)?.party ? 'party' : 'pp';
 function shSecs(v){
   const gm = isGM(v);
   return [
@@ -162,33 +164,23 @@ function shSecs(v){
     ['meta', 'Meta chats', 'Out of character, no roleplay', 'chatL'],
     ['notes', 'Only you', 'GM notes and secret rolls', 'lock']];
 }
+/* Jack (2026-11-28): each panel folds from its heading (remembered per device, localStorage norne-shfold).
+   A folded panel still shows the chat you're in, and its heading counts the new messages hidden inside */
+N.shFolds = () => { try { return new Set(JSON.parse(localStorage.getItem('norne-shfold') || '[]')); } catch(e) { return new Set(); } };
 function shelfSec(v, [k, t, d, ic], list, extra){
   if (!list.length && !extra) return '';
+  const fold = N.shFolds().has(k), show = fold ? list.filter(c => c === v.ui.ch) : list;
   const n = list.filter(c => c !== v.ui.ch).reduce((a, c) => a + N.unread(v.role, c), 0);
-  return `<section class="shg shsec" data-k="${k}" role="group" aria-label="${t}"><header class="shsh" title="${t}"><span class="shi">${IC(ic)}</span><span class="shht"><h3>${t}</h3><small>${d}</small></span>${list.length > 1 ? `<span class="shn" aria-label="${list.length} chats">${list.length}</span>` : ''}${n ? `<span class="shdot" aria-hidden="true"></span>` : ''}</header><div class="shrs">${list.map(c => shelfRow(v, c)).join('')}${extra || ''}</div></section>`;
-}
-/* Jake: three filter boxes on the chat list. Each group chat is one kind: a party, a Meta-only group chat or a (roleplay) group chat.
-   Unticking a box hides that kind on this device. Everyone, private chats and GM notes always show, and so does the chat you're in */
-N.SHF = [['party', 'Party'], ['grp', 'Player to player'], ['meta', 'Meta']];
-/* a Solo chat (one player and the GM) always shows, like the private chats it sits with */
-N.shKind = c => { const gr = N.grpOf(c); return !gr || N.grpSolo(c) ? '' : gr.party ? 'party' : gr.meta ? 'meta' : 'grp'; };
-N.shHide = () => { try { return new Set(JSON.parse(localStorage.getItem('norne-shf') || '[]')); } catch(e) { return new Set(); } };
-function shelfFilters(v, chs){
-  const kinds = new Set(chs.map(N.shKind).filter(Boolean)); if (!kinds.size) return '';
-  const off = N.shHide();
-  /* a hidden kind with new messages says so on its box, so the dot on the chat list button can be found */
-  const hid = k => off.has(k) ? chs.filter(c => N.shKind(c) === k && c !== v.ui.ch && !N.chArchived(c)).reduce((a, c) => a + N.unread(v.role, c), 0) : 0;
-  return `<div class="shf" role="group" aria-label="Show these chats">${N.SHF.filter(([k]) => kinds.has(k)).map(([k, l]) => { const n = hid(k); return `<button type="button" class="shfb" data-a="shFilt" data-v="${k}" role="checkbox" aria-checked="${!off.has(k)}"><span class="ck">${IC('check')}</span>${l}${n ? `<span class="badge" aria-label="${n} new">${n}</span>` : ''}</button>`; }).join('')}</div>`;
+  return `<section class="shg shsec${fold ? ' fold' : ''}" data-k="${k}" role="group" aria-label="${t}"><button type="button" class="shsh" data-a="shFold" data-v="${k}" aria-expanded="${!fold}" title="${fold ? 'Show' : 'Fold'} ${t}"><span class="shi">${IC(ic)}</span><span class="shht"><h3>${t}</h3><small>${fold ? `${list.length} ${list.length === 1 ? 'chat' : 'chats'} folded` : d}</small></span>${!fold && list.length > 1 ? `<span class="shn" aria-label="${list.length} chats">${list.length}</span>` : ''}${n ? fold ? `<span class="badge" aria-label="${n} new">${n}</span>` : `<span class="shdot" aria-hidden="true"></span>` : ''}<span class="shcar" aria-hidden="true">${IC('caret')}</span></button>${show.length || (!fold && extra) ? `<div class="shrs">${show.map(c => shelfRow(v, c)).join('')}${fold ? '' : extra || ''}</div>` : ''}</section>`;
 }
 function shelfHtml(v){
-  const gm = isGM(v), ph = v.dev === 'phone', off = N.shHide();
-  const chs = N.channelsFor(v.role).filter(c => c === v.ui.ch || !off.has(N.shKind(c)));
+  /* Jack (2026-11-28): the Party / Player to player / Meta filter boxes are gone; each panel folds from its heading instead */
+  const gm = isGM(v), ph = v.dev === 'phone', chs = N.channelsFor(v.role);
   const me = N.personObj(v.role);
   /* beside an open fight on desktop the list shrinks to just the chat pictures, so the board keeps its room */
   const mini = !ph && fightAvail(v) && v.ui.fightOpen;
   return `<aside class="shelf${ph?' drawer':''}${mini?' mini':''}" aria-label="Chats">
     <header class="shh">${STAR.replace('<svg','<svg class="st"')}<h2>Chats</h2>${ph ? `<button type="button" class="ibtn" data-a="shelf" aria-label="Close the chat list">${IC('x')}</button>` : `<button type="button" class="ibtn sm shx" data-a="shelfDt" aria-label="Hide the chat list" title="Hide the chat list">${IC('left')}</button>`}</header>
-    ${shelfFilters(v, N.channelsFor(v.role))}
     <div class="shl scroll" data-sk="shelf">
       ${(() => { const S = shSecs(v), live = chs.filter(c => !N.chArchived(c)), of = k => live.filter(c => N.shSec(c) === k);
         const dmNew = gm && N.seats().length ? `<button type="button" class="shr shnew" data-a="sheet" data-v="dms" title="Private chats"><span class="cic">${IC('whisper')}</span><span class="t"><b>Private chats</b><small>${N.seats().some(s => !N.dmOn(s)) ? 'Open one with a player' : 'Pick who has one with you'}</small></span></button>` : '';
